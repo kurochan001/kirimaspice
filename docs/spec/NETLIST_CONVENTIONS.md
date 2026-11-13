@@ -2,7 +2,7 @@
 
 [日本語](NETLIST_CONVENTIONS.ja.md) · This English text is the main version; the Japanese version follows it, and where they differ, this text holds.
 
-Status: **proposed (2026-11-14)**.
+Status: **approved (2026-11-14)**.
 
 kirimaspice reads netlists written for SPICE simulators, which differ in a
 few conventions. For the points below kirimaspice follows ngspice, so that
