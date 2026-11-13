@@ -11,7 +11,8 @@
   - `ManufacturerModels.*`（5 件）と `BJTModelTest.SimpleCommonEmitter` は、リポジトリにない
     `tests/models/2N3904.lib` と `tests/models/1N4148.lib` を読み込みます。
   - `CMOS_Inverter.DCTransferCharacteristic_HighInput` は、出力電圧が 0 V 以上であることを
-    確かめ、-4.1e-25 V を得ます。
+    確かめ、macOS（arm64）では -4.1e-25 V を得ます。Ubuntu 24.04（x86-64）の GCC 13.3.0 と
+    clang 18.1.3 では合格します。
 - **比較のテスト 20 件が、常にスキップされます。** テストは参照データを `tests/validation/` の下で
   探しますが（例：`tests/validation/rc_lowpass_ac_ngspice.csv`）、ファイルは `validation/` にあります。
   テストが探す場所にファイルを置くと、20 件のうち 19 件が合格し、
@@ -51,7 +52,9 @@
 
 ## プラットフォーム
 
-- ビルドとテストは、macOS（arm64）でしか行っていません。使ったのは GCC 16.2.0、Homebrew の
-  clang 23.1.4（libc++、OpenMP あり）、Apple clang 21.0.0（OpenMP なし）で、3 つのテストの結果は
-  同じです。対象とする Ubuntu 24.04 とその標準のコンパイラでの動作は未確認です。
+- macOS（arm64）では、GCC 16.2.0、Homebrew の clang 23.1.4（libc++、OpenMP あり）、Apple clang 21.0.0
+  （OpenMP なし）のテストの結果が同じです。
+- Ubuntu 24.04（x86-64）では、CI が GCC 13.3.0 と clang 18.1.3（libstdc++）、CMake 3.31.6、
+  `libsuitesparse-dev` の SuiteSparse 7.6.1 でビルドとテストを行います。macOS との違いは、
+  `CMOS_Inverter.DCTransferCharacteristic_HighInput` が合格することだけです。
 - Windows は試していません。

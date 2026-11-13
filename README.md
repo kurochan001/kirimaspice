@@ -33,8 +33,10 @@ the same results:
 | Failed (listed in `tests/known_failures.txt`) | 7 |
 | Disabled | 1 |
 
-Ubuntu 24.04 is the target platform; building and testing there is not
-confirmed yet. [KNOWN_ISSUES.md](KNOWN_ISSUES.md) lists the failing and
+In CI on Ubuntu 24.04 (x86-64), GCC 13.3.0 and clang 18.1.3 build
+kirimaspice, and only six of the listed tests fail:
+`CMOS_Inverter.DCTransferCharacteristic_HighInput` passes there.
+[KNOWN_ISSUES.md](KNOWN_ISSUES.md) lists the failing and
 skipped tests and the other known problems.
 
 ## What it handles
@@ -84,7 +86,7 @@ SuiteSparse development files (KLU 2.3.2 or newer, as in SuiteSparse
 7.6.1). The other dependencies are downloaded by CMake at configure time,
 pinned to fixed versions, so the first configure needs network access.
 
-On Ubuntu 24.04 (not confirmed yet):
+On Ubuntu 24.04 (these are the packages CI installs):
 
 ```sh
 sudo apt install build-essential cmake ninja-build python3 libsuitesparse-dev

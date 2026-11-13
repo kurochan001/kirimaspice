@@ -13,7 +13,8 @@ and SuiteSparse 7.6.1 unless an entry says otherwise.
     include `tests/models/2N3904.lib` and `tests/models/1N4148.lib`, which are
     not in the repository.
   - `CMOS_Inverter.DCTransferCharacteristic_HighInput` checks that the output
-    voltage is at least 0 V and gets -4.1e-25 V.
+    voltage is at least 0 V and gets -4.1e-25 V on macOS (arm64). It passes
+    on Ubuntu 24.04 (x86-64) with GCC 13.3.0 and clang 18.1.3.
 - **Twenty comparison tests are always skipped.** They look for reference
   data under `tests/validation/` (for example
   `tests/validation/rc_lowpass_ac_ngspice.csv`), but the files are in
@@ -62,8 +63,10 @@ and SuiteSparse 7.6.1 unless an entry says otherwise.
 
 ## Platforms
 
-- Builds and tests have been run only on macOS (arm64): with GCC 16.2.0,
-  with Homebrew's clang 23.1.4 (libc++, OpenMP) and with Apple clang 21.0.0
-  (no OpenMP). The three give the same test results. Ubuntu 24.04 with its
-  own compilers is the target and is not confirmed yet.
+- On macOS (arm64), GCC 16.2.0, Homebrew's clang 23.1.4 (libc++, OpenMP)
+  and Apple clang 21.0.0 (no OpenMP) give the same test results.
+- On Ubuntu 24.04 (x86-64), CI builds and tests with GCC 13.3.0 and clang
+  18.1.3 (libstdc++), CMake 3.31.6 and SuiteSparse 7.6.1 from
+  `libsuitesparse-dev`; the results differ from macOS only in
+  `CMOS_Inverter.DCTransferCharacteristic_HighInput`, which passes.
 - Windows is not tested.

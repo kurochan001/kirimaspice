@@ -30,7 +30,8 @@ Homebrew の clang 23.1.4 と Apple clang 21.0.0 でも同じ結果でした。
 | 失敗（`tests/known_failures.txt` に記載） | 7 |
 | 無効 | 1 |
 
-対象とするプラットフォームは Ubuntu 24.04 ですが、そこでのビルドとテストはまだ確かめていません。
+Ubuntu 24.04（x86-64）の CI では、GCC 13.3.0 と clang 18.1.3 でビルドでき、一覧のテストのうち失敗するのは 6 件です。
+`CMOS_Inverter.DCTransferCharacteristic_HighInput` はそこでは合格します。
 失敗するテスト、スキップされるテスト、そのほかの分かっている問題は
 [KNOWN_ISSUES.md](KNOWN_ISSUES.ja.md) にあります。
 
@@ -76,7 +77,7 @@ CMake 3.25 以上、C++23 のコンパイラ、Ninja、Python 3、SuiteSparse �
 SuiteSparse 7.6.1 に含まれる版）が必要です。そのほかの依存は、configure のときに CMake が固定した版で
 取得するので、最初の configure にはネットワークへの接続が要ります。
 
-Ubuntu 24.04 の場合（まだ確かめていません）：
+Ubuntu 24.04 の場合（CI が入れるパッケージと同じです）：
 
 ```sh
 sudo apt install build-essential cmake ninja-build python3 libsuitesparse-dev
