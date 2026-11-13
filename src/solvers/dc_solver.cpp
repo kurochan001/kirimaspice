@@ -1206,124 +1206,37 @@ ConvergenceStatus DCSolver::solve_sweep(const DCSweepConfig& config, DCSweepResu
         std::size_t total_points = num_primary * num_nested;
         result.points.resize(total_points);
 
-#if 0  // DISABLED: 2D DC Sweep parallelization (same reason as 1D - sequential dependencies)
-        // Parallelize primary sweep, sequential nested sweep
-        spdlog::debug("DC Sweep 2D: Using OpenMP parallelization for primary sweep");
-
-        #pragma omp parallel for schedule(dynamic)
-        for (std::size_t i = 0; i < num_primary; ++i) {
-            Real primary_value = config.start_value + primary_dir * std::abs(config.step_value) * i;
-
-            // Clamp to stop value
-            if (primary_dir > 0 && primary_value > config.stop_value) {
-                primary_value = config.stop_value;
-            } else if (primary_dir < 0 && primary_value < config.stop_value) {
-                primary_value = config.stop_value;
-            }
-
-            // Thread-local solver instance
-            DCSolver thread_solver(circuit_, config_);
-            thread_solver.set_source_value(config.source_name, primary_value);
-
-            DenseVector x_prev;  // Previous solution for initial guess (within nested sweep)
-
-            // Inner loop: Nested sweep (sequential for each primary value)
-            for (std::size_t j = 0; j < num_nested; ++j) {
-                Real nested_value = config.nested_sweep->start_value + nested_dir * std::abs(config.nested_sweep->step_value) * j;
-
-                // Clamp to stop value
-                if (nested_dir > 0 && nested_value > config.nested_sweep->stop_value) {
-                    nested_value = config.nested_sweep->stop_value;
-                } else if (nested_dir < 0 && nested_value < config.nested_sweep->stop_value) {
-                    nested_value = config.nested_sweep->stop_value;
-                }
-
-                thread_solver.set_source_value(config.nested_sweep->source_name, nested_value);
-
-                // Solve DC operating point
-                DenseVector solution;
-                SolverStats stats;
-
-                // Use previous solution as initial guess
-                if (!x_prev.empty()) {
-                    thread_solver.initialize_solution(solution);
-                    solution = x_prev;
-                }
-
-                // ITL2: Use dc_sweep_max_iterations if set
-                std::uint32_t original_max_iter = thread_solver.config_.dc.max_iterations;
-                if (thread_solver.config_.dc.dc_sweep_max_iterations > 0) {
-                    thread_solver.config_.dc.max_iterations = thread_solver.config_.dc.dc_sweep_max_iterations;
-                }
-
-                ConvergenceStatus status = thread_solver.solve(solution, stats);
-
-                // Restore original max_iterations
-                thread_solver.config_.dc.max_iterations = original_max_iter;
-
-                // Store result point (2D, thread-safe direct indexing)
-                DCSweepPoint point;
-                point.sweep_value = primary_value;
-                point.nested_sweep_value = nested_value;
-                std::size_t node_count = std::min<std::size_t>(thread_solver.mna_.num_nodes, solution.size());
-                point.node_voltages.assign(solution.begin(), solution.begin() + node_count);
-                point.branch_currents = thread_solver.extract_all_branch_currents(solution);
-                point.status = status;
-                point.iterations = stats.total_iterations;
-
-                std::size_t point_idx = i * num_nested + j;
-                result.points[point_idx] = std::move(point);
-
-                // Update total iterations (atomic)
-                #pragma omp atomic
-                result.total_iterations += stats.total_iterations;
-
-                if (status != ConvergenceStatus::SUCCESS) {
-                    spdlog::warn("DC Sweep: Failed to converge at ({}, {}) = ({}, {})",
-                                config.source_name, config.nested_sweep->source_name,
-                                primary_value, nested_value);
-                    #pragma omp critical
-                    {
-                        result.status = status;
-                    }
-                }
-
-                x_prev = solution;
-
-                spdlog::trace("DC Sweep 2D: Point ({},{}) / ({},{}) value=({}, {}) converged in {} iterations",
-                            i + 1, j + 1, num_primary, num_nested,
-                            primary_value, nested_value, stats.total_iterations);
-            }
-        }
-#else
-        // Sequential fallback (no OpenMP)
+        // NETLIST_CONVENTIONS rule 4, as in ngspice: the first source is swept
+        // over its range for each value of the second, so the second source is
+        // the outer loop. Points are stored in that order. (Sequential: each
+        // point starts from the previous solution.)
         DenseVector x_prev;  // Previous solution for initial guess
 
-        // Outer loop: Primary sweep
-        for (std::size_t i = 0; i < num_primary; ++i) {
-            Real primary_value = config.start_value + primary_dir * std::abs(config.step_value) * i;
+        // Outer loop: second (nested) source
+        for (std::size_t j = 0; j < num_nested; ++j) {
+            Real nested_value = config.nested_sweep->start_value + nested_dir * std::abs(config.nested_sweep->step_value) * j;
 
             // Clamp to stop value
-            if (primary_dir > 0 && primary_value > config.stop_value) {
-                primary_value = config.stop_value;
-            } else if (primary_dir < 0 && primary_value < config.stop_value) {
-                primary_value = config.stop_value;
+            if (nested_dir > 0 && nested_value > config.nested_sweep->stop_value) {
+                nested_value = config.nested_sweep->stop_value;
+            } else if (nested_dir < 0 && nested_value < config.nested_sweep->stop_value) {
+                nested_value = config.nested_sweep->stop_value;
             }
 
-            set_source_value(config.source_name, primary_value);
+            set_source_value(config.nested_sweep->source_name, nested_value);
 
-            // Inner loop: Nested sweep
-            for (std::size_t j = 0; j < num_nested; ++j) {
-                Real nested_value = config.nested_sweep->start_value + nested_dir * std::abs(config.nested_sweep->step_value) * j;
+            // Inner loop: first (primary) source
+            for (std::size_t i = 0; i < num_primary; ++i) {
+                Real primary_value = config.start_value + primary_dir * std::abs(config.step_value) * i;
 
                 // Clamp to stop value
-                if (nested_dir > 0 && nested_value > config.nested_sweep->stop_value) {
-                    nested_value = config.nested_sweep->stop_value;
-                } else if (nested_dir < 0 && nested_value < config.nested_sweep->stop_value) {
-                    nested_value = config.nested_sweep->stop_value;
+                if (primary_dir > 0 && primary_value > config.stop_value) {
+                    primary_value = config.stop_value;
+                } else if (primary_dir < 0 && primary_value < config.stop_value) {
+                    primary_value = config.stop_value;
                 }
 
-                set_source_value(config.nested_sweep->source_name, nested_value);
+                set_source_value(config.source_name, primary_value);
 
                 // Solve DC operating point
                 DenseVector solution;
@@ -1356,7 +1269,7 @@ ConvergenceStatus DCSolver::solve_sweep(const DCSweepConfig& config, DCSweepResu
                 point.status = status;
                 point.iterations = stats.total_iterations;
 
-                std::size_t point_idx = i * num_nested + j;
+                std::size_t point_idx = j * num_primary + i;
                 result.points[point_idx] = std::move(point);
                 result.total_iterations += stats.total_iterations;
 
@@ -1374,7 +1287,6 @@ ConvergenceStatus DCSolver::solve_sweep(const DCSweepConfig& config, DCSweepResu
                             primary_value, nested_value, stats.total_iterations);
             }
         }
-#endif
 
         // Restore original source values
         set_source_value(config.source_name, original_primary);
