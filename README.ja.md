@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-[既知の問題](KNOWN_ISSUES.ja.md) · [貢献の仕方](CONTRIBUTING.ja.md) · [第三者の著作物に関する表示](THIRD_PARTY_NOTICES.ja.md)
+[ユーザーマニュアル](docs/USER_MANUAL.ja.md) · [リファレンスマニュアル](docs/REFERENCE_MANUAL.ja.md) · [既知の問題](KNOWN_ISSUES.ja.md) · [貢献の仕方](CONTRIBUTING.ja.md) · [第三者の著作物に関する表示](THIRD_PARTY_NOTICES.ja.md)
 
 [![CI](https://github.com/kurochan001/kirimaspice/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kurochan001/kirimaspice/actions/workflows/ci.yml?query=branch%3Amain)
 [![Nightly](https://github.com/kurochan001/kirimaspice/actions/workflows/nightly.yml/badge.svg?branch=main)](https://github.com/kurochan001/kirimaspice/actions/workflows/nightly.yml?query=branch%3Amain)
@@ -104,13 +104,16 @@ build/kirimaspice circuit.cir --raw-out circuit.raw
 | --- | --- |
 | `--raw-out <ファイル>` | ASCII の SPICE3 raw ファイル（DC と過渡） |
 | `--raw-binary-out <ファイル>` | バイナリの SPICE3 raw ファイル（DC と過渡） |
-| `-o <ファイル>` | `<ファイル>` から名前を付けた SSF と CSV の出力 |
+| `-o <ファイル>` | SSF（動作点と過渡）。AC 解析の CSV の名前もこれから決まる |
 | `--wav-out <ファイル>` | 過渡解析の結果の WAV 音声 |
 
-すべてのオプションは `build/kirimaspice --help` で見られます。
+すべてのオプションは `build/kirimaspice --help` で見られます。AC 解析の結果は常に CSV ファイルに
+書き出されます。その場所は[ユーザーマニュアル](docs/USER_MANUAL.ja.md#結果を保存する)にあります。
 
 ## 文書
 
+- [ユーザーマニュアル](docs/USER_MANUAL.ja.md)：ビルド、ネットリストの書き方、実行、結果の読み方
+- [リファレンスマニュアル](docs/REFERENCE_MANUAL.ja.md)：オプション、素子、ディレクティブ、出力形式
 - [KNOWN_ISSUES.md](KNOWN_ISSUES.ja.md)：分かっている問題
 - [CONTRIBUTING.md](CONTRIBUTING.ja.md)：受け付けるものと、コードの変え方
 - [CLAUDE.md](CLAUDE.ja.md) と [AGENTS.md](AGENTS.ja.md)：コーディングエージェント（と人）の規則

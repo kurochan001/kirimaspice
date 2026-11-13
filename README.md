@@ -2,7 +2,7 @@
 
 [日本語](README.ja.md)
 
-[Known issues](KNOWN_ISSUES.md) · [Contributing](CONTRIBUTING.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
+[User manual](docs/USER_MANUAL.md) · [Reference manual](docs/REFERENCE_MANUAL.md) · [Known issues](KNOWN_ISSUES.md) · [Contributing](CONTRIBUTING.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
 
 [![CI](https://github.com/kurochan001/kirimaspice/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kurochan001/kirimaspice/actions/workflows/ci.yml?query=branch%3Amain)
 [![Nightly](https://github.com/kurochan001/kirimaspice/actions/workflows/nightly.yml/badge.svg?branch=main)](https://github.com/kurochan001/kirimaspice/actions/workflows/nightly.yml?query=branch%3Amain)
@@ -114,13 +114,17 @@ build/kirimaspice circuit.cir --raw-out circuit.raw
 | --- | --- |
 | `--raw-out <file>` | SPICE3 raw file in ASCII (DC and transient) |
 | `--raw-binary-out <file>` | SPICE3 raw file in binary (DC and transient) |
-| `-o <file>` | SSF and CSV outputs named after `<file>` |
+| `-o <file>` | SSF (operating point and transient); also names the CSV of an AC analysis |
 | `--wav-out <file>` | WAV audio of a transient result |
 
-`build/kirimaspice --help` lists all options.
+`build/kirimaspice --help` lists all options. The AC result is always written
+to a CSV file; the [User Manual](docs/USER_MANUAL.md#save-the-results) says
+where.
 
 ## Documents
 
+- [User Manual](docs/USER_MANUAL.md): building, writing a netlist, running and reading the results
+- [Reference Manual](docs/REFERENCE_MANUAL.md): options, elements, directives and output formats
 - [KNOWN_ISSUES.md](KNOWN_ISSUES.md): known problems
 - [CONTRIBUTING.md](CONTRIBUTING.md): what is accepted, and how to change the code
 - [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md): rules for coding agents (and people)
