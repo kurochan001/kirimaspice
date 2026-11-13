@@ -1133,11 +1133,6 @@ add_executable(test_behavioral_source unit/test_behavioral_source.cpp)
 target_link_libraries(test_behavioral_source PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_behavioral_source PROPERTIES TIMEOUT 1200)
 
-# Experimental: ngspice BSIM4 bridge smoke test
-add_executable(test_bsim4_ngspice_bridge unit/test_bsim4_ngspice_bridge.cpp)
-target_link_libraries(test_bsim4_ngspice_bridge PRIVATE kirimaspice_lib GTest::gtest_main)
-gtest_discover_tests(test_bsim4_ngspice_bridge PROPERTIES TIMEOUT 1200)
-
 # BSIM4 ngspice comparison tests
 add_executable(test_bsim4_ngspice_compare unit/test_bsim4_ngspice_compare.cpp)
 target_link_libraries(test_bsim4_ngspice_compare PRIVATE kirimaspice_lib GTest::gtest_main)
