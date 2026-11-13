@@ -141,13 +141,13 @@ FetchContent_MakeAvailable(zstd)
 #==============================================================================
 # Dependency: NLopt (Nonlinear optimization library)
 #==============================================================================
-# NLopt: MIT/LGPL dual-licensed library for nonlinear optimization
-# Used for Advanced circuit optimization (COBYLA, BOBYQA, SLSQP, Nelder-Mead)
-# License: MIT (compatible with kirimaspice's MIT license)
+# NLopt: nonlinear optimization (COBYLA, BOBYQA, SLSQP and Nelder-Mead are used).
+# NLOPT_LUKSAN=OFF leaves out the Luksan solvers, the only LGPL code in NLopt;
+# what remains is MIT, except SLSQP, which is BSD-3-Clause (see NLopt's COPYING).
 FetchContent_Declare(
     nlopt
     GIT_REPOSITORY https://github.com/stevengj/nlopt.git
-    GIT_TAG 58995c25b4d918759a107bd52a457122343b9c6d # v2.8.0
+    GIT_TAG 88c424d4f458412787df96fcc95218acbca224fd # v2.11.0
 )
 # NLopt build options
 set(NLOPT_CXX ON CACHE BOOL "Build C++ interface" FORCE)
@@ -157,9 +157,10 @@ set(NLOPT_MATLAB OFF CACHE BOOL "Disable MATLAB bindings" FORCE)
 set(NLOPT_GUILE OFF CACHE BOOL "Disable Guile bindings" FORCE)
 set(NLOPT_SWIG OFF CACHE BOOL "Disable SWIG bindings" FORCE)
 set(NLOPT_TESTS OFF CACHE BOOL "Disable NLopt tests" FORCE)
+set(NLOPT_LUKSAN OFF CACHE BOOL "Build without the LGPL Luksan solvers" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static library" FORCE)
 FetchContent_MakeAvailable(nlopt)
-message(STATUS "NLopt ${nlopt_VERSION} will be built (static library)")
+message(STATUS "NLopt will be built (static library, NLOPT_LUKSAN=OFF)")
 
 #==============================================================================
 # Dependency: SuiteSparse KLU (system library, linked dynamically)
