@@ -73,8 +73,9 @@ set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
     fmt
     GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-    GIT_TAG a33701196adfad74917046096bf5a2aa0ab0bb50 # 9.1.0
+    GIT_TAG 1be298e1bd68957e4cd352e1f676f00e07dcfb57 # 12.2.0
 )
+set(FMT_MODULE OFF CACHE BOOL "Build fmt as a header and library, not a C++ module" FORCE)
 FetchContent_MakeAvailable(fmt)
 
 #==============================================================================
@@ -83,7 +84,7 @@ FetchContent_MakeAvailable(fmt)
 FetchContent_Declare(
     spdlog
     GIT_REPOSITORY https://github.com/gabime/spdlog.git
-    GIT_TAG 7c02e204c92545f869e2f04edaab1f19fe8b19fd # v1.13.0
+    GIT_TAG 79524ddd08a4ec981b7fea76afd08ee05f83755d # v1.17.0
 )
 set(SPDLOG_FMT_EXTERNAL ON CACHE BOOL "" FORCE)
 set(SPDLOG_COMPILED_LIB ON CACHE BOOL "" FORCE)

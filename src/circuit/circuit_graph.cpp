@@ -40,6 +40,7 @@
 #include "kirimaspice/devices/behavioral_source.hpp"
 #include <spdlog/spdlog.h>
 #include <fmt/format.h>
+#include <fmt/ranges.h>  // fmt::join
 #include <exprtk.hpp>
 #include <stdexcept>
 #include <algorithm>

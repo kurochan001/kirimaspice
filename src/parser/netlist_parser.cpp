@@ -15,6 +15,7 @@
 #include <tao/pegtl.hpp>
 #include <exprtk.hpp>
 #include <spdlog/spdlog.h>
+#include <fmt/ranges.h>  // fmt::join
 #include <fstream>
 #include <sstream>
 #include <cmath>

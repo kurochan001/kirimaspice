@@ -13,7 +13,7 @@
 #include <iostream>
 #include <vector>
 #include <string>
-#include <fmt/core.h>
+#include <fmt/format.h>
 
 using namespace kirimaspice;
 using namespace kirimaspice::parser;
