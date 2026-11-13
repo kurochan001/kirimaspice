@@ -242,3 +242,33 @@ TEST_F(TRIACTest, CircuitGraph_ACDimmerCircuit) {
     EXPECT_EQ(status, ConvergenceStatus::SUCCESS);
     // AC dimmer circuit should converge
 }
+
+TEST_F(TRIACTest, ConductingThermalNoiseIsFourKTOverRon) {
+    // A conducting TRIAC gives one thermal current-noise source across MT2-MT1
+    // whose spectral density is 4kT/Ron (defaults: Ron = 0.1 ohm, T = 300.15 K).
+    CircuitGraph circuit;
+    circuit.add_voltage_source("Vmt", "mt2", "mt1", 5.0);
+    // 4 V gives a gate current of (4 - 1) V / 100 ohm = 30 mA, above IGT = 20 mA.
+    circuit.add_voltage_source("Vg", "gate", "mt1", 4.0);
+    circuit.add_resistor("Rmt", "mt2_in", "mt2", 10.0);
+    circuit.add_voltage_source("Vin", "mt2_in", "0", 50.0);
+    circuit.add_triac("Y1", "mt2", "mt1", "gate");
+    circuit.add_resistor("Rg", "gate_in", "gate", 100.0);
+    circuit.add_voltage_source("Vg_supply", "gate_in", "0", 10.0);
+
+    DCSolver solver(circuit);
+    DenseVector solution;
+    SolverStats stats;
+    ASSERT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS);
+
+    std::vector<NoiseSource> sources;
+    for (const auto& device : circuit.get_devices()) {
+        if (device->name() == "Y1") {
+            sources = device->get_noise_sources(solution, 1.0e3);
+        }
+    }
+    ASSERT_EQ(sources.size(), 1u);
+    const Real expected = 4.0 * 1.380649e-23 * 300.15 / 0.1;
+    EXPECT_NEAR(sources[0].spectral_density, expected, expected * 1e-12);
+    EXPECT_TRUE(sources[0].is_current);
+}

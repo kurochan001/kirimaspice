@@ -292,8 +292,8 @@ std::vector<NoiseSource> TRIAC::get_noise_sources(const DenseVector& dc_solution
     sources.push_back({
         name() + "_thermal",
         mt2, mt1,
-        true,  // is_current (current noise source)
-        spectral_density
+        spectral_density,
+        true  // is_current (current noise source)
     });
 
     return sources;
