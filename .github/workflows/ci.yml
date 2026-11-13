@@ -13,7 +13,17 @@ permissions:
 
 jobs:
   build-test:
-    name: build-test (ubuntu-24.04, gcc)
+    name: build-test (ubuntu-24.04, ${{ matrix.compiler }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - compiler: gcc
+            cc: gcc
+            cxx: g++
+          - compiler: clang
+            cc: clang
+            cxx: clang++
     # GitHub's standard runner. No self-hosted runners: the public logs of a
     # job name the machine that ran it.
     runs-on: ubuntu-24.04
@@ -22,10 +32,10 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends build-essential cmake ninja-build python3 libsuitesparse-dev
+          sudo apt-get install -y --no-install-recommends build-essential clang cmake ninja-build python3 libsuitesparse-dev
       - name: Record tool versions
         run: |
-          g++ --version | head -n 1
+          ${{ matrix.cxx }} --version | head -n 1
           cmake --version | head -n 1
           dpkg-query -W libsuitesparse-dev
       - name: Build, test and check (tools/local_ci.py)
@@ -36,7 +46,9 @@ jobs:
             printf '%s\n' "$PRIVATE_PATTERNS" > "$RUNNER_TEMP/private_patterns.txt"
             export KIRIMASPICE_PRIVATE_PATTERNS="$RUNNER_TEMP/private_patterns.txt"
           fi
-          python3 tools/local_ci.py --jobs 4
+          python3 tools/local_ci.py --jobs 4 \
+            --cmake-arg=-DCMAKE_C_COMPILER=${{ matrix.cc }} \
+            --cmake-arg=-DCMAKE_CXX_COMPILER=${{ matrix.cxx }}
       - name: Show the logs of failed steps
         if: failure()
         run: tail -n 200 build/local-ci/*.log
