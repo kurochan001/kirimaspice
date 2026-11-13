@@ -38,30 +38,17 @@ and SuiteSparse 7.6.1 unless an entry says otherwise.
 These were found while writing the [User Manual](docs/USER_MANUAL.md) and
 the [Reference Manual](docs/REFERENCE_MANUAL.md), by running the program
 built from commit `91af284`. What this section says about SPICE and ngspice
-comes from their manuals. The five differences from ngspice in scale
-factors, AC inputs, source currents, nested `.DC` sweeps and `gnd` were
-also checked by running ngspice-47; following ngspice there is proposed in
-[NETLIST_CONVENTIONS.md](docs/spec/NETLIST_CONVENTIONS.md).
+comes from their manuals. Five differences from ngspice (scale factors,
+AC inputs, source currents, nested `.DC` sweeps and `gnd`) were checked by
+running ngspice-47 and removed by following ngspice, as
+[NETLIST_CONVENTIONS.md](docs/spec/NETLIST_CONVENTIONS.md) sets out; that
+document also lists differences not decided there.
 
 - **`B` sources have no AC model and no `I(<source>)`.** In AC analysis a
   `B` source contributes nothing and logs `AC analysis not yet supported`;
   an expression with `I(...)` is an error.
-- **Upper-case `M` is mega.** `1M` is 10⁶ and `1m` is 10⁻³; in SPICE both
-  are milli. Scale suffixes are not accepted inside braces or in
-  `.OPTIONS` values (there the option is ignored with a warning).
-- **A voltage source without `AC` takes part in AC analysis with magnitude
-  1.** In SPICE its AC magnitude is 0.
-- **Source currents have the opposite sign to SPICE.** kirimaspice reports
-  the current that leaves the `+` terminal; the SPICE3 and ngspice manuals
-  define it as the current that enters the `+` terminal. `F` and `H` follow
-  the kirimaspice sign, so they give the opposite result to SPICE for the
-  same netlist.
-- **A nested `.DC` sweep loops in the opposite order to SPICE.** The second
-  source is swept for each value of the first; in SPICE the first source is
-  swept for each value of the second.
-- **`GND` is ground inside subcircuits but not at the top level.** Inside a
-  subcircuit, `0` and `GND` in any case are ground; at the top level only
-  `0` is, and `GND` is an ordinary node.
+- **Scale factors are not accepted inside braces or in `.OPTIONS`
+  values** (there the option is ignored with a warning).
 - **Inside `.SUBCKT`, only `R`, `C`, `L`, `V` and `I` (DC value), `M`
   (four terminals, level 1 or BSIM4) and `X` are expanded.** Other elements
   are skipped with a warning. `PARAMS:` is not accepted.

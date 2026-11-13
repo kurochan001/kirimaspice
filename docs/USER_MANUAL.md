@@ -9,7 +9,10 @@ GCC 16.2.0; the program reported `kirimaspice v0.0.0`. Every example below
 was run with that build. Model lookup, the raw file of an operating point,
 the output of a node named `GND`, `B` sources, `NAME={expr}` parameters,
 the lossless line, the trapezoidal rule and coupled inductors were checked
-again after the fixes in commits `6a007ab` to `6edd93a`.
+again after the fixes in commits `6a007ab` to `6edd93a`, and the five
+netlist conventions of
+[NETLIST_CONVENTIONS.md](spec/NETLIST_CONVENTIONS.md) after commit
+`282ae9f`.
 
 For lookup by option, element, directive or output format, use the
 [Reference Manual](REFERENCE_MANUAL.md). For what is known to be wrong or
@@ -97,16 +100,15 @@ then the result:
 V(0) = 0 V
 V(n1) = 3.3 V
 V(n2) = 1.65 V
-I(VDD) = 0.00165 A
+I(VDD) = -0.00165 A
 ```
 
 Both the log lines and the result go to standard output. To keep only the
 result, filter out the lines that start with `[`.
 
-`I(VDD)` is positive here although the source delivers current to the
-circuit: kirimaspice reports the current that leaves a source's `+`
-terminal, which is the opposite sign of the SPICE convention (see
-[KNOWN_ISSUES.md](../KNOWN_ISSUES.md)).
+`I(VDD)` is negative because the source delivers current to the circuit:
+as in SPICE, the current of a voltage source is positive when it flows
+into its `+` terminal through the source.
 
 ## Write a netlist
 
@@ -119,15 +121,15 @@ surprise someone who has used another SPICE simulator; the
 - **Comments:** a line whose first non-blank character is `*`, and anything
   after `;` on a line.
 - **Continuation:** a line that starts with `+` continues the previous one.
-- **Ground is `0`.** At the top level, `GND` is an ordinary node, not
-  ground. Inside a subcircuit, `0` and `GND` in any case are ground.
+- **Ground is `0`,** and a node named `gnd` in any case is ground too.
 - **Node names are case-sensitive;** model names, keywords such as `DC`,
   `AC`, `PULSE` and directive names are not.
-- **Numbers** take the suffixes `T`, `G`, `MEG`, `K`, `m`, `U`, `N`, `P`, `F`
-  in either case, except that **`M` in upper case means mega** (10⁶) and
-  `m` in lower case means milli. Write `1m` for 10⁻³ and `1MEG` or `1M` for
-  10⁶. Letters after the suffix (`10mA`, `1kHz`) are ignored. Suffixes are
-  not accepted inside `{...}` expressions or in `.OPTIONS` values.
+- **Numbers** take the scale factors `T`, `G`, `MEG`, `K`, `MIL`, `M`, `U`,
+  `N`, `P`, `F` and `A` in either case, as in ngspice. **`M` is milli
+  whatever its case**: write `1MEG` for 10⁶. Letters after a number or a
+  scale factor are ignored, so `10mA` is 0.01, `1kHz` is 1000, and `10MHz`
+  is 0.01 and `1A` is 10⁻¹⁸. Scale factors are not accepted inside `{...}`
+  expressions or in `.OPTIONS` values.
 - **A `.MODEL` line may stand anywhere** in the netlist, before or after
   the elements that use it.
 - **A source with a waveform needs a DC value first:**
@@ -153,7 +155,7 @@ The program runs these analyses:
 | --- | --- |
 | `.op` (or nothing) | DC operating point |
 | `.DC <source> <start> <stop> <step>` | DC sweep of a source |
-| `.DC <src1> ... <src2> <start2> <stop2> <step2>` | nested sweep; the second source is swept for each value of the first |
+| `.DC <src1> ... <src2> <start2> <stop2> <step2>` | nested sweep; the first source is swept for each value of the second |
 | `.TRAN <tstep> <tstop> [<tstart> [<tmax>]] [UIC]` | transient |
 | `.AC DEC\|OCT\|LIN <n> <fstart> <fstop>` | small-signal AC |
 | `.TEMP <t1> <t2> ...` (°C) | the operating point or transient at each temperature |
@@ -202,11 +204,9 @@ For the RC example above, `V(out)` is 0.632105 at 1 ms; the exact value is
 ### AC
 
 The AC result is not printed. It is always written to a CSV file (see
-[Save the results](#save-the-results)). Every voltage source takes part in
-the AC analysis: one written with `AC <mag> [<phase>]` uses that magnitude,
-and one written without `AC` uses magnitude 1. To keep a supply out of the
-AC analysis, write `AC 0` on it. Current sources without `AC` use
-magnitude 0.
+[Save the results](#save-the-results)). Only the sources written with
+`AC [<mag> [<phase>]]` are inputs of the AC analysis; `AC` without a
+magnitude means 1. Other sources, such as supplies, take no part in it.
 
 For an RC low-pass filter (1 kΩ, 1 µF) driven with `AC 1`, the program gave
 −16.072 dB and −80.96° at 1 kHz, which matches 1/(1 + j2πfRC).
@@ -340,8 +340,7 @@ A `PULSE(...)` source needs a DC value before the waveform:
 
 ### `Matrix is singular` or `KLU numeric factorization failed`
 
-A node has no DC path to ground, or two voltage sources form a loop. Check
-in particular that ground is written `0` and not `GND` at the top level.
+A node has no DC path to ground, or two voltage sources form a loop.
 
 ### A `B` source gives `cannot compile the expression`
 
@@ -349,17 +348,18 @@ The expression uses something ExprTk does not know. Common causes: a scale
 suffix (write `0.001`, not `1m`) and `I(<source>)`, which is not
 available. In AC analysis a `B` source contributes nothing.
 
-### A value is a million times too large
+### A value is far too small
 
-`M` in upper case is mega. Write `m` for milli.
+`M` is milli in either case, as in SPICE: `1M` is 10⁻³. Write `MEG` for
+mega. `A` is atto, so write a current of one ampere as `1`, not `1A`.
 
 ### Results differ from another simulator
 
 Check the differences listed in [KNOWN_ISSUES.md](../KNOWN_ISSUES.md)
-first: the sign of source currents, voltage sources without `AC` taking
-part in the AC analysis, the loop order of a nested DC sweep, and the
-device parameters the parser does not read. Then compare with an analytic
-solution where one exists.
+first, in particular the device parameters the parser does not read, and
+[NETLIST_CONVENTIONS.md](spec/NETLIST_CONVENTIONS.md) for the points where
+kirimaspice follows ngspice. Then compare with an analytic solution where
+one exists.
 
 ## Report a problem
 

@@ -9,7 +9,9 @@ describes was checked by running that build (macOS 27.2, arm64, GCC 16.2.0,
 `kirimaspice v0.0.0`). Model lookup, the raw file of an operating point,
 the output of a node named `GND`, `B` sources, `NAME={expr}` parameters,
 the lossless line, the trapezoidal rule and coupled inductors were checked
-again after the fixes in commits `6a007ab` to `6edd93a`. Where an entry
+again after the fixes in commits `6a007ab` to `6edd93a`, and the netlist
+conventions of [NETLIST_CONVENTIONS.md](spec/NETLIST_CONVENTIONS.md) after
+commit `282ae9f`. Where an entry
 was read in the code but not run, it says so. For a guided first run, use
 the [User Manual](USER_MANUAL.md); for what is wrong or missing, see
 [KNOWN_ISSUES.md](../KNOWN_ISSUES.md).
@@ -104,30 +106,33 @@ does not converge.
 
 - Node, element and subcircuit names are case-sensitive; model names are
   not.
-- `0` is ground. At the top level `GND` is an ordinary node; inside a
-  subcircuit `0` and `GND` in any case are ground.
+- `0` is ground, and so is a node named `gnd` in any case, at the top
+  level and inside subcircuits.
 - Nodes inside a subcircuit instance are named `<instance>.<node>`, for
   example `X1.n1`.
 
 ### Numbers
 
 A number is a decimal or scientific number followed by an optional scale
-suffix; any letters after the suffix are ignored (`10mA` is 0.01).
+factor, in any case, as in ngspice. Letters after the number that are not
+a scale factor, and letters after a scale factor, are ignored (`10mA` is
+0.01, `10MHz` is 0.01).
 
-| Suffix | Scale |
+| Scale factor | Scale |
 | --- | --- |
-| `T`, `t` | 10¹² |
-| `G`, `g` | 10⁹ |
-| `MEG` in any case, `M` | 10⁶ |
-| `K`, `k` | 10³ |
-| `m` | 10⁻³ |
-| `U`, `u` | 10⁻⁶ |
-| `N`, `n` | 10⁻⁹ |
-| `P`, `p` | 10⁻¹² |
-| `F`, `f` | 10⁻¹⁵ |
+| `T` | 10¹² |
+| `G` | 10⁹ |
+| `MEG` | 10⁶ |
+| `K` | 10³ |
+| `MIL` | 25.4×10⁻⁶ |
+| `M` | 10⁻³ |
+| `U` | 10⁻⁶ |
+| `N` | 10⁻⁹ |
+| `P` | 10⁻¹² |
+| `F` | 10⁻¹⁵ |
+| `A` | 10⁻¹⁸ |
 
-Upper-case `M` is mega and lower-case `m` is milli. There is no atto
-suffix and no `MIL`.
+`M` is milli in either case; mega is `MEG`.
 
 ### Expressions
 
@@ -174,12 +179,13 @@ not case-sensitive.
 - `PULSE(...)` must come after the DC value and needs all seven arguments;
   commas between them are allowed. There are no `SIN`, `EXP`, `PWL` or
   `SFFM` waveforms.
-- In AC analysis, a voltage source without `AC` has magnitude 1 and phase
-  0; a current source without `AC` has magnitude 0. The phase is in
-  degrees.
-- The current of a voltage source, as printed and written, is positive
-  when it leaves the `+` terminal into the circuit. `F` and `H` use the
-  same current.
+- Only a source whose line has `AC` is an input of AC analysis; `AC`
+  without a magnitude means 1, and the phase, in degrees, defaults to 0. A
+  source without `AC` has magnitude 0. Inside subcircuits the same holds.
+- The current of a voltage source, and of `E`, `H` and voltage-form `B`
+  sources, as printed and written, is positive when it flows into the `+`
+  terminal through the source, so a source delivering current has a
+  negative current. `F` and `H` use that current as their control.
 - `F` and `H` name a voltage source that may appear later in the netlist.
 
 ### Behavioural sources
@@ -263,7 +269,7 @@ parser stores it, but the program does not use it (the library can).
 | Directive | Syntax | Status |
 | --- | --- | --- |
 | `.OP` | `.OP` | used: operating point (found by a text search, see [below](#how-the-program-chooses-analyses)) |
-| `.DC` | `.DC <src> <start> <stop> <step> [<src2> <start2> <stop2> <step2>]` | used; `<src>` is a voltage or current source; a zero step is an error |
+| `.DC` | `.DC <src> <start> <stop> <step> [<src2> <start2> <stop2> <step2>]` | used; `<src>` is a voltage or current source and is swept for each value of `<src2>`; a zero step is an error |
 | `.TRAN` | `.TRAN <tstep> <tstop> [<tstart> [<tmax>]] [UIC]` | used; `tmax` defaults to `tstep` |
 | `.AC` | `.AC DEC\|OCT\|LIN <n> <fstart> <fstop>` | used; `DEC`, `OCT`: `<n>` points per decade or octave, both ends included; `LIN`: `<n>` points in all |
 | `.TEMP` | `.TEMP <t1> [<t2> ...]` (°C) | used for the operating point and transient; a DC sweep and AC use the first value |
