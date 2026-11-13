@@ -23,8 +23,8 @@ These are compiled into the library `kirimaspice_lib`, and from it into the
 
 | Component | Version | License | Copyright | Source |
 | --- | --- | --- | --- | --- |
-| {fmt} | 9.1.0 (`a33701196adfad74917046096bf5a2aa0ab0bb50`) | MIT, with the optional exception in its `LICENSE.rst` | Copyright (c) 2012 - present, Victor Zverovich | https://github.com/fmtlib/fmt |
-| spdlog | v1.13.0 (`7c02e204c92545f869e2f04edaab1f19fe8b19fd`) | MIT | Copyright (c) 2016 Gabi Melman. | https://github.com/gabime/spdlog |
+| {fmt} | 12.2.0 (`1be298e1bd68957e4cd352e1f676f00e07dcfb57`) | MIT | Copyright (c) 2012 - present, Victor Zverovich and {fmt} contributors | https://github.com/fmtlib/fmt |
+| spdlog | v1.17.0 (`79524ddd08a4ec981b7fea76afd08ee05f83755d`) | MIT | Copyright (c) 2016 - present, Gabi Melman and spdlog contributors. | https://github.com/gabime/spdlog |
 | PEGTL | 3.2.7 (`cf639f7f4ee125f68e1ccfba8d99ebc0de57b9fe`) | MIT | Copyright (c) 2007-2022 Dr. Colin Hirsch and Daniel Frey | https://github.com/taocpp/PEGTL |
 | ExprTk | master as of 2026-11-13 (`1e4a80b5ec9b4832ed59c6faa65f625a01b18ef0`) | MIT | Copyright (c) 1999-2025 Arash Partow | https://github.com/ArashPartow/exprtk |
 | Boost (Graph and the Boost libraries it needs) | 1.86.0, `boost-1.86.0-cmake.tar.xz` (SHA-256 `2c5ec5edcdff47ff55e27ed9560b0a0b94b07bd07ed9928b476150e16b0efc57`) | BSL-1.0 | In the headers of the files | https://github.com/boostorg/boost |
@@ -92,10 +92,10 @@ into this repository.
 
 Copied from the fetched sources of the versions above.
 
-### {fmt} (`LICENSE.rst`)
+### {fmt} (`LICENSE`)
 
 ```text
-Copyright (c) 2012 - present, Victor Zverovich
+Copyright (c) 2012 - present, Victor Zverovich and {fmt} contributors
 
 Permission is hereby granted, free of charge, to any person obtaining
 a copy of this software and associated documentation files (the
@@ -115,13 +115,6 @@ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
 LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-
---- Optional exception to the license ---
-
-As an exception, if, as a result of your compiling your source code, portions
-of this Software are embedded into a machine-executable object form of such
-source code, you may redistribute such embedded portions in such object form
-without including the above copyright and permission notices.
 ```
 
 ### spdlog (`LICENSE`)
@@ -129,7 +122,7 @@ without including the above copyright and permission notices.
 ```text
 The MIT License (MIT)
 
-Copyright (c) 2016 Gabi Melman.                                       
+Copyright (c) 2016 - present, Gabi Melman and spdlog contributors.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

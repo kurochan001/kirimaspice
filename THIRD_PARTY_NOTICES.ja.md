@@ -21,8 +21,8 @@ kirimaspice 自体のライセンスは Apache License 2.0 with LLVM Exceptions 
 
 | 部品 | 版 | ライセンス | 著作権表示 | 入手先 |
 | --- | --- | --- | --- | --- |
-| {fmt} | 9.1.0 (`a33701196adfad74917046096bf5a2aa0ab0bb50`) | MIT（`LICENSE.rst` にある任意の例外条項つき） | Copyright (c) 2012 - present, Victor Zverovich | https://github.com/fmtlib/fmt |
-| spdlog | v1.13.0 (`7c02e204c92545f869e2f04edaab1f19fe8b19fd`) | MIT | Copyright (c) 2016 Gabi Melman. | https://github.com/gabime/spdlog |
+| {fmt} | 12.2.0 (`1be298e1bd68957e4cd352e1f676f00e07dcfb57`) | MIT | Copyright (c) 2012 - present, Victor Zverovich and {fmt} contributors | https://github.com/fmtlib/fmt |
+| spdlog | v1.17.0 (`79524ddd08a4ec981b7fea76afd08ee05f83755d`) | MIT | Copyright (c) 2016 - present, Gabi Melman and spdlog contributors. | https://github.com/gabime/spdlog |
 | PEGTL | 3.2.7 (`cf639f7f4ee125f68e1ccfba8d99ebc0de57b9fe`) | MIT | Copyright (c) 2007-2022 Dr. Colin Hirsch and Daniel Frey | https://github.com/taocpp/PEGTL |
 | ExprTk | 2026-11-13 時点の master (`1e4a80b5ec9b4832ed59c6faa65f625a01b18ef0`) | MIT | Copyright (c) 1999-2025 Arash Partow | https://github.com/ArashPartow/exprtk |
 | Boost（Graph と、それが必要とする Boost のライブラリ） | 1.86.0, `boost-1.86.0-cmake.tar.xz` (SHA-256 `2c5ec5edcdff47ff55e27ed9560b0a0b94b07bd07ed9928b476150e16b0efc57`) | BSL-1.0 | 各ファイルの冒頭 | https://github.com/boostorg/boost |
