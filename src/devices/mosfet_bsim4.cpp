@@ -23,17 +23,6 @@
 #include <spdlog/spdlog.h>
 #include <cmath>
 #include <limits>
-#if KIRIMASPICE_USE_NGSPICE_BSIM4_REF
-#include "kirimaspice/devices/bsim4_ngspice_bridge_flag.hpp"
-#include "kirimaspice/devices/bsim4_ngspice_adapter.hpp"
-#include "kirimaspice/devices/bsim4_ngspice_matrix_map.hpp"
-extern "C" {
-#include "bsim4def.h"
-}
-#ifdef TRAPEZOIDAL
-#undef TRAPEZOIDAL
-#endif
-#endif
 
 namespace kirimaspice::devices {
 namespace {
@@ -145,13 +134,6 @@ void MOSFET_BSIM4<P>::stamp_dc_linear(MNASystem& mna, const DenseVector& node_vo
 
 template<Polarity P>
 void MOSFET_BSIM4<P>::stamp_dc_nonlinear(MNASystem& mna, const DenseVector& node_voltages) const {
-#if KIRIMASPICE_USE_NGSPICE_BSIM4_REF
-    if (devices::ngspice_bsim4_bridge_enabled()) {
-        if (stamp_with_ngspice_bridge(mna, node_voltages)) {
-            return;
-        }
-    }
-#endif
 
     const Real vd = (drain_ != NODE_GND) ? node_voltages[drain_ - 1] : 0.0;
     const Real vg = (gate_ != NODE_GND) ? node_voltages[gate_ - 1] : 0.0;
@@ -207,91 +189,6 @@ void MOSFET_BSIM4<P>::stamp_dc_nonlinear(MNASystem& mna, const DenseVector& node
     }
 }
 
-#if KIRIMASPICE_USE_NGSPICE_BSIM4_REF
-template<Polarity P>
-bool MOSFET_BSIM4<P>::stamp_with_ngspice_bridge(MNASystem& mna,
-                                                 const DenseVector& node_voltages) const {
-    if (extra_node_count() == 0) return false;
-
-    if (!ng_adapter_) {
-        ng_adapter_ = NgspiceBsim4Adapter::create_from_defaults();
-        ng_map_.reset();
-        if (!ng_adapter_) return false;
-    }
-
-    auto* model = ng_adapter_->raw_model();
-    auto* inst  = ng_adapter_->raw_instance();
-    if (!model || !inst) return false;
-
-    if (!ng_params_applied_) {
-#define SET_M(field, value) do { model->field = (value); model->field##Given = 1; } while(0)
-        SET_M(BSIM4type, (P == Polarity::N) ? NMOS : PMOS);
-        SET_M(BSIM4toxe, params_.toxe);
-        SET_M(BSIM4toxp, params_.toxp);
-        SET_M(BSIM4toxm, params_.toxm);
-        SET_M(BSIM4vth0, params_.vth0);
-        SET_M(BSIM4k1, params_.k1);
-        SET_M(BSIM4k2, params_.k2);
-        SET_M(BSIM4u0, params_.u0);
-        SET_M(BSIM4vsat, params_.vsat);
-        SET_M(BSIM4pclm, params_.pclm);
-        SET_M(BSIM4eta0, params_.eta0);
-        SET_M(BSIM4etab, params_.etab);
-        SET_M(BSIM4dvt0, params_.dvt0);
-        SET_M(BSIM4dvt1, params_.dvt1);
-        SET_M(BSIM4dvt2, params_.dvt2);
-        SET_M(BSIM4nsub, params_.nsub);
-        SET_M(BSIM4ndep, params_.ndep);
-        SET_M(BSIM4rdsw, params_.rdsw);
-        SET_M(BSIM4rdswmin, params_.rdswmin);
-        model->BSIM4rdsMod = params_.rdsmod;
-        model->BSIM4rdsModGiven = 1;
-        model->BSIM4rgateMod = params_.rgatemod;
-        model->BSIM4rgateModGiven = 1;
-        model->BSIM4rbodyMod = params_.rbodymod;
-        model->BSIM4rbodyModGiven = 1;
-        SET_M(BSIM4tnom, params_.tnom);
-#undef SET_M
-
-        inst->BSIM4l = params_.l;
-        inst->BSIM4w = params_.w;
-        inst->BSIM4nf = params_.nf;
-        inst->BSIM4m = params_.m;
-        inst->BSIM4drainSquares = 1.0;
-        inst->BSIM4sourceSquares = 1.0;
-
-        ng_params_applied_ = true;
-    }
-
-    const int nd = node_index(drain_);
-    const int ng = node_index(gate_);
-    const int ns = node_index(source_);
-    const int nb = node_index(bulk_);
-
-    const int base = static_cast<int>(extra_node_base());
-    if (base < 0 || static_cast<std::size_t>(base + kExtraInternalNodes) > node_voltages.size()) {
-        return false;
-    }
-
-    devices::Bsim4NodeIndices idx;
-    idx.d  = nd;
-    idx.g  = ng;
-    idx.s  = ns;
-    idx.b  = nb;
-    idx.dp = base + 0;
-    idx.gp = base + 1;
-    idx.sp = base + 2;
-    idx.bp = base + 3;
-    idx.q  = base + 4;
-    idx.ge = base + 5;
-    idx.gm = base + 6;
-    idx.db = base + 7;
-    idx.sb = base + 8;
-
-    const bool ok = ng_adapter_->load_dc_into_mna(idx, node_voltages, ng_map_, mna, temperature_);
-    return ok;
-}
-#endif
 
 //==============================================================================
 // Transient Analysis

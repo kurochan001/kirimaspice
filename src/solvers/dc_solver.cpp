@@ -8,7 +8,6 @@
 #include "kirimaspice/devices/vcvs.hpp"            // Branch current extraction
 #include "kirimaspice/devices/ccvs.hpp"            // Branch current extraction
 #include "kirimaspice/devices/bjt_npn.hpp"         // Darlington detection
-#include "kirimaspice/devices/bsim4_ngspice_bridge_flag.hpp"
 #include "kirimaspice/solvers/temperature_utils.hpp"
 #include "kirimaspice/solvers/parallel_stamper.hpp"
 #include "kirimaspice/core/constants.hpp"
@@ -60,11 +59,6 @@ DCSolver::DCSolver(const circuit::CircuitGraph& circuit,
             type == DeviceType::CCVS) {
             num_branches++;
         }
-#if KIRIMASPICE_USE_NGSPICE_BSIM4_REF
-        if (config_.enable_ngspice_bsim4_bridge) {
-            extra_nodes += device->extra_node_count();
-        }
-#endif
     }
 
     // Check circuit size before allocation
@@ -83,17 +77,6 @@ DCSolver::DCSolver(const circuit::CircuitGraph& circuit,
     // Resize MNA system (append internal nodes after external nodes)
     mna_.resize(total_nodes, num_branches);
 
-#if KIRIMASPICE_USE_NGSPICE_BSIM4_REF
-    if (config_.enable_ngspice_bsim4_bridge && extra_nodes > 0) {
-        std::uint32_t base = num_nodes;
-        for (const auto& device : circuit_.get_devices()) {
-            const auto count = device->extra_node_count();
-            if (count == 0) continue;
-            device->set_extra_node_base(base);
-            base += count;
-        }
-    }
-#endif
 
     spdlog::info("DCSolver created: {} nodes, {} branches, total size {}",
                  total_nodes, num_branches, mna_.size());
@@ -298,15 +281,6 @@ void DCSolver::build_mna_system(const DenseVector& node_voltages) {
 }
 
 void DCSolver::stamp_devices(const DenseVector& node_voltages) {
-    // Enable/disable ngspice BSIM4 bridge for this stamping pass
-    devices::set_ngspice_bsim4_bridge_enabled(
-#if KIRIMASPICE_USE_NGSPICE_BSIM4_REF
-        config_.enable_ngspice_bsim4_bridge
-#else
-        false
-#endif
-    );
-
     const auto& devices = circuit_.get_devices();
 
     // Step 2.3: Use unified ParallelDeviceStamper

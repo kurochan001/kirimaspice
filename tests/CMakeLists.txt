@@ -4,15 +4,6 @@ set(CTEST_TEST_TIMEOUT 1200)
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
-# ngspice BSIM4 reference headers (for bridge unit tests)
-if(USE_NGSPICE_BSIM4_REF AND BUILD_NGSPICE_BSIM4_REF)
-    include_directories(
-        ${CMAKE_SOURCE_DIR}/external/ngspice_bsim4_ref
-        ${NGSPICE_SRC_ROOT}/include
-        ${NGSPICE_SRC_ROOT}/include/ngspice
-    )
-endif()
-
 # Python integration tests (REPL + PyAPI)
 add_test(NAME python_tools_pyapi
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/scripts/test_pyapi.py

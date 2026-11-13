@@ -19,9 +19,6 @@ option(KIRIMASPICE_WITH_SUPERLUDIST "Build with SuperLU_DIST backend" OFF)
 option(KIRIMASPICE_WITH_SUNDIALS "Build with SUNDIALS adapters" OFF)
 set(KIRIMASPICE_SOLVER "KLU" CACHE STRING "Default solver backend (KLU|SUPERLU_MT|SUPERLU_DIST|KLU_SUN)")
 set_property(CACHE KIRIMASPICE_SOLVER PROPERTY STRINGS KLU SUPERLU_MT SUPERLU_DIST KLU_SUN)
-option(BUILD_NGSPICE_BSIM4_REF "Build vendored ngspice BSIM4 reference library" OFF)
-set(NGSPICE_SRC_ROOT "${CMAKE_SOURCE_DIR}/../ngspice-d93a11_pre-master-46/src" CACHE PATH "Path to ngspice source tree (root of src/)")
-option(USE_NGSPICE_BSIM4_REF "Use ngspice BSIM4 reference implementation (adapter build only)" OFF)
 
 # Coverage flags
 if(ENABLE_COVERAGE)
@@ -601,45 +598,4 @@ if(KIRIMASPICE_WITH_SUPERLUDIST)
     else()
         message(WARNING "SuperLU_DIST not found — backend remains stub-only")
     endif()
-endif()
-
-#==============================================================================
-# Vendored ngspice BSIM4 (reference C implementation, not yet wired into core)
-#==============================================================================
-if(BUILD_NGSPICE_BSIM4_REF)
-    file(GLOB NGSPICE_BSIM4_SOURCES external/ngspice_bsim4_ref/*.c)
-    if(NGSPICE_BSIM4_SOURCES)
-        add_library(ngspice_bsim4_ref STATIC ${NGSPICE_BSIM4_SOURCES})
-        target_sources(ngspice_bsim4_ref PRIVATE
-            ${CMAKE_SOURCE_DIR}/src/devices/bsim4_ngspice_stubs.cpp
-        )
-        target_include_directories(ngspice_bsim4_ref PUBLIC
-            ${CMAKE_SOURCE_DIR}/external/ngspice_bsim4_ref
-            ${NGSPICE_SRC_ROOT}/include
-            ${NGSPICE_SRC_ROOT}/include/ngspice
-        )
-        set_target_properties(ngspice_bsim4_ref PROPERTIES
-            C_STANDARD 99
-            POSITION_INDEPENDENT_CODE ON
-        )
-        target_compile_options(ngspice_bsim4_ref PRIVATE -w)
-    endif()
-endif()
-
-#------------------------------------------------------------------------------
-# Optional: adapter that wraps ngspice BSIM4 into kirimaspice interface
-#------------------------------------------------------------------------------
-if(USE_NGSPICE_BSIM4_REF AND BUILD_NGSPICE_BSIM4_REF)
-    target_sources(kirimaspice_lib PRIVATE
-        src/devices/bsim4_ngspice_adapter.cpp
-        src/devices/bsim4_ngspice_matrix_map.cpp
-        src/devices/bsim4_ngspice_bridge_flag.cpp
-    )
-    target_link_libraries(kirimaspice_lib PRIVATE ngspice_bsim4_ref)
-    target_compile_definitions(kirimaspice_lib PUBLIC KIRIMASPICE_USE_NGSPICE_BSIM4_REF=1)
-else()
-    target_sources(kirimaspice_lib PRIVATE
-        src/devices/bsim4_ngspice_bridge_flag.cpp
-    )
-    target_compile_definitions(kirimaspice_lib PUBLIC KIRIMASPICE_USE_NGSPICE_BSIM4_REF=0)
 endif()

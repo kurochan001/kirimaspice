@@ -7,7 +7,6 @@
 // Temperature-dependent device headers moved to temperature_utils.cpp
 #include "kirimaspice/devices/device.hpp"                     // Base class
 #include "kirimaspice/devices/time_varying_voltage_source.hpp" // set_time()
-#include "kirimaspice/devices/bsim4_ngspice_bridge_flag.hpp"
 #include "kirimaspice/solvers/temperature_utils.hpp"
 #include "kirimaspice/solvers/parallel_stamper.hpp"
 #include "kirimaspice/core/constants.hpp"
@@ -50,11 +49,6 @@ TransientSolver::TransientSolver(const circuit::CircuitGraph& circuit,
             type == DeviceType::CCVS) {
             num_branches++;
         }
-#if KIRIMASPICE_USE_NGSPICE_BSIM4_REF
-        if (config_.enable_ngspice_bsim4_bridge) {
-            extra_nodes += device->extra_node_count();
-        }
-#endif
     }
 
     // Check circuit size before allocation
@@ -72,17 +66,6 @@ TransientSolver::TransientSolver(const circuit::CircuitGraph& circuit,
 
     mna_.resize(total_nodes, num_branches);
 
-#if KIRIMASPICE_USE_NGSPICE_BSIM4_REF
-    if (config_.enable_ngspice_bsim4_bridge && extra_nodes > 0) {
-        std::uint32_t base = num_nodes;
-        for (const auto& device : circuit_.get_devices()) {
-            const auto count = device->extra_node_count();
-            if (count == 0) continue;
-            device->set_extra_node_base(base);
-            base += count;
-        }
-    }
-#endif
 
     spdlog::info("Created TransientSolver (nodes={}, branches={}, system_size={})",
                  total_nodes, num_branches, mna_.size());
@@ -281,9 +264,6 @@ void TransientSolver::stamp_devices_transient(const DenseVector& node_voltages,
                                               const BDFCoefficients* bdf_coef_in,
                                               const TR_BDF2_Coefficients* tr_bdf2_coef) {
     using namespace devices;
-
-    // ngspice BSIM4 bridge は TR 未対応のため明示的に無効化
-    devices::set_ngspice_bsim4_bridge_enabled(false);
 
     // Compute variable-timestep BDF coefficients if needed
     const BDFCoefficients* bdf_coef = bdf_coef_in;

@@ -24,18 +24,6 @@
 #include "kirimaspice/devices/polarity.hpp"
 #include "kirimaspice/devices/mosfet_bsim4_params.hpp"
 #include "kirimaspice/devices/bsim4_core.hpp"
-#if KIRIMASPICE_USE_NGSPICE_BSIM4_REF
-#include "kirimaspice/devices/bsim4_ngspice_matrix_map.hpp"
-namespace kirimaspice {
-class NgspiceBsim4Adapter;
-}
-#ifdef TRAPEZOIDAL
-#undef TRAPEZOIDAL
-#endif
-#ifdef LINEAR
-#undef LINEAR
-#endif
-#endif
 
 namespace kirimaspice::devices {
 
@@ -227,14 +215,6 @@ private:
 
     static constexpr std::uint32_t kExtraInternalNodes = 9; // dp/gp/sp/bp/q/ge/gm/db/sb
 
-#if KIRIMASPICE_USE_NGSPICE_BSIM4_REF
-    bool stamp_with_ngspice_bridge(MNASystem& mna,
-                                   const DenseVector& node_voltages) const;
-
-    mutable std::unique_ptr<NgspiceBsim4Adapter> ng_adapter_;
-    mutable Bsim4MatrixMap ng_map_;
-    mutable bool ng_params_applied_ = false;
-#endif
 };
 
 // Explicit template instantiation declarations

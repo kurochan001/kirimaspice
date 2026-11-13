@@ -665,7 +665,6 @@ struct SimulationConfig {
     Real temperature = 300.15; ///< Temperature [K] (27°C)
     bool temperature_explicitly_set = false; ///< True if temperature was set via .TEMP or .OPTIONS TEMP
     Real gmin = 1e-12;         ///< Minimum conductance [S]
-    bool enable_ngspice_bsim4_bridge = false; ///< Use ngspice BSIM4 bridge (allocates internal MNA nodes)
 
     // Initial conditions
     std::map<std::string, Real> nodeset;  ///< .NODESET V(node)=value (DC initial guess)
