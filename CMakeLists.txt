@@ -66,8 +66,7 @@ set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
     fmt
     GIT_REPOSITORY https://github.com/fmtlib/fmt.git
-    GIT_TAG 9.1.0
-    GIT_SHALLOW TRUE
+    GIT_TAG a33701196adfad74917046096bf5a2aa0ab0bb50 # 9.1.0
 )
 FetchContent_MakeAvailable(fmt)
 
@@ -77,8 +76,7 @@ FetchContent_MakeAvailable(fmt)
 FetchContent_Declare(
     spdlog
     GIT_REPOSITORY https://github.com/gabime/spdlog.git
-    GIT_TAG v1.13.0
-    GIT_SHALLOW TRUE
+    GIT_TAG 7c02e204c92545f869e2f04edaab1f19fe8b19fd # v1.13.0
 )
 set(SPDLOG_FMT_EXTERNAL ON CACHE BOOL "" FORCE)
 set(SPDLOG_COMPILED_LIB ON CACHE BOOL "" FORCE)
@@ -90,8 +88,7 @@ FetchContent_MakeAvailable(spdlog)
 FetchContent_Declare(
     pegtl
     GIT_REPOSITORY https://github.com/taocpp/PEGTL.git
-    GIT_TAG 3.2.7
-    GIT_SHALLOW TRUE
+    GIT_TAG cf639f7f4ee125f68e1ccfba8d99ebc0de57b9fe # 3.2.7
 )
 FetchContent_MakeAvailable(pegtl)
 
@@ -101,8 +98,7 @@ FetchContent_MakeAvailable(pegtl)
 FetchContent_Declare(
     exprtk
     GIT_REPOSITORY https://github.com/ArashPartow/exprtk.git
-    GIT_TAG master
-    GIT_SHALLOW TRUE
+    GIT_TAG 1e4a80b5ec9b4832ed59c6faa65f625a01b18ef0 # master as of 2026-11-13
 )
 FetchContent_MakeAvailable(exprtk)
 
@@ -112,8 +108,7 @@ FetchContent_MakeAvailable(exprtk)
 FetchContent_Declare(
     nlohmann_json
     GIT_REPOSITORY https://github.com/nlohmann/json.git
-    GIT_TAG v3.11.3
-    GIT_SHALLOW TRUE
+    GIT_TAG 9cca280a4d0ccf0c08f47a99aa71d1b0e52f8d03 # v3.11.3
 )
 FetchContent_MakeAvailable(nlohmann_json)
 
@@ -123,8 +118,7 @@ FetchContent_MakeAvailable(nlohmann_json)
 FetchContent_Declare(
     Boost
     GIT_REPOSITORY https://github.com/boostorg/boost.git
-    GIT_TAG boost-1.86.0
-    GIT_SHALLOW TRUE
+    GIT_TAG 65c1319bb92fe7a9a4abd588eff5818d9c2bccf9 # boost-1.86.0
 )
 set(BOOST_INCLUDE_LIBRARIES graph CACHE STRING "" FORCE)
 FetchContent_MakeAvailable(Boost)
@@ -135,8 +129,7 @@ FetchContent_MakeAvailable(Boost)
 FetchContent_Declare(
     zstd
     GIT_REPOSITORY https://github.com/facebook/zstd.git
-    GIT_TAG v1.5.6
-    GIT_SHALLOW TRUE
+    GIT_TAG 794ea1b0afca0f020f4e57b6732332231fb23c70 # v1.5.6
     SOURCE_SUBDIR build/cmake
 )
 set(ZSTD_BUILD_PROGRAMS OFF CACHE BOOL "" FORCE)
@@ -154,8 +147,7 @@ FetchContent_MakeAvailable(zstd)
 FetchContent_Declare(
     nlopt
     GIT_REPOSITORY https://github.com/stevengj/nlopt.git
-    GIT_TAG v2.8.0
-    GIT_SHALLOW TRUE
+    GIT_TAG 58995c25b4d918759a107bd52a457122343b9c6d # v2.8.0
 )
 # NLopt build options
 set(NLOPT_CXX ON CACHE BOOL "Build C++ interface" FORCE)
@@ -231,8 +223,7 @@ if(BUILD_TESTS)
     FetchContent_Declare(
         googletest
         GIT_REPOSITORY https://github.com/google/googletest.git
-        GIT_TAG v1.14.0
-        GIT_SHALLOW TRUE
+        GIT_TAG f8d7d77c06936315286eb55f8de22cd23c188571 # v1.14.0
     )
     # Prevent overriding the parent project's compiler/linker settings
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
@@ -249,8 +240,7 @@ if(BUILD_BENCHMARKS)
     FetchContent_Declare(
         benchmark
         GIT_REPOSITORY https://github.com/google/benchmark.git
-        GIT_TAG v1.8.3
-        GIT_SHALLOW TRUE
+        GIT_TAG 344117638c8ff7e239044fd0fa7085839fc03021 # v1.8.3
     )
     set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
     # GCC 14 + libstdc++ の警告で -Werror が落ちるのを回避
