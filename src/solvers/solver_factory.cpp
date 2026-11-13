@@ -1,7 +1,6 @@
 // src/solvers/solver_factory.cpp
 #include "kirimaspice/solvers/solver_factory.hpp"
 #include "kirimaspice/solvers/klu_solver_adapter.hpp"
-#include "kirimaspice/solvers/superlu_mt_solver.hpp"
 #include "kirimaspice/solvers/superlu_dist_solver.hpp"
 
 #include <algorithm>
@@ -21,7 +20,6 @@ std::optional<SolverBackend> parse_backend_string(const std::string& s) {
     const std::string u = to_upper(s);
     if (u == "KLU") return SolverBackend::KLU;
     if (u == "KLU_SUN") return SolverBackend::KLU; // KLU_SUN is alias for KLU (native SUNDIALS KLU integration)
-    if (u == "SUPERLU_MT") return SolverBackend::SUPERLU_MT;
     if (u == "SUPERLU_DIST") return SolverBackend::SUPERLU_DIST;
     return std::nullopt;
 }
@@ -55,12 +53,6 @@ void set_cli_superludist_grid(const std::string& grid) { g_cli_sld_grid = grid; 
 static bool is_backend_built(SolverBackend b) {
     switch (b) {
         case SolverBackend::KLU: return true;
-        case SolverBackend::SUPERLU_MT:
-#if defined(KIRIMASPICE_WITH_SUPERLUMT) && (KIRIMASPICE_HAVE_SUPERLUMT==1)
-            return true;
-#else
-            return false;
-#endif
         case SolverBackend::SUPERLU_DIST:
 #if defined(KIRIMASPICE_WITH_SUPERLUDIST) && (KIRIMASPICE_WITH_SUPERLUDIST)
             // 実装・検出は将来対応
@@ -76,7 +68,6 @@ static bool is_backend_built(SolverBackend b) {
 static std::string backend_to_string(SolverBackend b) {
     switch (b) {
         case SolverBackend::KLU: return "klu";
-        case SolverBackend::SUPERLU_MT: return "superlu_mt";
         case SolverBackend::SUPERLU_DIST: return "superlu_dist";
         default: return "unknown";
     }
@@ -99,7 +90,7 @@ SolverBackend choose_backend() {
         }
         // fallback chain from CLI setting
         std::vector<std::string> order = g_cli_fallback_order;
-        if (order.empty()) order = {"superlu_mt", "klu"};
+        if (order.empty()) order = {"klu"};
         for (const auto& name : order) {
             auto fb = parse_backend_string(name);
             if (fb && is_backend_built(*fb)) {
@@ -126,7 +117,7 @@ SolverBackend choose_backend() {
                 std::string item;
                 while (std::getline(ss, item, ',')) order.push_back(item);
             } else {
-                order = {"superlu_mt", "klu"};
+                order = {"klu"};
             }
             const bool env_strict = [](){
                 if (const char* sv = std::getenv("KIRIMASPICE_SOLVER_STRICT")) return std::string(sv) == "1";
@@ -168,8 +159,6 @@ std::unique_ptr<ISparseLinearSolver> make_solver(SolverBackend backend) {
         case SolverBackend::KLU:
         default:
             return std::make_unique<KluSolverAdapter>();
-        case SolverBackend::SUPERLU_MT:
-            return std::make_unique<SuperLUMTSolver>();
         case SolverBackend::SUPERLU_DIST:
             return std::make_unique<SuperLUDISTSolver>();
     }

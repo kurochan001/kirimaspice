@@ -348,7 +348,7 @@ add_executable(test_ac_csv_writer unit/test_ac_csv_writer.cpp)
 target_link_libraries(test_ac_csv_writer PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_ac_csv_writer PROPERTIES TIMEOUT 1200)
 
-# Refactorize pattern change detection (SuperLU_MT)
+# Refactorize pattern change detection (asks for SuperLU_MT, which is not built, so it runs on KLU)
 add_executable(test_solver_refactorize_pattern_change unit/test_solver_refactorize_pattern_change.cpp)
 target_link_libraries(test_solver_refactorize_pattern_change PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_solver_refactorize_pattern_change PROPERTIES TIMEOUT 1200)

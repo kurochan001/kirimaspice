@@ -79,20 +79,15 @@ static void print_usage(std::ostream& os, const char* program) {
     os << "  --wav-out <file>            Write WAV audio output (TRAN only, default: 44.1kHz 16-bit)\n";
     os << "  --wav-sample-rate <Hz>      Set WAV sample rate in Hz (default: 44100)\n";
     os << "  --wav-bits <N>              Set WAV bit depth: 8, 16, 24, or 32 (default: 16)\n";
-    os << "  --solver-backend=<name>     Choose backend: KLU (default), SUPERLU_MT, SUPERLU_DIST\n";
+    os << "  --solver-backend=<name>     Choose backend: KLU (default), SUPERLU_DIST\n";
     os << "  --solver-fallback-order=A,B Fallback order when requested backend unavailable\n";
     os << "  --strict-backend            Do not fallback; error out if unavailable\n";
-    os << "  --superlu-colperm=<name>    SuperLU column ordering: COLAMD (default), MMD_AT_PLUS_A, MMD_ATA, NATURAL\n";
-    os << "  --superlu-equil=on|off      SuperLU equilibration (scaling) toggle (default: off)\n";
     os << "  --superlu-dist-topology=<t>  SUPERLU_DIST topology hint (e.g., 2D/3D)\n";
     os << "  --superlu-dist-grid=<g>      SUPERLU_DIST grid hint (e.g., 2x2 or 2x2x1)\n\n";
     os << "Environment overrides:\n";
-    os << "  KIRIMASPICE_SOLVER_BACKEND=KLU|SUPERLU_MT|SUPERLU_DIST\n";
-    os << "  KIRIMASPICE_SOLVER_FALLBACK_ORDER=superlu_mt,klu\n";
-    os << "  KIRIMASPICE_SOLVER_STRICT=1\n";
-    os << "  KIRIMASPICE_INNER_SOLVER_THREADS=<N>   Inner threads for SuperLU_MT (best-effort)\n";
-    os << "  KIRIMASPICE_SUPERLU_COLPERM=COLAMD|MMD_AT_PLUS_A|MMD_ATA|NATURAL\n";
-    os << "  KIRIMASPICE_SUPERLU_EQUIL=on|off\n\n";
+    os << "  KIRIMASPICE_SOLVER_BACKEND=KLU|SUPERLU_DIST\n";
+    os << "  KIRIMASPICE_SOLVER_FALLBACK_ORDER=klu\n";
+    os << "  KIRIMASPICE_SOLVER_STRICT=1\n\n";
 }
 
 int main(int argc, char* argv[]) {
@@ -127,8 +122,6 @@ int main(int argc, char* argv[]) {
     std::optional<std::string> cli_backend;
     std::vector<std::string> cli_fb_order;
     bool strict_backend = false;
-    std::optional<std::string> superlu_colperm;
-    std::optional<std::string> superlu_equil;
     std::optional<std::string> sld_topology; // SUPERLU_DIST topology hint
     std::optional<std::string> sld_grid;     // SUPERLU_DIST grid hint
     for (int i = 2; i < argc; ++i) {
@@ -172,10 +165,6 @@ int main(int argc, char* argv[]) {
             }
         } else if (arg == "--strict-backend") {
             strict_backend = true;
-        } else if (arg.rfind("--superlu-colperm=", 0) == 0) {
-            superlu_colperm = arg.substr(std::string("--superlu-colperm=").size());
-        } else if (arg.rfind("--superlu-equil=", 0) == 0) {
-            superlu_equil = arg.substr(std::string("--superlu-equil=").size());
         } else if (arg.rfind("--superlu-dist-topology=", 0) == 0) {
             sld_topology = arg.substr(std::string("--superlu-dist-topology=").size());
         } else if (arg.rfind("--superlu-dist-grid=", 0) == 0) {
@@ -189,24 +178,6 @@ int main(int argc, char* argv[]) {
     solvers::set_cli_strict_backend(strict_backend);
     if (sld_topology) solvers::set_cli_superludist_topology(*sld_topology);
     if (sld_grid)     solvers::set_cli_superludist_grid(*sld_grid);
-    // Apply SuperLU-specific CLI overrides via environment (process-local)
-    if (superlu_colperm) {
-#if defined(_WIN32)
-        _putenv((std::string("KIRIMASPICE_SUPERLU_COLPERM=") + *superlu_colperm).c_str());
-#else
-        setenv("KIRIMASPICE_SUPERLU_COLPERM", superlu_colperm->c_str(), 1);
-#endif
-    }
-    if (superlu_equil) {
-        std::string normed = *superlu_equil;
-        std::transform(normed.begin(), normed.end(), normed.begin(), ::tolower);
-        const char* val = (normed == "1" || normed == "on" || normed == "yes" || normed == "true") ? "on" : "off";
-#if defined(_WIN32)
-        _putenv((std::string("KIRIMASPICE_SUPERLU_EQUIL=") + val).c_str());
-#else
-        setenv("KIRIMASPICE_SUPERLU_EQUIL", val, 1);
-#endif
-    }
 
     spdlog::info("Loading netlist: {}", netlist_file);
     if (output_file) {

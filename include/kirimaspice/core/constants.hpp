@@ -92,44 +92,21 @@ constexpr Real DEFAULT_MOSFET_CGD = 1e-12;
 // === Solver Backend Selection ===
 //
 // KIRIMASPICE_SOLVER_BACKEND
-//   Values: KLU, SUPERLU_MT, SUPERLU_DIST
+//   Values: KLU, SUPERLU_DIST
 //   Default: KLU
 //   Description: Select the linear solver backend
-//   Example: export KIRIMASPICE_SOLVER_BACKEND=SUPERLU_MT
+//   Example: export KIRIMASPICE_SOLVER_BACKEND=KLU
 //
 // KIRIMASPICE_SOLVER_FALLBACK_ORDER
-//   Values: Comma-separated list of backends (e.g., "SUPERLU_MT,KLU")
+//   Values: Comma-separated list of backends (e.g., "KLU")
 //   Default: None
 //   Description: Specify fallback order if primary backend fails
-//   Example: export KIRIMASPICE_SOLVER_FALLBACK_ORDER=SUPERLU_MT,KLU
+//   Example: export KIRIMASPICE_SOLVER_FALLBACK_ORDER=KLU
 //
 // KIRIMASPICE_SOLVER_STRICT
 //   Values: 1 (strict mode enabled), 0 or unset (disabled)
 //   Default: 0
 //   Description: If set to 1, do not fallback to other backends on failure
-//
-// === SuperLU_MT Configuration ===
-//
-// KIRIMASPICE_INNER_SOLVER_THREADS
-//   Values: Positive integer
-//   Default: 1
-//   Description: Number of threads for SuperLU_MT solver
-//   Example: export KIRIMASPICE_INNER_SOLVER_THREADS=4
-//
-// KIRIMASPICE_SUPERLU_COLPERM
-//   Values: NATURAL, MMD_ATA, MMD_AT_PLUS_A, COLAMD
-//   Default: COLAMD
-//   Description: Column permutation strategy for SuperLU_MT
-//
-// KIRIMASPICE_SUPERLU_EQUIL
-//   Values: YES, NO
-//   Default: NO
-//   Description: Enable/disable equilibration in SuperLU_MT
-//
-// KIRIMASPICE_SUPERLU_REUSE
-//   Values: on, off
-//   Default: on
-//   Description: Enable/disable factor reuse optimization
 //
 // === Debug Options ===
 //

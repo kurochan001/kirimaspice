@@ -13,11 +13,10 @@ option(ENABLE_COVERAGE "Enable coverage" OFF)
 option(SANITIZE_ADDRESS "Enable AddressSanitizer" OFF)
 
 # Solver backends (docs: role separation)
-option(KIRIMASPICE_WITH_SUPERLUMT "Build with the SuperLU_MT backend (system library)" OFF)
 option(KIRIMASPICE_WITH_SUPERLUDIST "Build with SuperLU_DIST backend" OFF)
 option(KIRIMASPICE_WITH_SUNDIALS "Build with SUNDIALS adapters" OFF)
-set(KIRIMASPICE_SOLVER "KLU" CACHE STRING "Default solver backend (KLU|SUPERLU_MT|SUPERLU_DIST|KLU_SUN)")
-set_property(CACHE KIRIMASPICE_SOLVER PROPERTY STRINGS KLU SUPERLU_MT SUPERLU_DIST KLU_SUN)
+set(KIRIMASPICE_SOLVER "KLU" CACHE STRING "Default solver backend (KLU|SUPERLU_DIST|KLU_SUN)")
+set_property(CACHE KIRIMASPICE_SOLVER PROPERTY STRINGS KLU SUPERLU_DIST KLU_SUN)
 
 # Coverage flags
 if(ENABLE_COVERAGE)
@@ -326,7 +325,6 @@ add_library(kirimaspice_lib STATIC
     # Solvers (Week 3-5)
     src/solvers/klu_solver.cpp
     src/solvers/solver_factory.cpp
-    src/solvers/superlu_mt_solver.cpp
     src/solvers/superlu_dist_solver.cpp
     src/solvers/dc_solver.cpp
     src/solvers/convergence_checker.cpp  # Step 2.1
@@ -389,14 +387,12 @@ target_link_libraries(kirimaspice_lib
         nlopt
 )
 
-## SuperLU_MT linking/defines are applied after detection block (later in file)
 
 # Backend compile definitions (visible to public headers)
 target_compile_definitions(kirimaspice_lib
     PUBLIC
         KIRIMASPICE_VERSION="${PROJECT_VERSION}"
         KIRIMASPICE_BUILD_DEFAULT_SOLVER="${KIRIMASPICE_SOLVER}"
-        KIRIMASPICE_WITH_SUPERLUMT=$<BOOL:${KIRIMASPICE_WITH_SUPERLUMT}>
         KIRIMASPICE_WITH_SUPERLUDIST=$<BOOL:${KIRIMASPICE_WITH_SUPERLUDIST}>
         KIRIMASPICE_WITH_SUNDIALS=$<BOOL:${KIRIMASPICE_WITH_SUNDIALS}>
 )
@@ -454,67 +450,6 @@ if(DOXYGEN_FOUND)
         COMMENT "Generating API documentation with Doxygen"
     )
 endif()
-#==============================================================================
-# Optional: SuperLU_MT backend (system library, off by default)
-#==============================================================================
-# SuperLU_MT is not included in this repository. When KIRIMASPICE_WITH_SUPERLUMT
-# is ON, CMake looks for an installed libsuperlu_mt_OPENMP or
-# libsuperlu_mt_PTHREAD (set SUPERLU_ROOT or CMAKE_PREFIX_PATH) and stops if
-# neither is found.
-if(KIRIMASPICE_WITH_SUPERLUMT)
-    find_package(BLAS REQUIRED)
-    find_package(LAPACK REQUIRED)
-
-    if(DEFINED ENV{SUPERLU_ROOT} AND NOT DEFINED SUPERLU_ROOT)
-        set(SUPERLU_ROOT $ENV{SUPERLU_ROOT})
-    endif()
-    find_path(SUPERLUMT_INCLUDE_DIR
-        NAMES slu_mt_ddefs.h
-        HINTS ${SUPERLU_ROOT}
-        PATH_SUFFIXES include/superlu_mt superlu_mt include
-    )
-    find_library(SUPERLUMT_LIBRARY
-        NAMES superlu_mt_OPENMP superlu_mt_PTHREAD
-        HINTS ${SUPERLU_ROOT}
-        PATH_SUFFIXES lib lib64
-    )
-    if(NOT SUPERLUMT_INCLUDE_DIR OR NOT SUPERLUMT_LIBRARY)
-        message(FATAL_ERROR
-            "KIRIMASPICE_WITH_SUPERLUMT is ON but SuperLU_MT was not found "
-            "(looked for slu_mt_ddefs.h and libsuperlu_mt_OPENMP or libsuperlu_mt_PTHREAD).\n"
-            "Set SUPERLU_ROOT or CMAKE_PREFIX_PATH to its install prefix, or turn the option off.")
-    endif()
-
-    # SuperLU_MT headers need the threading flavor the library was built with.
-    get_filename_component(_kirimaspice_slumt_name "${SUPERLUMT_LIBRARY}" NAME)
-    if(_kirimaspice_slumt_name MATCHES "_OPENMP")
-        set(_kirimaspice_slumt_threading __OPENMP)
-        if(NOT OpenMP_FOUND)
-            message(FATAL_ERROR "${_kirimaspice_slumt_name} needs OpenMP, which was not found.")
-        endif()
-    else()
-        set(_kirimaspice_slumt_threading __PTHREAD)
-        find_package(Threads REQUIRED)
-    endif()
-
-    add_library(SuperLU::MT UNKNOWN IMPORTED)
-    set_target_properties(SuperLU::MT PROPERTIES
-        IMPORTED_LOCATION "${SUPERLUMT_LIBRARY}"
-        INTERFACE_INCLUDE_DIRECTORIES "${SUPERLUMT_INCLUDE_DIR}"
-        INTERFACE_COMPILE_DEFINITIONS "${_kirimaspice_slumt_threading}"
-    )
-    message(STATUS "Found SuperLU_MT: ${SUPERLUMT_LIBRARY} (${_kirimaspice_slumt_threading})")
-
-    # PRIVATE: SuperLU_MT ships its own colamd.h, which must not shadow SuiteSparse's.
-    target_link_libraries(kirimaspice_lib PRIVATE SuperLU::MT ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
-    if(_kirimaspice_slumt_threading STREQUAL "__PTHREAD")
-        target_link_libraries(kirimaspice_lib PRIVATE Threads::Threads)
-    endif()
-    target_compile_definitions(kirimaspice_lib PUBLIC KIRIMASPICE_HAVE_SUPERLUMT=1)
-else()
-    target_compile_definitions(kirimaspice_lib PUBLIC KIRIMASPICE_HAVE_SUPERLUMT=0)
-endif()
-
 #==============================================================================
 # Optional: SuperLU_DIST detection (placeholder)
 #==============================================================================
