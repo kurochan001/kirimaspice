@@ -1596,6 +1596,13 @@ void TransientSolver::run_fixed_timestepping(TransientResult& result, DenseVecto
             IntegrationMethod method = config_.transient.method;
             if (tried_backwards) {
                 method = IntegrationMethod::BACKWARD_EULER; // conservative fallback
+            } else if (method == IntegrationMethod::TRAPEZOIDAL ||
+                       method == IntegrationMethod::TR_BDF2) {
+                // The trapezoidal rule uses the device currents of the previous
+                // point. At the first point they come only from the initial
+                // conditions (a capacitor started with UIC has current 0), so
+                // the first step is a backward-Euler step, as for BDF2 below.
+                if (history_count_ < 1) method = IntegrationMethod::BACKWARD_EULER;
             } else if (method == IntegrationMethod::GEAR2) {
                 if (history_count_ < 2) method = IntegrationMethod::BACKWARD_EULER;
             } else if (method == IntegrationMethod::GEAR3) {

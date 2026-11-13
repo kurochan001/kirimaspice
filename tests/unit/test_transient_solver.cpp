@@ -286,6 +286,32 @@ TEST(TransientSolver, TrapezoidalConvergence) {
     EXPECT_LT(v_final, 100.0);   // Should not diverge to large positive
 }
 
+// The trapezoidal rule (and TR-BDF2, which starts each step with it) is
+// second order from the first step: an RC discharge from V(out) = 1 V (UIC,
+// .IC) follows exp(-t/RC). With RC = 1 ms and a 10 us step the trapezoidal
+// error at 1 ms is about 1e-5; backward Euler's is 1.8e-3.
+TEST(TransientSolver, TrapezoidalStartIsSecondOrder) {
+    CircuitGraph circuit;
+    circuit.add_resistor("R1", "out", "0", 1000.0);
+    circuit.add_capacitor("C1", "out", "0", 1e-6);
+    const NodeId out = circuit.get_node_id("out");
+
+    for (const auto method : {IntegrationMethod::TRAPEZOIDAL, IntegrationMethod::TR_BDF2}) {
+        SCOPED_TRACE(static_cast<int>(method));
+        SimulationConfig config;
+        config.transient.use_initial_conditions = true;
+        config.ic["out"] = 1.0;
+        config.transient.method = method;
+        TransientSolver solver(circuit, config);
+
+        TransientResult result = solver.solve(0.0, 1e-3, 1e-5);
+        ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
+        const auto& last = result.timepoints.back();
+        EXPECT_NEAR(last.time, 1e-3, 1e-12);
+        EXPECT_NEAR(last.node_voltages[out - 1], std::exp(-1.0), 5e-5);
+    }
+}
+
 // Test 8: Adaptive timestep control with LTE estimation
 TEST(TransientSolver, AdaptiveTimestepControl) {
     // Enable debug logging for this test
