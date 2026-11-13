@@ -1,0 +1,16 @@
+# Tests that are known to fail. tools/local_ci.py and CI fail on any other
+# failure, and report a listed test that passes so that it can be removed.
+# Adding a test here needs the same human approval as changing an expected
+# value. One test name per line; text after # is a comment.
+
+# Need model files that are not in the repository (tests/models/2N3904.lib,
+# tests/models/1N4148.lib).
+ManufacturerModels.2N3904_EmitterFollower
+ManufacturerModels.1N4148_Rectifier
+ManufacturerModels.MultiDevice_BJT_Diode
+ManufacturerModels.ModelFilePathResolution
+ManufacturerModels.MultipleModelFiles
+BJTModelTest.SimpleCommonEmitter
+
+# Checks v_out >= 0 and gets -4.1e-25 (macOS arm64, GCC 16.2.0).
+CMOS_Inverter.DCTransferCharacteristic_HighInput
