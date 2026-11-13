@@ -20,11 +20,12 @@ kirimaspice は、開発初期のオープンソースの SPICE 回路シミュ�
 ## 現状
 
 2026-11-14 に、macOS 27.2（arm64）、GCC 16.2.0、CMake 4.4.4、SuiteSparse 7.6.1 で測った結果です。
+Homebrew の clang 23.1.4 と Apple clang 21.0.0 でも同じ結果でした。
 
 | CTest のテスト | 件数 |
 | --- | --- |
-| 登録 | 1072 |
-| 合格 | 1041 |
+| 登録 | 1073 |
+| 合格 | 1042 |
 | スキップ | 23 |
 | 失敗（`tests/known_failures.txt` に記載） | 7 |
 | 無効 | 1 |

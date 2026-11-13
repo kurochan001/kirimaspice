@@ -62,9 +62,8 @@ and SuiteSparse 7.6.1 unless an entry says otherwise.
 
 ## Platforms
 
-- Builds and tests have been run only on macOS (arm64) with GCC 16.2.0.
-  Ubuntu 24.04 with its own compilers is the target and is not confirmed
-  yet.
-- With Apple clang 21, the pinned {fmt} 9.1.0 and spdlog 1.13.0 do not
-  compile (a `consteval` error in spdlog).
+- Builds and tests have been run only on macOS (arm64): with GCC 16.2.0,
+  with Homebrew's clang 23.1.4 (libc++, OpenMP) and with Apple clang 21.0.0
+  (no OpenMP). The three give the same test results. Ubuntu 24.04 with its
+  own compilers is the target and is not confirmed yet.
 - Windows is not tested.

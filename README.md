@@ -22,12 +22,13 @@ people approve specifications, test expectations and reviews under the
 ## Status
 
 Measured on 2026-11-14 on macOS 27.2 (arm64) with GCC 16.2.0, CMake 4.4.4
-and SuiteSparse 7.6.1:
+and SuiteSparse 7.6.1; Homebrew's clang 23.1.4 and Apple clang 21.0.0 give
+the same results:
 
 | CTest tests | Count |
 | --- | --- |
-| Registered | 1072 |
-| Passed | 1041 |
+| Registered | 1073 |
+| Passed | 1042 |
 | Skipped | 23 |
 | Failed (listed in `tests/known_failures.txt`) | 7 |
 | Disabled | 1 |
