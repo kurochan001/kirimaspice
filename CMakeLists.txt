@@ -117,8 +117,12 @@ FetchContent_MakeAvailable(nlohmann_json)
 #==============================================================================
 FetchContent_Declare(
     Boost
-    GIT_REPOSITORY https://github.com/boostorg/boost.git
-    GIT_TAG 65c1319bb92fe7a9a4abd588eff5818d9c2bccf9 # boost-1.86.0
+    # Official release archive, pinned by its SHA-256 (also published next to it as
+    # boost-1.86.0-cmake.tar.xz.txt). A git clone at a commit SHA cannot be shallow
+    # and takes about 2.1 GB with submodules; the archive is 95 MB.
+    URL https://github.com/boostorg/boost/releases/download/boost-1.86.0/boost-1.86.0-cmake.tar.xz
+    URL_HASH SHA256=2c5ec5edcdff47ff55e27ed9560b0a0b94b07bd07ed9928b476150e16b0efc57
+    DOWNLOAD_EXTRACT_TIMESTAMP ON
 )
 set(BOOST_INCLUDE_LIBRARIES graph CACHE STRING "" FORCE)
 FetchContent_MakeAvailable(Boost)
