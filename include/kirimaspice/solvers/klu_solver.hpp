@@ -4,6 +4,11 @@
 #include "kirimaspice/core/matrix_types.hpp"
 #include "kirimaspice/core/types.hpp"
 
+// SuiteSparse 7.6 includes <omp.h> inside an extern "C" block, which breaks
+// OpenMP builds with GCC. Including <omp.h> first, with C++ linkage, avoids that.
+#if defined(_OPENMP)
+#include <omp.h>
+#endif
 #include <klu.h>
 // Undefine KLU's Int-related macros to avoid conflicts with fmt's template parameters
 #ifdef Int

@@ -174,70 +174,58 @@ FetchContent_MakeAvailable(nlopt)
 message(STATUS "NLopt ${nlopt_VERSION} will be built (static library)")
 
 #==============================================================================
-# Dependency: SuiteSparse (KLU + AMD)
+# Dependency: SuiteSparse KLU (system library, linked dynamically)
 #==============================================================================
-# NOTE: SuiteSparse should be pre-built using configure.sh script
-# The script builds SuiteSparse first, then passes the paths to CMake
-message(STATUS "Looking for pre-built SuiteSparse...")
+# KLU and BTF are LGPL-2.1-or-later; AMD, COLAMD and SuiteSparse_config are
+# BSD-3-Clause. They are not included in this repository. CMake looks for the
+# SuiteSparse installed on the system and links it dynamically. To use another
+# installation, add its prefix to CMAKE_PREFIX_PATH.
+set(KIRIMASPICE_KLU_MIN_VERSION 2.3.2)  # KLU in SuiteSparse 7.6.1 (Ubuntu 24.04)
 
-# Check if SuiteSparse paths are provided (from configure.sh)
-if(NOT DEFINED KLU_LIBRARY OR NOT EXISTS "${KLU_LIBRARY}")
+find_path(KLU_INCLUDE_DIR klu.h PATH_SUFFIXES suitesparse)
+find_library(KLU_LIBRARY NAMES klu)
+find_library(BTF_LIBRARY NAMES btf)
+find_library(AMD_LIBRARY NAMES amd)
+find_library(COLAMD_LIBRARY NAMES colamd)
+find_library(SUITESPARSECONFIG_LIBRARY NAMES suitesparseconfig)
+
+set(_kirimaspice_klu_missing "")
+foreach(_var KLU_INCLUDE_DIR KLU_LIBRARY BTF_LIBRARY AMD_LIBRARY COLAMD_LIBRARY SUITESPARSECONFIG_LIBRARY)
+    if(NOT ${_var})
+        list(APPEND _kirimaspice_klu_missing ${_var})
+    endif()
+endforeach()
+if(_kirimaspice_klu_missing)
     message(FATAL_ERROR
-        "SuiteSparse libraries not found!\n"
-        "Please run ./configure.sh instead of running cmake directly.\n"
-        "The configure.sh script will build SuiteSparse first, then configure the main project.")
+        "SuiteSparse (KLU) was not found: ${_kirimaspice_klu_missing}\n"
+        "Install the SuiteSparse development files first, for example:\n"
+        "  Ubuntu/Debian:     sudo apt install libsuitesparse-dev\n"
+        "  macOS (Homebrew):  brew install suite-sparse\n"
+        "or add the prefix of a SuiteSparse installation to CMAKE_PREFIX_PATH.")
 endif()
 
-# Verify all required libraries exist
-if(NOT EXISTS "${KLU_LIBRARY}")
-    message(FATAL_ERROR "KLU library not found: ${KLU_LIBRARY}")
+file(STRINGS "${KLU_INCLUDE_DIR}/klu.h" _kirimaspice_klu_version_lines
+     REGEX "^#define KLU_(MAIN|SUB|SUBSUB)_VERSION[ \t]+[0-9]+")
+foreach(_part MAIN SUB SUBSUB)
+    string(REGEX REPLACE ".*#define KLU_${_part}_VERSION[ \t]+([0-9]+).*" "\\1"
+           _kirimaspice_klu_${_part} "${_kirimaspice_klu_version_lines}")
+endforeach()
+set(KLU_VERSION "${_kirimaspice_klu_MAIN}.${_kirimaspice_klu_SUB}.${_kirimaspice_klu_SUBSUB}")
+if(KLU_VERSION VERSION_LESS KIRIMASPICE_KLU_MIN_VERSION)
+    message(FATAL_ERROR
+        "KLU ${KLU_VERSION} found in ${KLU_INCLUDE_DIR}; ${KIRIMASPICE_KLU_MIN_VERSION} or newer is required.")
 endif()
-if(NOT EXISTS "${AMD_LIBRARY}")
-    message(FATAL_ERROR "AMD library not found: ${AMD_LIBRARY}")
-endif()
-if(NOT EXISTS "${COLAMD_LIBRARY}")
-    message(FATAL_ERROR "COLAMD library not found: ${COLAMD_LIBRARY}")
-endif()
-if(NOT EXISTS "${BTF_LIBRARY}")
-    message(FATAL_ERROR "BTF library not found: ${BTF_LIBRARY}")
-endif()
-if(NOT EXISTS "${SUITESPARSECONFIG_LIBRARY}")
-    message(FATAL_ERROR "SuiteSparseConfig library not found: ${SUITESPARSECONFIG_LIBRARY}")
-endif()
+message(STATUS "Found KLU ${KLU_VERSION}: ${KLU_LIBRARY}")
 
-message(STATUS "Found KLU library: ${KLU_LIBRARY}")
-message(STATUS "Found AMD library: ${AMD_LIBRARY}")
-message(STATUS "Found COLAMD library: ${COLAMD_LIBRARY}")
-message(STATUS "Found BTF library: ${BTF_LIBRARY}")
-message(STATUS "Found SuiteSparseConfig library: ${SUITESPARSECONFIG_LIBRARY}")
-
-# Create imported targets
-add_library(SuiteSparse::KLU STATIC IMPORTED)
-add_library(SuiteSparse::AMD STATIC IMPORTED)
-add_library(SuiteSparse::COLAMD STATIC IMPORTED)
-add_library(SuiteSparse::BTF STATIC IMPORTED)
-add_library(SuiteSparse::Config STATIC IMPORTED)
-
-set_target_properties(SuiteSparse::KLU PROPERTIES
-    IMPORTED_LOCATION "${KLU_LIBRARY}"
-    INTERFACE_INCLUDE_DIRECTORIES "${KLU_INCLUDE_DIR};${AMD_INCLUDE_DIR};${COLAMD_INCLUDE_DIR};${BTF_INCLUDE_DIR};${SUITESPARSECONFIG_INCLUDE_DIR}"
-)
-set_target_properties(SuiteSparse::AMD PROPERTIES
-    IMPORTED_LOCATION "${AMD_LIBRARY}"
-    INTERFACE_INCLUDE_DIRECTORIES "${AMD_INCLUDE_DIR}"
-)
-set_target_properties(SuiteSparse::COLAMD PROPERTIES
-    IMPORTED_LOCATION "${COLAMD_LIBRARY}"
-    INTERFACE_INCLUDE_DIRECTORIES "${COLAMD_INCLUDE_DIR}"
-)
-set_target_properties(SuiteSparse::BTF PROPERTIES
-    IMPORTED_LOCATION "${BTF_LIBRARY}"
-    INTERFACE_INCLUDE_DIRECTORIES "${BTF_INCLUDE_DIR}"
-)
-set_target_properties(SuiteSparse::Config PROPERTIES
-    IMPORTED_LOCATION "${SUITESPARSECONFIG_LIBRARY}"
-    INTERFACE_INCLUDE_DIRECTORIES "${SUITESPARSECONFIG_INCLUDE_DIR}"
-)
+foreach(_pair "KLU;KLU" "AMD;AMD" "COLAMD;COLAMD" "BTF;BTF" "Config;SUITESPARSECONFIG")
+    list(GET _pair 0 _target)
+    list(GET _pair 1 _var)
+    add_library(SuiteSparse::${_target} UNKNOWN IMPORTED)
+    set_target_properties(SuiteSparse::${_target} PROPERTIES
+        IMPORTED_LOCATION "${${_var}_LIBRARY}"
+        INTERFACE_INCLUDE_DIRECTORIES "${KLU_INCLUDE_DIR}"
+    )
+endforeach()
 
 
 #==============================================================================
