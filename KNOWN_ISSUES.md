@@ -95,10 +95,12 @@ says otherwise.
 - In the library's adaptive time-step path, which the program does not
   use, a fixed `TRAPEZOIDAL` method starts without the backward-Euler step
   that the fixed-step path takes (read in the code, not run).
-- **Coupled inductors (`K`) grow without bound.** `L1` and `L2` of 1 mH with
-  `K1 L1 L2 0.9`, `L1` driven by a 1 V step through 10 Ω and `L2` loaded
-  with 1 kΩ: the voltage across the load reaches 84 V after 20 µs and is
-  still growing. The circuit is passive.
+- **Coupled inductors have no truncation-error check in adaptive steps.**
+  `Inductor::get_physical_lte` returns 0 for an inductor that is coupled
+  (the comment beside it leaves a coupled check to `MutualInductance`), and
+  it writes a line to standard output at every call. This concerns the
+  library's adaptive time-step path, which the program does not use (read
+  in the code, not run).
 
 ## Device models
 

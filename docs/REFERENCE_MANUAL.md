@@ -8,10 +8,11 @@ output files of the program `kirimaspice`. It was written on
 describes was checked by running that build (macOS 27.2, arm64, GCC 16.2.0,
 `kirimaspice v0.0.0`). Model lookup, the raw file of an operating point,
 the output of a node named `GND`, `B` sources, `NAME={expr}` parameters,
-the lossless line and the trapezoidal rule were checked again after the
-fixes in commits `6a007ab` to `aeef4fb`. Where
-an entry was read in the code but not run, it says so. For a guided first run, use the [User Manual](USER_MANUAL.md); for
-what is wrong or missing, see [KNOWN_ISSUES.md](../KNOWN_ISSUES.md).
+the lossless line, the trapezoidal rule and coupled inductors were checked
+again after the fixes in commits `6a007ab` to `6edd93a`. Where an entry
+was read in the code but not run, it says so. For a guided first run, use
+the [User Manual](USER_MANUAL.md); for what is wrong or missing, see
+[KNOWN_ISSUES.md](../KNOWN_ISSUES.md).
 
 ## Contents
 

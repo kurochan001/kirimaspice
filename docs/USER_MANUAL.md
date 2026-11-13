@@ -8,8 +8,8 @@ analyses the program offers and reading the results. It was checked on
 GCC 16.2.0; the program reported `kirimaspice v0.0.0`. Every example below
 was run with that build. Model lookup, the raw file of an operating point,
 the output of a node named `GND`, `B` sources, `NAME={expr}` parameters,
-the lossless line and the trapezoidal rule were checked again after the
-fixes in commits `6a007ab` to `aeef4fb`.
+the lossless line, the trapezoidal rule and coupled inductors were checked
+again after the fixes in commits `6a007ab` to `6edd93a`.
 
 For lookup by option, element, directive or output format, use the
 [Reference Manual](REFERENCE_MANUAL.md). For what is known to be wrong or
