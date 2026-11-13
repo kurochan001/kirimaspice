@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // src/devices/voltage_source.cpp
 #include "kirimaspice/devices/voltage_source.hpp"
 #include <spdlog/spdlog.h>

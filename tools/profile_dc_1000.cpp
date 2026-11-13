@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // Simple profiling tool to measure parallel DC solve bottleneck
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"

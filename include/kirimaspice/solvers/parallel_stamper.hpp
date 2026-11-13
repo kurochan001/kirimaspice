@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 /**
  * @file parallel_stamper.hpp
  * @brief Unified parallel device stamping for DC and Transient solvers

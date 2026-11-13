@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // Trace BJT AC stamping step-by-step
 // Goal: Identify exact source of each matrix entry
 

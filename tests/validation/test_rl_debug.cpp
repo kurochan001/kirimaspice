@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // Detailed debugging for RL circuit step response
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/solvers/transient_solver.hpp"

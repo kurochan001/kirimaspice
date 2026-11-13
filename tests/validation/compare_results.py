@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 The kirimaspice Authors
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 """
 compare_results.py - Compare ngspice and KirimaSpice simulation results
 """

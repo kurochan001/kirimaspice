@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 /**
  * @file thread_local_mna.hpp
  * @brief Thread-local MNA system manager for parallel device stamping

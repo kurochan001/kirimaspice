@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // Detailed profiling to identify parallelization bottleneck
 #include <benchmark/benchmark.h>
 #include "kirimaspice/circuit/circuit_graph.hpp"

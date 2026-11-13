@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // Test BDF2 and BDF3 methods with RC circuit
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/devices/capacitor.hpp"

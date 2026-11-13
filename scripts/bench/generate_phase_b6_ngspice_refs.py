@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 The kirimaspice Authors
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 """
 Generate ngspice reference data for Phase B.6 multi-bias point validation.
 This script creates SPICE decks for 13 bias points and runs ngspice to extract

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/unit/test_mosfet_transient.cpp
 // MOSFET Nonlinear Capacitance - Transient Analysis Tests
 // Simplified version focusing on integration tests

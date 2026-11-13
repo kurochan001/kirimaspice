@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/validation/test_trapezoidal_adaptive.cpp
 // Trapezoidal rule with adaptive timestep control - comparison with BDF2
 #include "kirimaspice/circuit/circuit_graph.hpp"

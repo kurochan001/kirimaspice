@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/unit/test_large_scale_300.cpp
 // 300 device large-scale unit tests
 

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // Debug test to check BJT current calculation
 #include "kirimaspice/devices/bjt_npn.hpp"
 #include <iostream>

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // src/devices/mosfet_bsim3.cpp
 // Unified MOSFET BSIM3v3.3 template implementation
 // Reference: BSIM3v3.3 User's Manual (UC Berkeley, 2005)

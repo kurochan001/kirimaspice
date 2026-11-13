@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 The kirimaspice Authors
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 """
 Phase B.7: Generate ngspice reference data for BSIM4 temperature dependence validation
 

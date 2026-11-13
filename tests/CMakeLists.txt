@@ -1,3 +1,6 @@
+# Copyright (c) 2026 The kirimaspice Authors
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 # Test configuration
 # Timeout: 20 minutes (1200 seconds) for long-running tests
 set(CTEST_TEST_TIMEOUT 1200)

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/unit/test_ac_csv_writer.cpp
 // Unit tests for AC CSV Writer
 #include "kirimaspice/output/ac_csv_writer.hpp"

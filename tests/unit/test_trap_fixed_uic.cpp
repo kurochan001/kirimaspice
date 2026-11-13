@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // Test Trapezoidal fixed timestep with UIC (Use Initial Conditions)
 #include <gtest/gtest.h>
 #include "kirimaspice/circuit/circuit_graph.hpp"

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // include/kirimaspice/devices/polarity.hpp
 // Polarity enum for N/P-channel device templates
 #pragma once

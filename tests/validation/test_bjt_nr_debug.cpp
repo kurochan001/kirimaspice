@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // Debug Newton-Raphson convergence for BJT circuit
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"

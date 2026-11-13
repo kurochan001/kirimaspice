@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/unit/test_lte_tolerance.cpp
 // Test physical quantity-based LTE and tolerance parameters (CHGTOL, TRTOL)
 #include "kirimaspice/circuit/circuit_graph.hpp"

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/unit/test_solver_refactorize_pattern_change.cpp
 // Ensure refactorize detects sparsity pattern change and fallback works
 

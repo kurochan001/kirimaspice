@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // include/kirimaspice/devices/bsim3_core.hpp
 // BSIM3v3.3 DC core evaluator (Ids/Vth/Vdsat)
 // This core is a first step toward a full ngspice-compatible BSIM3 implementation.

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // include/kirimaspice/devices/mosfet_level3.hpp
 // Unified MOSFET Level 3 template class
 #pragma once

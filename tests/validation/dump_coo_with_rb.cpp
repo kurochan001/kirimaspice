@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // Dump COO entries for BJT WITH base resistor
 // Compare with "without Rb" case
 

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/validation/test_integration_methods_comparison.cpp
 // Comprehensive comparison of all integration methods (fixed and adaptive)
 #include "kirimaspice/circuit/circuit_graph.hpp"

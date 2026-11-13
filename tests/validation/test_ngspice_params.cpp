@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/validation/test_ngspice_params.cpp
 // BDF2/BDF3 with ngspice-compatible parameters
 // Using TRTOL=7.0, RELTOL=1e-3, VNTOL=1e-6 equivalent settings

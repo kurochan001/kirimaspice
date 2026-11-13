@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 #include "kirimaspice/parser/netlist_parser.hpp"
 #include "kirimaspice/solvers/ac_solver.hpp"
 #include "kirimaspice/solvers/solver_factory.hpp"

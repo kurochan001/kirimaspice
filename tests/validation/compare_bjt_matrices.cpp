@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // Compare MNA matrices: BJT without Rb vs with Rb
 // Goal: Identify where sign inversion occurs
 

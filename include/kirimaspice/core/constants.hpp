@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // include/kirimaspice/core/constants.hpp
 // Common constants and configuration values for KirimaSpice
 #pragma once

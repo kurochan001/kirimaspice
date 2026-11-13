@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/unit/test_initial_timestep_control.cpp
 // Test initial timestep control improvements (Final)
 #include "kirimaspice/circuit/circuit_graph.hpp"

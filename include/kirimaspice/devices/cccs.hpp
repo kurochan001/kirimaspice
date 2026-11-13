@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // include/kirimaspice/devices/cccs.hpp
 #pragma once
 #include "kirimaspice/devices/device.hpp"

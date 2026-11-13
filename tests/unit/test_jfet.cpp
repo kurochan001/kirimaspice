@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/unit/test_jfet.cpp
 #include <gtest/gtest.h>
 #include "kirimaspice/devices/jfet.hpp"  // Step 4.1: Unified JFET template

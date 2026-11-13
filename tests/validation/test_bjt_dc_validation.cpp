@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/validation/test_bjt_dc_validation.cpp
 // BJT DC Operating Point Validation against ngspice
 // Verifies BJT Ebers-Moll model implementation accuracy

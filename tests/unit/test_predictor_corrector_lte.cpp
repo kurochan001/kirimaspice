@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/unit/test_predictor_corrector_lte.cpp
 // Unit tests for Predictor-Corrector difference-based LTE estimation
 

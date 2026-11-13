@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/unit/test_bjt_nonideal_current.cpp
 // Unit tests.4: BJT non-ideal (leakage) currents (ISE/NE/ISC/NC)
 

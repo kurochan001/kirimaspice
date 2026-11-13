@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/unit/test_rc_ac_validation.cpp
 // RC filter AC analysis validation against ngspice (Google Test version)
 

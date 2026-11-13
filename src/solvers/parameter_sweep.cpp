@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // src/solvers/parameter_sweep.cpp
 #include "kirimaspice/solvers/parameter_sweep.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"

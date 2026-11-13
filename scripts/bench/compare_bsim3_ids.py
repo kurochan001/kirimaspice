@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 The kirimaspice Authors
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 """Generate Id-Vds comparison tables for BSIM3 NMOS using KirimaSpice and ngspice.
 
 This script mirrors scripts/bench/compare_bsim1_ids.py but targets the BSIM3 model.

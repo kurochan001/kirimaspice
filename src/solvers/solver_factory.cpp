@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // src/solvers/solver_factory.cpp
 #include "kirimaspice/solvers/solver_factory.hpp"
 #include "kirimaspice/solvers/klu_solver_adapter.hpp"

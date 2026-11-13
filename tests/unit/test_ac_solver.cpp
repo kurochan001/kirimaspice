@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/unit/test_ac_solver.cpp
 // Unit tests for AC analysis solver
 #include "kirimaspice/solvers/ac_solver.hpp"

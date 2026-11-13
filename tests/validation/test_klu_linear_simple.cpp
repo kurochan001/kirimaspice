@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // Test KLU integration with simple linear circuit
 // Circuit: VCC(5V) -> R1(1k) -> node1 -> R2(1k) -> GND
 // Expected: V_node1 = 2.5V (voltage divider)

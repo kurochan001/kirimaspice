@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // include/kirimaspice/devices/mosfet_bsim3_params.hpp
 // BSIM3v3.3 MOSFET Model Parameters
 // Reference: BSIM3v3.3 User's Manual (UC Berkeley, 2005)

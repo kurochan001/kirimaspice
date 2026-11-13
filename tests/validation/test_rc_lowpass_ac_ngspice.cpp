@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/validation/test_rc_lowpass_ac_ngspice.cpp
 // RC low-pass filter AC analysis validation against ngspice
 

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception AND ECL-2.0
+
 // Parts of this file are based on the BSIM4 4.8.3 model code (b4ld.c, b4temp.c),
 // as distributed by UC Berkeley and in ngspice. That code carries this notice:
 //

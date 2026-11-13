@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // src/devices/mosfet_sic.cpp
 // Unified SiC MOSFET template implementation
 #include "kirimaspice/devices/mosfet_sic.hpp"

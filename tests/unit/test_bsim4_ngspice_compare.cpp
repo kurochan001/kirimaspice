@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/unit/test_bsim4_ngspice_compare.cpp
 // BSIM4 KirimaSpice vs ngspice comparison test
 #include <gtest/gtest.h>

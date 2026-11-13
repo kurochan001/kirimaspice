@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/unit/test_bjt.cpp
 #include <gtest/gtest.h>
 #include "kirimaspice/devices/bjt_npn.hpp"

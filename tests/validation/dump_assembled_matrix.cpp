@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // Dump fully assembled matrix (after COO aggregation)
 // Show complete matrix structure for debugging
 

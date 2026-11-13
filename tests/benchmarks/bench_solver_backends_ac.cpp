@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/benchmarks/bench_solver_backends_ac.cpp
 // AC analysis performance of the KLU backend
 

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // src/devices/capacitor.cpp
 #include "kirimaspice/devices/capacitor.hpp"
 #include <spdlog/spdlog.h>

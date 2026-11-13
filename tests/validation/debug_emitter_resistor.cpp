@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // Debug tool for emitter resistor matrix singularity issue
 // Dump DC MNA matrix to investigate column 4 singularity
 

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // src/circuit/subcircuit.cpp
 #include "kirimaspice/circuit/subcircuit.hpp"
 #include "kirimaspice/core/constants.hpp"

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/integration/test_cmos_pixel_subcircuit.cpp
 // Integration test for 3T CMOS pixel with subcircuit expansion
 

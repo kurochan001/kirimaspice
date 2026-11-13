@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/validation/test_adaptive_tuned.cpp
 // Tuned adaptive timestep control
 // Testing improved parameters: trtol=2.0, lte_abstol=1e-7, lte_reltol=1e-4

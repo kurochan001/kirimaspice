@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/unit/test_mosfet_p.cpp
 #include <gtest/gtest.h>
 #include "kirimaspice/devices/mosfet_level1.hpp"  // Step 5.1: Unified MOSFET Level 1

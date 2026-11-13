@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // Debug program to identify singular matrix column in Darlington amplifier
 // This helps diagnose why DC operating point fails to converge
 

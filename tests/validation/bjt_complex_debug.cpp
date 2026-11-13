@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // BJT AC Complex Voltage Debug
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/solvers/ac_solver.hpp"

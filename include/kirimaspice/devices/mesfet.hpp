@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // include/kirimaspice/devices/mesfet.hpp
 // Step 4.2: Unified MESFET N/P-channel template
 #pragma once

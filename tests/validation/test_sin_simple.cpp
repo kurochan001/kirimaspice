@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/validation/test_sin_simple.cpp
 // Ultra-simple test: SIN voltage source with resistor load only
 

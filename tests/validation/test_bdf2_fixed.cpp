@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/validation/test_bdf2_fixed.cpp
 // BDF2 with FIXED timestep - fair comparison with ngspice
 #include "kirimaspice/circuit/circuit_graph.hpp"

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/unit/test_rlc_damping.cpp
 // RLC circuit damping behavior test: underdamped, critically damped, overdamped
 #include "kirimaspice/circuit/circuit_graph.hpp"

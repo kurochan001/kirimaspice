@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // src/devices/bsim3_core.cpp
 // BSIM3v3.3 DC core evaluator (Ids/Vth/Vdsat)
 

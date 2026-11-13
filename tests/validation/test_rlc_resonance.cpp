@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/validation/test_rlc_resonance.cpp
 // RLC series resonance circuit validation
 // Tests oscillatory behavior and compares BDF2 vs Trapezoidal accuracy

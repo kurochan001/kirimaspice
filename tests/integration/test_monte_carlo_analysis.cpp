@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/integration/test_monte_carlo_analysis.cpp
 #include <gtest/gtest.h>
 #include "kirimaspice/analysis/monte_carlo_executor.hpp"

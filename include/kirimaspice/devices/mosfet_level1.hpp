@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // include/kirimaspice/devices/mosfet_level1.hpp
 // Unified MOSFET Level 1 (Shichman-Hodges) template class
 #pragma once

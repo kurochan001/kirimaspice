@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/unit/test_device_ac_validation.cpp
 // Nonlinear device (Diode/BJT/MOSFET) AC analysis validation against ngspice
 

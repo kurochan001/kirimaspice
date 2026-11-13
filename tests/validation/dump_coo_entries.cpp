@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // Dump ALL COO matrix entries in order (not aggregated)
 // Goal: See exact stamping sequence
 

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // BJT with base resistor phase test - check if Rb causes phase error
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/solvers/ac_solver.hpp"

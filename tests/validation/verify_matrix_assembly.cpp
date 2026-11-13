@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // Verify matrix assembly and conversion process
 // Check if duplicate COO entries are properly aggregated
 

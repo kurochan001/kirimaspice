@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/unit/test_mosfet_level3.cpp
 #include <gtest/gtest.h>
 #include "kirimaspice/devices/mosfet_level3.hpp"  // Step 5.4: Unified template

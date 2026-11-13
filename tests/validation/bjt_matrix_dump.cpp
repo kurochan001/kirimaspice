@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // BJT AC MNA Matrix Dump
 // Outputs the complex admittance matrix Y and RHS vector I for comparison with ngspice
 

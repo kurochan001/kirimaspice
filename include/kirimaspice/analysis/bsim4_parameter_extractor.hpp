@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // include/kirimaspice/analysis/bsim4_parameter_extractor.hpp
 // BSIM4 Parameter Extraction Engine
 // Extracts BSIM4 model parameters from measurement data

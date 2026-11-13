@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/validation/test_adaptive_physical.cpp
 // Physical quantity-based error estimation
 // Testing charge (Q) and flux (Φ) based adaptive timestep control

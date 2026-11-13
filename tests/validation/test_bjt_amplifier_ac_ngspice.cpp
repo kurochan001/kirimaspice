@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/validation/test_bjt_amplifier_ac_ngspice.cpp
 // BJT common-emitter amplifier AC analysis validation against ngspice
 

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/validation/test_rlc_uic.cpp
 // RLC series circuit with UIC (Use Initial Conditions)
 // Observes underdamped oscillation in step response

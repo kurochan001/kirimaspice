@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/validation/ngspice_dc_utils.hpp
 // Common utilities for DC analysis validation against ngspice
 

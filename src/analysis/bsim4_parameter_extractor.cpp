@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // src/analysis/bsim4_parameter_extractor.cpp
 #include "kirimaspice/analysis/bsim4_parameter_extractor.hpp"
 #include "kirimaspice/devices/mosfet_bsim4.hpp"  // Step 5.7: Unified BSIM4 template

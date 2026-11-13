@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // src/devices/tline_lossy.cpp
 #include "kirimaspice/devices/tline_lossy.hpp"
 #include <cmath>

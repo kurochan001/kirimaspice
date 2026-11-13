@@ -1,3 +1,6 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
 // tests/validation/test_bdf_adaptive.cpp
 // BDF2/BDF3 with adaptive timestep control - comparison with ngspice
 #include "kirimaspice/circuit/circuit_graph.hpp"
