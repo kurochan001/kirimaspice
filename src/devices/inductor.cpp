@@ -444,14 +444,10 @@ void Inductor::accept_solution(const DenseVector& node_voltages) {
 }
 
 Real Inductor::get_physical_lte(Real chgtol, const DenseVector& node_voltages) const {
-    // If coupled, local flux calculation (L*I) is invalid because Φ = L1*I1 + M*I2.
-    // We disable LTE check for coupled inductors to prevent erroneous timestep shrinkage.
-    // TODO: Implement proper LTE check in MutualInductance.
+    // A coupled inductor's flux is L*I + M*I_other, not L*I; MutualInductance
+    // estimates the error of both coupled fluxes.
     if (is_coupled_) {
-        std::cout << "Inductor " << name_ << " is coupled, skipping LTE check." << std::endl;
         return 0.0;
-    } else {
-        std::cout << "Inductor " << name_ << " is NOT coupled, checking LTE." << std::endl;
     }
 
     // Physical quantity-based error estimation
@@ -511,22 +507,11 @@ Real Inductor::get_physical_lte(Real chgtol, const DenseVector& node_voltages) c
     // Corrector: Φ_corr = L * I_new (actual computed result from new solution)
     Real Phi_corr = inductance_ * current_new;
 
-    // Error: ΔΦ = |Φ_corr - Φ_pred|
-    Real Phi_error = std::abs(Phi_corr - Phi_pred);
+    // Normalized error of the flux (flux_lte, shared with MutualInductance)
+    Real lte = flux_lte(Phi_pred, Phi_corr, chgtol);
 
-    // Final: ngspice-compatible scaling (SPICE3f5 heritage)
-    // Use additive scaling: max(|Φ|) + trtol
-    // This provides smooth transition between absolute (small Φ) and relative (large Φ) error control
-    // Note: For inductors, we use chgtol/1sec as flux tolerance (Weber = V·s = A·s²/V)
-    // Reference: ngspice src/spicelib/analysis/cktdump.c, Berkeley SPICE3f5
-    Real chgtol_per_sec = chgtol / 1.0;  // Convert charge tolerance to flux tolerance
-    Real Phi_scale = std::max(std::abs(Phi_corr), std::abs(Phi_pred)) + chgtol_per_sec;
-
-    // Normalized error: LTE = ΔΦ / Phi_scale
-    Real lte = Phi_error / Phi_scale;
-
-    spdlog::trace("{} physical_lte: V_new={:.6e}, I_new={:.6e}, Φ_prev={:.6e}, Φ_pred={:.6e}, Φ_corr={:.6e}, ΔΦ={:.6e}, Φ_scale={:.6e}, LTE={:.6e}",
-                 name_, voltage_new, current_new, flux_prev_, Phi_pred, Phi_corr, Phi_error, Phi_scale, lte);
+    spdlog::trace("{} physical_lte: V_new={:.6e}, I_new={:.6e}, Φ_prev={:.6e}, Φ_pred={:.6e}, Φ_corr={:.6e}, LTE={:.6e}",
+                 name_, voltage_new, current_new, flux_prev_, Phi_pred, Phi_corr, lte);
 
     return lte;
 }

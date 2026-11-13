@@ -295,6 +295,49 @@ void MutualInductance::stamp_transient(MNASystem& mna,
 
     stamp_hist(np1_idx, nn1_idx, delta_i1);
     stamp_hist(np2_idx, nn2_idx, delta_i2);
+
+    // Keep the coupled companion model of this step for get_physical_lte
+    stamped_ = true;
+    stamped_g11_ = g11_target;
+    stamped_g12_ = g12;
+    stamped_g22_ = g22_target;
+    stamped_i1_ = i1_target;
+    stamped_i2_ = i2_target;
+    stamped_dt_ = (method == IntegrationMethod::TR_BDF2 && tr_bdf2_coef) ? tr_bdf2_coef->full_dt
+                                                                         : timestep;
+}
+
+Real MutualInductance::get_physical_lte(Real chgtol, const DenseVector& node_voltages) const {
+    auto* ind1 = dynamic_cast<const Inductor*>(L1_);
+    auto* ind2 = dynamic_cast<const Inductor*>(L2_);
+    if (!ind1 || !ind2 || !stamped_ || stamped_dt_ <= 0.0) {
+        return 0.0;
+    }
+
+    // node_voltages is indexed by node id (index 0 = ground)
+    auto node_v = [&](NodeId n) { return (n == NODE_GND) ? 0.0 : node_voltages[n]; };
+    const Real v1 = node_v(ind1->np()) - node_v(ind1->nn());
+    const Real v2 = node_v(ind2->np()) - node_v(ind2->nn());
+
+    // Currents of the new solution from the coupled companion model
+    const Real i1 = stamped_g11_ * v1 + stamped_g12_ * v2 + stamped_i1_;
+    const Real i2 = stamped_g12_ * v1 + stamped_g22_ * v2 + stamped_i2_;
+
+    const Real L1 = ind1->inductance();
+    const Real L2 = ind2->inductance();
+    const Real M = k_ * std::sqrt(L1 * L2);
+
+    // dΦ/dt = V: predict each flux from the previous point (the inductors
+    // still hold I_n and V_n until the step is accepted)
+    const Real i1_n = ind1->current_prev();
+    const Real i2_n = ind2->current_prev();
+    const Real phi1_pred = L1 * i1_n + M * i2_n + stamped_dt_ * ind1->voltage_prev();
+    const Real phi2_pred = M * i1_n + L2 * i2_n + stamped_dt_ * ind2->voltage_prev();
+    const Real phi1_corr = L1 * i1 + M * i2;
+    const Real phi2_corr = M * i1 + L2 * i2;
+
+    return std::max(Inductor::flux_lte(phi1_pred, phi1_corr, chgtol),
+                    Inductor::flux_lte(phi2_pred, phi2_corr, chgtol));
 }
 
 // After each accepted timestep, recompute coupled inductor currents to keep history

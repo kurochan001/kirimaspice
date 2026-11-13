@@ -729,3 +729,93 @@ TEST(MutualInductanceTransient, CoupledStepMatchesExactSolution) {
         }
     }
 }
+
+// With adaptive steps the coupled circuit above still follows its exact
+// solution: the truncation error of the coupled fluxes limits the step.
+TEST(MutualInductanceTransient, AdaptiveCoupledStepMatchesExactSolution) {
+    const std::string netlist =
+        "Coupled inductors step, adaptive\n"
+        "V1 in 0 DC 0 PULSE(0 1 0 1p 1p 1 2)\n"
+        "R1 in a 10\n"
+        "L1 a 0 1m\n"
+        "L2 b 0 1m\n"
+        "K1 L1 L2 0.9\n"
+        "R2 b 0 1k\n"
+        ".END\n";
+    for (const auto method : {IntegrationMethod::GEAR2, IntegrationMethod::TRAPEZOIDAL}) {
+        SCOPED_TRACE(static_cast<int>(method));
+        NetlistParser parser;
+        auto parsed = parser.parse_string(netlist);
+        SimulationConfig cfg = parsed.config;
+        cfg.transient.use_adaptive_timestep = true;
+        cfg.transient.method = method;
+        cfg.transient.adaptive_order = false;
+        cfg.transient.initial_step = 1e-9;
+        cfg.transient.max_step = 1e-6;
+        cfg.transient.min_step = 1e-15;
+        TransientSolver solver(*parsed.circuit, cfg);
+        auto result = solver.solve(0.0, 100e-6, 1e-9);
+        ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
+
+        const NodeId b = parsed.circuit->get_node_id("b");
+        Real max_err = 0.0;
+        for (const auto& tp : result.timepoints) {
+            if (tp.time < 1e-6) continue;  // the fast mode (0.19 us) is not resolved by design
+            max_err = std::max(max_err, std::abs(tp.node_voltages[b - 1] -
+                                                 coupled_step_vb(10.0, 1000.0, 1e-3, 1e-3, 0.9, tp.time)));
+        }
+        std::cout << "[AdaptiveCoupled] method=" << static_cast<int>(method) << " points="
+                  << result.timepoints.size() << " max_err=" << max_err << std::endl;
+        EXPECT_LT(max_err, 1e-2);
+    }
+}
+
+// The truncation error of coupled inductors is that of their fluxes
+// Phi1 = L1*I1 + M*I2 and Phi2 = M*I1 + L2*I2, with dPhi/dt = V. Two backward
+// Euler steps from rest with V = (1, 2) and then V = (1.5, 2): the fluxes after
+// the first step are dt*V, the flux predicted for the second step is
+// dt*(V_old + V_old) and the new one dt*(V_old + V_new). So the error of Phi1
+// is dt*0.5 against a scale of dt*2.5, an LTE of 0.2, and Phi2 has none.
+TEST(MutualInductanceTransient, PhysicalLteIsTheErrorOfTheCoupledFluxes) {
+    NetlistParser parser;
+    auto parsed = parser.parse_string(R"(
+Coupled inductors across two nodes
+L1 a 0 1m
+L2 b 0 1m
+K1 L1 L2 0.9
+.END
+)");
+    auto& circuit = *parsed.circuit;
+    auto l1 = circuit.get_device("L1");
+    auto l2 = circuit.get_device("L2");
+    auto k1 = circuit.get_device("K1");
+    ASSERT_TRUE(l1 && l2 && k1);
+    const NodeId a = circuit.get_node_id("a");
+    const NodeId b = circuit.get_node_id("b");
+
+    const Real dt = 1e-6;
+    auto step = [&](Real va, Real vb, bool accept) {
+        DenseVector v(3, 0.0);  // indexed by node id, 0 = ground
+        v[a] = va;
+        v[b] = vb;
+        MNASystem mna;
+        mna.resize(2, 0);
+        mna.zero();
+        for (const auto& dev : {l1, l2, k1}) {
+            dev->stamp_transient(mna, v, dt, IntegrationMethod::BACKWARD_EULER, nullptr, nullptr);
+        }
+        if (accept) {
+            for (const auto& dev : {l1, l2, k1}) {  // mutual inductance last
+                dev->accept_solution(v);
+            }
+        }
+        return v;
+    };
+
+    step(1.0, 2.0, true);
+    const DenseVector v2 = step(1.5, 2.0, false);
+    const Real chgtol = 1e-14;
+    EXPECT_NEAR(k1->get_physical_lte(chgtol, v2), 0.5 / (2.5 + chgtol / dt), 1e-9);
+    // A coupled inductor leaves its error to the mutual inductance
+    EXPECT_EQ(l1->get_physical_lte(chgtol, v2), 0.0);
+}

@@ -3,6 +3,8 @@
 
 // include/kirimaspice/devices/inductor.hpp
 #pragma once
+#include <algorithm>
+#include <cmath>
 #include "kirimaspice/devices/device.hpp"
 
 namespace kirimaspice::devices {
@@ -85,6 +87,16 @@ public:
 
     // Physical quantity-based error estimation
     Real get_physical_lte(Real chgtol, const DenseVector& node_voltages) const override;
+
+    /// Normalized local truncation error of a flux: the difference between
+    /// the flux predicted from the previous point and the flux of the new
+    /// solution, relative to the larger of the two plus chgtol (per second).
+    /// Inductor and MutualInductance both use it.
+    static Real flux_lte(Real phi_pred, Real phi_corr, Real chgtol) {
+        const Real phi_error = std::abs(phi_corr - phi_pred);
+        const Real phi_scale = std::max(std::abs(phi_corr), std::abs(phi_pred)) + chgtol / 1.0;
+        return phi_error / phi_scale;
+    }
 
     // Accessors
     Real inductance() const { return inductance_; }
