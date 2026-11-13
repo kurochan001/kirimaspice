@@ -43,6 +43,9 @@ and SuiteSparse 7.6.1 unless an entry says otherwise.
   the comment beside it says it was changed from 1.0e-19 to follow a
   0.18 µm process model card. Whether this matches the default in the BSIM4
   manual is not confirmed.
+- **JFET cannot be used from a netlist.** The library has a JFET model
+  (`include/kirimaspice/devices/jfet.hpp`), but the parser has no `J`
+  element.
 
 ## Solvers
 
