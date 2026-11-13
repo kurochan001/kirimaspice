@@ -42,3 +42,23 @@ TEST(UnitsParse, MixedCaseAndFollowedUnits) {
     // Very small prefix to exercise precision warning path (no throw expected)
     EXPECT_NEAR(parse_value_with_unit("1fA"), 1e-15, 1e-21);
 }
+
+// NETLIST_CONVENTIONS rule 1: the scale factors of ngspice, in any case.
+TEST(UnitsParse, ScaleFactorsFollowNgspice) {
+    EXPECT_NEAR(parse_value_with_unit("1T"), 1e12, 1e-3);
+    EXPECT_NEAR(parse_value_with_unit("1g"), 1e9, 1e-6);
+    EXPECT_NEAR(parse_value_with_unit("1meg"), 1e6, 1e-9);
+    EXPECT_NEAR(parse_value_with_unit("1K"), 1e3, 1e-12);
+    EXPECT_NEAR(parse_value_with_unit("1M"), 1e-3, 1e-18);
+    EXPECT_NEAR(parse_value_with_unit("1m"), 1e-3, 1e-18);
+    EXPECT_NEAR(parse_value_with_unit("2MIL"), 2 * 25.4e-6, 1e-18);
+    EXPECT_NEAR(parse_value_with_unit("2mil"), 2 * 25.4e-6, 1e-18);
+    EXPECT_NEAR(parse_value_with_unit("1u"), 1e-6, 1e-21);
+    EXPECT_NEAR(parse_value_with_unit("1N"), 1e-9, 1e-24);
+    EXPECT_NEAR(parse_value_with_unit("1p"), 1e-12, 1e-27);
+    EXPECT_NEAR(parse_value_with_unit("1F"), 1e-15, 1e-30);
+    EXPECT_NEAR(parse_value_with_unit("3a"), 3e-18, 1e-33);
+    // Letters that are not a scale factor are ignored
+    EXPECT_NEAR(parse_value_with_unit("10Ohm"), 10.0, 1e-12);
+    EXPECT_NEAR(parse_value_with_unit("5V"), 5.0, 1e-12);
+}

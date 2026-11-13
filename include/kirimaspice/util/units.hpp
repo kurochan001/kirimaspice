@@ -21,9 +21,13 @@ namespace kirimaspice::util {
 // Warn if the exponent span exceeds this (e.g., femto to tera = 27 orders of magnitude)
 constexpr int PRECISION_WARNING_EXPONENT_SPAN = 14;
 
-// Parse a numeric value with an optional SPICE-style SI prefix.
-// - Recognizes MEG (1e6) and single-letter prefixes: T,G,K,M,U,N,P,F (milli/micro/nano/pico/femto)
-// - Ignores trailing physical units (A/Hz/Ohm...) so "10mA" -> 0.01, "1kHz" -> 1000
+// Parse a numeric value with an optional scale factor
+// (docs/spec/NETLIST_CONVENTIONS.md, rule 1, as in ngspice):
+// - Scale factors, in any case: T 1e12, G 1e9, MEG 1e6, K 1e3, MIL 25.4e-6,
+//   M 1e-3, U 1e-6, N 1e-9, P 1e-12, F 1e-15, A 1e-18. M is milli whatever
+//   its case; mega is MEG.
+// - Letters after the number that are not a scale factor, and letters after a
+//   scale factor, are ignored: "10mA" -> 0.01, "1kHz" -> 1000, "10MHz" -> 0.01.
 // - Handles scientific notation (1e-3) and leading +/-, trims surrounding whitespace.
 inline Real parse_value_with_unit(std::string_view str) {
     // Trim whitespace
@@ -89,39 +93,25 @@ inline Real parse_value_with_unit(std::string_view str) {
     Real scale_factor = 1.0;  // Track scale for precision warning
 
     if (!suffix_part.empty()) {
-        // Preserve original first character to disambiguate M(mega) vs m(milli)
-        const char prefix_raw = suffix_part.front();
-
-        // Upper-case for uniform handling of the rest
         std::transform(suffix_part.begin(), suffix_part.end(), suffix_part.begin(),
                        [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
 
-        // MEG special-case (SPICE convention: mega = 1e6)
-        // Also handle MHZ/MOHM etc where uppercase M precedes a unit symbol → mega
-        if (suffix_part.rfind("MEG", 0) == 0 ||
-            (suffix_part.size() >= 2 && prefix_raw == 'M' &&
-             (suffix_part[1] == 'H' || suffix_part[1] == 'O' || suffix_part[1] == 'V' ||
-              suffix_part[1] == 'W' || suffix_part[1] == 'S' || suffix_part[1] == 'F'))) {
+        if (suffix_part.rfind("MEG", 0) == 0) {
             scale_factor = 1e6;
+        } else if (suffix_part.rfind("MIL", 0) == 0) {
+            scale_factor = 25.4e-6;
         } else {
-            // Use raw prefix (case-sensitive) to decide milli vs mega
-            char p_raw = prefix_raw;
-            if (p_raw == 'm') {
-                scale_factor = 1e-3; // milli regardless of following unit (e.g., mOhm)
-            } else {
-                // Fall back to upper-case prefix handling
-                char p = suffix_part.front();
-                switch (p) {
-                    case 'T': scale_factor = 1e12; break;   // tera
-                    case 'G': scale_factor = 1e9;  break;   // giga
-                    case 'K': scale_factor = 1e3;  break;   // kilo
-                    case 'M': scale_factor = 1e6;  break;   // mega (uppercase M only)
-                    case 'U': scale_factor = 1e-6; break;   // micro
-                    case 'N': scale_factor = 1e-9; break;   // nano
-                    case 'P': scale_factor = 1e-12; break;  // pico
-                    case 'F': scale_factor = 1e-15; break;  // femto
-                    default: break; // Unrecognized prefix → no scaling
-                }
+            switch (suffix_part.front()) {
+                case 'T': scale_factor = 1e12; break;   // tera
+                case 'G': scale_factor = 1e9;  break;   // giga
+                case 'K': scale_factor = 1e3;  break;   // kilo
+                case 'M': scale_factor = 1e-3; break;   // milli
+                case 'U': scale_factor = 1e-6; break;   // micro
+                case 'N': scale_factor = 1e-9; break;   // nano
+                case 'P': scale_factor = 1e-12; break;  // pico
+                case 'F': scale_factor = 1e-15; break;  // femto
+                case 'A': scale_factor = 1e-18; break;  // atto
+                default: break;  // not a scale factor: ignored
             }
         }
         value *= scale_factor;
