@@ -177,7 +177,9 @@ public:
      * @brief Reset manager state (forces reallocation on next prepare())
      */
     void reset() {
+#ifdef _OPENMP
         local_systems_.clear();
+#endif
         initialized_ = false;
     }
 
