@@ -174,7 +174,7 @@ void SSFWriter::init_dc_metadata(const std::vector<std::string>& node_names,
     metadata_["file.format"] = "SSF";
     metadata_["file.version"] = "4.3";
     metadata_["file.analysis"] = "OP";  // Operating point (DC)
-    metadata_["file.generator"] = "kirimaspice v0.1.0";
+    metadata_["file.generator"] = "kirimaspice v" KIRIMASPICE_VERSION;
 
     // Timestamp (ISO 8601)
     auto now = std::chrono::system_clock::now();
@@ -281,7 +281,7 @@ void SSFWriter::init_transient_metadata(const solvers::TransientResult& result,
     metadata_["file.format"] = "SSF";
     metadata_["file.version"] = "4.3";
     metadata_["file.analysis"] = "TRAN";
-    metadata_["file.generator"] = "kirimaspice v0.1.0";
+    metadata_["file.generator"] = "kirimaspice v" KIRIMASPICE_VERSION;
 
     // Timestamp (ISO 8601)
     auto now = std::chrono::system_clock::now();

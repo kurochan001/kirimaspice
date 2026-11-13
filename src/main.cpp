@@ -111,7 +111,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    spdlog::info("kirimaspice v0.31.1 - SPICE circuit simulator");
+    spdlog::info("kirimaspice v{} - SPICE circuit simulator", KIRIMASPICE_VERSION);
 
     std::string netlist_file = argv[1];
     std::optional<std::string> output_file;

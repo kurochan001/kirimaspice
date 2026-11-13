@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(kirimaspice VERSION 0.31.1 LANGUAGES CXX C)
+project(kirimaspice VERSION 0.0.0 LANGUAGES CXX C)
 
 # C++20 standard required
 set(CMAKE_CXX_STANDARD 20)
@@ -390,6 +390,7 @@ target_link_libraries(kirimaspice_lib
 # Backend compile definitions (visible to public headers)
 target_compile_definitions(kirimaspice_lib
     PUBLIC
+        KIRIMASPICE_VERSION="${PROJECT_VERSION}"
         KIRIMASPICE_BUILD_DEFAULT_SOLVER="${KIRIMASPICE_SOLVER}"
         KIRIMASPICE_WITH_SUPERLUMT=$<BOOL:${KIRIMASPICE_WITH_SUPERLUMT}>
         KIRIMASPICE_WITH_SUPERLUDIST=$<BOOL:${KIRIMASPICE_WITH_SUPERLUDIST}>
