@@ -1151,6 +1151,13 @@ target_link_libraries(test_triac PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_triac PROPERTIES TIMEOUT 1200)
 
 #==============================================================================
+# SPICE3 Raw File Writer Tests
+#==============================================================================
+add_executable(test_raw_writer unit/test_raw_writer.cpp)
+target_link_libraries(test_raw_writer PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_raw_writer PROPERTIES TIMEOUT 1200)
+
+#==============================================================================
 # Large Scale Circuit Tests (100-3000 devices)
 #==============================================================================
 # 100 device tests

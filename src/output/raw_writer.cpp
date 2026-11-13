@@ -140,7 +140,13 @@ void RawWriter::write_dc(const std::vector<std::string>& node_names,
     write_header(out, "DC Operating Point", "real", variables.size(), 1);
     write_variables(out, variables);
     out << "Values:\n";
-    write_values_block(out, 0, 0.0, values);
+    // A point holds one value per variable, the first on the line with the
+    // point index. The operating point has no scale variable, so that first
+    // value is the first variable's.
+    if (!values.empty()) {
+        const std::vector<Real> rest(values.begin() + 1, values.end());
+        write_values_block(out, 0, values.front(), rest);
+    }
     out << "\n";
 }
 
