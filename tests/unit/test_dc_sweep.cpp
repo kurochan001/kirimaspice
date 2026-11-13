@@ -477,11 +477,12 @@ TEST_F(DCSweepTest, TwoDimensionalSweep_BasicStructure) {
             << "Point " << i << " should converge";
     }
 
-    // Verify grid structure (primary varies slower than nested)
+    // Verify grid structure: the first source (V1) is swept for each value of
+    // the second (V2), as in ngspice (NETLIST_CONVENTIONS rule 4)
     // V1 values: 0, 1, 2 (3 values)
     // V2 values: 0, 0.5, 1 (3 values)
-    std::vector<Real> expected_v1 = {0, 0, 0, 1, 1, 1, 2, 2, 2};
-    std::vector<Real> expected_v2 = {0, 0.5, 1, 0, 0.5, 1, 0, 0.5, 1};
+    std::vector<Real> expected_v1 = {0, 1, 2, 0, 1, 2, 0, 1, 2};
+    std::vector<Real> expected_v2 = {0, 0, 0, 0.5, 0.5, 0.5, 1, 1, 1};
 
     for (size_t i = 0; i < result.points.size(); ++i) {
         EXPECT_NEAR(result.points[i].sweep_value, expected_v1[i], 1e-9)
