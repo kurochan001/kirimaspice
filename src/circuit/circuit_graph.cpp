@@ -272,6 +272,39 @@ void CircuitGraph::add_current_source(const std::string& name,
                  name, np, nn, dc_value, ac_magnitude, ac_phase);
 }
 
+// Rewrite each V(node) of a B source expression as the variable V_node,
+// with V in either case, and list the nodes it names. This is the only place
+// that reads node references in B expressions.
+static std::string rewrite_node_voltages(const std::string& expression,
+                                         std::vector<std::string>& nodes) {
+    std::string out;
+    out.reserve(expression.size());
+    std::size_t i = 0;
+    while (i < expression.size()) {
+        const char c = expression[i];
+        const bool starts_name = i == 0 ||
+            !(std::isalnum(static_cast<unsigned char>(expression[i - 1])) || expression[i - 1] == '_');
+        if ((c == 'V' || c == 'v') && starts_name && i + 1 < expression.size() &&
+            expression[i + 1] == '(') {
+            const std::size_t close = expression.find(')', i + 2);
+            if (close != std::string::npos) {
+                std::string node = expression.substr(i + 2, close - i - 2);
+                node.erase(0, node.find_first_not_of(" \t"));
+                node.erase(node.find_last_not_of(" \t") + 1);
+                if (!node.empty()) {
+                    nodes.push_back(node);
+                    out += "V_" + node;
+                    i = close + 1;
+                    continue;
+                }
+            }
+        }
+        out += c;
+        ++i;
+    }
+    return out;
+}
+
 void CircuitGraph::add_behavioral_source(const std::string& name,
                                          const std::string& np,
                                          const std::string& nn,
@@ -282,32 +315,31 @@ void CircuitGraph::add_behavioral_source(const std::string& name,
 
     DeviceId id = next_device_id_++;
 
-    // Parse expression to find referenced nodes in V(...) syntax
     std::vector<std::string> referenced_nodes;
+    const std::string processed_expr = rewrite_node_voltages(expression, referenced_nodes);
+
+    // Compile the expression once now, so that one that cannot be compiled is
+    // an error in the netlist rather than a source of 0 at every evaluation.
     {
-        // Simple regex-like parsing for V(node_name)
-        std::string expr_upper = expression;
-        std::transform(expr_upper.begin(), expr_upper.end(), expr_upper.begin(), ::toupper);
-
-        size_t pos = 0;
-        while ((pos = expr_upper.find("V(", pos)) != std::string::npos) {
-            size_t close = expression.find(')', pos + 2);
-            if (close != std::string::npos) {
-                std::string node_name = expression.substr(pos + 2, close - pos - 2);
-                // Trim whitespace
-                node_name.erase(0, node_name.find_first_not_of(" \t"));
-                node_name.erase(node_name.find_last_not_of(" \t") + 1);
-
-                if (!node_name.empty()) {
-                    referenced_nodes.push_back(node_name);
-                }
-            }
-            pos += 2;
+        exprtk::symbol_table<Real> symbol_table;
+        Real time = 0.0;
+        symbol_table.add_variable("TIME", time);
+        symbol_table.add_constants();
+        std::vector<Real> voltages(referenced_nodes.size(), 0.0);
+        for (std::size_t i = 0; i < referenced_nodes.size(); ++i) {
+            symbol_table.add_variable("V_" + referenced_nodes[i], voltages[i]);
+        }
+        exprtk::expression<Real> expr;
+        expr.register_symbol_table(symbol_table);
+        exprtk::parser<Real> parser;
+        if (!parser.compile(processed_expr, expr)) {
+            throw std::runtime_error(fmt::format(
+                "cannot compile the expression '{}': {}", expression, parser.error()));
         }
     }
 
     // Create evaluator with V(node) support
-    auto evaluator = [this, expression, name, referenced_nodes](Real time, const DenseVector& node_voltages) -> Real {
+    auto evaluator = [this, processed_expr, name, referenced_nodes](Real time, const DenseVector& node_voltages) -> Real {
         // Create symbol table with TIME variable
         exprtk::symbol_table<Real> symbol_table;
         symbol_table.add_variable("TIME", const_cast<Real&>(time));
@@ -346,24 +378,6 @@ void CircuitGraph::add_behavioral_source(const std::string& name,
             // Register as V_<node_name> variable (e.g., V_in, V_out)
             std::string var_name = "V_" + node_name;
             symbol_table.add_variable(var_name, node_voltage_values[i]);
-        }
-
-        // Preprocess expression: replace V(node) with V_node
-        std::string processed_expr = expression;
-        size_t pos = 0;
-        while ((pos = processed_expr.find("V(", pos)) != std::string::npos) {
-            size_t close = processed_expr.find(')', pos + 2);
-            if (close != std::string::npos) {
-                std::string node_name = processed_expr.substr(pos + 2, close - pos - 2);
-                node_name.erase(0, node_name.find_first_not_of(" \t"));
-                node_name.erase(node_name.find_last_not_of(" \t") + 1);
-
-                std::string replacement = "V_" + node_name;
-                processed_expr.replace(pos, close - pos + 1, replacement);
-                pos += replacement.length();
-            } else {
-                pos += 2;
-            }
         }
 
         // TODO +: Add I(source) support (requires accessing branch currents during evaluation)

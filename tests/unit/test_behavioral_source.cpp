@@ -109,3 +109,44 @@ TEST(BehavioralSource, VoltageModeInTransient) {
     const NodeId out = result.circuit->get_node_id("out");
     EXPECT_NEAR(tran.timepoints.back().node_voltages[out - 1], 2.0, 1e-9);
 }
+
+// v(node) in lower case names a node voltage too: B1 0 out I={0.001*v(in)}
+// with V(in) = 1 V drives 1 mA into 1 kOhm, so V(out) = 1 V.
+TEST(BehavioralSource, LowerCaseNodeVoltage) {
+    kirimaspice::parser::NetlistParser parser;
+    auto result = parser.parse_string(R"(
+Lower-case v()
+V1 in 0 DC 1
+R1 in 0 1k
+B1 0 out I={0.001*v(in)}
+R2 out 0 1k
+.end
+)");
+    ASSERT_NE(result.circuit, nullptr);
+
+    kirimaspice::solvers::DCSolver solver(*result.circuit, result.config);
+    DenseVector solution;
+    kirimaspice::SolverStats stats;
+    ASSERT_EQ(solver.solve(solution, stats), kirimaspice::ConvergenceStatus::SUCCESS);
+    const NodeId out = result.circuit->get_node_id("out");
+    EXPECT_NEAR(solution[out - 1], 1.0, 1e-9);
+}
+
+// An expression that cannot be compiled is an error in the netlist, given
+// at the B line, not a source of 0.
+TEST(BehavioralSource, ExpressionThatDoesNotCompileIsAParseError) {
+    kirimaspice::parser::NetlistParser parser;
+    try {
+        parser.parse_string(R"(
+Scale suffix inside an expression
+V1 in 0 DC 1
+R1 in 0 1k
+B1 0 out I={1m*V(in)}
+R2 out 0 1k
+.end
+)");
+        FAIL() << "expected a ParseError";
+    } catch (const kirimaspice::parser::ParseError& e) {
+        EXPECT_EQ(e.line(), 4u);
+    }
+}
