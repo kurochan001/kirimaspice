@@ -155,13 +155,17 @@ TEST(LargeScale1000, DC_ResistorMesh_1000Devices) {
     // Verify voltage gradient in resistor mesh (voltage decreases from top-left to bottom-right)
     auto node_id_topleft = circuit.get_node_id("n_0_0");
     auto node_id_bottomright = circuit.get_node_id("n_21_21");
-    auto v_topleft = solution[node_id_topleft];
-    auto v_bottomright = solution[node_id_bottomright];
-    // Note: In a resistor mesh, the voltage at the source node is affected by the mesh topology
-    // Actual value is ~0.895V for 22x22 mesh due to voltage division through the mesh
-    EXPECT_NEAR(v_topleft, 0.895, 0.02);  // Voltage at source node (mesh effect)
-    EXPECT_LT(v_bottomright, 0.12);  // Significantly attenuated
-    EXPECT_GT(v_bottomright, 0.0);  // But not zero
+    // The solution holds node n at index n - 1 (ground is not in it) and the
+    // current of Vin after the node voltages.
+    auto v_topleft = solution[node_id_topleft - 1];
+    auto v_bottomright = solution[node_id_bottomright - 1];
+    auto i_vin = solution[circuit.num_nodes() - 1];
+    EXPECT_NEAR(v_topleft, 1.0, 1e-9);  // the node of Vin
+    EXPECT_GT(v_bottomright, 0.0);
+    EXPECT_LT(v_bottomright, 1.0);
+    // KCL: the current Vin delivers (minus its branch current, which is positive
+    // into n+, NETLIST_CONVENTIONS rule 3) all flows to ground through Rload
+    EXPECT_NEAR(-i_vin, v_bottomright / 1e3, 1e-12);
 }
 
 // Test 3: Transient Analysis - RC Ladder 1000 Devices

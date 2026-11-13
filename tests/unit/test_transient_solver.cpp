@@ -113,10 +113,11 @@ TEST(TransientSolver, DCCircuitSteadyState) {
 
     EXPECT_EQ(result.status, ConvergenceStatus::SUCCESS);
 
-    // All timepoints should have V(n1) = 5V and I(V1) = 5mA
+    // All timepoints should have V(n1) = 5V and V1 delivering 5mA, a branch
+    // current of -5mA (positive into n+, NETLIST_CONVENTIONS rule 3)
     for (const auto& tp : result.timepoints) {
         EXPECT_NEAR(tp.node_voltages[0], 5.0, 1e-6);
-        EXPECT_NEAR(tp.branch_currents[0], 0.005, 1e-9);  // 5mA
+        EXPECT_NEAR(tp.branch_currents[0], -0.005, 1e-9);
     }
 }
 

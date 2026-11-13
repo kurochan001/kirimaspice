@@ -46,8 +46,9 @@ TEST(DCSolver, VoltageDivider) {
     EXPECT_NEAR(solution[0], 10.0, 1e-6);  // V(n1) = 10V
     EXPECT_NEAR(solution[1], 5.0, 1e-6);   // V(n2) = 5V
 
-    // Current through V1 should be 10V / 2kΩ = 5mA
-    EXPECT_NEAR(solution[2], 0.005, 1e-9);
+    // V1 delivers 10V / 2kΩ = 5mA; its branch current is positive into n+
+    // through the source (NETLIST_CONVENTIONS rule 3), so it is -5mA
+    EXPECT_NEAR(solution[2], -0.005, 1e-9);
 
     // Check statistics
     EXPECT_GT(stats.total_iterations, 0u);
@@ -77,8 +78,8 @@ TEST(DCSolver, SingleResistor) {
     ASSERT_GE(solution.size(), 2u);
     EXPECT_NEAR(solution[0], 5.0, 1e-6);
 
-    // Current = 5V / 100Ω = 50mA
-    EXPECT_NEAR(solution[1], 0.05, 1e-9);
+    // V1 delivers 5V / 100Ω = 50mA: branch current -50mA (rule 3)
+    EXPECT_NEAR(solution[1], -0.05, 1e-9);
 }
 
 // Test: Current source
@@ -168,11 +169,10 @@ TEST(DCSolver, MultipleVoltageSources) {
     EXPECT_NEAR(solution[0], 10.0, 1e-6);  // V(n1)
     EXPECT_NEAR(solution[1], 5.0, 1e-6);   // V(n2)
 
-    // Branch currents for V1 and V2
-    // I(V1) = 5mA (out of V1)
-    // I(V2) = -5mA (into V2)
-    EXPECT_NEAR(solution[2], 0.005, 1e-9);   // I(V1)
-    EXPECT_NEAR(solution[3], -0.005, 1e-9);  // I(V2)
+    // Branch currents for V1 and V2, positive into n+ through the source
+    // (NETLIST_CONVENTIONS rule 3): 5mA flows out of V1 and into V2
+    EXPECT_NEAR(solution[2], -0.005, 1e-9);  // I(V1)
+    EXPECT_NEAR(solution[3], 0.005, 1e-9);   // I(V2)
 }
 
 // Test: .NODESET initial guess
@@ -210,8 +210,9 @@ TEST(DCSolver, NODESETInitialGuess) {
     EXPECT_NEAR(solution[0], 10.0, 1e-6);  // V(n1) = 10V
     EXPECT_NEAR(solution[1], 5.0, 1e-6);   // V(n2) = 5V (not 4.5V)
 
-    // Current through V1 should be 10V / 2kΩ = 5mA
-    EXPECT_NEAR(solution[2], 0.005, 1e-9);
+    // V1 delivers 10V / 2kΩ = 5mA; its branch current is positive into n+
+    // through the source (NETLIST_CONVENTIONS rule 3), so it is -5mA
+    EXPECT_NEAR(solution[2], -0.005, 1e-9);
 }
 
 // Test: .NODESET on ground node should be ignored

@@ -536,7 +536,9 @@ TEST_F(DCSweepTest, BranchCurrentExtraction) {
     for (size_t i = 0; i < result.points.size(); ++i) {
         const auto& point = result.points[i];
         Real V = point.sweep_value;
-        Real expected_current = V / 1000.0;  // I = V/R
+        // V1 delivers V/R; its branch current is positive into n+ through the
+        // source (NETLIST_CONVENTIONS rule 3), so it is -V/R
+        Real expected_current = -V / 1000.0;
 
         // Verify branch_currents vector is populated
         ASSERT_GT(point.branch_currents.size(), static_cast<size_t>(v1_branch_id))

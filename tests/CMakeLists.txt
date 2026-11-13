@@ -64,11 +64,12 @@ set_tests_properties(cli_help_short PROPERTIES
 
 # gnd in any case is ground (docs/spec/NETLIST_CONVENTIONS.md, rule 5): the
 # printed operating point has no V(GND), and the divider puts mid at 0.75 V.
+# V1 delivers 0.25 mA, a current of -0.25 mA (rule 3).
 add_test(NAME cli_op_gnd_is_ground
     COMMAND $<TARGET_FILE:kirimaspice> ${CMAKE_SOURCE_DIR}/tests/netlists/gnd_is_ground_op.sp
 )
 set_tests_properties(cli_op_gnd_is_ground PROPERTIES
-    PASS_REGULAR_EXPRESSION "V\\(a\\) = 1 V\nV\\(mid\\) = 0\\.75 V\nI\\(V1\\) = 0\\.00025 A"
+    PASS_REGULAR_EXPRESSION "V\\(a\\) = 1 V\nV\\(mid\\) = 0\\.75 V\nI\\(V1\\) = -0\\.00025 A"
 )
 
 #==============================================================================
