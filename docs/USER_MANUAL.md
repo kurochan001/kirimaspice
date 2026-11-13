@@ -7,8 +7,9 @@ analyses the program offers and reading the results. It was checked on
 **2026-11-14** against commit `91af284`, built on macOS 27.2 (arm64) with
 GCC 16.2.0; the program reported `kirimaspice v0.0.0`. Every example below
 was run with that build. Model lookup, the raw file of an operating point,
-the output of a node named `GND`, `B` sources and `NAME={expr}` parameters
-were checked again after the fixes in commits `6a007ab` to `3c03c04`.
+the output of a node named `GND`, `B` sources, `NAME={expr}` parameters,
+the lossless line and the trapezoidal rule were checked again after the
+fixes in commits `6a007ab` to `aeef4fb`.
 
 For lookup by option, element, directive or output format, use the
 [Reference Manual](REFERENCE_MANUAL.md). For what is known to be wrong or
@@ -195,9 +196,8 @@ node, including `V(0)`. `tstep` is both the first time step and, unless
 values in `.IC` instead of from an operating point; `.IC` must be written
 with an upper-case `V`, as in `.IC V(out)=1`.
 
-For the RC example above, `V(out)` is 0.630275 at 1 ms; the exact value is
-1 − e⁻¹ = 0.632121. How the result depends on the integration method is in
-[KNOWN_ISSUES.md](../KNOWN_ISSUES.md).
+For the RC example above, `V(out)` is 0.632105 at 1 ms; the exact value is
+1 − e⁻¹ = 0.632121.
 
 ### AC
 

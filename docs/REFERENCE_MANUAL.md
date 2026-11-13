@@ -7,8 +7,9 @@ output files of the program `kirimaspice`. It was written on
 **2026-11-14** from the source at commit `91af284`, and the behaviour it
 describes was checked by running that build (macOS 27.2, arm64, GCC 16.2.0,
 `kirimaspice v0.0.0`). Model lookup, the raw file of an operating point,
-the output of a node named `GND`, `B` sources and `NAME={expr}` parameters
-were checked again after the fixes in commits `6a007ab` to `3c03c04`. Where
+the output of a node named `GND`, `B` sources, `NAME={expr}` parameters,
+the lossless line and the trapezoidal rule were checked again after the
+fixes in commits `6a007ab` to `aeef4fb`. Where
 an entry was read in the code but not run, it says so. For a guided first run, use the [User Manual](USER_MANUAL.md); for
 what is wrong or missing, see [KNOWN_ISSUES.md](../KNOWN_ISSUES.md).
 

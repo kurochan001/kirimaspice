@@ -83,26 +83,18 @@ comes from their manuals; none of it was compared by running ngspice.
 
 ## Analyses
 
-Measured with the program built from commit `91af284`.
+Measured with the program built from commit `91af284`, unless an entry
+says otherwise.
 
-- **The default integration method, `trap`, gives backward-Euler accuracy
-  on an RC discharge.** For 1 kΩ and 1 µF starting at 1 V (`.IC`, `UIC`),
-  with `.TRAN 10u 1m`, `V(out)` at 1 ms is:
-
-  | `METHOD` | `V(out)` |
-  | --- | --- |
-  | `trap` (default) | 0.369725 |
-  | `euler` | 0.369711 |
-  | `tr_bdf2` | 0.369184 |
-  | `gear` | 0.367913 |
-  | `gear3` | 0.367905 |
-
-  The exact value is e⁻¹ = 0.367879. Backward Euler with a fixed 10 µs
-  step gives 0.369711, and the trapezoidal rule gives 0.367876.
-- **A matched lossless line (`T`) reflects.** A 1 V step through 50 Ω into
-  `T1 a 0 b 0 Z0=50 TD=10n` loaded with 50 Ω gives 0.25 V at the far end
-  after 10 ns, and the near end rises from 0.5 V to 0.625 V after 20 ns. A
-  matched line gives 0.5 V at both ends.
+- **A lossless line (`T`) is an open circuit in the operating point.** In
+  DC a lossless line connects its ports (equal voltages, equal and opposite
+  currents), but its DC stamp is empty: 1 V through 50 Ω into
+  `T1 a 0 b 0 Z0=50 TD=10n` loaded with 50 Ω gives `V(a)` = 1 V and `V(b)` =
+  0 V, where both are 0.5 V. A transient that starts from such an operating
+  point starts from that state (measured at commit `5e3008d`).
+- In the library's adaptive time-step path, which the program does not
+  use, a fixed `TRAPEZOIDAL` method starts without the backward-Euler step
+  that the fixed-step path takes (read in the code, not run).
 - **Coupled inductors (`K`) grow without bound.** `L1` and `L2` of 1 mH with
   `K1 L1 L2 0.9`, `L1` driven by a 1 V step through 10 Ω and `L2` loaded
   with 1 kΩ: the voltage across the load reaches 84 V after 20 µs and is
