@@ -6,9 +6,9 @@ This manual covers building kirimaspice, writing a netlist, running the
 analyses the program offers and reading the results. It was checked on
 **2026-11-14** against commit `91af284`, built on macOS 27.2 (arm64) with
 GCC 16.2.0; the program reported `kirimaspice v0.0.0`. Every example below
-was run with that build. Model lookup, the raw file of an operating point
-and the output of a node named `GND` were checked again after the fixes in
-commits `6a007ab` to `69b4a37`.
+was run with that build. Model lookup, the raw file of an operating point,
+the output of a node named `GND`, `B` sources and `NAME={expr}` parameters
+were checked again after the fixes in commits `6a007ab` to `3c03c04`.
 
 For lookup by option, element, directive or output format, use the
 [Reference Manual](REFERENCE_MANUAL.md). For what is known to be wrong or
@@ -343,11 +343,11 @@ A `PULSE(...)` source needs a DC value before the waveform:
 A node has no DC path to ground, or two voltage sources form a loop. Check
 in particular that ground is written `0` and not `GND` at the top level.
 
-### A `B` source does not work
+### A `B` source gives `cannot compile the expression`
 
-Write the expression without braces and use the current form, for example
-`B1 0 out I=0.001*V(in)`. With braces, or in the voltage form `V=...`, the
-analysis fails; see [KNOWN_ISSUES.md](../KNOWN_ISSUES.md).
+The expression uses something ExprTk does not know. Common causes: a scale
+suffix (write `0.001`, not `1m`) and `I(<source>)`, which is not
+available. In AC analysis a `B` source contributes nothing.
 
 ### A value is a million times too large
 

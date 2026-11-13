@@ -39,14 +39,9 @@ the [Reference Manual](docs/REFERENCE_MANUAL.md), by running the program
 built from commit `91af284`. What this section says about SPICE and ngspice
 comes from their manuals; none of it was compared by running ngspice.
 
-- **`B` sources do not work as documented.** The tokenizer splits
-  `V={2*V(in)}` into `V=` and `{2*V(in)}`, so the expression is empty
-  (`Failed to compile expression ''`). Without braces, the current form
-  (`I=0.001*V(in)`) works in the operating point, but the voltage form
-  (`V=2*V(in)`) stops the operating point and the transient with
-  `RHS vector dimension mismatch`. A failed expression in the current form
-  gives an error message, yet the run goes on with no current and exits
-  with 0.
+- **`B` sources have no AC model and no `I(<source>)`.** In AC analysis a
+  `B` source contributes nothing and logs `AC analysis not yet supported`;
+  an expression with `I(...)` is an error.
 - **Upper-case `M` is mega.** `1M` is 10⁶ and `1m` is 10⁻³; in SPICE both
   are milli. Scale suffixes are not accepted inside braces or in
   `.OPTIONS` values (there the option is ignored with a warning).

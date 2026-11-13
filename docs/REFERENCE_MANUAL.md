@@ -6,10 +6,10 @@ This is a reference to the command line, the netlist language and the
 output files of the program `kirimaspice`. It was written on
 **2026-11-14** from the source at commit `91af284`, and the behaviour it
 describes was checked by running that build (macOS 27.2, arm64, GCC 16.2.0,
-`kirimaspice v0.0.0`). Model lookup, the raw file of an operating point and
-the output of a node named `GND` were checked again after the fixes in
-commits `6a007ab` to `69b4a37`. Where an entry was read in the code but not run, it
-says so. For a guided first run, use the [User Manual](USER_MANUAL.md); for
+`kirimaspice v0.0.0`). Model lookup, the raw file of an operating point,
+the output of a node named `GND`, `B` sources and `NAME={expr}` parameters
+were checked again after the fixes in commits `6a007ab` to `3c03c04`. Where
+an entry was read in the code but not run, it says so. For a guided first run, use the [User Manual](USER_MANUAL.md); for
 what is wrong or missing, see [KNOWN_ISSUES.md](../KNOWN_ISSUES.md).
 
 ## Contents
@@ -133,7 +133,8 @@ A value written in braces, `{...}`, is evaluated with ExprTk. It can use
 the parameters defined so far, the constants `pi` and `e`, ExprTk's
 built-in functions, and, in `.PARAM` only, functions defined by `.FUNC`.
 Scale suffixes are not accepted inside braces (`{1m}` is an error). A brace
-group is one token even if it contains spaces.
+group is one token even if it contains spaces, and one that follows `=`
+stays in the same token, so `IS={ISAT}` is one parameter.
 
 ## Elements
 
@@ -181,11 +182,13 @@ not case-sensitive.
 
 ### Behavioural sources
 
-`B` takes the first token that starts with `V=` or `I=`. Braces split the
-token in two, so `V={...}` gives an empty expression; write the expression
-without spaces and without braces. The expression can use `V(<node>)` and
-`TIME`. The current form works in the operating point; the voltage form
-stops the analysis (see [KNOWN_ISSUES.md](../KNOWN_ISSUES.md)).
+`B` takes the first token that starts with `V=` or `I=`; the expression may
+be in braces (`V={2*V(in)}`), and without braces it must have no spaces.
+It can use `V(<node>)` or `v(<node>)`, `TIME`, the constants and ExprTk's
+built-in functions; `I(<source>)` is not available. An expression that
+cannot be compiled is an error at the `B` line. Both forms work in the
+operating point and the transient; in AC analysis a `B` source contributes
+nothing and logs `AC analysis not yet supported`.
 
 ### Parameters of the simpler devices
 
