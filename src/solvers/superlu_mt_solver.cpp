@@ -3,16 +3,8 @@
 #include <spdlog/spdlog.h>
 
 #if defined(KIRIMASPICE_WITH_SUPERLUMT) && (KIRIMASPICE_HAVE_SUPERLUMT==1)
-  // Use different headers depending on source vs system installation
-  #if defined(KIRIMASPICE_SUPERLUMT_FROM_SOURCE) && (KIRIMASPICE_SUPERLUMT_FROM_SOURCE==1)
-    // FetchContent SuperLU_MT headers
-    #include <slu_mt_ddefs.h>  // SuperLU_MT double precision definitions
-    #include <slu_mt_util.h>   // SuperLU_MT utility functions
-  #else
-    // System-installed SuperLU headers
-    #include <slu_ddefs.h>     // Serial/MT common double precision definitions
-    #include <slu_util.h>
-  #endif
+  #include <slu_mt_ddefs.h>  // SuperLU_MT double precision definitions
+  #include <slu_mt_util.h>   // SuperLU_MT utility functions
   #ifdef _OPENMP
     #include <omp.h>
   #endif
@@ -190,8 +182,7 @@ bool SuperLUMTSolver::analyze_and_factorize(const SparseMatrix& matrix) {
     SuperMatrix* U = U_ptr.get();
     int_t info = 0;
 
-#if defined(KIRIMASPICE_SUPERLUMT_FROM_SOURCE) && (KIRIMASPICE_SUPERLUMT_FROM_SOURCE==1)
-    // Use parallel SuperLU_MT API (source-built version)
+    // Use parallel SuperLU_MT API
     const int panel_size = sp_ienv(1);
     const int relax = sp_ienv(2);
     const double diag_pivot_thresh = 1.0;
@@ -222,38 +213,6 @@ bool SuperLUMTSolver::analyze_and_factorize(const SparseMatrix& matrix) {
     pdgstrf_finalize(&pdgstrf_options, &AC);
     Destroy_SuperMatrix_Store(&A);
     StatFree(&Gstat);
-#else
-    // Use serial SuperLU API (system-installed version)
-    superlu_options_t options; set_default_options(&options);
-    options.Fact = DOFACT;
-    options.Equil = get_equil_from_env();
-    options.ColPerm = get_colperm_from_env();
-
-    std::vector<int> etree(n_, 0);
-
-    // Column ordering
-    if (options.ColPerm != MY_PERMC)
-        get_perm_c(options.ColPerm, &A, state_.perm_c.data());
-
-    // Preorder
-    SuperMatrix AC;
-    sp_preorder(&options, &A, state_.perm_c.data(), etree.data(), &AC);
-
-    // Factorization parameters
-    const int panel_size = sp_ienv(1);
-    const int relax = sp_ienv(2);
-
-    SuperLUStat_t stat; StatInit(&stat);
-    GlobalLU_t glu;
-
-    dgstrf(&options, &AC, relax, panel_size,
-           etree.data(), nullptr, 0, state_.perm_c.data(), state_.perm_r.data(),
-           L, U, &glu, &stat, &info);
-
-    Destroy_CompCol_Permuted(&AC);
-    Destroy_SuperMatrix_Store(&A);
-    StatFree(&stat);
-#endif
 
     if (info != 0) {
         // unique_ptr will auto-delete L and U on return
@@ -341,8 +300,7 @@ bool SuperLUMTSolver::refactorize(const SparseMatrix& matrix) {
     SuperMatrix* U = U_ptr.get();
     int_t info = 0;
 
-#if defined(KIRIMASPICE_SUPERLUMT_FROM_SOURCE) && (KIRIMASPICE_SUPERLUMT_FROM_SOURCE==1)
-    // Use parallel SuperLU_MT API (source-built version)
+    // Use parallel SuperLU_MT API
     const int panel_size = sp_ienv(1);
     const int relax = sp_ienv(2);
     const double diag_pivot_thresh = 1.0;
@@ -373,31 +331,6 @@ bool SuperLUMTSolver::refactorize(const SparseMatrix& matrix) {
     pdgstrf_finalize(&pdgstrf_options, &AC);
     Destroy_SuperMatrix_Store(&A);
     StatFree(&Gstat);
-#else
-    // Use serial SuperLU API (system-installed version)
-    superlu_options_t options; set_default_options(&options);
-    options.Fact = DOFACT; // we'll reuse perm_c manually
-    options.Equil = get_equil_from_env();
-    options.ColPerm = get_colperm_from_env();
-
-    std::vector<int> etree(n_, 0);
-    SuperMatrix AC;
-    sp_preorder(&options, &A, state_.perm_c.data(), etree.data(), &AC);
-
-    const int panel_size = sp_ienv(1);
-    const int relax = sp_ienv(2);
-
-    SuperLUStat_t stat; StatInit(&stat);
-    GlobalLU_t glu;
-
-    dgstrf(&options, &AC, relax, panel_size,
-           etree.data(), nullptr, 0, state_.perm_c.data(), state_.perm_r.data(),
-           L, U, &glu, &stat, &info);
-
-    Destroy_CompCol_Permuted(&AC);
-    Destroy_SuperMatrix_Store(&A);
-    StatFree(&stat);
-#endif
 
     if (info != 0) {
         // unique_ptr will auto-delete L and U on return
@@ -438,7 +371,6 @@ bool SuperLUMTSolver::solve(const DenseVector& b, DenseVector& x) {
         SuperMatrix* L = static_cast<SuperMatrix*>(state_.L);
         SuperMatrix* U = static_cast<SuperMatrix*>(state_.U);
 
-#if defined(KIRIMASPICE_SUPERLUMT_FROM_SOURCE) && (KIRIMASPICE_SUPERLUMT_FROM_SOURCE==1)
         // Parallel SuperLU_MT API
         Gstat_t Gstat;
         const int nprocs = state_.inner_threads > 0 ? state_.inner_threads : 1;
@@ -452,16 +384,6 @@ bool SuperLUMTSolver::solve(const DenseVector& b, DenseVector& x) {
                &B, &Gstat, &info);
 
         StatFree(&Gstat);
-#else
-        // Serial SuperLU API
-        SuperLUStat_t stat;
-        StatInit(&stat);
-
-        dgstrs(NOTRANS, L, U, state_.perm_c.data(), state_.perm_r.data(),
-               &B, &stat, &info);
-
-        StatFree(&stat);
-#endif
 
         if (info != 0) {
             Destroy_SuperMatrix_Store(&B);
@@ -502,24 +424,10 @@ bool SuperLUMTSolver::solve(const DenseVector& b, DenseVector& x) {
     SuperMatrix L, U;
     int info = 0;
 
-#if defined(KIRIMASPICE_SUPERLUMT_FROM_SOURCE) && (KIRIMASPICE_SUPERLUMT_FROM_SOURCE==1)
     // Parallel SuperLU_MT API - one-shot solve
     const int nprocs = state_.inner_threads > 0 ? state_.inner_threads : 1;
 
     pdgssv(nprocs, &A, perm_c.data(), perm_r.data(), &L, &U, &B, &info);
-#else
-    // Serial SuperLU API - one-shot solve
-    superlu_options_t options;
-    set_default_options(&options);
-    options.ColPerm = COLAMD;
-
-    SuperLUStat_t stat;
-    StatInit(&stat);
-
-    dgssv(&options, &A, perm_c.data(), perm_r.data(), &L, &U, &B, &stat, &info);
-
-    StatFree(&stat);
-#endif
 
     if (info != 0) {
         Destroy_SuperNode_Matrix(&L);

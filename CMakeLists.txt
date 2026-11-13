@@ -13,8 +13,7 @@ option(ENABLE_COVERAGE "Enable coverage" OFF)
 option(SANITIZE_ADDRESS "Enable AddressSanitizer" OFF)
 
 # Solver backends (docs: role separation)
-option(KIRIMASPICE_WITH_SUPERLUMT "Build with SuperLU_MT backend" ON)
-option(KIRIMASPICE_BUILD_SUPERLUMT "Build SuperLU_MT from source (FetchContent)" OFF)
+option(KIRIMASPICE_WITH_SUPERLUMT "Build with the SuperLU_MT backend (system library)" OFF)
 option(KIRIMASPICE_WITH_SUPERLUDIST "Build with SuperLU_DIST backend" OFF)
 option(KIRIMASPICE_WITH_SUNDIALS "Build with SUNDIALS adapters" OFF)
 set(KIRIMASPICE_SOLVER "KLU" CACHE STRING "Default solver backend (KLU|SUPERLU_MT|SUPERLU_DIST|KLU_SUN)")
@@ -460,110 +459,64 @@ if(DOXYGEN_FOUND)
     )
 endif()
 #==============================================================================
-# Optional: SuperLU_MT (and serial SuperLU) detection for backend
+# Optional: SuperLU_MT backend (system library, off by default)
 #==============================================================================
+# SuperLU_MT is not included in this repository. When KIRIMASPICE_WITH_SUPERLUMT
+# is ON, CMake looks for an installed libsuperlu_mt_OPENMP or
+# libsuperlu_mt_PTHREAD (set SUPERLU_ROOT or CMAKE_PREFIX_PATH) and stops if
+# neither is found.
 if(KIRIMASPICE_WITH_SUPERLUMT)
     find_package(BLAS REQUIRED)
     find_package(LAPACK REQUIRED)
 
-    if(KIRIMASPICE_BUILD_SUPERLUMT)
-        # Build SuperLU_MT from source using FetchContent
-        message(STATUS "Building SuperLU_MT from source (FetchContent)...")
+    if(DEFINED ENV{SUPERLU_ROOT} AND NOT DEFINED SUPERLU_ROOT)
+        set(SUPERLU_ROOT $ENV{SUPERLU_ROOT})
+    endif()
+    find_path(SUPERLUMT_INCLUDE_DIR
+        NAMES slu_mt_ddefs.h
+        HINTS ${SUPERLU_ROOT}
+        PATH_SUFFIXES include/superlu_mt superlu_mt include
+    )
+    find_library(SUPERLUMT_LIBRARY
+        NAMES superlu_mt_OPENMP superlu_mt_PTHREAD
+        HINTS ${SUPERLU_ROOT}
+        PATH_SUFFIXES lib lib64
+    )
+    if(NOT SUPERLUMT_INCLUDE_DIR OR NOT SUPERLUMT_LIBRARY)
+        message(FATAL_ERROR
+            "KIRIMASPICE_WITH_SUPERLUMT is ON but SuperLU_MT was not found "
+            "(looked for slu_mt_ddefs.h and libsuperlu_mt_OPENMP or libsuperlu_mt_PTHREAD).\n"
+            "Set SUPERLU_ROOT or CMAKE_PREFIX_PATH to its install prefix, or turn the option off.")
+    endif()
 
-        include(FetchContent)
-        FetchContent_Declare(
-            SuperLU_MT
-            GIT_REPOSITORY https://github.com/xiaoyeli/superlu_mt.git
-            GIT_TAG v4.0.1
-            GIT_SHALLOW TRUE
-        )
-
-        # SuperLU_MT build options
-        set(PLAT "_OPENMP" CACHE STRING "Threading flavor for SuperLU_MT" FORCE)
-        set(enable_openmp ON CACHE BOOL "Enable OpenMP in SuperLU_MT" FORCE)
-        set(enable_pthread OFF CACHE BOOL "Disable pthread in SuperLU_MT" FORCE)
-        set(enable_examples OFF CACHE BOOL "Disable SuperLU_MT examples" FORCE)
-        set(enable_tests OFF CACHE BOOL "Disable SuperLU_MT tests" FORCE)
-        set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build SuperLU_MT as static library" FORCE)
-
-        FetchContent_MakeAvailable(SuperLU_MT)
-
-        # Create alias target for consistency (target name is superlu_mt_OPENMP)
-        if(TARGET superlu_mt_OPENMP AND NOT TARGET SuperLU::MT)
-            add_library(SuperLU::MT ALIAS superlu_mt_OPENMP)
-
-            # Add SuperLU_MT include directories to kirimaspice_lib (PRIVATE to avoid conflicts with SuiteSparse)
-            target_include_directories(kirimaspice_lib PRIVATE
-                ${superlu_mt_SOURCE_DIR}/SRC
-            )
-
-            set(HAVE_SUPERLUMT TRUE)
-            set(SUPERLUMT_FROM_SOURCE TRUE)
-            message(STATUS "SuperLU_MT built from source with OpenMP support (target: superlu_mt_OPENMP)")
-        elseif(TARGET superlu_mt_PTHREAD AND NOT TARGET SuperLU::MT)
-            add_library(SuperLU::MT ALIAS superlu_mt_PTHREAD)
-
-            # Add SuperLU_MT include directories to kirimaspice_lib (PRIVATE to avoid conflicts with SuiteSparse)
-            target_include_directories(kirimaspice_lib PRIVATE
-                ${superlu_mt_SOURCE_DIR}/SRC
-            )
-
-            set(HAVE_SUPERLUMT TRUE)
-            set(SUPERLUMT_FROM_SOURCE TRUE)
-            message(STATUS "SuperLU_MT built from source with pthread support (target: superlu_mt_PTHREAD)")
-        else()
-            set(HAVE_SUPERLUMT FALSE)
-            message(WARNING "SuperLU_MT FetchContent failed - no valid target found")
+    # SuperLU_MT headers need the threading flavor the library was built with.
+    get_filename_component(_kirimaspice_slumt_name "${SUPERLUMT_LIBRARY}" NAME)
+    if(_kirimaspice_slumt_name MATCHES "_OPENMP")
+        set(_kirimaspice_slumt_threading __OPENMP)
+        if(NOT OpenMP_FOUND)
+            message(FATAL_ERROR "${_kirimaspice_slumt_name} needs OpenMP, which was not found.")
         endif()
     else()
-        # Use system-installed SuperLU_MT
-        # Allow user to specify SUPERLU_ROOT
-        if(DEFINED ENV{SUPERLU_ROOT} AND NOT DEFINED SUPERLU_ROOT)
-            set(SUPERLU_ROOT $ENV{SUPERLU_ROOT})
-        endif()
-
-        find_path(SUPERLUMT_INCLUDE_DIR
-            NAMES slu_ddefs.h superlu/slu_ddefs.h superlu_mt/superlumt_ddefs.h
-            HINTS ${SUPERLU_ROOT}
-            PATH_SUFFIXES include include/superlu include/superlu_mt
-        )
-
-        find_library(SUPERLUMT_LIBRARY
-            NAMES superlu_mt superlu
-            HINTS ${SUPERLU_ROOT}
-            PATH_SUFFIXES lib lib64
-        )
-
-        if(SUPERLUMT_INCLUDE_DIR AND SUPERLUMT_LIBRARY AND BLAS_FOUND AND LAPACK_FOUND)
-            add_library(SuperLU::MT UNKNOWN IMPORTED)
-            set_target_properties(SuperLU::MT PROPERTIES
-                IMPORTED_LOCATION "${SUPERLUMT_LIBRARY}"
-                INTERFACE_INCLUDE_DIRECTORIES "${SUPERLUMT_INCLUDE_DIR}"
-            )
-            set(HAVE_SUPERLUMT TRUE)
-            message(STATUS "SuperLU include: ${SUPERLUMT_INCLUDE_DIR}")
-            message(STATUS "SuperLU/MT lib: ${SUPERLUMT_LIBRARY}")
-        else()
-            set(HAVE_SUPERLUMT FALSE)
-            message(WARNING "SuperLU_MT not found (or BLAS/LAPACK missing) — backend will be disabled")
-        endif()
+        set(_kirimaspice_slumt_threading __PTHREAD)
+        find_package(Threads REQUIRED)
     endif()
-endif()
 
-# Apply SuperLU_MT link + compile definitions now that detection finished
-if(KIRIMASPICE_WITH_SUPERLUMT AND HAVE_SUPERLUMT)
-    target_link_libraries(kirimaspice_lib PUBLIC SuperLU::MT ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+    add_library(SuperLU::MT UNKNOWN IMPORTED)
+    set_target_properties(SuperLU::MT PROPERTIES
+        IMPORTED_LOCATION "${SUPERLUMT_LIBRARY}"
+        INTERFACE_INCLUDE_DIRECTORIES "${SUPERLUMT_INCLUDE_DIR}"
+        INTERFACE_COMPILE_DEFINITIONS "${_kirimaspice_slumt_threading}"
+    )
+    message(STATUS "Found SuperLU_MT: ${SUPERLUMT_LIBRARY} (${_kirimaspice_slumt_threading})")
+
+    # PRIVATE: SuperLU_MT ships its own colamd.h, which must not shadow SuiteSparse's.
+    target_link_libraries(kirimaspice_lib PRIVATE SuperLU::MT ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+    if(_kirimaspice_slumt_threading STREQUAL "__PTHREAD")
+        target_link_libraries(kirimaspice_lib PRIVATE Threads::Threads)
+    endif()
     target_compile_definitions(kirimaspice_lib PUBLIC KIRIMASPICE_HAVE_SUPERLUMT=1)
-
-    # Add compile definition if SuperLU_MT is built from source
-    if(SUPERLUMT_FROM_SOURCE)
-        target_compile_definitions(kirimaspice_lib PUBLIC KIRIMASPICE_SUPERLUMT_FROM_SOURCE=1)
-    else()
-        target_compile_definitions(kirimaspice_lib PUBLIC KIRIMASPICE_SUPERLUMT_FROM_SOURCE=0)
-    endif()
 else()
     target_compile_definitions(kirimaspice_lib PUBLIC KIRIMASPICE_HAVE_SUPERLUMT=0)
-    target_compile_definitions(kirimaspice_lib PUBLIC KIRIMASPICE_SUPERLUMT_FROM_SOURCE=0)
 endif()
 
 #==============================================================================
