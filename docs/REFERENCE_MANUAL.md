@@ -287,7 +287,7 @@ parser stores it, but the program does not use it (the library can).
 | `.END` | `.END` | ignored; lines after it are read |
 | `.PRINT`, `.SAVE` | `.PRINT DC\|TRAN\|AC <signals>`, `.SAVE <signals>` | read only |
 | `.STEP`, `.SENS`, `.MC`, `.TF`, `.FOUR`, `.PZ`, `.DISTO`, `.PORT`, `.WCASE`, `.OPTIMIZE` | | read only |
-| `.CONTROL` / `.ENDC` | | taken out and run by the parser; what the program does with the result is not confirmed |
+| `.CONTROL` / `.ENDC` | | taken out and run by the parser; the program does not take its analyses from it (see [KNOWN_ISSUES.md](../KNOWN_ISSUES.md)) |
 | `.TITLE`, `.MEASURE`, others | | ignored |
 
 ### How the program chooses analyses

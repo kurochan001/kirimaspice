@@ -71,6 +71,11 @@ document also lists differences not decided there.
   `.DISTO`, `.PORT`, `.WCASE` and `.OPTIMIZE` are read, but the program
   does not use them.** `.MEASURE` and `.TITLE` are ignored.
 - **Lines after `.END` are read.**
+- **Analyses in a `.control` block are not run as in ngspice.** In runs at
+  commit `7434904`, `op` inside `.control` did not select the operating
+  point (the program fell back to its default, which prints no currents),
+  and `dc V1 0 1 0.5 V2 0 1 1` swept only `V1`. Write analyses as dot
+  directives (`.op`, `.dc`, `.tran`, `.ac`).
 
 ## Analyses
 

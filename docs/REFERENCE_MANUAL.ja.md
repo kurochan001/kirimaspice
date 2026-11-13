@@ -257,7 +257,7 @@ MOSFET は、レベル 1 と BSIM4 だけです。
 | `.END` | `.END` | 無視。その後の行も読む |
 | `.PRINT`、`.SAVE` | `.PRINT DC\|TRAN\|AC <信号>`、`.SAVE <信号>` | 読むだけ |
 | `.STEP`、`.SENS`、`.MC`、`.TF`、`.FOUR`、`.PZ`、`.DISTO`、`.PORT`、`.WCASE`、`.OPTIMIZE` | | 読むだけ |
-| `.CONTROL` / `.ENDC` | | パーサーが取り出して実行する。その結果をプログラムがどう使うかは未確認 |
+| `.CONTROL` / `.ENDC` | | パーサーが取り出して実行する。プログラムは、そこから解析を選ばない（[KNOWN_ISSUES.md](../KNOWN_ISSUES.ja.md) を参照） |
 | `.TITLE`、`.MEASURE`、そのほか | | 無視 |
 
 ### プログラムが解析を選ぶ仕組み
