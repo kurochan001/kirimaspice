@@ -4586,3 +4586,39 @@ R3 a 0 1k
     EXPECT_TRUE(result.circuit->has_node("Gnd"));
     EXPECT_EQ(result.circuit->num_nodes(), 2u);  // 0 and a
 }
+
+// NETLIST_CONVENTIONS rule 3: the current of V, E and H sources is positive
+// into n+ through the source, and F and H use that current. With V1 = 1 V
+// across 1 kOhm, ngspice-47 gave i(V1) = -1 mA, v(f) = -3 V for F1 0 f V1 3,
+// v(h) = -0.1 V for H1 h 0 V1 100, and i(E1) = -2 mA for E1 driving 2 V into
+// 1 kOhm; these follow from the rule with Ohm's law.
+TEST(NetlistParser, SourceCurrentsFollowNgspiceSign) {
+    std::string netlist = R"(
+Source current sign
+V1 in 0 DC 1
+R1 in 0 1k
+E1 e 0 in 0 2
+Re e 0 1k
+F1 0 f V1 3
+Rf f 0 1k
+H1 h 0 V1 100
+Rh h 0 1k
+.end
+)";
+
+    parser::NetlistParser parser;
+    auto result = parser.parse_string(netlist);
+    ASSERT_NE(result.circuit, nullptr);
+
+    solvers::DCSolver solver(*result.circuit, result.config);
+    DenseVector solution;
+    SolverStats stats;
+    ASSERT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS);
+    auto v = [&](const std::string& node) { return solution[result.circuit->get_node_id(node) - 1]; };
+    EXPECT_NEAR(v("f"), -3.0, 1e-9);
+    EXPECT_NEAR(v("h"), -0.1, 1e-9);
+    EXPECT_NEAR(solver.get_branch_current("V1").value(), -1e-3, 1e-12);
+    EXPECT_NEAR(solver.get_branch_current("E1").value(), -2e-3, 1e-12);
+    // H drives -0.1 V into 1 kOhm, so 0.1 mA flows into its n+
+    EXPECT_NEAR(solver.get_branch_current("H1").value(), 1e-4, 1e-12);
+}

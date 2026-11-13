@@ -33,7 +33,8 @@ void VoltageSource::stamp_dc_linear(MNASystem& mna,
     //   J: branch currents (m x 1)
     //   E: source values (m x 1)
     //
-    // For voltage source from np to nn with voltage V:
+    // For voltage source from np to nn with voltage V, with the branch current
+    // positive into np through the source (NETLIST_CONVENTIONS rule 3):
     //   C[np, branch] = +1
     //   C[nn, branch] = -1
     //   D[branch, np] = +1
@@ -52,10 +53,10 @@ void VoltageSource::stamp_dc_linear(MNASystem& mna,
     // Stamp C matrix (top-right block)
     // Branch current flows from nn to np (out of positive terminal)
     if (np_idx >= 0) {
-        mna.G.add_entry(np_idx, br, -1.0);
+        mna.G.add_entry(np_idx, br, 1.0);
     }
     if (nn_idx >= 0) {
-        mna.G.add_entry(nn_idx, br, 1.0);
+        mna.G.add_entry(nn_idx, br, -1.0);
     }
 
     // Stamp D matrix (bottom-left block)
@@ -101,10 +102,10 @@ void VoltageSource::stamp_ac(ComplexMNASystem& sys,
     // Stamp Y matrix (admittance)
     // Branch current flows from nn to np (out of positive terminal)
     if (np_idx >= 0) {
-        sys.Y.add_entry(np_idx, br, Complex(-1.0, 0.0));
+        sys.Y.add_entry(np_idx, br, Complex(1.0, 0.0));
     }
     if (nn_idx >= 0) {
-        sys.Y.add_entry(nn_idx, br, Complex(1.0, 0.0));
+        sys.Y.add_entry(nn_idx, br, Complex(-1.0, 0.0));
     }
 
     // Branch equation: V(np) - V(nn) = V_source

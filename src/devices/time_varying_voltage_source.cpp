@@ -42,10 +42,10 @@ void TimeVaryingVoltageSource::stamp_dc_linear(MNASystem& mna,
     // Stamp C matrix (top-right block)
     // Branch current flows from nn to np (out of positive terminal)
     if (np_idx >= 0) {
-        mna.G.add_entry(np_idx, br, -1.0);
+        mna.G.add_entry(np_idx, br, 1.0);
     }
     if (nn_idx >= 0) {
-        mna.G.add_entry(nn_idx, br, 1.0);
+        mna.G.add_entry(nn_idx, br, -1.0);
     }
 
     // Stamp D matrix (bottom-left block)
@@ -81,10 +81,10 @@ void TimeVaryingVoltageSource::stamp_transient(MNASystem& mna,
 
     // Stamp C matrix (top-right block)
     if (np_idx >= 0) {
-        mna.G.add_entry(np_idx, br, -1.0);
+        mna.G.add_entry(np_idx, br, 1.0);
     }
     if (nn_idx >= 0) {
-        mna.G.add_entry(nn_idx, br, 1.0);
+        mna.G.add_entry(nn_idx, br, -1.0);
     }
 
     // Stamp D matrix (bottom-left block)

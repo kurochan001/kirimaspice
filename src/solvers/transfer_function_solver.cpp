@@ -208,7 +208,9 @@ Real TransferFunctionSolver::compute_input_resistance(const std::vector<Real>& s
                                                        DeviceId input_device,
                                                        const solvers::DCSolver& dc_solver) {
     // Input resistance calculation
-    // R_in = V_in / I_in, where I_in is the branch current through the voltage source
+    // R_in = V_in / I_in, where I_in is the current the source delivers to the
+    // circuit: minus its branch current, which is positive into n+ through the
+    // source (NETLIST_CONVENTIONS rule 3)
 
     // Get input device
     const auto& input_device_ptr = circuit_.get_devices()[input_device];
@@ -232,7 +234,7 @@ Real TransferFunctionSolver::compute_input_resistance(const std::vector<Real>& s
         return 0.0; // Fall back to ideal voltage source assumption
     }
 
-    Real i_in = i_in_opt.value();
+    Real i_in = -i_in_opt.value();
 
     // Avoid division by zero
     if (std::abs(i_in) < 1e-12) {

@@ -56,10 +56,10 @@ void VCVS::stamp_dc_linear(MNASystem& mna,
     // Stamp C matrix (top-right block): current contribution
     // Branch current flows out of positive terminal (np)
     if (np_idx >= 0) {
-        mna.G.add_entry(np_idx, br, -1.0);  // KCL at np: -I_aux
+        mna.G.add_entry(np_idx, br, 1.0);   // KCL at np: +I_aux (current into n+ through the source)
     }
     if (nn_idx >= 0) {
-        mna.G.add_entry(nn_idx, br, 1.0);   // KCL at nn: +I_aux
+        mna.G.add_entry(nn_idx, br, -1.0);  // KCL at nn: -I_aux
     }
 
     // Stamp D matrix (bottom-left block): voltage constraint
@@ -114,10 +114,10 @@ void VCVS::stamp_ac(ComplexMNASystem& sys,
     // Stamp Y matrix (admittance): current contribution
     // Branch current flows out of positive terminal (np)
     if (np_idx >= 0) {
-        sys.Y.add_entry(np_idx, br, Complex(-1.0, 0.0));  // KCL at np: -I_aux
+        sys.Y.add_entry(np_idx, br, Complex(1.0, 0.0));   // KCL at np: +I_aux (current into n+ through the source)
     }
     if (nn_idx >= 0) {
-        sys.Y.add_entry(nn_idx, br, Complex(1.0, 0.0));   // KCL at nn: +I_aux
+        sys.Y.add_entry(nn_idx, br, Complex(-1.0, 0.0));  // KCL at nn: -I_aux
     }
 
     // Branch equation: V(np) - V(nn) - A*[V(ncp) - V(ncn)] = 0

@@ -83,10 +83,10 @@ void BehavioralSource::stamp_dc_nonlinear(
 
         // C matrix: branch current flow
         if (np_idx >= 0) {
-            mna.G.add_entry(np_idx, br, -1.0);
+            mna.G.add_entry(np_idx, br, 1.0);
         }
         if (nn_idx >= 0) {
-            mna.G.add_entry(nn_idx, br, 1.0);
+            mna.G.add_entry(nn_idx, br, -1.0);
         }
 
         // D matrix: voltage constraint
@@ -153,10 +153,10 @@ void BehavioralSource::stamp_transient(
 
         // C matrix
         if (np_idx >= 0) {
-            mna.G.add_entry(np_idx, br, -1.0);
+            mna.G.add_entry(np_idx, br, 1.0);
         }
         if (nn_idx >= 0) {
-            mna.G.add_entry(nn_idx, br, 1.0);
+            mna.G.add_entry(nn_idx, br, -1.0);
         }
 
         // D matrix
