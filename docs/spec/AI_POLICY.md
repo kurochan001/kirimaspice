@@ -2,7 +2,7 @@
 
 [日本語](AI_POLICY.ja.md) · This English text is the main version; the Japanese version follows it, and where they differ, this text holds.
 
-Status: **proposed (2026-11-14)**, waiting for a person's approval.
+Status: **approved (2026-11-14)**.
 
 This document holds the rules for developing kirimaspice together with AI.
 
