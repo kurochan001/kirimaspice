@@ -28,6 +28,7 @@
 
 #include "kirimaspice/util/units.hpp"
 #include "kirimaspice/util/string_utils.hpp"
+#include "kirimaspice/util/source_syntax.hpp"
 
 namespace kirimaspice::parser {
 namespace pegtl = tao::pegtl;
@@ -2078,6 +2079,15 @@ class UnresolvedModel : public ParseError {
 public:
     using ParseError::ParseError;
 };
+
+// The value of a token on an element line: a brace expression, evaluated with
+// the parameters read so far, or a number with an optional scale factor.
+static Real read_element_value(const std::string& token, ParseState& state) {
+    if (!token.empty() && token.front() == '{') {
+        return state.evaluator->evaluate(token.substr(1, token.size() - 2));
+    }
+    return parse_value_with_unit(token);
+}
 
 //==============================================================================
 // PEGTL Actions
@@ -4188,6 +4198,7 @@ static void parse_inductor_device(const std::vector<std::string>& tokens, const 
 }
 
 static void parse_voltage_source_device(const std::vector<std::string>& tokens, const std::string& dev_name, ParseState& state) {
+    auto read_value = [&](const std::string& token) { return read_element_value(token, state); };
     if (tokens.size() < 4) {
         throw ParseError("Invalid voltage source syntax", state.line_number);
     }
@@ -4218,42 +4229,11 @@ static void parse_voltage_source_device(const std::vector<std::string>& tokens, 
         }
     }
 
-    // Parse AC parameters (optional)
-    Real ac_magnitude = 1.0;  // Default for AC analysis
-    Real ac_phase = 0.0;
-
-    if (idx < tokens.size()) {
-        std::string token_upper = tokens[idx];
-        std::transform(token_upper.begin(), token_upper.end(), token_upper.begin(), ::toupper);
-
-        if (token_upper == "AC") {
-            idx++;  // Skip "AC" keyword
-
-            // AC magnitude
-            if (idx < tokens.size()) {
-                std::string value_str = tokens[idx];
-                if (value_str[0] == '{') {
-                    std::string expr = value_str.substr(1, value_str.size() - 2);
-                    ac_magnitude = state.evaluator->evaluate(expr);
-                } else {
-                    ac_magnitude = parse_value_with_unit(value_str);
-                }
-                idx++;
-            }
-
-            // AC phase (optional, default 0)
-            if (idx < tokens.size()) {
-                std::string value_str = tokens[idx];
-                if (value_str[0] == '{') {
-                    std::string expr = value_str.substr(1, value_str.size() - 2);
-                    ac_phase = state.evaluator->evaluate(expr);
-                } else {
-                    ac_phase = parse_value_with_unit(value_str);
-                }
-                idx++;
-            }
-        }
-    }
+    // AC input (NETLIST_CONVENTIONS rule 2): only with the keyword AC
+    util::AcInput ac;
+    idx = util::read_ac_input(tokens, idx, ac, read_value);
+    const Real ac_magnitude = ac.magnitude;
+    const Real ac_phase = ac.phase;
 
     // Remaining tokens may describe a time-varying waveform (PULSE, SIN, PWL...)
     // Join the rest to simplify parsing of parenthesis-delimited arguments.
@@ -4331,6 +4311,7 @@ static void parse_voltage_source_device(const std::vector<std::string>& tokens, 
 }
 
 static void parse_current_source_device(const std::vector<std::string>& tokens, const std::string& dev_name, ParseState& state) {
+    auto read_value = [&](const std::string& token) { return read_element_value(token, state); };
     if (tokens.size() < 4) {
         throw ParseError("Invalid current source syntax", state.line_number);
     }
@@ -4361,34 +4342,11 @@ static void parse_current_source_device(const std::vector<std::string>& tokens, 
         }
     }
 
-    Real ac_magnitude = 0.0;
-    Real ac_phase = 0.0;
-
-    if (idx < tokens.size()) {
-        std::string token_upper = tokens[idx];
-        std::transform(token_upper.begin(), token_upper.end(), token_upper.begin(), ::toupper);
-        if (token_upper == "AC") {
-            idx++;
-            if (idx < tokens.size()) {
-                std::string value_str = tokens[idx++];
-                if (value_str[0] == '{') {
-                    std::string expr = value_str.substr(1, value_str.size() - 2);
-                    ac_magnitude = state.evaluator->evaluate(expr);
-                } else {
-                    ac_magnitude = parse_value_with_unit(value_str);
-                }
-            }
-            if (idx < tokens.size()) {
-                std::string value_str = tokens[idx];
-                if (value_str[0] == '{') {
-                    std::string expr = value_str.substr(1, value_str.size() - 2);
-                    ac_phase = state.evaluator->evaluate(expr);
-                } else {
-                    ac_phase = parse_value_with_unit(value_str);
-                }
-            }
-        }
-    }
+    // AC input (NETLIST_CONVENTIONS rule 2): only with the keyword AC
+    util::AcInput ac;
+    idx = util::read_ac_input(tokens, idx, ac, read_value);
+    const Real ac_magnitude = ac.magnitude;
+    const Real ac_phase = ac.phase;
 
     state.circuit->add_current_source(dev_name, np, nn, dc_value, ac_magnitude, ac_phase);
     spdlog::debug("Added current source: {} {} {} IDC={}A AC={}A∠{}°",

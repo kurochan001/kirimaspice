@@ -46,6 +46,7 @@
 #include <algorithm>
 
 #include "kirimaspice/util/units.hpp"
+#include "kirimaspice/util/source_syntax.hpp"
 
 namespace kirimaspice::circuit {
 
@@ -2173,7 +2174,12 @@ void CircuitGraph::expand_subcircuit_instance(const std::string& instance_name) 
                     dc_value = parse_value_with_unit(tokens[value_idx]);
                 }
 
-                add_voltage_source(hier_device_name, np, nn, dc_value);
+                // AC input (NETLIST_CONVENTIONS rule 2): only with the keyword AC
+                util::AcInput ac;
+                util::read_ac_input(tokens, value_idx + 1, ac,
+                                    [](const std::string& t) { return parse_value_with_unit(t); });
+
+                add_voltage_source(hier_device_name, np, nn, dc_value, ac.magnitude, ac.phase);
                 spdlog::trace("  Expanded: {} {} {} {}", hier_device_name, np, nn, dc_value);
 
             } else if (device_type == 'I' && tokens.size() >= 4) {
@@ -2193,7 +2199,12 @@ void CircuitGraph::expand_subcircuit_instance(const std::string& instance_name) 
                     dc_value = parse_value_with_unit(tokens[value_idx]);
                 }
 
-                add_current_source(hier_device_name, np, nn, dc_value);
+                // AC input (NETLIST_CONVENTIONS rule 2): only with the keyword AC
+                util::AcInput ac;
+                util::read_ac_input(tokens, value_idx + 1, ac,
+                                    [](const std::string& t) { return parse_value_with_unit(t); });
+
+                add_current_source(hier_device_name, np, nn, dc_value, ac.magnitude, ac.phase);
                 spdlog::trace("  Expanded: {} {} {} {}", hier_device_name, np, nn, dc_value);
 
             } else if (device_type == 'M' && tokens.size() >= 6) {

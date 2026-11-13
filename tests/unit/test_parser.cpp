@@ -10,6 +10,7 @@
 #include "kirimaspice/devices/capacitor.hpp"
 #include "kirimaspice/devices/inductor.hpp"
 #include "kirimaspice/devices/voltage_source.hpp"
+#include "kirimaspice/devices/current_source.hpp"
 #include "kirimaspice/devices/diode.hpp"
 #include "kirimaspice/devices/bjt_npn.hpp"
 #include "kirimaspice/devices/mosfet_level1.hpp"
@@ -4509,4 +4510,58 @@ R2 out 0 1k
     ASSERT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS);
     const NodeId out = result.circuit->get_node_id("out");
     EXPECT_NEAR(solution[out - 1], 1.0, 1e-9);
+}
+
+// NETLIST_CONVENTIONS rule 2: a source is an AC input only if its line has
+// AC; AC alone means magnitude 1; the same holds inside subcircuits.
+TEST(NetlistParser, AcInputOnlyWithTheKeywordAc) {
+    std::string netlist = R"(
+AC inputs
+.SUBCKT SRC p
+VS p 0 DC 3
+.ENDS
+.SUBCKT SRCAC p
+VA p 0 DC 0 AC 0.5 90
+.ENDS
+V1 a 0 DC 5
+V2 b 0 DC 0 AC
+V3 c 0 DC 0 AC 2 45
+I1 0 d DC 1m
+I2 0 e DC 0 AC
+X1 f SRC
+X2 g SRCAC
+R1 a 0 1k
+R2 b 0 1k
+R3 c 0 1k
+R4 d 0 1k
+R5 e 0 1k
+R6 f 0 1k
+R7 g 0 1k
+.end
+)";
+
+    parser::NetlistParser parser;
+    auto result = parser.parse_string(netlist);
+    ASSERT_NE(result.circuit, nullptr);
+    result.circuit->expand_all_subcircuits();
+
+    auto vsrc = [&](const std::string& name) {
+        auto v = std::dynamic_pointer_cast<devices::VoltageSource>(result.circuit->get_device(name));
+        EXPECT_NE(v, nullptr) << name;
+        return v;
+    };
+    auto isrc = [&](const std::string& name) {
+        auto i = std::dynamic_pointer_cast<devices::CurrentSource>(result.circuit->get_device(name));
+        EXPECT_NE(i, nullptr) << name;
+        return i;
+    };
+    EXPECT_DOUBLE_EQ(vsrc("V1")->ac_magnitude(), 0.0);
+    EXPECT_DOUBLE_EQ(vsrc("V2")->ac_magnitude(), 1.0);
+    EXPECT_DOUBLE_EQ(vsrc("V3")->ac_magnitude(), 2.0);
+    EXPECT_DOUBLE_EQ(vsrc("V3")->ac_phase(), 45.0);
+    EXPECT_DOUBLE_EQ(isrc("I1")->ac_magnitude(), 0.0);
+    EXPECT_DOUBLE_EQ(isrc("I2")->ac_magnitude(), 1.0);
+    EXPECT_DOUBLE_EQ(vsrc("X1.VS")->ac_magnitude(), 0.0);
+    EXPECT_DOUBLE_EQ(vsrc("X2.VA")->ac_magnitude(), 0.5);
+    EXPECT_DOUBLE_EQ(vsrc("X2.VA")->ac_phase(), 90.0);
 }
