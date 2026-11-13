@@ -36,7 +36,7 @@ from pathlib import Path
 HOME_PATH = re.compile(r"(/home/|/Users/|[A-Za-z]:\\+Users\\+)(?!<)[A-Za-z0-9._-]+")
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 EMAIL_OK = re.compile(r"@users\.noreply\.github\.com$|@example\.(com|org|net)$", re.I)
-EMAIL_FREE_FILES = re.compile(r"(^|/)(THIRD_PARTY_NOTICES|CODE_OF_CONDUCT)(\.ja)?\.md$")
+EMAIL_FREE_FILES = re.compile(r"(^|[/ ])(THIRD_PARTY_NOTICES|CODE_OF_CONDUCT)(\.ja)?\.md$")
 FOUNDRY = re.compile(r"\b(TSMC|UMC|SMIC|GlobalFoundries|GLOBALFOUNDRIES|Samsung Foundry|TowerJazz|X-FAB)\b")
 MAX_BYTES = 5 * 1024 * 1024
 
