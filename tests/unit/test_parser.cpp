@@ -13,6 +13,7 @@
 #include "kirimaspice/devices/diode.hpp"
 #include "kirimaspice/devices/bjt_npn.hpp"
 #include "kirimaspice/devices/mosfet_level1.hpp"
+#include "kirimaspice/solvers/dc_solver.hpp"
 #include <filesystem>
 #include <fstream>
 #include <fmt/format.h>
@@ -4455,4 +4456,57 @@ D1 in 0 NOSUCH
         EXPECT_EQ(e.line(), 3u);
         EXPECT_NE(std::string(e.what()).find("NOSUCH"), std::string::npos) << e.what();
     }
+}
+
+// A parameter assignment whose value is a brace expression, NAME={expr},
+// is one token, on element lines as on .SUBCKT lines.
+TEST(NetlistParser, BraceExpressionAfterEqualsIsOneToken) {
+    std::string netlist = R"(
+Brace expressions after name=
+.PARAM ISAT=1e-9 RT=3k
+.SUBCKT DIV a b RTOP={RT}
+R1 a b {RTOP}
+R2 b 0 1k
+.ENDS
+V1 in 0 DC 5
+R1 in a 1k
+D1 a 0 IS={ISAT} N=2
+.end
+)";
+
+    parser::NetlistParser parser;
+    auto result = parser.parse_string(netlist);
+    ASSERT_NE(result.circuit, nullptr);
+
+    auto diode = std::dynamic_pointer_cast<devices::Diode>(result.circuit->get_device("D1"));
+    ASSERT_NE(diode, nullptr);
+    EXPECT_DOUBLE_EQ(diode->saturation_current(), 1e-9);
+    EXPECT_DOUBLE_EQ(diode->emission_coefficient(), 2.0);
+
+    const auto& div = result.circuit->subcircuits().get_subcircuit("DIV");
+    EXPECT_DOUBLE_EQ(div.default_params.at("RTOP"), 3000.0);
+}
+
+// B1 0 out I={0.001*V(in)} written with braces: with V(in) = 1 V the source
+// drives 1 mA into 1 kOhm, so V(out) = 1 V.
+TEST(NetlistParser, BehavioralCurrentSourceWithBraces) {
+    std::string netlist = R"(
+B current source with braces
+V1 in 0 DC 1
+R1 in 0 1k
+B1 0 out I={0.001*V(in)}
+R2 out 0 1k
+.end
+)";
+
+    parser::NetlistParser parser;
+    auto result = parser.parse_string(netlist);
+    ASSERT_NE(result.circuit, nullptr);
+
+    solvers::DCSolver solver(*result.circuit, result.config);
+    DenseVector solution;
+    SolverStats stats;
+    ASSERT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS);
+    const NodeId out = result.circuit->get_node_id("out");
+    EXPECT_NEAR(solution[out - 1], 1.0, 1e-9);
 }

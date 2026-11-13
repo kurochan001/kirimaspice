@@ -76,7 +76,9 @@ inline std::optional<int> safe_stoi(const std::string& str, const std::string& p
     }
 }
 
-// Split string by whitespace, handling {...} expressions as single tokens
+// Split string by whitespace, handling {...} expressions as single tokens.
+// An expression that follows '=' stays in the same token, so a parameter
+// assignment such as IS={ISAT} or V={2*V(in)} is one token.
 std::vector<std::string> split_whitespace(const std::string& str) {
     std::vector<std::string> tokens;
     std::string current;
@@ -86,7 +88,7 @@ std::vector<std::string> split_whitespace(const std::string& str) {
         char c = str[i];
 
         if (c == '{') {
-            if (!current.empty() && !in_expression) {
+            if (!current.empty() && !in_expression && current.back() != '=') {
                 tokens.push_back(current);
                 current.clear();
             }
