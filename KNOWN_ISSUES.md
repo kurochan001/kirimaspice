@@ -32,6 +32,94 @@ and SuiteSparse 7.6.1 unless an entry says otherwise.
 - Some tests find their data relative to the build directory and pass only
   when it is `build/` directly under the source tree.
 
+## Netlist input
+
+These were found while writing the [User Manual](docs/USER_MANUAL.md) and
+the [Reference Manual](docs/REFERENCE_MANUAL.md), by running the program
+built from commit `91af284`. What this section says about SPICE and ngspice
+comes from their manuals; none of it was compared by running ngspice.
+
+- **A model is found only under its upper-case name, and only if it was
+  read before the element.** Elements upper-case the model name before
+  looking it up, but `.MODEL` stores the name as written. A diode whose
+  model is defined later, or under a lower-case name, silently uses
+  `IS`=1e-14 and `N`=1; `Q` and `M` stop with `Undefined BJT model` or
+  `Undefined MOSFET model`.
+- **`B` sources do not work as documented.** The tokenizer splits
+  `V={2*V(in)}` into `V=` and `{2*V(in)}`, so the expression is empty
+  (`Failed to compile expression ''`). Without braces, the current form
+  (`I=0.001*V(in)`) works in the operating point, but the voltage form
+  (`V=2*V(in)`) stops the operating point and the transient with
+  `RHS vector dimension mismatch`. A failed expression in the current form
+  gives an error message, yet the run goes on with no current and exits
+  with 0.
+- **Upper-case `M` is mega.** `1M` is 10⁶ and `1m` is 10⁻³; in SPICE both
+  are milli. Scale suffixes are not accepted inside braces or in
+  `.OPTIONS` values (there the option is ignored with a warning).
+- **A voltage source without `AC` takes part in AC analysis with magnitude
+  1.** In SPICE its AC magnitude is 0.
+- **Source currents have the opposite sign to SPICE.** kirimaspice reports
+  the current that leaves the `+` terminal; the SPICE3 and ngspice manuals
+  define it as the current that enters the `+` terminal. `F` and `H` follow
+  the kirimaspice sign, so they give the opposite result to SPICE for the
+  same netlist.
+- **A nested `.DC` sweep loops in the opposite order to SPICE.** The second
+  source is swept for each value of the first; in SPICE the first source is
+  swept for each value of the second.
+- **`GND` is not ground at the top level,** but the printed results treat
+  it as ground (read in `src/main.cpp`): the operating point skips it, so
+  the values printed after it come from the wrong entries of the solution,
+  and the transient table shows 0 for it.
+- **Inside `.SUBCKT`, only `R`, `C`, `L`, `V` and `I` (DC value), `M`
+  (four terminals, level 1 or BSIM4) and `X` are expanded.** Other elements
+  are skipped with a warning. `PARAMS:` is not accepted.
+- **`.FUNC` cannot be called in an element value,** only in `.PARAM`
+  expressions (`Expression parse error`).
+- **`.IF` cannot read `.PARAM` values.** When the condition cannot be
+  evaluated, the parser warns and keeps every branch.
+- **A second `.PARAM` for the same name is ignored** with the warning
+  `Failed to add ... to symbol table`.
+- **`.IC` and `.NODESET` need an upper-case `V(`;** `v(out)=1` is skipped
+  with a warning.
+- **`PULSE` is the only waveform, and only after a DC value.**
+  `V1 in 0 PULSE(...)` stops with `Invalid number format: missing digits`.
+- **The diode reads only `IS` and `N`; the bipolar transistor reads `IS`,
+  `BF`, `NF`, `ISE`, `NE`, `ISC`, `NC` and noise parameters; the level-1
+  MOSFET has no bulk terminal in its equations and no `LAMBDA`, and its
+  `GAMMA` is a noise coefficient.** Other parameters on a `.MODEL` card are
+  ignored without a warning, as are unknown BSIM4 parameter names.
+- **`.PRINT`, `.SAVE`, `.STEP`, `.SENS`, `.MC`, `.TF`, `.FOUR`, `.PZ`,
+  `.DISTO`, `.PORT`, `.WCASE` and `.OPTIMIZE` are read, but the program
+  does not use them.** `.MEASURE` and `.TITLE` are ignored.
+- **Lines after `.END` are read.**
+
+## Analyses
+
+Measured with the program built from commit `91af284`.
+
+- **The default integration method, `trap`, gives backward-Euler accuracy
+  on an RC discharge.** For 1 kΩ and 1 µF starting at 1 V (`.IC`, `UIC`),
+  with `.TRAN 10u 1m`, `V(out)` at 1 ms is:
+
+  | `METHOD` | `V(out)` |
+  | --- | --- |
+  | `trap` (default) | 0.369725 |
+  | `euler` | 0.369711 |
+  | `tr_bdf2` | 0.369184 |
+  | `gear` | 0.367913 |
+  | `gear3` | 0.367905 |
+
+  The exact value is e⁻¹ = 0.367879. Backward Euler with a fixed 10 µs
+  step gives 0.369711, and the trapezoidal rule gives 0.367876.
+- **A matched lossless line (`T`) reflects.** A 1 V step through 50 Ω into
+  `T1 a 0 b 0 Z0=50 TD=10n` loaded with 50 Ω gives 0.25 V at the far end
+  after 10 ns, and the near end rises from 0.5 V to 0.625 V after 20 ns. A
+  matched line gives 0.5 V at both ends.
+- **Coupled inductors (`K`) grow without bound.** `L1` and `L2` of 1 mH with
+  `K1 L1 L2 0.9`, `L1` driven by a 1 V step through 10 Ω and `L2` loaded
+  with 1 kΩ: the voltage across the load reaches 84 V after 20 µs and is
+  still growing. The circuit is passive.
+
 ## Device models
 
 - **BSIM4 noise uses a separate, simplified current model.** The operating
@@ -56,6 +144,28 @@ and SuiteSparse 7.6.1 unless an entry says otherwise.
 ## Command line and output
 
 - There is no `--version` option.
+- **The program chooses the operating point and the transient by a text
+  search.** It looks for `.op`, `.dc` and `.tran` anywhere in each line of
+  the netlist file, comments included, so a `.OPTIONS` line runs an
+  operating point and a comment that mentions `.tran` runs a transient.
+- Options the program does not know are ignored without a message, and the
+  netlist must be the first argument.
+- A non-numeric value of `--wav-sample-rate` ends the program with an
+  uncaught `std::invalid_argument` (exit code 134 on macOS).
+- A netlist with no analysis line whose operating point does not converge
+  prints error messages and exits with 0.
+- **The ASCII raw file of an operating point has one value too many:** the
+  writer puts a scale value 0 before the variables although the variable
+  list has no scale variable, so a reader takes 0 as the first node
+  voltage. The binary raw file is right.
+- The CSV of an AC analysis says `# Simulator: kirimaspice v0.27`; the
+  version is written there as fixed text.
+- Log lines and results both go to standard output.
+- No file is written for an operating point or transient under `.TEMP`,
+  and no SSF for a DC sweep.
+- In some runs the transient table on standard output lists the last time
+  point twice (seen with `.TRAN 10u 5m` and `.TRAN 1n 30n`, not with
+  `.TRAN 10u 1m`).
 - With `-o <path>`, the CSV of an AC analysis is written to a name made by
   removing everything after the last dot of the whole path, so a dot in a
   directory name moves the file to the parent directory.
