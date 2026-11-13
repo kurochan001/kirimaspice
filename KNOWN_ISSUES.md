@@ -39,12 +39,6 @@ the [Reference Manual](docs/REFERENCE_MANUAL.md), by running the program
 built from commit `91af284`. What this section says about SPICE and ngspice
 comes from their manuals; none of it was compared by running ngspice.
 
-- **A model is found only under its upper-case name, and only if it was
-  read before the element.** Elements upper-case the model name before
-  looking it up, but `.MODEL` stores the name as written. A diode whose
-  model is defined later, or under a lower-case name, silently uses
-  `IS`=1e-14 and `N`=1; `Q` and `M` stop with `Undefined BJT model` or
-  `Undefined MOSFET model`.
 - **`B` sources do not work as documented.** The tokenizer splits
   `V={2*V(in)}` into `V=` and `{2*V(in)}`, so the expression is empty
   (`Failed to compile expression ''`). Without braces, the current form
@@ -66,10 +60,9 @@ comes from their manuals; none of it was compared by running ngspice.
 - **A nested `.DC` sweep loops in the opposite order to SPICE.** The second
   source is swept for each value of the first; in SPICE the first source is
   swept for each value of the second.
-- **`GND` is not ground at the top level,** but the printed results treat
-  it as ground (read in `src/main.cpp`): the operating point skips it, so
-  the values printed after it come from the wrong entries of the solution,
-  and the transient table shows 0 for it.
+- **`GND` is ground inside subcircuits but not at the top level.** Inside a
+  subcircuit, `0` and `GND` in any case are ground; at the top level only
+  `0` is, and `GND` is an ordinary node.
 - **Inside `.SUBCKT`, only `R`, `C`, `L`, `V` and `I` (DC value), `M`
   (four terminals, level 1 or BSIM4) and `X` are expanded.** Other elements
   are skipped with a warning. `PARAMS:` is not accepted.
@@ -154,10 +147,6 @@ Measured with the program built from commit `91af284`.
   uncaught `std::invalid_argument` (exit code 134 on macOS).
 - A netlist with no analysis line whose operating point does not converge
   prints error messages and exits with 0.
-- **The ASCII raw file of an operating point has one value too many:** the
-  writer puts a scale value 0 before the variables although the variable
-  list has no scale variable, so a reader takes 0 as the first node
-  voltage. The binary raw file is right.
 - The CSV of an AC analysis says `# Simulator: kirimaspice v0.27`; the
   version is written there as fixed text.
 - Log lines and results both go to standard output.

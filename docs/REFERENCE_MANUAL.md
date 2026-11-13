@@ -6,7 +6,9 @@ This is a reference to the command line, the netlist language and the
 output files of the program `kirimaspice`. It was written on
 **2026-11-14** from the source at commit `91af284`, and the behaviour it
 describes was checked by running that build (macOS 27.2, arm64, GCC 16.2.0,
-`kirimaspice v0.0.0`). Where an entry was read in the code but not run, it
+`kirimaspice v0.0.0`). Model lookup, the raw file of an operating point and
+the output of a node named `GND` were checked again after the fixes in
+commits `6a007ab` to `69b4a37`. Where an entry was read in the code but not run, it
 says so. For a guided first run, use the [User Manual](USER_MANUAL.md); for
 what is wrong or missing, see [KNOWN_ISSUES.md](../KNOWN_ISSUES.md).
 
@@ -98,7 +100,8 @@ does not converge.
 
 ### Names
 
-- Node, element, model and subcircuit names are case-sensitive.
+- Node, element and subcircuit names are case-sensitive; model names are
+  not.
 - `0` is ground. At the top level `GND` is an ordinary node; inside a
   subcircuit `0` and `GND` in any case are ground.
 - Nodes inside a subcircuit instance are named `<instance>.<node>`, for
@@ -206,7 +209,7 @@ overrides the model's.
   SCR or TRIAC type.
 - With three terminals, `M` ties the bulk to the source. The parser treats
   a line as four-terminal when its sixth token starts with `NMOS` or
-  `PMOS` or names a model already defined.
+  `PMOS` or names a model of the netlist.
 
 ## Models
 
@@ -219,9 +222,12 @@ overrides the model's.
   `PMF`, in any case. Any other type is an error.
 - Parameter names are not case-sensitive; `NAME = value` with spaces is
   accepted; values may be expressions in braces.
-- **Elements look the model up under its name in upper case, and only
-  among the models read before the element.** Write `.MODEL` lines first,
-  with upper-case names.
+- Model names are compared without regard to case; a `.MODEL` whose name
+  differs from an earlier one only in case replaces it.
+- A `.MODEL` line applies to the whole netlist: an element may come before
+  its model. An element whose model is not defined anywhere is an error
+  (`Undefined diode model`, `Undefined BJT model`, `Undefined MESFET
+  model`, `Undefined MOSFET model`), given at the element's line.
 
 For `NMOS` and `PMOS`, `LEVEL` selects the device:
 
@@ -355,9 +361,9 @@ The header has `Title`, `Date`, `Plotname`, `Flags: real`,
 | DC sweep | `DC Sweep` or `DC Sweep (2D)` | the swept source(s) (type `sweep`), `v(<node>)`, `i(<source>)` |
 | transient | `Transient Analysis` | `time`, `v(<node>)`, `i(<source>)` |
 
-Ground is not a variable. Each analysis run appends one plot to the same
-file. The operating-point plot has one more value than it has variables
-(see [KNOWN_ISSUES.md](../KNOWN_ISSUES.md)).
+Ground (the node `0`) is not a variable. Each analysis run appends one plot
+to the same file. Each point holds one value per variable, the first on the
+line with the point index.
 
 ### SPICE3 raw, binary (`--raw-binary-out`)
 

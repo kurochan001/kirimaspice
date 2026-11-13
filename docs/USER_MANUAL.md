@@ -6,7 +6,9 @@ This manual covers building kirimaspice, writing a netlist, running the
 analyses the program offers and reading the results. It was checked on
 **2026-11-14** against commit `91af284`, built on macOS 27.2 (arm64) with
 GCC 16.2.0; the program reported `kirimaspice v0.0.0`. Every example below
-was run with that build.
+was run with that build. Model lookup, the raw file of an operating point
+and the output of a node named `GND` were checked again after the fixes in
+commits `6a007ab` to `69b4a37`.
 
 For lookup by option, element, directive or output format, use the
 [Reference Manual](REFERENCE_MANUAL.md). For what is known to be wrong or
@@ -118,18 +120,15 @@ surprise someone who has used another SPICE simulator; the
 - **Continuation:** a line that starts with `+` continues the previous one.
 - **Ground is `0`.** At the top level, `GND` is an ordinary node, not
   ground. Inside a subcircuit, `0` and `GND` in any case are ground.
-- **Node and model names are case-sensitive;** keywords such as `DC`, `AC`,
-  `PULSE` and directive names are not.
+- **Node names are case-sensitive;** model names, keywords such as `DC`,
+  `AC`, `PULSE` and directive names are not.
 - **Numbers** take the suffixes `T`, `G`, `MEG`, `K`, `m`, `U`, `N`, `P`, `F`
   in either case, except that **`M` in upper case means mega** (10⁶) and
   `m` in lower case means milli. Write `1m` for 10⁻³ and `1MEG` or `1M` for
   10⁶. Letters after the suffix (`10mA`, `1kHz`) are ignored. Suffixes are
   not accepted inside `{...}` expressions or in `.OPTIONS` values.
-- **Write each `.MODEL` before the elements that use it, and write its name
-  in upper case.** An element finds its model only under the upper-cased
-  name and only if the model has already been read. Otherwise a diode
-  silently uses default parameters, and a transistor stops with
-  `Undefined ... model`.
+- **A `.MODEL` line may stand anywhere** in the netlist, before or after
+  the elements that use it.
 - **A source with a waveform needs a DC value first:**
   `V1 in 0 DC 0 PULSE(0 1 0 1n 1n 1 2)`. `PULSE` is the only waveform.
 - `.END` does not end the file: lines after it are read too.
@@ -328,11 +327,11 @@ run continues without that setting or element.
 
 ## Troubleshoot
 
-### `Undefined BJT model` or `Undefined MOSFET model`
+### `Undefined diode model`, `Undefined BJT model` or `Undefined MOSFET model`
 
-Move the `.MODEL` line above the element and write the model name in upper
-case. For a diode the same mistake produces no message: check that the
-result changes when you change the model.
+No `.MODEL` in the netlist has that name. Check the spelling (case does not
+matter), and check that the file holding the model is read with
+`.INCLUDE` or `.LIB`.
 
 ### `Invalid number format: missing digits` on a source
 
