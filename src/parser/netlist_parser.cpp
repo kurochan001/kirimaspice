@@ -2061,6 +2061,20 @@ struct ParseState {
     // Subcircuit parsing state
     std::optional<circuit::SubcircuitDefinition> current_subcircuit;
     bool inside_subcircuit = false;
+
+    // Elements whose model had not been read yet, with their line numbers.
+    // They are parsed again after the whole netlist has been read.
+    std::vector<std::pair<std::string, std::size_t>> deferred_elements;
+    bool resolving_deferred = false;
+};
+
+// Thrown by an element parser when the element names a model that has not
+// been read. A .MODEL line applies to the whole netlist wherever it stands,
+// so process_line puts the element aside and parses it again at the end;
+// only then is a missing model an error.
+class UnresolvedModel : public ParseError {
+public:
+    using ParseError::ParseError;
 };
 
 //==============================================================================
@@ -4416,10 +4430,9 @@ static void parse_diode_device(const std::vector<std::string>& tokens, const std
 
                 param_start = 4;  // Skip model name in parameter parsing
             }
-            // If model not found, treat as error
             else {
-                // Could be intentional if user wants default params, but likely an error
-                // For now, we'll be lenient and just use defaults
+                throw UnresolvedModel(fmt::format("Undefined diode model: {}", potential_model),
+                                      state.line_number);
             }
         }
     }
@@ -4742,8 +4755,8 @@ static void parse_mesfet_device(const std::vector<std::string>& tokens, const st
 
                 param_start = 5;  // Skip model name in parameter parsing
             } else {
-                // Model not found, assume default NMF
-                mesfet_type = "NMF";
+                throw UnresolvedModel(fmt::format("Undefined MESFET model: {}", potential_model),
+                                      state.line_number);
             }
         } else {
             // It's a parameter, assume default NMF
@@ -4851,7 +4864,7 @@ static void parse_bjt_device(const std::vector<std::string>& tokens, const std::
         // Model reference
         const ModelDefinition* found_model = state.config->find_model(type_or_model);
         if (found_model == nullptr) {
-            throw ParseError(fmt::format("Undefined BJT model: {}", type_or_model), state.line_number);
+            throw UnresolvedModel(fmt::format("Undefined BJT model: {}", type_or_model), state.line_number);
         }
 
         const ModelDefinition& model = *found_model;
@@ -5215,7 +5228,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         vth = (mosfet_type == "NMOS") ? 0.7 : -0.7;
     } else {
         // Neither model nor direct type found
-        throw ParseError(fmt::format("Undefined MOSFET model: {}", type_or_model), state.line_number);
+        throw UnresolvedModel(fmt::format("Undefined MOSFET model: {}", type_or_model), state.line_number);
     }
 
     // Parse optional parameters (can override model parameters)
@@ -6451,6 +6464,13 @@ void process_line(const std::string& raw_line, ParseState& state) {
                 spdlog::warn("Unknown device type: {}", dev_type);
                 break;
         }
+    } catch (const UnresolvedModel& e) {
+        if (!state.resolving_deferred) {
+            state.deferred_elements.emplace_back(line, state.line_number);
+            return;
+        }
+        throw ParseError(fmt::format("Error parsing device '{}': {}", dev_name, e.what()),
+                       state.line_number);
     } catch (const std::exception& e) {
         throw ParseError(fmt::format("Error parsing device '{}': {}", dev_name, e.what()),
                        state.line_number);
@@ -6551,6 +6571,18 @@ public:
         } catch (const pegtl::parse_error& e) {
             throw ParseError(e.what(), state.line_number);
         }
+
+        // Parse the elements whose model is defined further down the netlist
+        // (UnresolvedModel). They are top-level lines, so an unclosed .SUBCKT
+        // must not take them.
+        state.resolving_deferred = true;
+        const bool was_inside_subcircuit = state.inside_subcircuit;
+        state.inside_subcircuit = false;
+        for (const auto& [line, line_number] : state.deferred_elements) {
+            state.line_number = line_number;
+            process_line(line, state);
+        }
+        state.inside_subcircuit = was_inside_subcircuit;
 
         // Register .FUNC definitions in ExpressionEvaluator
         // This enables function calls in device parameter expressions
