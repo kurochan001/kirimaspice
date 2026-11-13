@@ -90,6 +90,12 @@ private:
     // Pointers to coupled inductors (set after circuit construction)
     const Device* L1_;
     const Device* L2_;
+
+    // Inductor voltages V_n of the previous time point that stamp_transient
+    // built the step on. accept_solution needs them after the inductors have
+    // already stored V_{n+1} as their previous voltage.
+    mutable Real stamped_v1_prev_ = 0.0;
+    mutable Real stamped_v2_prev_ = 0.0;
 };
 
 } // namespace kirimaspice::devices

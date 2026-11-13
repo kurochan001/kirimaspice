@@ -225,6 +225,10 @@ void MutualInductance::stamp_transient(MNASystem& mna,
         if (row >= 0) mna.b[static_cast<std::size_t>(row)] += val;
     };
 
+    // The step is built on V_n; accept_solution uses the same values.
+    stamped_v1_prev_ = ind1->voltage_prev();
+    stamped_v2_prev_ = ind2->voltage_prev();
+
     // history currents from inductor states (include cross-history for coupled model)
     Real i1_prev = ind1->current_prev();
     Real i2_prev = ind2->current_prev();
@@ -364,8 +368,10 @@ void MutualInductance::accept_solution(const DenseVector& node_voltages) {
     // For trapezoidal (and TR-BDF2 stage1), add previous-voltage term
     if (m == IntegrationMethod::TRAPEZOIDAL ||
         (m == IntegrationMethod::TR_BDF2 && ind1->tr_bdf2_stage() == 1)) {
-        Real v1_prev = ind1->voltage_prev();
-        Real v2_prev = ind2->voltage_prev();
+        // V_n of the step: the inductors have already replaced their own
+        // previous voltage with V_{n+1}.
+        Real v1_prev = stamped_v1_prev_;
+        Real v2_prev = stamped_v2_prev_;
         Real g11_target = scale * L2 / det;
         Real g22_target = scale * L1 / det;
         Real g12 = -scale * M / det;
@@ -375,10 +381,8 @@ void MutualInductance::accept_solution(const DenseVector& node_voltages) {
         delta_i2 += g12 * v1_prev + (g22_target - gL2) * v2_prev;
     }
 
-    // Optional damping factor to better match ngspice behavior
-    constexpr Real corr = 0.9;
-    ind1->add_current_delta(corr * delta_i1);
-    ind2->add_current_delta(corr * delta_i2);
+    ind1->add_current_delta(delta_i1);
+    ind2->add_current_delta(delta_i2);
 }
 
 void MutualInductance::stamp_ac(ComplexMNASystem& sys,

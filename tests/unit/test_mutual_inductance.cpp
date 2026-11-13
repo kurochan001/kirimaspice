@@ -649,3 +649,83 @@ Rload 4 0 50
     // Filter should have resonance around f0 = 1/(2π√(LC)) ≈ 15.9 MHz
     // Coupling should create split resonance peaks
 }
+
+namespace {
+
+// Exact V(b) for a 1 V step through R1 into L1 (a-0), with L2 (b-0) loaded by
+// R2 and coupled by k, starting from rest. With i = (i1, i2) the inductor
+// currents, L di/dt = e - R i, L = [[L1, M], [M, L2]], R = diag(R1, R2),
+// e = (1, 0). So i(t) = i_ss - exp(A t) i_ss with A = -L^-1 R and
+// i_ss = (1/R1, 0), and for a 2x2 matrix with distinct eigenvalues l1, l2
+//   exp(A t) = (l1 e^{l2 t} - l2 e^{l1 t}) / (l1 - l2) I + (e^{l1 t} - e^{l2 t}) / (l1 - l2) A.
+// V(b) = -R2 i2.
+Real coupled_step_vb(Real R1, Real R2, Real L1, Real L2, Real k, Real t) {
+    const Real M = k * std::sqrt(L1 * L2);
+    const Real det = L1 * L2 - M * M;
+    const Real a11 = -L2 * R1 / det;
+    const Real a12 = M * R2 / det;
+    const Real a21 = M * R1 / det;
+    const Real a22 = -L1 * R2 / det;
+    const Real trace = a11 + a22;
+    const Real disc = std::sqrt(trace * trace - 4.0 * (a11 * a22 - a12 * a21));
+    const Real l1 = (trace + disc) / 2.0;
+    const Real l2 = (trace - disc) / 2.0;
+    const Real c1 = (std::exp(l1 * t) - std::exp(l2 * t)) / (l1 - l2);
+    const Real i2 = -c1 * a21 / R1;
+    return -R2 * i2;
+}
+
+// The same circuit in kirimaspice, with K before or after the inductors.
+std::vector<std::pair<Real, Real>> simulate_coupled_step(IntegrationMethod method, bool k_first) {
+    const std::string k_line = "K1 L1 L2 0.9\n";
+    const std::string netlist = std::string("Coupled inductors step\n") +
+        "V1 in 0 DC 0 PULSE(0 1 0 1p 1p 1 2)\n" + (k_first ? k_line : "") +
+        "R1 in a 10\n"
+        "L1 a 0 1m\n"
+        "L2 b 0 1m\n" + (k_first ? "" : k_line) +
+        "R2 b 0 1k\n"
+        ".END\n";
+    NetlistParser parser;
+    auto parsed = parser.parse_string(netlist);
+    SimulationConfig cfg = parsed.config;
+    const Real dt = 1e-8;
+    cfg.transient.use_adaptive_timestep = false;
+    cfg.transient.initial_step = dt;
+    cfg.transient.max_step = dt;
+    cfg.transient.min_step = dt;
+    cfg.transient.method = method;
+    cfg.transient.adaptive_order = false;
+    TransientSolver solver(*parsed.circuit, cfg);
+    auto result = solver.solve(0.0, 20e-6, dt);
+    EXPECT_EQ(result.status, ConvergenceStatus::SUCCESS);
+
+    const NodeId b = parsed.circuit->get_node_id("b");
+    std::vector<std::pair<Real, Real>> probes;
+    for (const Real t : {5e-6, 10e-6, 20e-6}) {
+        for (const auto& tp : result.timepoints) {
+            if (std::abs(tp.time - t) < dt / 2) {
+                probes.emplace_back(t, tp.node_voltages[b - 1]);
+                break;
+            }
+        }
+    }
+    EXPECT_EQ(probes.size(), 3u);
+    return probes;
+}
+
+}  // namespace
+
+// Coupled inductors follow the exact solution with every integration method,
+// whether K comes before or after the inductors in the netlist.
+TEST(MutualInductanceTransient, CoupledStepMatchesExactSolution) {
+    for (const auto method : {IntegrationMethod::TRAPEZOIDAL, IntegrationMethod::BACKWARD_EULER,
+                              IntegrationMethod::GEAR2}) {
+        for (const bool k_first : {false, true}) {
+            SCOPED_TRACE(::testing::Message() << "method=" << static_cast<int>(method)
+                                              << " k_first=" << k_first);
+            for (const auto& [t, vb] : simulate_coupled_step(method, k_first)) {
+                EXPECT_NEAR(vb, coupled_step_vb(10.0, 1000.0, 1e-3, 1e-3, 0.9, t), 2e-4) << "t=" << t;
+            }
+        }
+    }
+}

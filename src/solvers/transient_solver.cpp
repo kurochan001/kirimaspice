@@ -834,6 +834,19 @@ void TransientSolver::restore_device_states() {
     }
 }
 
+void TransientSolver::accept_devices(const DenseVector& node_voltages) {
+    for (const auto& device : circuit_.get_devices()) {
+        if (device->type() != DeviceType::MUTUAL_INDUCTANCE) {
+            device->accept_solution(node_voltages);
+        }
+    }
+    for (const auto& device : circuit_.get_devices()) {
+        if (device->type() == DeviceType::MUTUAL_INDUCTANCE) {
+            device->accept_solution(node_voltages);
+        }
+    }
+}
+
 void TransientSolver::accept_timestep_solution(const DenseVector& solution) {
     // Convert solution to node voltages (including GND=0)
     DenseVector node_voltages(mna_.num_nodes + 1);
@@ -844,9 +857,7 @@ void TransientSolver::accept_timestep_solution(const DenseVector& solution) {
     }
 
     // Update each device's state
-    for (const auto& device : circuit_.get_devices()) {
-        device->accept_solution(node_voltages);
-    }
+    accept_devices(node_voltages);
 
     // Save solution history for predictor-corrector error estimation
     // Keep last 3 solutions for quadratic extrapolation
@@ -1328,9 +1339,7 @@ void TransientSolver::initialize_uic_mode(TransientResult& result, Real t_start,
     }
 
     // Let devices accept initial solution
-    for (const auto& device : circuit_.get_devices()) {
-        device->accept_solution(initial_voltages);
-    }
+    accept_devices(initial_voltages);
 
     // Save initial state (t=t_start)
     TimePoint initial_tp;
@@ -1384,9 +1393,7 @@ bool TransientSolver::initialize_dc_mode(TransientResult& result, Real t_start,
     }
 
     // Initialize device states with DC solution
-    for (const auto& device : circuit_.get_devices()) {
-        device->accept_solution(node_voltages);
-    }
+    accept_devices(node_voltages);
 
     // Save initial state (t=t_start) with DC operating point
     TimePoint initial_tp;

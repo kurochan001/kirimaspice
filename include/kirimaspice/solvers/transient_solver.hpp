@@ -159,6 +159,11 @@ private:
     /// Accept timestep solution and update device histories
     void accept_timestep_solution(const DenseVector& solution);
 
+    /// Let every device accept node_voltages (index 0 = ground). Mutual
+    /// inductances correct the currents their inductors have just stored, so
+    /// they accept after every other device, whatever the netlist order.
+    void accept_devices(const DenseVector& node_voltages);
+
     /// Estimate local truncation error using embedded method (BE vs Trap)
     /// Returns maximum normalized LTE across all nodes
     Real estimate_lte(const DenseVector& solution_low_order,
