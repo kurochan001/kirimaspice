@@ -643,22 +643,3 @@ else()
     )
     target_compile_definitions(kirimaspice_lib PUBLIC KIRIMASPICE_USE_NGSPICE_BSIM4_REF=0)
 endif()
-
-# Debug executable for parameter extraction
-if(EXISTS /tmp/debug_phase30_9_4.cpp)
-    add_executable(debug_phase30_9_4 /tmp/debug_phase30_9_4.cpp)
-    
-    target_link_libraries(debug_phase30_9_4
-        PRIVATE
-            kirimaspice_lib
-            spdlog::spdlog
-            fmt::fmt
-    )
-    
-    target_include_directories(debug_phase30_9_4
-        PRIVATE
-            ${CMAKE_SOURCE_DIR}/include
-    )
-    
-    target_compile_features(debug_phase30_9_4 PRIVATE cxx_std_20)
-endif()
