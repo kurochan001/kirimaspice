@@ -70,7 +70,7 @@ CircuitGraph::CircuitGraph()
     , config_(nullptr) {
 
     // Add ground node (GND = node 0)
-    add_node("0");
+    add_node(std::string(NODE_GND_NAME));
 
     spdlog::debug("CircuitGraph created");
 }

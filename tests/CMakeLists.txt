@@ -62,6 +62,15 @@ set_tests_properties(cli_help_short PROPERTIES
     FAIL_REGULAR_EXPRESSION "Loading netlist|Failed to parse|Error:"
 )
 
+# Only the node "0" is ground at the top level; the printed operating point
+# must give GND its own voltage and keep the source current in its place.
+add_test(NAME cli_op_gnd_is_a_node
+    COMMAND $<TARGET_FILE:kirimaspice> ${CMAKE_SOURCE_DIR}/tests/netlists/gnd_top_level_op.sp
+)
+set_tests_properties(cli_op_gnd_is_a_node PROPERTIES
+    PASS_REGULAR_EXPRESSION "V\\(a\\) = 1 V\nV\\(GND\\) = 0\\.75 V\nI\\(V1\\) = 0\\.00025 A"
+)
+
 #==============================================================================
 # Unit Tests
 #==============================================================================

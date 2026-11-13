@@ -50,7 +50,7 @@ std::vector<std::string> RawWriter::align_node_names(const std::vector<std::stri
 
     // Prefer to drop ground node if solution excludes it
     for (const auto& name : node_names) {
-        if ((name == "0" || name == "GND") && node_names.size() > expected) {
+        if (name == NODE_GND_NAME && node_names.size() > expected) {
             continue;
         }
         aligned.push_back(name);

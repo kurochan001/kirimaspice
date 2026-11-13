@@ -150,7 +150,7 @@ private:
     /**
      * @brief Align node names to match voltage array size
      *
-     * Removes GND node ("0" or "GND") if present, and ensures the
+     * Removes the ground node (NODE_GND_NAME) if present, and ensures the
      * returned list size matches the expected voltage array size.
      * Auto-generates missing node names if needed.
      *

@@ -207,12 +207,12 @@ Real PoleZeroSolver::compute_dc_gain(
         Real v_out1 = 0.0;
         Real v_out2 = 0.0;
 
-        if (node1 != "0" && node1 != "GND") {
+        if (node1 != NODE_GND_NAME) {
             std::uint32_t node_id1 = circuit.get_node_id(node1);
             v_out1 = solution[node_id1 - 1];
         }
 
-        if (node2 != "0" && node2 != "GND") {
+        if (node2 != NODE_GND_NAME) {
             std::uint32_t node_id2 = circuit.get_node_id(node2);
             v_out2 = solution[node_id2 - 1];
         }

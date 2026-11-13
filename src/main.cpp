@@ -320,7 +320,7 @@ int main(int argc, char* argv[]) {
 
                 // Print ground node explicitly (always 0V)
                 for (const auto& name : node_names) {
-                    if (name == "0" || name == "GND" || name.empty()) {
+                    if (name == NODE_GND_NAME) {
                         std::cout << "V(0) = 0 V\n";
                         break;
                     }
@@ -328,7 +328,7 @@ int main(int argc, char* argv[]) {
 
                 size_t solution_idx = 0;
                 for (const auto& name : node_names) {
-                    if (name == "0" || name == "GND" || name.empty()) continue;
+                    if (name == NODE_GND_NAME) continue;
                     if (solution_idx < point.node_voltages.size()) {
                         std::cout << "V(" << name << ") = "
                                   << point.node_voltages[solution_idx] << " V\n";
@@ -358,7 +358,7 @@ int main(int argc, char* argv[]) {
 
                 // Print ground node explicitly (always 0V)
                 for (const auto& name : node_names) {
-                    if (name == "0" || name == "GND" || name.empty()) {
+                    if (name == NODE_GND_NAME) {
                         std::cout << "V(0) = 0 V\n";
                         break;
                     }
@@ -367,7 +367,7 @@ int main(int argc, char* argv[]) {
                 // Print non-ground nodes from solution vector
                 size_t solution_idx = 0;
                 for (const auto& name : node_names) {
-                    if (name == "0" || name == "GND" || name.empty()) {
+                    if (name == NODE_GND_NAME) {
                         continue; // Skip ground node
                     }
                     if (solution_idx < solution.size()) {
@@ -389,7 +389,7 @@ int main(int argc, char* argv[]) {
                 // Reconstruct node_voltages and branch_currents for file writers
                 size_t num_non_ground_nodes = 0;
                 for (const auto& name : node_names) {
-                    if (name != "0" && name != "GND" && !name.empty()) {
+                    if (name != NODE_GND_NAME) {
                         num_non_ground_nodes++;
                     }
                 }
@@ -487,7 +487,7 @@ int main(int argc, char* argv[]) {
                         std::cout << tp.time << "\t";
                         // Print node voltages, inserting 0 for ground node
                         for (size_t i = 0; i < node_names.size(); ++i) {
-                            if (node_names[i] == "0" || node_names[i] == "GND") {
+                            if (node_names[i] == NODE_GND_NAME) {
                                 std::cout << "0\t";  // Ground is always 0
                             } else {
                                 // Find index in node_voltages (excluding ground)
@@ -592,7 +592,7 @@ int main(int argc, char* argv[]) {
 
                 // Print ground node explicitly (always 0V)
                 for (const auto& name : node_names) {
-                    if (name == "0" || name == "GND" || name.empty()) {
+                    if (name == NODE_GND_NAME) {
                         std::cout << "V(0) = 0 V\n";
                         break;
                     }
@@ -601,7 +601,7 @@ int main(int argc, char* argv[]) {
                 // Print non-ground nodes from solution vector
                 size_t solution_idx = 0;
                 for (const auto& name : node_names) {
-                    if (name == "0" || name == "GND" || name.empty()) {
+                    if (name == NODE_GND_NAME) {
                         continue; // Skip ground node
                     }
                     if (solution_idx < solution.size()) {

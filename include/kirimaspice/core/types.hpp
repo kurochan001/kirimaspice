@@ -29,6 +29,9 @@ using ScopeId = std::uint32_t;       ///< Scope ID
 
 /// Special node ID values
 constexpr NodeId NODE_GND = 0;               ///< Ground node
+/// Name of the ground node NODE_GND. At the top level no other name is ground;
+/// output that leaves ground out tests for this name only.
+inline constexpr std::string_view NODE_GND_NAME = "0";
 constexpr NodeId NODE_INVALID = UINT32_MAX; ///< Invalid node
 constexpr BranchId INVALID_BRANCH = UINT32_MAX; ///< Invalid branch
 
