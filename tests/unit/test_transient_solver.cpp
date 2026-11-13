@@ -312,6 +312,43 @@ TEST(TransientSolver, TrapezoidalStartIsSecondOrder) {
     }
 }
 
+// With adaptive steps, a step that is rejected and retried with a smaller dt
+// must evaluate the sources at the end of the smaller step. The node of an
+// ideal voltage source then equals the source's waveform at every accepted
+// time point.
+TEST(TransientSolver, RetriedStepEvaluatesSourcesAtItsOwnTime) {
+    CircuitGraph circuit;
+    // PULSE(0 1 1n 1n 1n 10n 20n): 0 until 1 ns, then every 20 ns a ramp to
+    // 1 V in 1 ns, 10 ns at 1 V and a fall to 0 in 1 ns.
+    circuit.add_pulse_voltage_source("V1", "in", "0", 0.0, 1.0, 1e-9, 1e-9, 1e-9, 10e-9, 20e-9);
+    circuit.add_resistor("R1", "in", "out", 1000.0);
+    circuit.add_capacitor("C1", "out", "0", 0.75e-12);
+    const NodeId in = circuit.get_node_id("in");
+
+    SimulationConfig config;
+    config.transient.use_adaptive_timestep = true;
+    config.transient.method = IntegrationMethod::GEAR2;
+    config.transient.initial_step = 0.1e-9;
+    config.transient.max_step = 1.0e-9;
+    config.transient.min_step = 1e-15;
+    TransientSolver solver(circuit, config);
+    TransientResult result = solver.solve(0.0, 30e-9, 0.1e-9);
+    ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
+    EXPECT_GT(result.stats.timestep_rejects, 0u);  // the case this test is about
+
+    auto pulse = [](Real t) {
+        if (t <= 1e-9) return 0.0;
+        const Real tt = std::fmod(t - 1e-9, 20e-9);
+        if (tt <= 1e-9) return tt / 1e-9;
+        if (tt <= 11e-9) return 1.0;
+        if (tt <= 12e-9) return 1.0 - (tt - 11e-9) / 1e-9;
+        return 0.0;
+    };
+    for (const auto& tp : result.timepoints) {
+        EXPECT_NEAR(tp.node_voltages[in - 1], pulse(tp.time), 1e-6) << "t=" << tp.time;
+    }
+}
+
 // Test 8: Adaptive timestep control with LTE estimation
 TEST(TransientSolver, AdaptiveTimestepControl) {
     // Enable debug logging for this test

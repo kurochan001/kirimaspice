@@ -310,7 +310,14 @@ TransientSolver::solve_timestep_adaptive(DenseVector& solution,
     constexpr std::uint32_t max_timestep_rejects = 20;  // Allow more rejects for sharp transients
     std::uint32_t reject_count = 0;
 
+    // The caller set current_time_ to the end of this step. Every attempt,
+    // including one retried with a smaller current_dt, solves for the time
+    // step_start + current_dt, and sources are evaluated at that time.
+    const Real step_start = current_time_ - current_dt;
+
     while (reject_count < max_timestep_rejects) {
+        current_time_ = step_start + current_dt;
+
         // Save device states before attempting this timestep
         save_device_states();
 
