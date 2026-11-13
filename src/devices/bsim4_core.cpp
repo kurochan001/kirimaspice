@@ -24,6 +24,7 @@
 #include <cmath>
 #include <iostream>
 #include <limits>
+#include <numbers>
 #include <tuple>
 #include <utility>
 #include <spdlog/spdlog.h>

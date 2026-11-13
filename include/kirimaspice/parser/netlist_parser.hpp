@@ -5,16 +5,13 @@
 #pragma once
 #include "kirimaspice/core/types.hpp"
 #include <string>
+#include "kirimaspice/circuit/circuit_graph.hpp"  // complete type for unique_ptr<CircuitGraph>
+
 #include <memory>
 #include <stdexcept>
 #include <optional>
 
 namespace kirimaspice {
-
-// Forward declarations
-namespace circuit {
-class CircuitGraph;
-}
 
 namespace parser {
 
