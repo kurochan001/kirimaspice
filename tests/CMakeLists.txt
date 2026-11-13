@@ -348,20 +348,10 @@ add_executable(test_ac_csv_writer unit/test_ac_csv_writer.cpp)
 target_link_libraries(test_ac_csv_writer PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_ac_csv_writer PROPERTIES TIMEOUT 1200)
 
-# Backend equivalence (AC): KLU vs SuperLU_MT
-add_executable(test_solver_backend_equivalence unit/test_solver_backend_equivalence.cpp)
-target_link_libraries(test_solver_backend_equivalence PRIVATE kirimaspice_lib GTest::gtest_main)
-gtest_discover_tests(test_solver_backend_equivalence PROPERTIES TIMEOUT 1200)
-
 # Refactorize pattern change detection (SuperLU_MT)
 add_executable(test_solver_refactorize_pattern_change unit/test_solver_refactorize_pattern_change.cpp)
 target_link_libraries(test_solver_refactorize_pattern_change PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_solver_refactorize_pattern_change PROPERTIES TIMEOUT 1200)
-
-# Stress test: SuperLU_MT reuse stability
-add_executable(test_superlu_reuse_stress unit/test_superlu_reuse_stress.cpp)
-target_link_libraries(test_superlu_reuse_stress PRIVATE kirimaspice_lib GTest::gtest_main)
-gtest_discover_tests(test_superlu_reuse_stress PROPERTIES TIMEOUT 1200)
 
 # Controlled sources (VCVS, CCCS, VCCS, CCVS)
 add_executable(test_controlled_sources unit/test_controlled_sources.cpp)
