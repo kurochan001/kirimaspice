@@ -1,0 +1,16 @@
+* RLC Band-Stop (Notch) Filter AC Analysis for validation
+* Circuit: V(1V AC) -> R(1k) -> out, out -> Rload(1k) -> GND, out -> L(10m) -> C(1u) -> GND
+* Notch frequency: f0 = 1/(2*pi*sqrt(L*C)) = 1591.5 Hz
+
+V1 in 0 DC 0 AC 1
+R1 in out 1k
+Rload out 0 1k
+L1 out n1 10m
+C1 n1 0 1u
+
+.ac dec 20 100 100k
+.control
+run
+wrdata rlc_bandstop_ac_ngspice.csv v(out)
+.endc
+.end

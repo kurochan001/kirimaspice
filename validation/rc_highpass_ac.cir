@@ -1,0 +1,28 @@
+RC High-Pass Filter AC Analysis
+* Cutoff frequency: fc = 1/(2*pi*R*C) = 159.15 Hz
+
+* Input voltage source (AC magnitude = 1V)
+Vin in 0 DC 0 AC 1
+
+* High-pass filter: V -> C -> R -> GND
+C1 in out 1u
+R1 out 0 1k
+
+* AC analysis: 10 Hz to 10 kHz, 20 points per decade
+.ac dec 20 10 10k
+
+.control
+* Run AC analysis
+ac dec 20 10 10k
+
+* Write AC analysis results to CSV file
+set wr_singlescale
+set wr_vecnames
+option numdgt=7
+* Output real and imaginary parts of v(out)
+wrdata rc_highpass_ac_ngspice.csv Re(v(out)) Im(v(out))
+
+quit
+.endc
+
+.end

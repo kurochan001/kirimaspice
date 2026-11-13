@@ -1,0 +1,41 @@
+* MOSFET Common Source Amplifier - AC Analysis
+* AC small-signal analysis at DC operating point
+* Gate bias: DC 2.0V + AC 10mV
+* Expected: Inverted amplification at drain
+
+.title MOSFET NMOS Common-Source Amplifier AC Analysis
+
+* Power supply
+VDD vdd 0 DC 5.0
+
+* Gate voltage: DC 2.0V + AC signal (10mV amplitude)
+VGS vgs 0 DC 2.0 AC 0.01
+
+* Drain resistor
+RD vdd d 10k
+
+* MOSFET: Drain Gate Source Bulk
+M1 d vgs 0 0 NMOS1 W=10u L=1u
+
+* MOSFET NMOS model (Level 1)
+.model NMOS1 NMOS (level=1 VTO=0.7 KP=2e-5)
+
+* AC analysis: 10 Hz to 100 kHz, 20 points per decade
+.ac dec 20 10 100k
+
+* Control commands
+.control
+* Run AC analysis
+ac dec 20 10 100k
+
+* Write AC analysis results to CSV file
+set wr_singlescale
+set wr_vecnames
+option numdgt=7
+* Output real and imaginary parts of v(d)
+wrdata mosfet_amplifier_ac_ngspice.csv Re(v(d)) Im(v(d))
+
+quit
+.endc
+
+.end

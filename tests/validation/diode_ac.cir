@@ -1,0 +1,16 @@
+* Diode AC Analysis for validation
+* Circuit: V(2V DC + 1V AC) -> R(1k) -> Diode -> GND
+
+.model D1N4148 D IS=1e-14 N=1.0
+
+Vdc in 0 DC 2 AC 1
+R1 in out 1k
+D1 out 0 D1N4148
+
+.ac dec 10 1k 10k
+
+.control
+ac dec 10 1k 10k
+wrdata diode_ac_ngspice.dat v(out)
+.endc
+.end

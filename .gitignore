@@ -1,0 +1,113 @@
+# Build directories
+build/
+build-*/
+cmake-build-*/
+# Local large build outputs
+build-cov/
+build-coverage/
+
+# CMake cache
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+CTestTestfile.cmake
+_deps/
+
+# Ninja
+.ninja_deps
+.ninja_log
+
+# Compiled Object files
+*.o
+*.obj
+*.lo
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.a
+*.lib
+*.la
+
+# Executables
+*.exe
+*.out
+*.app
+/kirimaspice
+
+# Coverage
+*.gcda
+*.gcno
+*.gcov
+coverage.html
+coverage/
+*.info
+
+# ccache
+.ccache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python (pre-commit)
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Doxygen
+docs/html/
+docs/latex/
+docs/xml/
+
+# Test results
+Testing/
+test_detail.xml
+*.log
+
+# Simulation output files
+*.ssf
+*.ssf[0-9]
+test_output*.ssf
+*.raw
+*.csv
+!docs/benchmarks/data/*.csv
+bench_out/
+
+# Temporary test files (root directory only)
+/test_*.sp
+
+# Temporary files
+*.tmp
+*.bak
+*.orig
+
+# Debug output files and executables
+debug_*.txt
+debug_scripts/
+/debug_*
+
+# Package managers
+.cache/
+
+# Pre-commit
+.pre-commit-config.yaml.backup
+
+# Coverage reports
+coverage.*
+coverage.xml

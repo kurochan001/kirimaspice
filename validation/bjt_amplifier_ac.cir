@@ -1,0 +1,46 @@
+* BJT NPN Common-Emitter Amplifier - AC Analysis
+* AC small-signal analysis at DC operating point
+* Base bias: DC 0.75V + AC 5mV
+* Expected: Inverted amplification at collector
+
+.title BJT NPN Common-Emitter Amplifier AC Analysis
+
+* Power supply
+Vcc vcc 0 DC 5
+
+* Base voltage: DC 0.7V + AC signal (10mV amplitude)
+* Changed from 0.75V to match test_bjt_with_rb_phase (known working case)
+Vbase base 0 DC 0.7 AC 0.01
+
+* Base resistor
+Rb base b 1k
+
+* Collector resistor
+Rc vcc coll 1k
+
+* BJT transistor Q1: Collector Base Emitter
+* Emitter directly connected to GND
+Q1 coll b 0 Q_NPN
+
+* BJT NPN model parameters
+.model Q_NPN NPN(IS=1e-14 BF=100 NF=1.0)
+
+* AC analysis: 10 Hz to 100 kHz, 20 points per decade
+.ac dec 20 10 100k
+
+* Control commands
+.control
+* Run AC analysis
+ac dec 20 10 100k
+
+* Write AC analysis results to CSV file
+set wr_singlescale
+set wr_vecnames
+option numdgt=7
+* Output real and imaginary parts of v(coll)
+wrdata bjt_amplifier_ac_ngspice.csv Re(v(coll)) Im(v(coll))
+
+quit
+.endc
+
+.end

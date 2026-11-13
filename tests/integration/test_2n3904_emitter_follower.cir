@@ -1,0 +1,35 @@
+* 2N3904 Emitter Follower Circuit
+* Integration test with manufacturer model file
+
+* Include manufacturer model
+.INCLUDE ../models/2N3904.lib
+
+* Power supply
+Vcc vcc 0 DC 12
+
+* Input signal (DC bias + small AC)
+Vin in 0 DC 2.5 AC 0.1
+
+* Input coupling capacitor
+Cin in base 10u
+
+* Base bias resistors (voltage divider)
+R1 vcc base 47k
+R2 base 0 10k
+
+* Emitter follower transistor
+Q1 vcc base emitter 2N3904
+
+* Emitter resistor
+Re emitter 0 2.2k
+
+* Output coupling capacitor
+Cout emitter out 10u
+
+* Load resistor
+Rload out 0 10k
+
+* Analysis
+.DC Vin 0 5 0.1
+
+.end

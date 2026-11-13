@@ -1,0 +1,19 @@
+RLC Series Resonance Circuit
+* Step response of underdamped RLC circuit
+* R=100, L=1mH, C=10uF
+* Natural frequency: f0 = 1/(2*pi*sqrt(LC)) ≈ 1591 Hz
+* Damping ratio: zeta = R/(2*sqrt(L/C)) ≈ 0.5 (underdamped)
+* Time constant: tau ≈ 20us
+
+V1 in 0 DC 5
+R1 in n1 100
+L1 n1 out 1m
+C1 out 0 10u
+
+.tran 100n 1m
+.control
+run
+print all > validation/rlc_resonance_ngspice.txt
+quit
+.endc
+.end

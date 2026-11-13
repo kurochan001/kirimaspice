@@ -1,0 +1,38 @@
+* Multi-Device Integration Test
+* BJT + Diode with manufacturer models
+
+* Include manufacturer models
+.INCLUDE ../models/2N3904.lib
+.INCLUDE ../models/1N4148.lib
+
+* Power supply
+Vcc vcc 0 DC 12
+
+* Input voltage
+Vin in 0 DC 5
+
+* Input resistor
+Rin in base 10k
+
+* Base-emitter bias resistor
+Rbe base 0 100k
+
+* Transistor amplifier (common emitter)
+Q1 collector base emitter 2N3904
+
+* Collector resistor
+Rc vcc collector 4.7k
+
+* Emitter resistor
+Re emitter 0 1k
+
+* Protection diode (reverse voltage protection)
+* D1 collector 0 1N4148
+
+* Load resistor
+* Rload collector 0 10k
+
+* Analysis
+.DC Vin 0 10 0.5
+
+.end

@@ -1,0 +1,34 @@
+* BJT DC Operating Point Analysis
+* Same circuit as bjt_amplifier but DC-only for detailed comparison
+
+.title BJT DC Operating Point
+
+* Power supply
+Vcc vcc 0 DC 5
+
+* Base voltage
+Vbase base 0 DC 0.75
+
+* Base resistor
+Rb base b 1k
+
+* Collector resistor
+Rc vcc coll 1k
+
+* BJT transistor Q1
+Q1 coll b 0 Q_NPN
+
+* BJT model (matching kirimaspice)
+.model Q_NPN NPN(IS=1e-14 BF=100 NF=1.0)
+
+* DC operating point analysis
+.op
+
+.control
+op
+show q1:all
+print all
+quit
+.endc
+
+.end

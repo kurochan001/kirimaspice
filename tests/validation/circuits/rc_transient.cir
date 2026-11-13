@@ -1,0 +1,29 @@
+RC Circuit - Step Response Test
+* V1=10V, R=1kΩ, C=1µF
+* Expected: V(n2) = 10V * (1 - exp(-t/τ)), τ = RC = 1ms
+
+* Voltage source
+V1 n1 0 DC 10.0
+
+* Resistor: 1kΩ
+R1 n1 n2 1k
+
+* Capacitor: 1µF
+C1 n2 0 1u
+
+* Initial conditions
+.ic V(n2)=0
+
+* Transient analysis: 0-5ms with 0.1ms timestep
+.tran 0.1m 5m UIC
+
+* Control block for batch mode execution
+.control
+run
+set hcopydevtype=ascii
+set width=200
+print time v(n1) v(n2) > results/rc_transient_ngspice.txt
+quit
+.endc
+
+.end

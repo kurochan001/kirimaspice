@@ -1,0 +1,14 @@
+* RC High-Pass Filter AC Analysis for validation
+* Circuit: V(1V AC) -> C(1u) -> R(1k) -> GND
+* Cutoff frequency: fc = 1/(2*pi*R*C) = 159.15 Hz
+
+V1 in 0 DC 0 AC 1
+C1 in out 1u
+R1 out 0 1k
+
+.ac dec 20 10 10k
+.control
+run
+wrdata rc_highpass_ac_ngspice.csv v(out)
+.endc
+.end

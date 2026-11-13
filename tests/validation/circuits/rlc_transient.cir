@@ -1,0 +1,30 @@
+RLC Circuit - Step Response Test
+* V1=10V, R=100Ω, L=10mH, C=10µF
+* Damped oscillation or overdamped response
+
+* Voltage source
+V1 n1 0 DC 10.0
+
+* Resistor: 100Ω
+R1 n1 n2 100
+
+* Inductor: 10mH
+L1 n2 n3 10m
+
+* Capacitor: 10µF
+C1 n3 0 10u
+
+* Transient analysis: 0-20ms with 0.1ms timestep
+* UIC = Use Initial Conditions (default zero)
+.tran 0.1m 20m 0 0.1m UIC
+
+* Control block for batch mode execution
+.control
+run
+set hcopydevtype=ascii
+set width=200
+print time v(n1) v(n2) v(n3) i(V1) > results/rlc_transient_ngspice.txt
+quit
+.endc
+
+.end

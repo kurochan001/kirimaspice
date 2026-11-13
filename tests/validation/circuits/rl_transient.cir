@@ -1,0 +1,27 @@
+RL Circuit - Step Response Test
+* V1=10V, R=100Ω, L=10mH
+* Expected: I(L) = V/R * (1 - exp(-t/(L/R))), τ = L/R = 0.1ms
+
+* Voltage source
+V1 n1 0 DC 10.0
+
+* Resistor: 100Ω
+R1 n1 n2 100
+
+* Inductor: 10mH
+L1 n2 0 10m
+
+* Transient analysis: 0-0.5ms with 0.01ms timestep
+* UIC = Use Initial Conditions (default zero for inductors)
+.tran 0.01m 0.5m 0 0.01m UIC
+
+* Control block for batch mode execution
+.control
+run
+set hcopydevtype=ascii
+set width=200
+print time v(n1) v(n2) i(V1) > results/rl_transient_ngspice.txt
+quit
+.endc
+
+.end

@@ -1,0 +1,14 @@
+* RLC step response (R=20Ω, low Q) with Gear3/BDF3 reference
+V1 in 0 5
+R1 in n1 20
+L1 n1 out 1m
+C1 out 0 10u
+.option method=gear maxord=3
+.tran 5e-7 1e-3 uic
+.control
+  run
+  set filetype=ascii
+  wrdata validation/rlc_resonance_R20_bdf3_ngspice_ref.txt v(out)
+  quit
+.endc
+.end

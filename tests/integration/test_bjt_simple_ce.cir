@@ -1,0 +1,21 @@
+* Simple BJT Common Emitter Test
+* Match test_bjt.cpp CommonEmitterAmplifier configuration
+
+* Include manufacturer model
+.INCLUDE ../models/2N3904.lib
+
+* Power supplies
+VCC vcc 0 DC 5
+VBB vbb 0 DC 0.7
+
+* Resistors
+RC vcc c 1k
+RB vbb b 100
+
+* BJT with model reference
+Q1 c b 0 2N3904
+
+* Analysis
+.DC VCC 5 5 1
+
+.end

@@ -1,0 +1,31 @@
+RLC Band-Pass Filter AC Analysis (Series Resonance)
+* Center frequency: f0 = 1/(2*pi*sqrt(LC)) = 1591.5 Hz
+* Q factor: Q = f0*L/R = 1.0 (critically damped)
+
+* Input voltage source (AC magnitude = 1V)
+Vin in 0 DC 0 AC 1
+
+* Band-pass filter: V -> R_series -> L -> C -> R_load -> GND
+R1 in n1 100
+L1 n1 n2 10m
+C1 n2 out 1u
+Rload out 0 1000
+
+* AC analysis: 100 Hz to 100 kHz, 20 points per decade
+.ac dec 20 100 100k
+
+.control
+* Run AC analysis
+ac dec 20 100 100k
+
+* Write AC analysis results to CSV file
+set wr_singlescale
+set wr_vecnames
+option numdgt=7
+* Output real and imaginary parts of v(out)
+wrdata rlc_bandpass_ac_ngspice.csv Re(v(out)) Im(v(out))
+
+quit
+.endc
+
+.end

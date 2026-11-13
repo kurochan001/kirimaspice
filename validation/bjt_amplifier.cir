@@ -1,0 +1,39 @@
+* BJT NPN Common-Emitter Amplifier (Simplified, no emitter resistor)
+* Simplified circuit for better convergence
+* Base bias: DC voltage + small AC signal
+* Expected: Amplified and inverted output at collector
+
+.title BJT NPN Common-Emitter Amplifier (Simplified)
+
+* Power supply
+Vcc vcc 0 DC 5
+
+* Base voltage: DC 0.75V + AC signal (5mV @ 1kHz)
+* This provides proper Vbe (~0.7V) for active region
+Vbase base 0 SIN(0.75 0.005 1000)
+
+* Base resistor (to limit base current)
+Rb base b 1k
+
+* Collector resistor
+Rc vcc coll 1k
+
+* BJT transistor Q1: Collector Base Emitter
+* Emitter directly connected to GND for simplicity
+Q1 coll b 0 Q_NPN
+
+* BJT NPN model parameters (matching kirimaspice defaults)
+.model Q_NPN NPN(IS=1e-14 BF=100 NF=1.0)
+
+* Transient analysis: 10ms duration, 1us max timestep
+.control
+tran 1u 10m
+* Export data to file
+set wr_singlescale
+set wr_vecnames
+option numdgt=8
+wrdata validation/bjt_amplifier_ngspice.txt time v(base) v(b) v(coll) i(Vcc)
+quit
+.endc
+
+.end

@@ -1,0 +1,96 @@
+---
+# clang-format 21 configuration for kirimaspice
+Language: Cpp
+BasedOnStyle: Google
+
+# Indentation
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
+ConstructorInitializerIndentWidth: 4
+
+# Braces
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Empty
+
+# Line length
+ColumnLimit: 100
+
+# Pointers and references
+DerivePointerAlignment: false
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+# Namespaces
+NamespaceIndentation: None
+CompactNamespaces: false
+
+# Includes
+SortIncludes: CaseInsensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex:           '^<sundials/'
+    Priority:        1
+  - Regex:           '^<sunlinsol/'
+    Priority:        1
+  - Regex:           '^<nvector/'
+    Priority:        1
+  - Regex:           '^<spdlog/'
+    Priority:        2
+  - Regex:           '^<fmt/'
+    Priority:        2
+  - Regex:           '^<tao/pegtl'
+    Priority:        3
+  - Regex:           '^<boost/'
+    Priority:        3
+  - Regex:           '^<exprtk'
+    Priority:        3
+  - Regex:           '^<gtest/'
+    Priority:        4
+  - Regex:           '^<benchmark/'
+    Priority:        4
+  - Regex:           '^<[a-z_]+>'
+    Priority:        5
+  - Regex:           '^<.*\.h>'
+    Priority:        6
+  - Regex:           '^"kirimaspice/'
+    Priority:        7
+  - Regex:           '^".*"'
+    Priority:        8
+
+# Alignment
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None
+AlignEscapedNewlines: Left
+AlignOperands: Align
+AlignTrailingComments: true
+
+# Spacing
+SpaceAfterCStyleCast: false
+SpaceAfterTemplateKeyword: true
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCpp11BracedList: false
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeParens: ControlStatements
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceInEmptyParentheses: false
+SpacesInAngles: false
+SpacesInCStyleCastParentheses: false
+SpacesInContainerLiterals: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+# Other
+MaxEmptyLinesToKeep: 1
+KeepEmptyLinesAtTheStartOfBlocks: false
+ReflowComments: true
+SortUsingDeclarations: true
+
+# C++20 specific
+Standard: c++20

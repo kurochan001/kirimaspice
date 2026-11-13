@@ -1,0 +1,28 @@
+* MOSFET Common-Source Amplifier AC Analysis for validation
+* Simple common-source amplifier
+* VDD(5V) -> RD(10k) -> MOSFET Drain
+* VGS(2.0V DC + 10mV AC) -> MOSFET Gate
+* MOSFET Source -> GND
+
+.model NMOS1 NMOS LEVEL=1 KP=2e-5 VTO=0.7
+
+* Power supply: VDD = 5V
+VDD vdd 0 DC 5
+
+* Gate voltage with AC: VGS = 2.0V DC + 10mV AC
+VGS vgs 0 DC 2.0 AC 0.01
+
+* Drain resistor: RD = 10kΩ
+RD vdd d 10k
+
+* MOSFET: M1 (Drain Gate Source Bulk)
+* W=10u, L=1u
+M1 d vgs 0 0 NMOS1 W=10u L=1u
+
+.ac dec 20 10 100k
+
+.control
+ac dec 20 10 100k
+wrdata mosfet_amplifier_ac_ngspice.dat v(d)
+.endc
+.end
