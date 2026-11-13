@@ -34,8 +34,9 @@ TEST(UnitsParse, MixedCaseAndFollowedUnits) {
     EXPECT_NEAR(parse_value_with_unit("1MEG"), 1e6, 1e-3);
     EXPECT_NEAR(parse_value_with_unit("2Meg"), 2e6, 1e-3);
 
-    // Frequency-style suffixes should keep the scale, drop the unit
-    EXPECT_NEAR(parse_value_with_unit("10MHz"), 10e6, 1e-3);
+    // Letters after a scale factor are dropped; M is milli whatever follows
+    // (NETLIST_CONVENTIONS rule 1, as in ngspice), so 10MHz is 10 mHz
+    EXPECT_NEAR(parse_value_with_unit("10MHz"), 10e-3, 1e-15);
     EXPECT_NEAR(parse_value_with_unit("0.5GHz"), 0.5e9, 1e-3);
 
     // Very small prefix to exercise precision warning path (no throw expected)
