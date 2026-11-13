@@ -1,0 +1,59 @@
+# Copyright (c) 2026 The kirimaspice Authors
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: build-test (ubuntu-24.04, gcc)
+    # GitHub's standard runner. No self-hosted runners: the public logs of a
+    # job name the machine that ran it.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential cmake ninja-build python3 libsuitesparse-dev
+      - name: Record tool versions
+        run: |
+          g++ --version | head -n 1
+          cmake --version | head -n 1
+          dpkg-query -W libsuitesparse-dev
+      - name: Build, test and check (tools/local_ci.py)
+        env:
+          PRIVATE_PATTERNS: ${{ secrets.PRIVATE_PATTERNS }}
+        run: |
+          if [ -n "$PRIVATE_PATTERNS" ]; then
+            printf '%s\n' "$PRIVATE_PATTERNS" > "$RUNNER_TEMP/private_patterns.txt"
+            export KIRIMASPICE_PRIVATE_PATTERNS="$RUNNER_TEMP/private_patterns.txt"
+          fi
+          python3 tools/local_ci.py --jobs 4
+      - name: Show the logs of failed steps
+        if: failure()
+        run: tail -n 200 build/local-ci/*.log
+
+  history:
+    name: history check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Scan every commit (tools/check_banned.py --history)
+        env:
+          PRIVATE_PATTERNS: ${{ secrets.PRIVATE_PATTERNS }}
+        run: |
+          if [ -n "$PRIVATE_PATTERNS" ]; then
+            printf '%s\n' "$PRIVATE_PATTERNS" > "$RUNNER_TEMP/private_patterns.txt"
+            export KIRIMASPICE_PRIVATE_PATTERNS="$RUNNER_TEMP/private_patterns.txt"
+          fi
+          python3 tools/check_banned.py --history

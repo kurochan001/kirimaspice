@@ -1,0 +1,45 @@
+# Copyright (c) 2026 The kirimaspice Authors
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+name: Nightly
+
+on:
+  schedule:
+    - cron: "17 18 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  asan:
+    name: asan (ubuntu-24.04, gcc)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential cmake ninja-build python3 libsuitesparse-dev
+      - name: Build and test with AddressSanitizer
+        run: python3 tools/local_ci.py --jobs 4 --cmake-arg=-DSANITIZE_ADDRESS=ON
+      - name: Show the logs of failed steps
+        if: failure()
+        run: tail -n 200 build/local-ci/*.log
+
+  with-ngspice:
+    name: tests with ngspice installed (ubuntu-24.04, gcc)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install build dependencies and ngspice
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential cmake ninja-build python3 libsuitesparse-dev ngspice
+      - name: Record the ngspice version
+        run: dpkg-query -W ngspice
+      - name: Build and test
+        run: python3 tools/local_ci.py --jobs 4
+      - name: Show the logs of failed steps
+        if: failure()
+        run: tail -n 200 build/local-ci/*.log
