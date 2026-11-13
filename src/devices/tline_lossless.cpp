@@ -52,11 +52,12 @@ void TLineLossless::stamp_transient(MNASystem& mna,
     get_delayed_signals(next_time, v_a_delayed, v_b_delayed, i_a_delayed, i_b_delayed);
 
 
-    // Simplified characteristic equation model:
-    // I_A(t) = G0 * (V_A(t) - V_B(t-TD))
-    // I_B(t) = G0 * (V_B(t) - V_A(t-TD))
-    // MNA form: -I_A + G0*V_A = G0*V_B(t-TD)
-    //          -I_B + G0*V_B = G0*V_A(t-TD)
+    // Method of characteristics (Branin): with I_A and I_B the currents into
+    // the line at its ports, the wave arriving at one port is the one that
+    // left the other port TD earlier:
+    //   I_A(t) = G0*V_A(t) - [G0*V_B(t-TD) + I_B(t-TD)]
+    //   I_B(t) = G0*V_B(t) - [G0*V_A(t-TD) + I_A(t-TD)]
+    // Each port is a conductance G0 in parallel with that history source.
 
     const NodeId ap = nodes_[0];
     const NodeId an = nodes_[1];
@@ -97,9 +98,8 @@ void TLineLossless::stamp_transient(MNASystem& mna,
         }
     }
 
-    // Port A current source: G0 * V_B(t-TD)
-    // From characteristic equation: I_A = G0*(V_A - V_B(t-TD))
-    Real i_a_hist = g0_ * v_b_delayed;
+    // Port A history source: the wave arriving from port B
+    Real i_a_hist = incident_current(v_b_delayed, i_b_delayed);
     if (ap_idx >= 0) {
         mna.b[ap_idx] += i_a_hist;
     }
@@ -107,9 +107,8 @@ void TLineLossless::stamp_transient(MNASystem& mna,
         mna.b[an_idx] -= i_a_hist;
     }
 
-    // Port B current source: G0 * V_A(t-TD)
-    // From characteristic equation: I_B = G0*(V_B - V_A(t-TD))
-    Real i_b_hist = g0_ * v_a_delayed;
+    // Port B history source: the wave arriving from port A
+    Real i_b_hist = incident_current(v_a_delayed, i_a_delayed);
     if (bp_idx >= 0) {
         mna.b[bp_idx] += i_b_hist;
     }
@@ -229,15 +228,12 @@ void TLineLossless::accept_solution(const DenseVector& node_voltages) {
     Real v_a = v_ap - v_an;
     Real v_b = v_bp - v_bn;
 
-    // Compute port currents using simplified characteristic equations
-    // I_A(t) = G0 * (V_A(t) - V_B(t-TD))
-    // I_B(t) = G0 * (V_B(t) - V_A(t-TD))
+    // Port currents from the characteristic equations (see stamp_transient)
     Real v_a_delayed, v_b_delayed, i_a_delayed, i_b_delayed;
     get_delayed_signals(current_time_, v_a_delayed, v_b_delayed, i_a_delayed, i_b_delayed);
 
-    // Characteristic equation (no recursive current terms)
-    Real i_a = g0_ * (v_a - v_b_delayed);
-    Real i_b = g0_ * (v_b - v_a_delayed);
+    Real i_a = g0_ * v_a - incident_current(v_b_delayed, i_b_delayed);
+    Real i_b = g0_ * v_b - incident_current(v_a_delayed, i_a_delayed);
 
     // Add new history point
     HistoryPoint new_point;

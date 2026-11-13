@@ -361,3 +361,56 @@ Rload 2 0 50
     EXPECT_EQ(result.status, ConvergenceStatus::SUCCESS);
     EXPECT_GT(result.timepoints.size(), 50u);
 }
+
+//==============================================================================
+// Waves on a lossless line (method of characteristics)
+//==============================================================================
+namespace {
+
+// A 1 V step through Rs = Z0 = 50 Ohm into T1 (TD = 5 ns) with the given load
+// at the far end. Returns V(<node>) at time t from a fixed-step transient.
+Real step_response(const std::string& load_line, const std::string& node, Real t) {
+    const std::string netlist = "T-line step\n"
+        "Vin 1 0 DC 0 PULSE(0 1 0 1p 1p 1 2)\n"
+        "Rs 1 2 50\n"
+        "T1 2 0 3 0 Z0=50 TD=5n\n" + load_line + "\n.END\n";
+    parser::NetlistParser parser;
+    auto circuit = parser.parse_string_legacy(netlist);
+
+    SimulationConfig config;
+    config.transient.use_adaptive_timestep = false;
+    solvers::TransientSolver solver(*circuit, config);
+    const Real dt = 1e-10;
+    auto result = solver.solve(0.0, 20e-9, dt);
+    EXPECT_EQ(result.status, ConvergenceStatus::SUCCESS);
+
+    const NodeId id = circuit->get_node_id(node);
+    for (const auto& tp : result.timepoints) {
+        if (std::abs(tp.time - t) < dt / 2) {
+            return tp.node_voltages[id - 1];
+        }
+    }
+    ADD_FAILURE() << "no time point at " << t;
+    return 0.0;
+}
+
+}  // namespace
+
+// Matched at both ends: the near end stays at 0.5 V and the far end rises to
+// 0.5 V after TD, with no reflection.
+TEST(TLineDevice, MatchedLineCarriesHalfTheStepWithoutReflection) {
+    const std::string load = "Rload 3 0 50";
+    EXPECT_NEAR(step_response(load, "3", 3e-9), 0.0, 1e-9);
+    EXPECT_NEAR(step_response(load, "3", 8e-9), 0.5, 1e-9);
+    EXPECT_NEAR(step_response(load, "2", 8e-9), 0.5, 1e-9);
+    EXPECT_NEAR(step_response(load, "2", 15e-9), 0.5, 1e-9);
+}
+
+// Open far end: the wave doubles there after TD, and the reflection brings
+// the near end to 1 V after 2*TD.
+TEST(TLineDevice, OpenEndReflectsTheWave) {
+    const std::string load = "Rload 3 0 1G";
+    EXPECT_NEAR(step_response(load, "3", 8e-9), 1.0, 1e-6);
+    EXPECT_NEAR(step_response(load, "2", 8e-9), 0.5, 1e-6);
+    EXPECT_NEAR(step_response(load, "2", 15e-9), 1.0, 1e-6);
+}

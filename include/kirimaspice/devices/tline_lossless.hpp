@@ -104,6 +104,12 @@ private:
                             Real& v_a_delayed, Real& v_b_delayed,
                             Real& i_a_delayed, Real& i_b_delayed) const;
 
+    /// The history current of one port: the wave that left the other port TD
+    /// earlier, G0*V(t-TD) + I(t-TD) of that port (method of characteristics).
+    Real incident_current(Real v_other_delayed, Real i_other_delayed) const {
+        return g0_ * v_other_delayed + i_other_delayed;
+    }
+
     std::vector<NodeId> nodes_;  // [ap, an, bp, bn]
     Real z0_;   // Characteristic impedance [Ω]
     Real td_;   // Propagation delay [s]
