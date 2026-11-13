@@ -1,14 +1,21 @@
 # kirimaspice
 
-[English](README.md) · この文書は英語版を正とします。日本語版はその訳で、両者が食い違う場合は英語版に従います。
+[English](README.md)
 
-kirimaspice は、C++23 で書かれたオープンソースの SPICE 回路シミュレータです。SPICE のネットリストを
-読み、動作点、DC スイープ、過渡、AC の解析を行い、結果を SPICE3 の raw ファイル、CSV、SSF で
-書き出します。SystemVerilog シミュレータ [kirimasim](https://github.com/kurochan001/kirimasim) の
-姉妹プロジェクトです。
+[既知の問題](KNOWN_ISSUES.ja.md) · [貢献の仕方](CONTRIBUTING.ja.md) · [第三者の著作物に関する表示](THIRD_PARTY_NOTICES.ja.md)
 
-kirimaspice は開発の初期段階にあり、リリースはまだありません。コードの大部分は AI のツールが
-生成しており、仕様、テスト、レビューの責任は人が持ちます（[docs/spec/AI_POLICY.md](docs/spec/AI_POLICY.ja.md)）。
+[![CI](https://github.com/kurochan001/kirimaspice/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kurochan001/kirimaspice/actions/workflows/ci.yml?query=branch%3Amain)
+[![Nightly](https://github.com/kurochan001/kirimaspice/actions/workflows/nightly.yml/badge.svg?branch=main)](https://github.com/kurochan001/kirimaspice/actions/workflows/nightly.yml?query=branch%3Amain)
+[![C++23](https://img.shields.io/badge/C%2B%2B-23-00599C?logo=cplusplus&logoColor=white)](#ビルド)
+[![Linux](https://img.shields.io/badge/OS-Linux-FCC624?logo=linux&logoColor=black)](#ビルド)
+[![macOS](https://img.shields.io/badge/OS-macOS-000000?logo=apple&logoColor=white)](#ビルド)
+[![License: Apache-2.0 WITH LLVM-exception](https://img.shields.io/badge/license-Apache--2.0%20WITH%20LLVM--exception-blue)](LICENSE)
+
+kirimaspice は、開発初期のオープンソースの SPICE 回路シミュレータで、SystemVerilog シミュレータ
+[kirimasim](https://github.com/kurochan001/kirimasim) の姉妹プロジェクトです。SPICE のネットリストを読み、
+動作点、DC スイープ、過渡、AC の解析を行い、結果を SPICE3 の raw ファイル、CSV、SSF で書き出します。
+リリースはまだありません。実装は AI が手伝い、仕様、テストの期待値、レビューは
+[AI ポリシー](docs/spec/AI_POLICY.ja.md)のもとで人が承認します。
 
 ## 現状
 
