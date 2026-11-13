@@ -4565,3 +4565,24 @@ R7 g 0 1k
     EXPECT_DOUBLE_EQ(vsrc("X2.VA")->ac_magnitude(), 0.5);
     EXPECT_DOUBLE_EQ(vsrc("X2.VA")->ac_phase(), 90.0);
 }
+
+// NETLIST_CONVENTIONS rule 5: gnd in any case is ground at the top level, as
+// it is inside subcircuits.
+TEST(NetlistParser, GndInAnyCaseIsGround) {
+    std::string netlist = R"(
+gnd names
+V1 a gnd DC 1
+R1 a GND 1k
+R2 a Gnd 1k
+R3 a 0 1k
+.end
+)";
+
+    parser::NetlistParser parser;
+    auto result = parser.parse_string(netlist);
+    ASSERT_NE(result.circuit, nullptr);
+    EXPECT_EQ(result.circuit->get_node_id("gnd"), NODE_GND);
+    EXPECT_EQ(result.circuit->get_node_id("GND"), NODE_GND);
+    EXPECT_TRUE(result.circuit->has_node("Gnd"));
+    EXPECT_EQ(result.circuit->num_nodes(), 2u);  // 0 and a
+}

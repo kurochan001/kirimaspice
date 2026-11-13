@@ -32,6 +32,12 @@ constexpr NodeId NODE_GND = 0;               ///< Ground node
 /// Name of the ground node NODE_GND. At the top level no other name is ground;
 /// output that leaves ground out tests for this name only.
 inline constexpr std::string_view NODE_GND_NAME = "0";
+/// True if a node name in a netlist means ground: "0", or "gnd" in any case,
+/// at the top level as inside subcircuits (docs/spec/NETLIST_CONVENTIONS.md,
+/// rule 5). Such a node is NODE_GND, named NODE_GND_NAME.
+inline bool is_ground_name(std::string_view name) {
+    return name == NODE_GND_NAME || util::equals_icase(name, "gnd");
+}
 constexpr NodeId NODE_INVALID = UINT32_MAX; ///< Invalid node
 constexpr BranchId INVALID_BRANCH = UINT32_MAX; ///< Invalid branch
 

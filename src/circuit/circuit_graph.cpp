@@ -91,6 +91,10 @@ void CircuitGraph::set_simulation_config(const SimulationConfig* config) {
 // Node Management
 //==============================================================================
 NodeId CircuitGraph::add_node(const std::string& name) {
+    if (is_ground_name(name) && name != NODE_GND_NAME) {
+        return NODE_GND;  // gnd in any case is ground
+    }
+
     // Check if node already exists
     auto it = node_map_.find(name);
     if (it != node_map_.end()) {
@@ -120,6 +124,9 @@ NodeId CircuitGraph::add_node(const std::string& name) {
 }
 
 NodeId CircuitGraph::get_node_id(const std::string& name) const {
+    if (is_ground_name(name)) {
+        return NODE_GND;
+    }
     auto it = node_map_.find(name);
     if (it == node_map_.end()) {
         throw std::runtime_error(fmt::format("Node not found: {}", name));
@@ -128,7 +135,7 @@ NodeId CircuitGraph::get_node_id(const std::string& name) const {
 }
 
 bool CircuitGraph::has_node(const std::string& name) const {
-    return node_map_.find(name) != node_map_.end();
+    return is_ground_name(name) || node_map_.find(name) != node_map_.end();
 }
 
 std::uint32_t CircuitGraph::num_nodes() const {
@@ -2120,11 +2127,9 @@ void CircuitGraph::expand_subcircuit_instance(const std::string& instance_name) 
                 return node;  // Use global node name as-is
             }
 
-            // Check if node is ground (case-insensitive)
-            std::string node_upper = node;
-            std::transform(node_upper.begin(), node_upper.end(), node_upper.begin(), ::toupper);
-            if (node_upper == "0" || node_upper == "GND") {
-                return "0";  // Ground node
+            // Ground keeps its name (is_ground_name)
+            if (is_ground_name(node)) {
+                return std::string(NODE_GND_NAME);
             }
 
             // Internal node: hierarchize as X1.n1
