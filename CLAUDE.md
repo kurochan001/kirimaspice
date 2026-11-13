@@ -4,7 +4,7 @@
 
 ## Purpose of the project
 
-kirimaspice is an open-source SPICE circuit simulator written in C++20. The
+kirimaspice is an open-source SPICE circuit simulator written in C++23. The
 static library `kirimaspice_lib` holds the netlist parser, the circuit, the
 device models, the solvers, the analyses and the output writers; the program
 `kirimaspice` is a thin command-line front end over it. It is a sister

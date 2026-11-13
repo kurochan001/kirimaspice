@@ -61,7 +61,7 @@ they are protected:
 
 ## Building and testing
 
-kirimaspice is built with CMake 3.25 or newer, a C++20 compiler and Ninja.
+kirimaspice is built with CMake 3.25 or newer, a C++23 compiler and Ninja.
 SuiteSparse (KLU) is taken from the system and Python 3 is needed for the
 tests. See the README for the commands. Before pushing, run:
 

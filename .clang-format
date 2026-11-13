@@ -92,5 +92,4 @@ KeepEmptyLinesAtTheStartOfBlocks: false
 ReflowComments: true
 SortUsingDeclarations: true
 
-# C++20 specific
-Standard: c++20
+Standard: Latest

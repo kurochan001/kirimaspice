@@ -4,7 +4,7 @@
 
 ## プロジェクトの目的
 
-kirimaspice は、C++20 で書かれたオープンソースの SPICE 回路シミュレータです。
+kirimaspice は、C++23 で書かれたオープンソースの SPICE 回路シミュレータです。
 静的ライブラリ `kirimaspice_lib` が、ネットリストのパーサー、回路、デバイスモデル、
 ソルバー、解析、出力を持ち、プログラム `kirimaspice` はその上の薄いコマンドラインの
 入り口です。SystemVerilog シミュレータ kirimasim の姉妹プロジェクトで、波形形式の

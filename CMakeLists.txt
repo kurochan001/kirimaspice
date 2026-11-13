@@ -4,8 +4,13 @@
 cmake_minimum_required(VERSION 3.25)
 project(kirimaspice VERSION 0.0.0 LANGUAGES CXX C)
 
-# C++20 standard required
-set(CMAKE_CXX_STANDARD 20)
+# kirimaspice is built as C++23. 26 is accepted too, to see when it can move.
+if(NOT DEFINED CMAKE_CXX_STANDARD)
+    set(CMAKE_CXX_STANDARD 23)
+elseif(NOT CMAKE_CXX_STANDARD MATCHES "^(23|26)$")
+    message(FATAL_ERROR "kirimaspice is built as C++23 (CMAKE_CXX_STANDARD 23, "
+                        "or 26 to try the next standard), not ${CMAKE_CXX_STANDARD}")
+endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 

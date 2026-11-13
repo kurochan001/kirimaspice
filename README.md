@@ -2,7 +2,7 @@
 
 [日本語](README.ja.md) · This English text is the main version; the Japanese version follows it, and where they differ, this text holds.
 
-kirimaspice is an open-source SPICE circuit simulator written in C++20. It
+kirimaspice is an open-source SPICE circuit simulator written in C++23. It
 reads a SPICE netlist, runs operating-point, DC-sweep, transient and AC
 analyses, and writes the results as SPICE3 raw files, CSV or SSF. It is a
 sister project of [kirimasim](https://github.com/kurochan001/kirimasim), a
@@ -71,7 +71,7 @@ The linear solver is KLU from SuiteSparse.
 
 ## Building
 
-You need CMake 3.25 or newer, a C++20 compiler, Ninja, Python 3, and the
+You need CMake 3.25 or newer, a C++23 compiler, Ninja, Python 3, and the
 SuiteSparse development files (KLU 2.3.2 or newer, as in SuiteSparse
 7.6.1). The other dependencies are downloaded by CMake at configure time,
 pinned to fixed versions, so the first configure needs network access.

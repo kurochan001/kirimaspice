@@ -2,7 +2,7 @@
 
 [English](README.md) · この文書は英語版を正とします。日本語版はその訳で、両者が食い違う場合は英語版に従います。
 
-kirimaspice は、C++20 で書かれたオープンソースの SPICE 回路シミュレータです。SPICE のネットリストを
+kirimaspice は、C++23 で書かれたオープンソースの SPICE 回路シミュレータです。SPICE のネットリストを
 読み、動作点、DC スイープ、過渡、AC の解析を行い、結果を SPICE3 の raw ファイル、CSV、SSF で
 書き出します。SystemVerilog シミュレータ [kirimasim](https://github.com/kurochan001/kirimasim) の
 姉妹プロジェクトです。
@@ -64,7 +64,7 @@ S パラメータ、モンテカルロ、ワーストケース、最適化の解
 
 ## ビルド
 
-CMake 3.25 以上、C++20 のコンパイラ、Ninja、Python 3、SuiteSparse の開発用ファイル（KLU 2.3.2 以上。
+CMake 3.25 以上、C++23 のコンパイラ、Ninja、Python 3、SuiteSparse の開発用ファイル（KLU 2.3.2 以上。
 SuiteSparse 7.6.1 に含まれる版）が必要です。そのほかの依存は、configure のときに CMake が固定した版で
 取得するので、最初の configure にはネットワークへの接続が要ります。
 
