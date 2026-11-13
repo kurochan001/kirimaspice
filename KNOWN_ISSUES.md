@@ -28,7 +28,8 @@ and SuiteSparse 7.6.1 unless an entry says otherwise.
   reads `/tmp/phase_b7_temperature_refs.json`, which a script in `scripts/`
   writes.
 - `BSIM4ComprehensiveTest.NgspiceComparison` runs `ngspice` and is skipped
-  when ngspice is not installed.
+  when ngspice is not installed. On macOS with ngspice-47 from Homebrew it
+  runs and passes.
 - Some tests find their data relative to the build directory and pass only
   when it is `build/` directly under the source tree.
 
@@ -37,7 +38,10 @@ and SuiteSparse 7.6.1 unless an entry says otherwise.
 These were found while writing the [User Manual](docs/USER_MANUAL.md) and
 the [Reference Manual](docs/REFERENCE_MANUAL.md), by running the program
 built from commit `91af284`. What this section says about SPICE and ngspice
-comes from their manuals; none of it was compared by running ngspice.
+comes from their manuals. The five differences from ngspice in scale
+factors, AC inputs, source currents, nested `.DC` sweeps and `gnd` were
+also checked by running ngspice-47; following ngspice there is proposed in
+[NETLIST_CONVENTIONS.md](docs/spec/NETLIST_CONVENTIONS.md).
 
 - **`B` sources have no AC model and no `I(<source>)`.** In AC analysis a
   `B` source contributes nothing and logs `AC analysis not yet supported`;
@@ -95,12 +99,6 @@ says otherwise.
 - In the library's adaptive time-step path, which the program does not
   use, a fixed `TRAPEZOIDAL` method starts without the backward-Euler step
   that the fixed-step path takes (read in the code, not run).
-- **Coupled inductors have no truncation-error check in adaptive steps.**
-  `Inductor::get_physical_lte` returns 0 for an inductor that is coupled
-  (the comment beside it leaves a coupled check to `MutualInductance`), and
-  it writes a line to standard output at every call. This concerns the
-  library's adaptive time-step path, which the program does not use (read
-  in the code, not run).
 
 ## Device models
 

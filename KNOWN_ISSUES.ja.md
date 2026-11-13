@@ -22,7 +22,7 @@
 - `BSIM4TemperatureValidationTest.TemperatureSweepValidation` はスキップされます。
   `scripts/` のスクリプトが書き出す `/tmp/phase_b7_temperature_refs.json` を読むためです。
 - `BSIM4ComprehensiveTest.NgspiceComparison` は `ngspice` を実行し、ngspice が入っていなければ
-  スキップされます。
+  スキップされます。macOS で Homebrew の ngspice-47 を入れると、実行して合格します。
 - テストの一部は、ビルドディレクトリからの相対位置でデータを探すので、ビルドディレクトリが
   ソースの直下の `build/` のときだけ合格します。
 
@@ -30,7 +30,9 @@
 
 [ユーザーマニュアル](docs/USER_MANUAL.ja.md)と[リファレンスマニュアル](docs/REFERENCE_MANUAL.ja.md)を
 書くときに、コミット `91af284` からビルドしたプログラムを動かして見つけたものです。この節で SPICE と
-ngspice について書いていることは、それぞれのマニュアルによります。ngspice を動かして比べてはいません。
+ngspice について書いていることは、それぞれのマニュアルによります。倍率、AC 解析の入力、電源の電流、
+入れ子の `.DC`、`gnd` の 5 つの ngspice との違いは、ngspice-47 を動かしても確かめました。そこで ngspice に
+合わせることを、[NETLIST_CONVENTIONS.md](docs/spec/NETLIST_CONVENTIONS.ja.md) で提案しています。
 
 - **`B` 電源には AC のモデルと `I(<電源>)` がありません。** AC 解析では `B` 電源は何も寄与せず、
   `AC analysis not yet supported` をログに出します。`I(...)` を含む式はエラーです。
@@ -74,10 +76,6 @@ ngspice について書いていることは、それぞれのマニュアルに
   測りました）。
 - プログラムが使わない、ライブラリの可変刻みの経路では、方法を `TRAPEZOIDAL` に固定すると、固定刻みの
   経路が行う最初の後退オイラー法のステップなしで始まります（コードで読んだだけで、実行していません）。
-- **可変刻みでは、結合インダクタの打ち切り誤差を検査しません。** `Inductor::get_physical_lte` は、
-  結合したインダクタでは 0 を返し（横のコメントは、結合したものの検査を `MutualInductance` に
-  残しています）、呼ばれるたびに標準出力に 1 行を書きます。プログラムが使わない、ライブラリの
-  可変刻みの経路の話です（コードで読んだだけで、実行していません）。
 
 ## デバイスモデル
 
