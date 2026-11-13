@@ -249,18 +249,9 @@ ComplexDenseVector ACSolver::solve_at_frequency(Real omega) {
     std::uint32_t num_nodes = circuit_.num_nodes() - 1; // Exclude GND
     std::uint32_t num_branches = 0;
 
-    // Count devices that need branch current variables
-    // - Voltage sources (independent and time-varying)
-    // - Voltage-controlled voltage sources (VCVS)
-    // - Current-controlled voltage sources (CCVS)
-    for (const auto& device : circuit_.get_devices()) {
-        const auto type = device->type();
-        if (type == DeviceType::VSOURCE ||
-            type == DeviceType::VCVS ||
-            type == DeviceType::CCVS) {
-            num_branches++;
-        }
-    }
+    // One branch current variable per device to which CircuitGraph gave a
+    // branch id: voltage sources, VCVS, CCVS and voltage-mode B sources.
+    num_branches = static_cast<std::uint32_t>(circuit_.get_voltage_sources().size());
 
     // Check circuit size before allocation
     if (num_nodes > core::MAX_CIRCUIT_NODES) {

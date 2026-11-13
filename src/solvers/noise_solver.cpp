@@ -275,16 +275,9 @@ std::vector<Real> NoiseSolver::generate_frequency_points() const {
 }
 
 std::uint32_t NoiseSolver::count_branch_devices() const {
-    std::uint32_t num_branches = 0;
-    for (const auto& device : circuit_.get_devices()) {
-        const auto type = device->type();
-        if (type == DeviceType::VSOURCE ||
-            type == DeviceType::VCVS ||
-            type == DeviceType::CCVS) {
-            num_branches++;
-        }
-    }
-    return num_branches;
+    // One branch current variable per device to which CircuitGraph gave a
+    // branch id: voltage sources, VCVS, CCVS and voltage-mode B sources.
+    return static_cast<std::uint32_t>(circuit_.get_voltage_sources().size());
 }
 
 void NoiseSolver::add_gmin(ComplexMNASystem& system) const {

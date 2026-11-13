@@ -41,18 +41,9 @@ TransientSolver::TransientSolver(const circuit::CircuitGraph& circuit,
     std::uint32_t num_branches = 0;
     std::uint32_t extra_nodes = 0;
 
-    // Count devices that need branch current variables
-    // - Voltage sources (independent and time-varying)
-    // - Voltage-controlled voltage sources (VCVS)
-    // - Current-controlled voltage sources (CCVS)
-    for (const auto& device : circuit_.get_devices()) {
-        const auto type = device->type();
-        if (type == DeviceType::VSOURCE ||
-            type == DeviceType::VCVS ||
-            type == DeviceType::CCVS) {
-            num_branches++;
-        }
-    }
+    // One branch current variable per device to which CircuitGraph gave a
+    // branch id: voltage sources, VCVS, CCVS and voltage-mode B sources.
+    num_branches = static_cast<std::uint32_t>(circuit_.get_voltage_sources().size());
 
     // Check circuit size before allocation
     const std::uint32_t total_nodes = num_nodes + extra_nodes;

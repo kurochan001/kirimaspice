@@ -5,6 +5,10 @@
 #include "kirimaspice/devices/behavioral_source.hpp"
 #include "kirimaspice/core/matrix_types.hpp"
 #include "kirimaspice/core/types.hpp"
+#include "kirimaspice/parser/netlist_parser.hpp"
+#include "kirimaspice/circuit/circuit_graph.hpp"
+#include "kirimaspice/solvers/dc_solver.hpp"
+#include "kirimaspice/solvers/transient_solver.hpp"
 
 using kirimaspice::devices::BehavioralSource;
 using kirimaspice::BehavioralSourceType;
@@ -62,4 +66,46 @@ TEST(BehavioralSource, ExceptionEvaluatorFallsBackToZero) {
 
     EXPECT_EQ(mna.b[0], 0.0);
     EXPECT_TRUE(mna.G.nnz() == 0);
+}
+
+namespace {
+
+// B1 out 0 V={2*V(in)} with V(in) = 1 V: V(out) = 2 V, and the source
+// needs a branch current variable of its own.
+constexpr const char* kVoltageModeNetlist = R"(
+Voltage-mode B source
+V1 in 0 DC 1
+R1 in 0 1k
+B1 out 0 V={2*V(in)}
+R2 out 0 1k
+.end
+)";
+
+} // namespace
+
+TEST(BehavioralSource, VoltageModeInOperatingPoint) {
+    kirimaspice::parser::NetlistParser parser;
+    auto result = parser.parse_string(kVoltageModeNetlist);
+    ASSERT_NE(result.circuit, nullptr);
+
+    kirimaspice::solvers::DCSolver solver(*result.circuit, result.config);
+    DenseVector solution;
+    kirimaspice::SolverStats stats;
+    ASSERT_EQ(solver.solve(solution, stats), kirimaspice::ConvergenceStatus::SUCCESS);
+    EXPECT_EQ(solution.size(), 4u);  // V(in), V(out), I(V1), I(B1)
+    const NodeId out = result.circuit->get_node_id("out");
+    EXPECT_NEAR(solution[out - 1], 2.0, 1e-9);
+}
+
+TEST(BehavioralSource, VoltageModeInTransient) {
+    kirimaspice::parser::NetlistParser parser;
+    auto result = parser.parse_string(kVoltageModeNetlist);
+    ASSERT_NE(result.circuit, nullptr);
+
+    kirimaspice::solvers::TransientSolver solver(*result.circuit, result.config);
+    auto tran = solver.solve(0.0, 5e-6, 1e-6);
+    ASSERT_EQ(tran.status, kirimaspice::ConvergenceStatus::SUCCESS);
+    ASSERT_FALSE(tran.timepoints.empty());
+    const NodeId out = result.circuit->get_node_id("out");
+    EXPECT_NEAR(tran.timepoints.back().node_voltages[out - 1], 2.0, 1e-9);
 }
