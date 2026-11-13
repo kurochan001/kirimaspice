@@ -10,6 +10,9 @@
 #include "kirimaspice/devices/capacitor.hpp"
 #include "kirimaspice/devices/inductor.hpp"
 #include "kirimaspice/devices/voltage_source.hpp"
+#include "kirimaspice/devices/diode.hpp"
+#include "kirimaspice/devices/bjt_npn.hpp"
+#include "kirimaspice/devices/mosfet_level1.hpp"
 #include <filesystem>
 #include <fstream>
 #include <fmt/format.h>
@@ -4339,3 +4342,60 @@ alter L1 inductance=10m
 // is a complex feature that requires parser-level support for expression substitution
 // in command arguments. This is beyond the scope of and will be
 // addressed in a future phase when full expression substitution is implemented.
+
+// Model names are compared without regard to case, as in SPICE: an element
+// finds its model whatever the case of the name in the element line and in
+// the .MODEL line.
+TEST(NetlistParser, ModelNamesIgnoreCase) {
+    std::string netlist = R"(
+Model names in mixed case
+.model dmod D(IS=1e-9 N=2)
+.model QMod NPN(IS=2e-15 BF=150)
+.model nch NMOS(LEVEL=1 VTO=0.5 KP=100u)
+V1 in 0 DC 1
+D1 in 0 DMOD
+Q1 in in 0 qmod
+M1 in in 0 0 NCH W=10u L=1u
+.end
+)";
+
+    parser::NetlistParser parser;
+    auto result = parser.parse_string(netlist);
+    ASSERT_NE(result.circuit, nullptr);
+
+    auto diode = std::dynamic_pointer_cast<devices::Diode>(result.circuit->get_device("D1"));
+    ASSERT_NE(diode, nullptr);
+    EXPECT_DOUBLE_EQ(diode->saturation_current(), 1e-9);
+    EXPECT_DOUBLE_EQ(diode->emission_coefficient(), 2.0);
+
+    auto bjt = std::dynamic_pointer_cast<devices::BJT_NPN>(result.circuit->get_device("Q1"));
+    ASSERT_NE(bjt, nullptr);
+    EXPECT_DOUBLE_EQ(bjt->saturation_current(), 2e-15);
+    EXPECT_DOUBLE_EQ(bjt->forward_beta(), 150.0);
+
+    auto mosfet = std::dynamic_pointer_cast<devices::MOSFET_N>(result.circuit->get_device("M1"));
+    ASSERT_NE(mosfet, nullptr);
+    EXPECT_DOUBLE_EQ(mosfet->threshold_voltage(), 0.5);
+    EXPECT_DOUBLE_EQ(mosfet->process_transconductance(), 100e-6);
+}
+
+// A .MODEL whose name differs from an earlier one only in case redefines it.
+TEST(NetlistParser, ModelRedefinitionIgnoresCase) {
+    std::string netlist = R"(
+Model redefined with other case
+.model dm D(IS=1e-9)
+.MODEL DM D(IS=3e-9)
+V1 in 0 DC 1
+D1 in 0 dm
+.end
+)";
+
+    parser::NetlistParser parser;
+    auto result = parser.parse_string(netlist);
+    ASSERT_NE(result.circuit, nullptr);
+
+    EXPECT_EQ(result.config.models.size(), 1u);
+    auto diode = std::dynamic_pointer_cast<devices::Diode>(result.circuit->get_device("D1"));
+    ASSERT_NE(diode, nullptr);
+    EXPECT_DOUBLE_EQ(diode->saturation_current(), 3e-9);
+}

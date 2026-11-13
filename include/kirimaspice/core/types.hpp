@@ -11,8 +11,11 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <vector>
+
+#include "kirimaspice/util/string_utils.hpp"
 
 namespace kirimaspice {
 
@@ -692,6 +695,21 @@ struct SimulationConfig {
 
     // Device models
     std::map<std::string, ModelDefinition> models;  ///< .MODEL definitions (model_name -> ModelDefinition)
+
+    /// Find a .MODEL definition by name, ignoring case as SPICE does.
+    /// Elements and subcircuit expansion look models up only through this.
+    /// @return the definition, or nullptr if no model has that name
+    const ModelDefinition* find_model(std::string_view name) const {
+        if (auto it = models.find(std::string(name)); it != models.end()) {
+            return &it->second;
+        }
+        for (const auto& [key, def] : models) {
+            if (util::equals_icase(key, name)) {
+                return &def;
+            }
+        }
+        return nullptr;
+    }
 
     // DC analysis settings
     struct DC {

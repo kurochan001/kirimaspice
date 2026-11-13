@@ -79,6 +79,11 @@ inline bool starts_with_icase(std::string_view str, std::string_view prefix) noe
     return true;
 }
 
+/// Compare two strings ignoring ASCII case
+inline bool equals_icase(std::string_view a, std::string_view b) noexcept {
+    return a.size() == b.size() && starts_with_icase(a, b);
+}
+
 /// Convert string to uppercase in-place
 /// @param s String to convert
 inline void to_upper_inplace(std::string& s) {

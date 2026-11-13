@@ -3962,6 +3962,11 @@ static void parse_model_directive(const std::vector<std::string>& tokens, ParseS
     model.device_type = device_type;
     model.params = params;
 
+    // Model names are compared without regard to case (find_model), so a
+    // definition replaces an earlier one spelled with other cases.
+    std::erase_if(state.config->models, [&](const auto& entry) {
+        return entry.first != model_name && util::equals_icase(entry.first, model_name);
+    });
     state.config->models[model_name] = model;
 
     spdlog::debug("Parsed .MODEL {} {} ({} parameters)",
@@ -4395,9 +4400,9 @@ static void parse_diode_device(const std::vector<std::string>& tokens, const std
         // Check if it's a parameter (contains '=')
         if (potential_model.find('=') == std::string::npos) {
             // It's a model reference
-            auto model_it = state.config->models.find(potential_model);
-            if (model_it != state.config->models.end()) {
-                const ModelDefinition& model = model_it->second;
+            const ModelDefinition* found_model = state.config->find_model(potential_model);
+            if (found_model != nullptr) {
+                const ModelDefinition& model = *found_model;
 
                 // Verify model type
                 if (model.device_type != DeviceType::DIODE) {
@@ -4480,9 +4485,9 @@ static void parse_scr_device(const std::vector<std::string>& tokens, const std::
         // Check if it's a parameter (contains '=')
         if (potential_model.find('=') == std::string::npos) {
             // It's a model reference
-            auto model_it = state.config->models.find(potential_model);
-            if (model_it != state.config->models.end()) {
-                const ModelDefinition& model = model_it->second;
+            const ModelDefinition* found_model = state.config->find_model(potential_model);
+            if (found_model != nullptr) {
+                const ModelDefinition& model = *found_model;
 
                 // Verify model type
                 if (model.device_type != DeviceType::SCR_N && model.device_type != DeviceType::SCR_P) {
@@ -4583,9 +4588,9 @@ static void parse_triac_device(const std::vector<std::string>& tokens, const std
         // Check if it's a parameter (contains '=')
         if (potential_model.find('=') == std::string::npos) {
             // It's a model reference
-            auto model_it = state.config->models.find(potential_model);
-            if (model_it != state.config->models.end()) {
-                const ModelDefinition& model = model_it->second;
+            const ModelDefinition* found_model = state.config->find_model(potential_model);
+            if (found_model != nullptr) {
+                const ModelDefinition& model = *found_model;
 
                 // Verify model type
                 if (model.device_type != DeviceType::TRIAC) {
@@ -4704,9 +4709,9 @@ static void parse_mesfet_device(const std::vector<std::string>& tokens, const st
         // Check if it's a parameter (contains '=')
         else if (potential_model.find('=') == std::string::npos) {
             // It's a model reference
-            auto model_it = state.config->models.find(potential_model);
-            if (model_it != state.config->models.end()) {
-                const ModelDefinition& model_def = model_it->second;
+            const ModelDefinition* found_model = state.config->find_model(potential_model);
+            if (found_model != nullptr) {
+                const ModelDefinition& model_def = *found_model;
 
                 // Verify model type
                 if (model_def.device_type != DeviceType::MESFET_N &&
@@ -4844,12 +4849,12 @@ static void parse_bjt_device(const std::vector<std::string>& tokens, const std::
         bjt_type = type_or_model;
     } else {
         // Model reference
-        auto model_it = state.config->models.find(type_or_model);
-        if (model_it == state.config->models.end()) {
+        const ModelDefinition* found_model = state.config->find_model(type_or_model);
+        if (found_model == nullptr) {
             throw ParseError(fmt::format("Undefined BJT model: {}", type_or_model), state.line_number);
         }
 
-        const ModelDefinition& model = model_it->second;
+        const ModelDefinition& model = *found_model;
 
         // Verify model type
         if (model.device_type == DeviceType::BJT_NPN) {
@@ -4966,7 +4971,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         // This fixes the bug where "NMOS_BSIM4" was not recognized as 4-terminal
         bool starts_with_nmos = candidate_model_5.size() >= 4 && candidate_model_5.substr(0, 4) == "NMOS";
         bool starts_with_pmos = candidate_model_5.size() >= 4 && candidate_model_5.substr(0, 4) == "PMOS";
-        bool in_models = state.config->models.count(candidate_model_5) > 0;
+        bool in_models = state.config->find_model(candidate_model_5) != nullptr;
 
         // DEBUG: Log 4-terminal detection
         thread_local static int debug_count = 0;
@@ -5076,13 +5081,13 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
     Real tcv = 1e-3;         // VCE_SAT temperature coefficient [1/K] (+1 mV/K typical)
 
     // Check if it's a model reference first (higher priority)
-    auto model_it = state.config->models.find(type_or_model);
+    const ModelDefinition* found_model = state.config->find_model(type_or_model);
 
-    if (model_it != state.config->models.end()) {
+    if (found_model != nullptr) {
         // Model reference found
         spdlog::info("[Parser] Found model definition for '{}'", type_or_model);
 
-        const ModelDefinition& model = model_it->second;
+        const ModelDefinition& model = *found_model;
 
         // Verify model type
         if (model.device_type == DeviceType::MOSFET_N) {
@@ -5332,8 +5337,8 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
 
     if (mosfet_type == "LEVEL3_N" || mosfet_type == "LEVEL3_P") {
         // MOSFET Level 3 model: create MOSFETLevel3Params from model parameters
-        auto model_it = state.config->models.find(type_or_model);
-        const ModelDefinition& model = model_it->second;
+        const ModelDefinition* found_model = state.config->find_model(type_or_model);
+        const ModelDefinition& model = *found_model;
 
         devices::MOSFETLevel3Params level3_params;
 
@@ -5405,8 +5410,8 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         }
     } else if (mosfet_type == "BSIM1_N" || mosfet_type == "BSIM1_P") {
         // BSIM1 model (Level 9): create MOSFETBsim1Params from model parameters
-        auto model_it = state.config->models.find(type_or_model);
-        const ModelDefinition& model = model_it->second;
+        const ModelDefinition* found_model = state.config->find_model(type_or_model);
+        const ModelDefinition& model = *found_model;
 
         devices::MOSFETBsim1Params bsim1_params;
 
@@ -5502,8 +5507,8 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         }
     } else if (mosfet_type == "BSIM3_N" || mosfet_type == "BSIM3_P") {
         // BSIM3 model: create BSIM3Params from model parameters
-        auto model_it = state.config->models.find(type_or_model);
-        const ModelDefinition& model = model_it->second;
+        const ModelDefinition* found_model = state.config->find_model(type_or_model);
+        const ModelDefinition& model = *found_model;
 
         devices::BSIM3Params bsim3_params;
 
@@ -5686,8 +5691,8 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         }
     } else if (mosfet_type == "BSIM4_N" || mosfet_type == "BSIM4_P") {
         // BSIM4 model: create BSIM4Params from model parameters
-        auto model_it = state.config->models.find(type_or_model);
-        const ModelDefinition& model = model_it->second;
+        const ModelDefinition* found_model = state.config->find_model(type_or_model);
+        const ModelDefinition& model = *found_model;
 
         devices::BSIM4Params bsim4_params;
 

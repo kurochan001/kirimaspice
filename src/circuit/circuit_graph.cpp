@@ -2211,8 +2211,8 @@ void CircuitGraph::expand_subcircuit_instance(const std::string& instance_name) 
                 Real vto = 0.7;    // Default threshold voltage [V] for NMOS
                 Real lambda = 0.0; // Default channel-length modulation [1/V]
 
-                if (config_ != nullptr && config_->models.count(model) > 0) {
-                    const auto& model_def = config_->models.at(model);
+                if (config_ != nullptr && config_->find_model(model) != nullptr) {
+                    const auto& model_def = *config_->find_model(model);
                     const auto& params = model_def.params;
 
                     // Extract KP parameter (transconductance)
@@ -2261,8 +2261,8 @@ void CircuitGraph::expand_subcircuit_instance(const std::string& instance_name) 
                 bool model_found = false;
                 DeviceType device_type_enum = DeviceType::MOSFET_N;  // Default
 
-                if (config_ != nullptr && config_->models.count(model) > 0) {
-                    device_type_enum = config_->models.at(model).device_type;
+                if (config_ != nullptr && config_->find_model(model) != nullptr) {
+                    device_type_enum = config_->find_model(model)->device_type;
                     model_found = true;
                     spdlog::info("  [Subcircuit expansion] Model '{}' found with device_type={}",
                                 model, static_cast<int>(device_type_enum));
@@ -2296,7 +2296,7 @@ void CircuitGraph::expand_subcircuit_instance(const std::string& instance_name) 
                     } else if (device_type_enum == DeviceType::MOSFET_BSIM4_N ||
                                device_type_enum == DeviceType::MOSFET_BSIM4_P) {
                         // BSIM4 model: create BSIM4Params from model parameters
-                        const auto& model_def = config_->models.at(model);
+                        const auto& model_def = *config_->find_model(model);
                         const auto& params = model_def.params;
 
                         devices::BSIM4Params bsim4_params;
