@@ -53,6 +53,14 @@ document also lists differences not decided there.
 - **Inside `.SUBCKT`, only `R`, `C`, `L`, `V` and `I` (DC value), `M`
   (four terminals, level 1 or BSIM4) and `X` are expanded.** Other elements
   are skipped with a warning. `PARAMS:` is not accepted.
+- **A subcircuit cannot read a global `.PARAM`.** In a subcircuit body,
+  braces see only the subcircuit's own parameters: with `.PARAM RX=5k` at
+  the top level, `R1 a 0 {RX}` in a `.SUBCKT` stops the run with
+  `Undefined symbol: 'RX'`, where ngspice-47 uses 5 kΩ. Passing the value
+  on the `X` line works (`.SUBCKT S a RX=1k` and `X1 in S RX={RXG}`).
+  Conversely, a `.PARAM` written inside a `.SUBCKT` is global: the top
+  level can read it and the subcircuit cannot. ngspice-47 keeps it local
+  (measured at commit `8b1582c`).
 - **`.FUNC` cannot be called in an element value,** only in `.PARAM`
   expressions (`Expression parse error`).
 - **`.IF` cannot read `.PARAM` values.** When the condition cannot be
