@@ -628,7 +628,8 @@ public:
                       Real kf = 0.0,
                       Real af = 1.0,
                       Real kt1 = -1e-3,
-                      Real tnom = 300.15);
+                      Real tnom = 300.15,
+                      Real l = 1e-6);
 
     void add_finfet_p(const std::string& name,
                       const std::string& drain,
@@ -648,7 +649,8 @@ public:
                       Real kf = 0.0,
                       Real af = 1.0,
                       Real kt1 = 1e-3,
-                      Real tnom = 300.15);
+                      Real tnom = 300.15,
+                      Real l = 1e-6);
 
     /// Add VDMOS N-channel power MOSFET (LEVEL=20)
     /// Netlist: M<name> <drain> <gate> <source> <model> [parameters]

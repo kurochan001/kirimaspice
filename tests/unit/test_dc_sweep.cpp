@@ -628,3 +628,29 @@ TEST(TemperatureReachesDevices, FinFET) {
     EXPECT_GT(std::abs(direct_127c - at_27c), 1e-3 * std::abs(at_27c));
     EXPECT_NEAR(configured_127c, direct_127c, 1e-12 * std::abs(direct_127c));
 }
+
+// The FinFET's square law carries the gain factor u0 Cox Weff / L, with
+// Weff = NFIN HFIN and Cox = 3.9 eps0 / TOX. In saturation
+// Id = 0.5 beta (VGS - Vth + DIBL VDS)^2, and halving L doubles the current.
+TEST(FinFETGainFactor, HasTheChannelLength) {
+    auto drain_current = [](Real l) {
+        CircuitGraph circuit;
+        circuit.add_voltage_source("VD", "d", "0", 0.8);
+        circuit.add_voltage_source("VG", "g", "0", 0.8);
+        circuit.add_finfet_n("M1", "d", "g", "0", 1, 30e-9, 7e-9, 0.4, 300e-4, 1e5, 70e-3,
+                             0.05, 1e-9, 1e-15, 1e-16, 0.0, 1.0, -1e-3, 300.15, l);
+        SimulationConfig config;
+        DCSolver solver(circuit, config);
+        DenseVector solution;
+        SolverStats stats;
+        EXPECT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS);
+        return -solver.get_branch_current("VD").value();
+    };
+    const Real cox = 3.9 * 8.854187817e-12 / 1e-9;
+    const Real beta = 300e-4 * cox * 30e-9 / 1e-6;
+    const Real vov = 0.8 - (0.4 - 0.05 * 0.8);
+    const Real expected = 0.5 * beta * vov * vov;
+    const Real at_1um = drain_current(1e-6);
+    EXPECT_NEAR(at_1um, expected, 1e-6 * expected);
+    EXPECT_NEAR(drain_current(0.5e-6), 2.0 * at_1um, 1e-6 * at_1um);
+}

@@ -1198,7 +1198,7 @@ void CircuitGraph::add_finfet_n(const std::string& name,
                                  int nfin, Real hfin, Real tfin,
                                  Real vth, Real u0, Real vsat, Real ss, Real dibl, Real tox,
                                  Real cgs, Real cgd,
-                                 Real kf, Real af, Real kt1, Real tnom) {
+                                 Real kf, Real af, Real kt1, Real tnom, Real l) {
     NodeId drain_id = add_node(drain);
     NodeId gate_id = add_node(gate);
     NodeId source_id = add_node(source);
@@ -1207,7 +1207,7 @@ void CircuitGraph::add_finfet_n(const std::string& name,
     auto finfet = std::make_shared<devices::FinFET_N>(
         id, name, drain_id, gate_id, source_id,
         nfin, hfin, tfin, vth, u0, vsat, ss, dibl, tox,
-        cgs, cgd, kf, af, kt1, tnom);
+        cgs, cgd, kf, af, kt1, tnom, l);
 
     devices_.push_back(finfet);
     device_map_[name] = finfet;
@@ -1235,7 +1235,7 @@ void CircuitGraph::add_finfet_p(const std::string& name,
                                  int nfin, Real hfin, Real tfin,
                                  Real vth, Real u0, Real vsat, Real ss, Real dibl, Real tox,
                                  Real cgs, Real cgd,
-                                 Real kf, Real af, Real kt1, Real tnom) {
+                                 Real kf, Real af, Real kt1, Real tnom, Real l) {
     NodeId drain_id = add_node(drain);
     NodeId gate_id = add_node(gate);
     NodeId source_id = add_node(source);
@@ -1244,7 +1244,7 @@ void CircuitGraph::add_finfet_p(const std::string& name,
     auto finfet = std::make_shared<devices::FinFET_P>(
         id, name, drain_id, gate_id, source_id,
         nfin, hfin, tfin, vth, u0, vsat, ss, dibl, tox,
-        cgs, cgd, kf, af, kt1, tnom);
+        cgs, cgd, kf, af, kt1, tnom, l);
 
     devices_.push_back(finfet);
     device_map_[name] = finfet;

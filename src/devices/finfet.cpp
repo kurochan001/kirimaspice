@@ -16,10 +16,10 @@ FinFET<P>::FinFET(DeviceId id, const std::string& name,
                    int nfin, Real hfin, Real tfin,
                    Real vth, Real u0, Real vsat, Real ss, Real dibl, Real tox,
                    Real cgs, Real cgd,
-                   Real kf, Real af, Real kt1, Real tnom)
+                   Real kf, Real af, Real kt1, Real tnom, Real l)
     : Device(id, name, device_type),
       nodes_{drain, gate, source},
-      nfin_(nfin), hfin_(hfin), tfin_(tfin),
+      nfin_(nfin), hfin_(hfin), tfin_(tfin), l_(l),
       vth_(vth), u0_(u0), vsat_(vsat), ss_(ss), dibl_(dibl), tox_(tox),
       cgs_(cgs), cgd_(cgd),
       kf_(kf), af_(af), kt1_(kt1), tnom_(tnom) {
@@ -30,8 +30,8 @@ FinFET<P>::FinFET(DeviceId id, const std::string& name,
     // Calculate oxide capacitance per unit area: Cox = εox × ε0 / tox
     cox_ = epsilon_ox * epsilon_0 / tox_;
 
-    // Calculate transconductance parameter: β = Cox × Weff × u0
-    beta_ = cox_ * weff_ * u0_;
+    // The gain factor of the square law, u0 Cox Weff / L
+    beta_ = cox_ * weff_ * u0_ / l_;
 
     const char* type_str = (P == Polarity::N) ? "FinFET_N" : "FinFET_P";
     spdlog::debug("Created {}: {} D={} G={} S={} NFin={} Hfin={:.2e}m Tfin={:.2e}m "
@@ -86,7 +86,7 @@ void FinFET<P>::stamp_dc_nonlinear(MNASystem& mna, const DenseVector& node_volta
 
     // Temperature-scaled mobility: u(T) = u0 × (T/Tnom)^(-1.5)
     Real u_temp = u0_ * std::pow(tnom_ / temperature_, 1.5);
-    Real beta_temp = cox_ * weff_ * u_temp;
+    Real beta_temp = cox_ * weff_ * u_temp / l_;
 
     auto nd_idx = (nd_node == NODE_GND) ? -1 : static_cast<int>(nd_node - 1);
     auto ng_idx = (ng_node == NODE_GND) ? -1 : static_cast<int>(ng_node - 1);
@@ -324,7 +324,7 @@ void FinFET<P>::stamp_ac(ComplexMNASystem& sys, Real omega,
     // Numerical differentiation for gm
     Real delta = 1e-6;
     Real u_temp = u0_ * std::pow(tnom_ / temperature_, 1.5);
-    Real beta_temp = cox_ * weff_ * u_temp;
+    Real beta_temp = cox_ * weff_ * u_temp / l_;
 
     Real vgs_plus = v_gs_eff + delta;
     Real vgs_eff_plus = vgs_plus - vth_eff;
@@ -442,7 +442,7 @@ std::vector<NoiseSource> FinFET<P>::get_noise_sources(const DenseVector& dc_solu
 
     Real vth_eff = get_effective_threshold();
     Real u_temp = u0_ * std::pow(tnom_ / temperature_, 1.5);
-    Real beta_temp = cox_ * weff_ * u_temp;
+    Real beta_temp = cox_ * weff_ * u_temp / l_;
 
     // Calculate gm for thermal noise using numerical differentiation
     Real delta = 1e-6;
@@ -525,6 +525,7 @@ std::optional<Real> FinFET<P>::get_parameter(const std::string& param_name) cons
     if (param_lower == "nfin") return static_cast<Real>(nfin_);
     if (param_lower == "hfin") return hfin_;
     if (param_lower == "tfin") return tfin_;
+    if (param_lower == "l") return l_;
     if (param_lower == "weff") return weff_;
     if (param_lower == "vth" || param_lower == "vth0") return vth_;
     if (param_lower == "u0") return u0_;
@@ -551,7 +552,7 @@ bool FinFET<P>::set_parameter(const std::string& param_name, Real value) {
         if (value >= 1) {
             nfin_ = static_cast<int>(value);
             weff_ = static_cast<Real>(nfin_) * hfin_;
-            beta_ = cox_ * weff_ * u0_;
+            beta_ = cox_ * weff_ * u0_ / l_;
             spdlog::trace("FinFET {} set NFin={}", name_, nfin_);
             return true;
         }
@@ -561,7 +562,15 @@ bool FinFET<P>::set_parameter(const std::string& param_name, Real value) {
         if (value > 0.0) {
             hfin_ = value;
             weff_ = static_cast<Real>(nfin_) * hfin_;
-            beta_ = cox_ * weff_ * u0_;
+            beta_ = cox_ * weff_ * u0_ / l_;
+            return true;
+        }
+        return false;
+    }
+    if (param_lower == "l") {
+        if (value > 0.0) {
+            l_ = value;
+            beta_ = cox_ * weff_ * u0_ / l_;
             return true;
         }
         return false;
@@ -573,7 +582,7 @@ bool FinFET<P>::set_parameter(const std::string& param_name, Real value) {
     if (param_lower == "u0") {
         if (value > 0.0) {
             u0_ = value;
-            beta_ = cox_ * weff_ * u0_;
+            beta_ = cox_ * weff_ * u0_ / l_;
             return true;
         }
         return false;

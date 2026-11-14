@@ -5738,7 +5738,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
                                      nfin, hfin, tfin,
                                      vth, u0, vsat, ss, dibl, tox,
                                      cgs, cgd,
-                                     kf, af, kt1, tnom);
+                                     kf, af, kt1, tnom, l);
         spdlog::debug("Added FinFET_N: {} D={} G={} S={} NFin={} Hfin={:.1f}nm Vth={:.3f}V "
                      "SS={:.1f}mV/dec DIBL={:.3f}V/V",
                      dev_name, drain, gate, source, nfin, hfin * 1e9, vth, ss * 1e3, dibl);
@@ -5748,7 +5748,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
                                      nfin, hfin, tfin,
                                      vth, u0, vsat, ss, dibl, tox,
                                      cgs, cgd,
-                                     kf, af, kt1, tnom);
+                                     kf, af, kt1, tnom, l);
         spdlog::debug("Added FinFET_P: {} D={} G={} S={} NFin={} Hfin={:.1f}nm Vth={:.3f}V "
                      "SS={:.1f}mV/dec DIBL={:.3f}V/V",
                      dev_name, drain, gate, source, nfin, hfin * 1e9, vth, ss * 1e3, dibl);

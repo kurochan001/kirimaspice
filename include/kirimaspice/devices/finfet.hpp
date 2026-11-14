@@ -74,6 +74,8 @@ public:
      * @param af Flicker noise current exponent (default: 1.0)
      * @param kt1 Vth temperature coefficient [V/K] (default: -1mV/K for N, +1mV/K for P)
      * @param tnom Nominal temperature [K] (default: 300.15K)
+     * @param l Gate (channel) length [m] (default: 1um, the default L of the
+     *          netlist's MOSFETs)
      */
     FinFET(DeviceId id, const std::string& name,
            NodeId drain, NodeId gate, NodeId source,
@@ -91,7 +93,8 @@ public:
            Real kf = 0.0,
            Real af = 1.0,
            Real kt1 = (P == Polarity::N) ? -1e-3 : 1e-3,
-           Real tnom = 300.15);
+           Real tnom = 300.15,
+           Real l = 1e-6);
 
     ~FinFET() override = default;
 
@@ -180,6 +183,7 @@ private:
     int nfin_;      ///< Number of fins
     Real hfin_;     ///< Fin height [m]
     Real tfin_;     ///< Fin thickness [m]
+    Real l_;        ///< Gate (channel) length [m]
     Real weff_;     ///< Effective width: Weff = NFin × Hfin [m]
 
     // Electrical parameters
@@ -192,7 +196,7 @@ private:
 
     // Derived parameters
     Real cox_;      ///< Oxide capacitance per unit area [F/m²]
-    Real beta_;     ///< Transconductance parameter [A/V²]
+    Real beta_;     ///< Gain factor u0 Cox Weff / L [A/V²]
 
     // Capacitances
     Real cgs_;      ///< Gate-source capacitance [F]
