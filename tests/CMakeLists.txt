@@ -713,20 +713,20 @@ if(BUILD_BENCHMARKS)
     )
 
     # optimization benchmark (memory alignment + prefetch)
-    add_executable(bench_phase34_optimization
-        benchmarks/bench_phase34_optimization.cpp
+    add_executable(bench_sparse_refactorize
+        benchmarks/bench_sparse_refactorize.cpp
     )
-    target_link_libraries(bench_phase34_optimization
+    target_link_libraries(bench_sparse_refactorize
         PRIVATE
             kirimaspice_lib
             benchmark::benchmark
     )
 
     # Sparse matrix parallel zero() operations benchmark
-    add_executable(bench_phase36_2_sparse_matrix
-        benchmarks/bench_phase36_2_sparse_matrix.cpp
+    add_executable(bench_sparse_matrix_zero
+        benchmarks/bench_sparse_matrix_zero.cpp
     )
-    target_link_libraries(bench_phase36_2_sparse_matrix
+    target_link_libraries(bench_sparse_matrix_zero
         PRIVATE
             kirimaspice_lib
             benchmark::benchmark
@@ -734,10 +734,10 @@ if(BUILD_BENCHMARKS)
     )
 
     # Parallel device stamping benchmark (DC and Transient)
-    add_executable(bench_phase37_device_stamping
-        benchmarks/bench_phase37_device_stamping.cpp
+    add_executable(bench_device_stamping
+        benchmarks/bench_device_stamping.cpp
     )
-    target_link_libraries(bench_phase37_device_stamping
+    target_link_libraries(bench_device_stamping
         PRIVATE
             kirimaspice_lib
             benchmark::benchmark
@@ -745,10 +745,10 @@ if(BUILD_BENCHMARKS)
     )
 
     # Detailed profiling benchmark (identify parallelization bottleneck)
-    add_executable(bench_phase39_profiling
-        benchmarks/bench_phase39_profiling.cpp
+    add_executable(bench_dc_thread_profile
+        benchmarks/bench_dc_thread_profile.cpp
     )
-    target_link_libraries(bench_phase39_profiling
+    target_link_libraries(bench_dc_thread_profile
         PRIVATE
             kirimaspice_lib
             benchmark::benchmark

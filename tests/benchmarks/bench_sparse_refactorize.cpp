@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The kirimaspice Authors
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-// tests/benchmarks/bench_phase34_optimization.cpp
+// tests/benchmarks/bench_sparse_refactorize.cpp
 // Benchmark for optimizations (memory alignment + prefetch hints)
 
 #include <benchmark/benchmark.h>

@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The kirimaspice Authors
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-// tests/benchmarks/bench_phase37_device_stamping.cpp
+// tests/benchmarks/bench_device_stamping.cpp
 // Benchmark for parallel device stamping in DC and Transient solvers
 
 #include <benchmark/benchmark.h>

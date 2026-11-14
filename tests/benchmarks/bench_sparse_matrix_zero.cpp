@@ -1,7 +1,7 @@
 // Copyright (c) 2026 The kirimaspice Authors
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-// tests/benchmarks/bench_phase36_2_sparse_matrix.cpp
+// tests/benchmarks/bench_sparse_matrix_zero.cpp
 // Benchmark for sparse matrix parallel zero() operations
 
 #include <benchmark/benchmark.h>
