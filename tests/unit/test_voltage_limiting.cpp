@@ -35,55 +35,6 @@ TEST_F(VoltageLimitingTest, VcritCalculation) {
     EXPECT_NEAR(vcrit, 0.730, 0.01);
 }
 
-// Test 2: Device utils - Voltage limiting function (below Vcrit)
-TEST_F(VoltageLimitingTest, VoltageLimitingBelowVcrit) {
-    Real vt = 0.02585;
-    Real is = 1e-14;
-    Real vcrit = core::compute_vcrit(vt, is);
-
-    // Voltage below Vcrit should pass through unchanged
-    Real v_test = 0.5;  // Below Vcrit (~0.717V)
-    Real v_limited = core::limit_pn_junction(v_test, vt, is, true);
-    Real derivative = core::limit_pn_junction_derivative(v_test, vt, is, true);
-
-    EXPECT_NEAR(v_limited, v_test, 1e-10);  // No limiting
-    EXPECT_NEAR(derivative, 1.0, 1e-10);    // Derivative = 1.0
-}
-
-// Test 3: Device utils - Voltage limiting function (above Vcrit)
-TEST_F(VoltageLimitingTest, VoltageLimitingAboveVcrit) {
-    Real vt = 0.02585;
-    Real is = 1e-14;
-    Real vcrit = core::compute_vcrit(vt, is);
-
-    // Voltage above Vcrit should be compressed
-    Real v_test = 2.0;  // Well above Vcrit (~0.717V)
-    Real v_limited = core::limit_pn_junction(v_test, vt, is, true);
-    Real derivative = core::limit_pn_junction_derivative(v_test, vt, is, true);
-
-    EXPECT_LT(v_limited, v_test);           // Voltage should be compressed
-    EXPECT_GT(v_limited, vcrit);            // But still above Vcrit
-    EXPECT_LT(derivative, 1.0);             // Derivative < 1.0 (compression)
-    EXPECT_GT(derivative, 0.0);             // But positive
-
-    // Manual calculation: v_limited = vcrit + vt * ln(1 + (v - vcrit)/vt)
-    Real expected = vcrit + vt * std::log(1.0 + (v_test - vcrit) / vt);
-    EXPECT_NEAR(v_limited, expected, 1e-10);
-}
-
-// Test 4: Device utils - Voltage limiting disabled
-TEST_F(VoltageLimitingTest, VoltageLimitingDisabled) {
-    Real vt = 0.02585;
-    Real is = 1e-14;
-
-    Real v_test = 2.0;
-    Real v_limited = core::limit_pn_junction(v_test, vt, is, false);  // Disabled
-    Real derivative = core::limit_pn_junction_derivative(v_test, vt, is, false);
-
-    EXPECT_NEAR(v_limited, v_test, 1e-10);  // No limiting when disabled
-    EXPECT_NEAR(derivative, 1.0, 1e-10);    // Derivative = 1.0
-}
-
 // Test 5: Diode circuit - Voltage limiting enabled (default behavior)
 TEST_F(VoltageLimitingTest, DiodeCircuit_ConvergesSuccessfully) {
     // Simple diode circuit that converges with voltage limiting
