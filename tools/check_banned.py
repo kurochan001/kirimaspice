@@ -18,7 +18,9 @@ Checks, each reported as <file>:<line>: <check>:
   binary         tracked files that contain NUL bytes
   large          tracked files over 5 MB
   author         (--history) commit authors or committers without a noreply address
-  private        (--private) a line of FILE, matched without regard to case
+  private        (--private) a line of FILE, matched without regard to case;
+                 in CODE_OF_CONDUCT*.md, e-mail addresses are not matched (the
+                 contact of the code of conduct is published on purpose)
 
 Private patterns are names that must not appear and so cannot be written in
 this repository. Keep them in an untracked file, one per line, and pass it
@@ -37,6 +39,7 @@ HOME_PATH = re.compile(r"(/home/|/Users/|[A-Za-z]:\\+Users\\+)(?!<)[A-Za-z0-9._-
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 EMAIL_OK = re.compile(r"@users\.noreply\.github\.com$|@example\.(com|org|net)$", re.I)
 EMAIL_FREE_FILES = re.compile(r"(^|[/ ])(THIRD_PARTY_NOTICES|CODE_OF_CONDUCT)(\.ja)?\.md$")
+CONTACT_FILES = re.compile(r"(^|[/ ])CODE_OF_CONDUCT(\.ja)?\.md$")
 FOUNDRY = re.compile(r"\b(TSMC|UMC|SMIC|GlobalFoundries|GLOBALFOUNDRIES|Samsung Foundry|TowerJazz|X-FAB)\b")
 MAX_BYTES = 5 * 1024 * 1024
 
@@ -66,6 +69,8 @@ def check_text(name: str, lineno: int, text: str, private, out):
     if FOUNDRY.search(text) and not name.endswith("tools/check_banned.py"):
         out.append(f"{name}:{lineno}: foundry")
     low = text.lower()
+    if CONTACT_FILES.search(name):
+        low = EMAIL.sub("", low)
     for i, p in enumerate(private, 1):
         if p and p in low:
             out.append(f"{name}:{lineno}: private pattern {i}")
