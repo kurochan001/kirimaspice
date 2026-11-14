@@ -267,3 +267,29 @@ TEST(MOSFET_Level3_Netlist, LinearRegionCurrentMatchesNgspice) {
             << lines;
     }
 }
+
+// A P-channel level 3 MOSFET with every voltage negated mirrors the N-channel
+// one, body bias included: a reverse bias (VBS < 0 for N, VB above VS for P)
+// raises |Vth| in both, by GAMMA (sqrt(PHI - VBS) - sqrt(PHI)).
+TEST(MOSFET_Level3_Netlist, PChannelBodyEffectMirrorsTheNChannel) {
+    auto current = [](const char* card, Real s) {
+        char lines[256];
+        std::snprintf(lines, sizeof lines,
+                      "level3\nVD d 0 DC %g\nVG g 0 DC %g\nVB b 0 DC %g\n"
+                      "M1 d g 0 b m L=0.18u W=1u\n%s\n.end\n",
+                      s * 1.0, s * 3.0, s * -1.0, card);
+        NetlistParser parser;
+        auto parsed = parser.parse_string(lines);
+        EXPECT_NE(parsed.circuit, nullptr);
+        solvers::DCSolver solver(*parsed.circuit, parsed.config);
+        DenseVector solution;
+        SolverStats stats;
+        EXPECT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS) << lines;
+        return solver.get_branch_current("VD").value();
+    };
+    const Real n = current(".model m nmos level=3 vto=0.7 kappa=0 gamma=0.5 phi=0.7", 1.0);
+    const Real p = current(".model m pmos level=3 vto=-0.7 kappa=0 gamma=0.5 phi=0.7", -1.0);
+    const Real no_bias = current(".model m nmos level=3 vto=0.7 kappa=0", 1.0);
+    EXPECT_NEAR(p, -n, 1e-9 * std::abs(n));
+    EXPECT_LT(std::abs(n), std::abs(no_bias));  // the reverse bias lowers the current
+}

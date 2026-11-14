@@ -58,7 +58,7 @@ template<Polarity P>
 Real MOSFET_Level3<P>::get_threshold_voltage(Real v_bs_eff) const {
     // Threshold voltage with body effect:
     // For N-channel: Vth(Vbs) = Vto + γ × (sqrt(φ - Vbs) - sqrt(φ))
-    // For P-channel: |Vth|(Vsb) = |Vto| + γ × (sqrt(φ + Vsb) - sqrt(φ))
+    // For P-channel: |Vth|(Vsb) = |Vto| + γ × (sqrt(φ - Vsb) - sqrt(φ))
 
     Real gamma = params_.gamma;
     Real phi = params_.phi;
@@ -68,27 +68,18 @@ Real MOSFET_Level3<P>::get_threshold_voltage(Real v_bs_eff) const {
         gamma = fs_;
     }
 
+    // v_bs_eff is VBS for N and VSB for P (compute_effective_voltages), so
+    // that the P-channel device is the mirror of the N-channel one: a
+    // reverse body bias (VBS < 0 for N, VSB < 0 for P) raises |Vth| in both
     Real sqrt_phi = std::sqrt(std::max(phi, 1e-6));
-    Real sqrt_phi_vbs;
-
-    if constexpr (P == Polarity::N) {
-        // N-channel: sqrt(phi - vbs)
-        sqrt_phi_vbs = std::sqrt(std::max(phi - v_bs_eff, 1e-6));
-    } else {
-        // P-channel: sqrt(phi + vsb)
-        sqrt_phi_vbs = std::sqrt(std::max(phi + v_bs_eff, 1e-6));
-    }
+    Real sqrt_phi_vbs = std::sqrt(std::max(phi - v_bs_eff, 1e-6));
 
     Real vth = get_effective_threshold() + gamma * (sqrt_phi_vbs - sqrt_phi);
 
     // Narrow-width effect correction (delta parameter)
     if (params_.delta > 0.0) {
         Real weff = params_.get_weff();
-        if constexpr (P == Polarity::N) {
-            vth += params_.delta * std::sqrt(phi - v_bs_eff) / weff;
-        } else {
-            vth += params_.delta * std::sqrt(phi + v_bs_eff) / weff;
-        }
+        vth += params_.delta * std::sqrt(std::max(phi - v_bs_eff, 0.0)) / weff;
     }
 
     return vth;
