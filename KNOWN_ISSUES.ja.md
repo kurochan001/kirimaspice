@@ -91,14 +91,20 @@ ngspice について書いていることは、それぞれのマニュアルに
 - **BSIM4 の gm、gds、gmb は、ドレイン電流の中心差分です**（`BSIM4Core::evaluate`）。そのため
   1 回のスタンプで電流を 7 回計算します。`BSIM4Core::compute_cdrain` は解析的な微分もまだ計算して
   いますが、使っていません。
-- **レベル 3 の MOSFET は、SPICE のレベル 3 ではありません。** 飽和電圧が
-  V<sub>ov</sub>/(1 + KAPPA·V<sub>ov</sub>/L<sub>eff</sub>) で次元が合わないので、既定の KAPPA = 0.2 では、
-  短いデバイスは飽和領域でほとんど電流を流しません（0.18 µm のデバイスで V<sub>GS</sub> = 3 V、
-  V<sub>DS</sub> = 1 V のとき約 5·10<sup>−17</sup> A。ngspice-47 では 207 µA）。ETA はしきい値の静的
-  フィードバックではなくチャネル長変調として働き、線形領域の電流に (1 + F<sub>b</sub>) の項がなく
-  （GAMMA = 0.5、バックゲート 1 V で ngspice-47 より 3 % 大きい）、過渡解析に容量がありません。
-  KAPPA = 0 でバックゲートがなければ、線形領域は ngspice-47 と一致します。レベル 3 と BSIM1 は
-  TNOM を読みますが、温度依存はありません。
+- **レベル 3 の MOSFET は、ngspice-47 が公開されている式から離れる所で ngspice-47 と違います。**
+  レベル 3 は、公開されている SPICE のレベル 3（Vladimirescu と Liu、UCB/ERL M80/7、1980）に従い、
+  チャネル長変調が効かない所では ngspice-47 と 2·10<sup>−5</sup> まで一致します。KAPPA と NSUB が
+  あると、ngspice-47 は VDSAT より下でもチャネル長を変え、上ではずらします。その
+  dL<sup>2</sup>/(KAPPA X<sub>d</sub><sup>2</sup>) は、VDSAT より上で V<sub>DS</sub> − 7/8 V<sub>DSAT</sub>、
+  下で V<sub>DSAT</sub>/8 (V<sub>DS</sub>/V<sub>DSAT</sub>)<sup>8</sup> です（結果から推定しました。文書では
+  見つけていません）。公開されている式は、VDSAT より上で V<sub>DS</sub> − V<sub>DSAT</sub>、下で 0 です。
+  差は VDSAT の近くで最大 4.2 %、ずっと上で 1 % 未満です。PHI のないカードは
+  PHI = 2 V<sub>t</sub> ln(NSUB/n<sub>i</sub>)、n<sub>i</sub> = 1.45·10<sup>10</sup> cm<sup>−3</sup> を
+  使い、ngspice-47 より 0.08 % 大きくなります（ngspice-47 の結果は n<sub>i</sub> ≈
+  1.466·10<sup>10</sup> cm<sup>−3</sup> に当たります。原因は未確認です）。レベル 3 には DC の接合
+  ダイオードがなく（ngspice-47 の電流は、接合が順バイアスのときそれを含みます）、温度依存もなく
+  （TNOM は読みます）、過渡解析の容量もありません。BSIM1 も TNOM を読みますが、温度依存は
+  ありません。
 - **JFET はネットリストから使えません。** ライブラリには JFET のモデル
   （`include/kirimaspice/devices/jfet.hpp`）がありますが、パーサーに `J` 素子がありません。ゲートの
   容量は、現在の反復の C/dt (V − V<sub>prev</sub>) を右辺に入れています。GaN HEMT、VDMOS、

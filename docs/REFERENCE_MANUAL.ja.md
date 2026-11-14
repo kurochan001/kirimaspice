@@ -229,6 +229,9 @@ ExprTk の組み込み関数、そして `.PARAM` の中だけは `.FUNC` で定
 | 21 | IGBT（`M` の端子はコレクタ、ゲート、エミッタ） |
 
 レベル 3、9、8/49、14/54 のパラメーター名は、それぞれの Berkeley のモデルのマニュアルに従います。
+レベル 3 は SPICE のレベル 3 の式を、TOX、NSUB、NSS、TPG、XJ、LD、WD、VTO、PHI、GAMMA、UO、KP、THETA、
+VMAX、ETA、KAPPA、DELTA、NFS で計算します。カードにない PHI、GAMMA、VTO は NSUB（と TPG、NSS）から
+求め、LAMBDA はレベル 3 のパラメーターではありません。
 これらのレベルでは、パーサーは知っている名前を渡し、知らない名前は警告なしに無視します。その一覧は
 `src/parser/netlist_parser.cpp` の `parse_mosfet_device` にあります。レベル 10、11、12、20、21 は、
 デバイス自身の（その極性の）既定値から始め、カードの、次に素子の行のパラメーターをすべて名前で

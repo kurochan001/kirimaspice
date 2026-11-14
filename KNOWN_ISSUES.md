@@ -117,17 +117,25 @@ says otherwise.
   (`BSIM4Core::evaluate`), so a stamp evaluates the current seven times.
   `BSIM4Core::compute_cdrain` still computes analytic derivatives, which are
   not used.
-- **The level 3 MOSFET is not SPICE's level 3.** Its saturation voltage
-  is V<sub>ov</sub>/(1 + KAPPA·V<sub>ov</sub>/L<sub>eff</sub>), which is not
-  dimensionless, so with the default KAPPA = 0.2 a short device carries
-  almost nothing in saturation (a 0.18 µm device at V<sub>GS</sub> = 3 V,
-  V<sub>DS</sub> = 1 V: about 5·10<sup>−17</sup> A, where ngspice-47 gives
-  207 µA). ETA acts as channel-length modulation instead of the static
-  feedback on the threshold, the linear current has no (1 + F<sub>b</sub>)
-  term (3 % high against ngspice-47 with GAMMA = 0.5 and 1 V of body bias),
-  and the transient has no capacitances. With KAPPA = 0 and no body bias
-  the linear region matches ngspice-47. Level 3 and BSIM1 read TNOM but
-  have no temperature dependence.
+- **The level 3 MOSFET differs from ngspice-47 where ngspice-47 departs
+  from the published equations.** Level 3 follows SPICE's level 3 as
+  published (Vladimirescu and Liu, UCB/ERL M80/7, 1980), and agrees with
+  ngspice-47 to 2·10<sup>−5</sup> wherever channel-length modulation does
+  not act. With KAPPA and NSUB, ngspice-47 modulates the channel length
+  below VDSAT as well and shifts it above: its dL<sup>2</sup>/(KAPPA
+  X<sub>d</sub><sup>2</sup>) is V<sub>DS</sub> − 7/8 V<sub>DSAT</sub> above
+  VDSAT and V<sub>DSAT</sub>/8 (V<sub>DS</sub>/V<sub>DSAT</sub>)<sup>8</sup>
+  below (inferred from its results; not found in its documentation), where
+  the published equations have V<sub>DS</sub> − V<sub>DSAT</sub> above
+  VDSAT and nothing below. The difference is up to 4.2 % next to VDSAT and
+  below 1 % far above it. A card without PHI gets PHI = 2 V<sub>t</sub>
+  ln(NSUB/n<sub>i</sub>) with n<sub>i</sub> = 1.45·10<sup>10</sup>
+  cm<sup>−3</sup>, which is 0.08 % above ngspice-47's (whose results
+  correspond to n<sub>i</sub> ≈ 1.466·10<sup>10</sup> cm<sup>−3</sup>; the
+  cause is not confirmed). Level 3 has no DC junction diodes (ngspice-47's
+  current includes them when a junction is forward biased), no
+  temperature dependence (it reads TNOM), and no capacitances in the
+  transient. BSIM1 reads TNOM without a temperature dependence too.
 - **JFET cannot be used from a netlist.** The library has a JFET model
   (`include/kirimaspice/devices/jfet.hpp`), but the parser has no `J`
   element. Its gate capacitances put C/dt (V − V<sub>prev</sub>) of the

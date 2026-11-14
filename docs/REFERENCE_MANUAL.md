@@ -258,7 +258,10 @@ For `NMOS` and `PMOS`, `LEVEL` selects the device:
 | 21 | IGBT (`M` terminals are collector, gate, emitter) |
 
 The parameter names of levels 3, 9, 8/49 and 14/54 follow the respective
-Berkeley model manuals. For these levels the parser passes on the names it
+Berkeley model manuals. Level 3 computes SPICE's level 3 equations with
+TOX, NSUB, NSS, TPG, XJ, LD, WD, VTO, PHI, GAMMA, UO, KP, THETA, VMAX,
+ETA, KAPPA, DELTA and NFS; PHI, GAMMA and VTO that the card does not give
+follow from NSUB (and TPG, NSS), and LAMBDA is not a level 3 parameter. For these levels the parser passes on the names it
 knows and ignores the others without a warning; the lists are in
 `parse_mosfet_device` in `src/parser/netlist_parser.cpp`. Levels 10, 11,
 12, 20 and 21 start from the device's own defaults, those of its polarity,
