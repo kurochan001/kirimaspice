@@ -1143,6 +1143,11 @@ add_executable(test_bsim4_ngspice_compare unit/test_bsim4_ngspice_compare.cpp)
 target_link_libraries(test_bsim4_ngspice_compare PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_bsim4_ngspice_compare PROPERTIES TIMEOUT 1200)
 
+# BSIM4 drain current and conductances against reference runs of ngspice-47
+add_executable(test_bsim4_reference unit/test_bsim4_reference.cpp)
+target_link_libraries(test_bsim4_reference PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_bsim4_reference)
+
 # BSIM4 high VDS Vth tests
 add_executable(test_bsim4_high_vds_vth unit/test_bsim4_high_vds_vth.cpp)
 target_link_libraries(test_bsim4_high_vds_vth PRIVATE kirimaspice_lib GTest::gtest_main)

@@ -1,0 +1,119 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+// The drain current that a BSIM4 transistor stamps, against reference runs
+// of ngspice-47.
+//
+// The card gives only TOXE, VTH0, U0 and VSAT, so every other parameter takes
+// its default. The values are ngspice-47's `show m1 : id gm gds gmbs` (six
+// digits) for
+//
+//   VD d 0 DC <vds>
+//   VG g 0 DC <vgs>
+//   VB b 0 DC <vbs>
+//   M1 d g 0 b nch L=0.18u W=1u
+//   .model nch nmos level=14 version=4.8.1 toxe=3e-9 vth0=0.5 u0=0.067 vsat=8e4
+//
+// ngspice's `id` is the channel current alone: its i(vd) also holds the
+// GMIN currents of the drain and source junctions.
+
+#include <gtest/gtest.h>
+
+#include <cmath>
+#include <cstdio>
+#include <string>
+
+#include "kirimaspice/circuit/circuit_graph.hpp"
+#include "kirimaspice/core/matrix_types.hpp"
+#include "kirimaspice/parser/netlist_parser.hpp"
+
+using namespace kirimaspice;
+
+namespace {
+
+const char* kCard =
+    ".model nch nmos level=14 version=4.8.1 toxe=3e-9 vth0=0.5 u0=0.067 vsat=8e4\n";
+
+struct Reference {
+    Real vgs, vds, vbs;
+    Real id, gm, gds, gmbs;
+};
+
+// ngspice-47
+const Reference kReference[] = {
+    {0.6, 0.05, 0.0, 1.13795e-07, 3.5163e-06, 8.37322e-07, 4.54219e-07},
+    {0.6, 1.0, 0.0, 3.20828e-07, 9.80864e-06, 1.95104e-07, 1.24704e-06},
+    {1.0, 0.05, 0.0, 2.97985e-05, 9.22035e-05, 0.000517094, 1.3342e-05},
+    {1.0, 1.0, 0.0, 0.00012292, 0.000533238, 2.96913e-05, 6.59131e-05},
+    {1.8, 0.3, 0.0, 0.000388301, 0.000328869, 0.00081393, 5.3649e-05},
+    {1.8, 1.8, 0.0, 0.000696688, 0.00074506, 7.45275e-05, 8.64832e-05},
+};
+
+// What M1 stamps in the row of its drain: gm, gds and gmb are the entries in
+// the gate, drain and bulk columns, and the drain current follows from the
+// right-hand side, b = -(ids - gm vgs - gds vds - gmb vbs).
+struct DrainRow {
+    Real ids = 0.0;
+    Real gm = 0.0;
+    Real gds = 0.0;
+    Real gmb = 0.0;
+};
+
+DrainRow drain_row_of_m1(const std::string& instance, const std::string& card,
+                         Real vd, Real vg, Real vs, Real vb) {
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string("bias\n" + instance + "\n" + card + ".end\n");
+    EXPECT_NE(parsed.circuit, nullptr);
+    auto& circuit = *parsed.circuit;
+    auto device = circuit.get_device("M1");
+    EXPECT_NE(device, nullptr);
+
+    const NodeId d = circuit.get_node_id("d");
+    const NodeId g = circuit.get_node_id("g");
+    const NodeId s = circuit.get_node_id("s");
+    const NodeId b = circuit.get_node_id("b");
+    const std::size_t size = circuit.num_nodes() + device->extra_node_count();
+    DenseVector v(size, 0.0);
+    v[d - 1] = vd;
+    v[g - 1] = vg;
+    v[s - 1] = vs;
+    v[b - 1] = vb;
+
+    MNASystem mna;
+    mna.resize(size, 0);
+    mna.zero();
+    device->stamp_dc_nonlinear(mna, v);
+
+    DrainRow row;
+    for (std::size_t k = 0; k < mna.G.nnz(); ++k) {
+        if (mna.G.rows[k] != static_cast<int>(d - 1)) {
+            continue;
+        }
+        const auto col = mna.G.cols[k];
+        if (col == static_cast<int>(g - 1)) row.gm += mna.G.values[k];
+        if (col == static_cast<int>(d - 1)) row.gds += mna.G.values[k];
+        if (col == static_cast<int>(b - 1)) row.gmb += mna.G.values[k];
+    }
+    row.ids = -mna.b[d - 1] + row.gm * (vg - vs) + row.gds * (vd - vs) + row.gmb * (vb - vs);
+    return row;
+}
+
+std::string bias_of(const Reference& ref) {
+    char text[64];
+    std::snprintf(text, sizeof text, "VGS=%.2f VDS=%.2f VBS=%.2f", ref.vgs, ref.vds, ref.vbs);
+    return text;
+}
+
+DrainRow nmos_at(Real vgs, Real vds, Real vbs) {
+    return drain_row_of_m1("M1 d g s b nch L=0.18u W=1u", kCard, vds, vgs, 0.0, vbs);
+}
+
+}  // namespace
+
+// The drain current over the inversion regions.
+TEST(BSIM4AgainstNgspice, DrainCurrent) {
+    for (const auto& ref : kReference) {
+        const DrainRow row = nmos_at(ref.vgs, ref.vds, ref.vbs);
+        EXPECT_NEAR(row.ids, ref.id, 2e-4 * ref.id) << bias_of(ref);
+    }
+}

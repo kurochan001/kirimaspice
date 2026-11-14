@@ -1446,42 +1446,8 @@ Real BSIM4Core::compute_vgsteff_smoothed(
         dT9_dVg *= dVgs_eff_dVg;
     }
 
-    // ===================================================================
-    // Subthreshold T9 calibration for ngspice compatibility
-    // When T2 < 0 (subthreshold), the kirimaspice BSIM4 model overestimates
-    // current by ~17% compared to ngspice. This is likely due to subtle
-    // differences in the quantum correction (T9) calculation.
-    //
-    // To match ngspice, we increase T9 by up to 17% in deep subthreshold,
-    // which reduces Vgsteff and consequently Ids. The calibration smoothly
-    // transitions to 1.0 as T2 approaches 0 (threshold).
-    //
-    // Formula: T9_corrected = T9 × (1 + 0.17 × tanh(-T2/2))
-    // - At T2 = -10 (deep subthreshold): factor ≈ 1.17 (17% increase)
-    // - At T2 = -2 (weak subthreshold):  factor ≈ 1.13 (13% increase)
-    // - At T2 = 0 (threshold):           factor ≈ 1.0 (no change)
-    // - At T2 > 0 (strong inversion):    factor ≈ 1.0 (no change)
-    // ===================================================================
-    Real T9_corrected = T9;
-    if (T2 < 0) {
-        const Real sub_calib_max = 0.17;   // Maximum calibration: +17%
-        const Real sub_transition = 2.0;    // Transition width in (n*Vtm) units
-        const Real x = -T2 / sub_transition;  // x > 0 in subthreshold
-        const Real sub_factor = 1.0 + sub_calib_max * std::tanh(x);
-        T9_corrected = T9 * sub_factor;
-
-        // Debug logging (first 3 calls)
-        thread_local static int sub_calib_count = 0;
-        if (sub_calib_count < 3) {
-            spdlog::debug("==== Subthreshold T9 Calibration (call {}) ====", sub_calib_count);
-            spdlog::debug("  T2            = {:.6f} (subthreshold indicator)", T2);
-            spdlog::debug("  x = -T2/2     = {:.6f}", x);
-            spdlog::debug("  sub_factor    = {:.6f} (1 + 0.17*tanh(x))", sub_factor);
-            spdlog::debug("  T9 (original) = {:.6e}", T9);
-            spdlog::debug("  T9 (corrected)= {:.6e}", T9_corrected);
-            sub_calib_count++;
-        }
-    }
+    // Vgsteff = T10 / T9 (BSIM4 manual, eq. 3.7; BSIM4 4.8.3 b4ld.c)
+    const Real T9_corrected = T9;
 
     // Final Vgsteff = T10 / T9_corrected
     const Real Vgsteff = T10 / std::max(T9_corrected, 1e-12);
@@ -1493,12 +1459,6 @@ Real BSIM4Core::compute_vgsteff_smoothed(
     dVgsteff_dVd = (T9_corrected * dT10_dVd - T10 * dT9_dVd) / std::max(T11, 1e-24);
     dVgsteff_dVb = (T9_corrected * dT10_dVb - T10 * dT9_dVb) / std::max(T11, 1e-24);
 
-    // Clamp dVgsteff_dVg to physical limits
-    // In strong inversion: Vgsteff ≈ Vgs - Vth, so dVgsteff_dVg ≤ dVgs_eff_dVg ≤ 1
-    // The quantum correction term T9 can cause dVgsteff_dVg > 1 due to the
-    // negative dT9_dVg contribution, but this is unphysical.
-    // ngspice implicitly limits this through different formula structure.
-    dVgsteff_dVg = std::min(dVgsteff_dVg, 1.0);
 
     // Debug logging (+ derivative debugging)
     thread_local static int vgsteff_debug_count = 0;
@@ -1701,132 +1661,6 @@ Real BSIM4Core::compute_vascbe(Real vds, Real Vdseff, Real leff) const {
         VASCBE = MAX_EXP;
     }
     return VASCBE;
-}
-
-//--------------------------------------------------------------------------------------
-// apply_empirical_corrections
-// Extracted from compute_cdrain (empirical ngspice-matching
-// corrections applied to drain current and its derivatives).
-//--------------------------------------------------------------------------------------
-void BSIM4Core::apply_empirical_corrections(Real& ids, Real& gm, Real& gds, Real& gmb,
-                                            Real raw_vgst, const BSIM4BiasState& bias) const {
-    // Subthreshold boost (piecewise with depth-dependent cap)
-    // Recalibrated with depth-dependent boost for very deep subthreshold
-    // VGS=0.2V: raw_vgst≈-0.62, ngspice=1.08pA → need high boost (subth slope mismatch)
-    // VGS=0.3V: raw_vgst≈-0.52, ngspice=4.31pA → need ~1.7x boost
-    // VGS=0.4V: raw_vgst≈-0.42, ngspice=132pA → need ~1.01x boost
-    // VGS=0.5-0.8V: moderate to near threshold → minimal boost
-    if (raw_vgst < 0.0) {
-        const Real VERY_DEEP = -0.50;     // VGS ≈ 0.30V boundary (expanded to capture VGS=0.3V)
-        const Real DEEP = -0.40;          // VGS ≈ 0.40V boundary
-        const Real MODERATE = -0.20;      // VGS ≈ 0.60V boundary (expanded for Saturation-LowVgs)
-        const Real NEAR_THRESHOLD = -0.1; // VGS ≈ 0.72V boundary
-
-        Real subth_boost;
-        if (raw_vgst < VERY_DEEP) {
-            // Very deep subthreshold (VGS < 0.30V): exponential boost for slope mismatch
-            // With VERY_DEEP=-0.50: VGS=0.3V→depth=0.054, VGS=0.2V→depth=0.154
-            // Increased base from 0.89 to 0.92 to fix remaining -2.8% error
-            // VGS=0.3V: -2.86% error → need 1.028x more → base = 0.89 * 1.028 ≈ 0.92
-            const Real depth = VERY_DEEP - raw_vgst;  // How deep below -0.50
-            subth_boost = 0.92 * std::exp(23.0 * depth);  // Fine-tuned from 0.89
-            subth_boost = std::min(subth_boost, 50.0);  // Cap for stability
-
-            // VDS-dependent correction for deep subthreshold
-            // At VDS=0.5V: kirimaspice=0.484pA, ngspice=0.521pA → need 1.077x more
-            // Reduced from 0.70 to 0.60 to compensate for increased base (0.89→0.92)
-            if (bias.vds < 1.0) {
-                const Real vds_factor = 1.0 + 0.60 * (1.0 - bias.vds);
-                subth_boost *= vds_factor;
-            }
-        } else if (raw_vgst < DEEP) {
-            // Deep subthreshold (-0.55 to -0.45): gentle boost
-            const Real depth = DEEP - raw_vgst;
-            subth_boost = 1.0 + 3.0 * depth;  // 1.0 to ~1.3 over this range
-        } else if (raw_vgst < MODERATE) {
-            // Moderate subthreshold (-0.40 to -0.20): for VGS=0.6V (-10.46% error)
-            // VGS=0.6V: raw_vgst=-0.254, depth=0.054, need 1.23x boost
-            // slope = (1.23-1.12)/0.054 = 2.04, use 2.0
-            const Real depth = MODERATE - raw_vgst;
-            subth_boost = 1.12 + 2.0 * depth;  // 1.12 to 1.52 over this range
-        } else if (raw_vgst < NEAR_THRESHOLD) {
-            // Near threshold (-0.25 to -0.1): minimal transition
-            const Real excess = -raw_vgst - 0.1;
-            subth_boost = 1.0 + 0.4 * excess;  // Linear transition
-        } else {
-            // Very near threshold (-0.1 to 0): minimal boost
-            subth_boost = 1.0 + 0.2 * (-raw_vgst);
-        }
-
-        const Real subth_boost_capped = subth_boost;  // Already capped per region
-        ids *= subth_boost_capped;
-        gm *= subth_boost_capped;
-        gds *= subth_boost_capped;
-        gmb *= subth_boost_capped;
-    }
-
-    // High-VGS attenuation (with VDS-dependent reduction)
-    // VGS=1.5V: +3.4% error, VGS=2.0V: +6% error → need attenuation
-    // Reduce attenuation at high VDS (VDS > 2.0V)
-    // Without this fix: VeryHighVds (VGS=2.5V, VDS=5.0V) was -10.33% due to over-attenuation
-    if (raw_vgst > 0.4) {
-        const Real HIGH_VGS_SLOPE = 0.08;
-        const Real excess = raw_vgst - 0.4;
-        Real attenuation = std::max(1.0 - HIGH_VGS_SLOPE * excess, 0.85);
-
-        // Reduce attenuation at high VDS
-        // At VDS > 2.0V, CLM effects dominate and attenuation should be less
-        // Fine-tuned from 0.038 to 0.034 to reduce +1.17%/+1.01% overestimation
-        if (bias.vds > 2.0) {
-            const Real vds_excess = bias.vds - 2.0;
-            const Real attenuation_reduction = 0.034 * vds_excess;
-            attenuation = std::min(attenuation + attenuation_reduction, 1.0);
-        }
-
-        ids *= attenuation;
-        gm *= attenuation;
-        gds *= attenuation;
-        gmb *= attenuation;
-    }
-
-    // Body bias boost (reduced after corrections)
-    // Original need: VBS=-0.5: -1.65%, VBS=-1.0: -3.81%
-    // After now OVERestimating (+2.4%, +3.88%)
-    // Reduce VBS_SLOPE from 0.045 to 0.005 (nearly disabled)
-    if (bias.vbs < -0.1) {
-        const Real VBS_SLOPE = 0.005;  // Reduced from 0.045
-        const Real vbs_excess = std::abs(bias.vbs) - 0.1;
-        const Real vbs_boost = std::min(1.0 + VBS_SLOPE * vbs_excess, 1.15);
-
-        ids *= vbs_boost;
-        gm *= vbs_boost;
-        gds *= vbs_boost;
-        gmb *= vbs_boost;
-    }
-
-    // ===================================================================
-    // Linear region VGS-dependent correction
-    // Target: Linear-MedVds (VGS=1.5V, VDS=0.5V) at +2.65% overestimation
-    // Pattern shows VGS=1.5V needs reduction while VGS=1.0V and 2.0V are fine
-    // Use parabolic correction centered at VGS=1.5V
-    // ===================================================================
-    if (bias.vds < 1.0 && raw_vgst > 0.3 && raw_vgst < 1.2) {
-        const Real VGS_CENTER = 1.5;
-        const Real vgs_offset = bias.vgs - VGS_CENTER;
-        // Parabolic: max reduction at VGS=1.5V, tapering to 0 at VGS=1.0V and 2.0V
-        // (VGS-1.5)^2: 0 at center, 0.25 at ±0.5V
-        const Real parabola = vgs_offset * vgs_offset;
-        // At VGS=1.5V: reduction = 0.026 (2.6%), at VGS=1.0V/2.0V: reduction ≈ 0
-        const Real max_reduction = 0.026;
-        const Real reduction = max_reduction * (1.0 - 4.0 * parabola);  // 4.0 = 1/0.25
-        if (reduction > 0.0) {
-            const Real linear_factor = 1.0 - reduction;
-            ids *= linear_factor;
-            gm *= linear_factor;
-            gds *= linear_factor;
-            gmb *= linear_factor;
-        }
-    }
 }
 
 Real BSIM4Core::compute_cdrain(const BSIM4BiasState& bias, const BSIM4ThresholdState& th,
@@ -2223,25 +2057,9 @@ Real BSIM4Core::compute_cdrain(const BSIM4BiasState& bias, const BSIM4ThresholdS
                 // Vasat = T0 / T1 (ngspice-compatible)
                 const Real Vasat_ngspice = T0_vasat / std::max(std::abs(T1_vasat), 1e-12);
 
-                // ===================================================================
-                // Vds-dependent Vasat correction
-                // Analysis of ngspice reference data shows that Vasat_need/Vdsat varies:
-                //   Vds=0.25V: ratio=4.716, Vds=0.50V: ratio=3.002
-                //   Vds=0.75V: ratio=2.385, Vds=1.00V: ratio=1.992
-                // This can be approximated as: ratio = 0.908/Vds + 1.084
-                //
-                // Correction factor for Vasat_ngspice:
-                //   Vds=0.25V: factor=1.451 (need higher Vasat → less CLM boost)
-                //   Vds=0.50V: factor=0.915 (near unity)
-                //   Vds=0.75V: factor=0.737 (need lower Vasat → more CLM boost)
-                //   Vds=1.00V: factor=0.647 (need lower Vasat → more CLM boost)
-                // Fitted: correction = 0.268/Vds + 0.379
-                // ===================================================================
-                const Real vds_safe = std::max(diffVds + th.vdsat, 0.1);  // Effective Vds
-                const Real vasat_correction = 0.268 / vds_safe + 0.379;
-                const Real Vasat_adjusted = Vasat_ngspice * vasat_correction;
-
-                // Apply CLM multiplication with Vds-adjusted Vasat
+                // The CLM factor 1 + ln(Va/Vasat)/Cclm with Va = Vasat + VACLM
+                // (BSIM4 manual, eqs. 5.49 and 5.50; BSIM4 4.8.3 b4ld.c)
+                const Real Vasat_adjusted = Vasat_ngspice;
                 const Real VACLM = Cclm_calc * diffVds;
                 const Real Va = Vasat_adjusted + VACLM;
                 const Real T0_clm = std::log(std::max(Va / Vasat_adjusted, 1.0 + 1e-9));
@@ -2816,13 +2634,6 @@ Real BSIM4Core::compute_cdrain(const BSIM4BiasState& bias, const BSIM4ThresholdS
     // ids_cond is conductance [A/V], NOT current yet.
     Real ids = ids_cond * vdseff;
 
-    // ===================================================================
-    // Empirical ngspice-matching corrections applied to
-    // CURRENT (not conductance). Extracted to apply_empirical_corrections().
-    // IMPORTANT: Apply AFTER ids = ids_cond * vdseff so they scale actual current.
-    // ===================================================================
-    const Real raw_vgst_corr = bias.vgs_eff - th.vth;  // Raw gate overdrive (can be negative in subthreshold)
-    apply_empirical_corrections(ids, gm_tmp, gds_tmp, gmb_tmp, raw_vgst_corr, bias);
 
     // ===================================================================
     // Complete chain rule for gds (output conductance)

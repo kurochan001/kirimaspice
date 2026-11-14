@@ -229,18 +229,6 @@ private:
     /// @return VASCBE [V]
     Real compute_vascbe(Real vds, Real Vdseff, Real leff) const;
 
-    /// Phases 30.61/72/74/75: Apply ngspice-matching empirical current corrections.
-    /// Subthreshold boost, high-VGS attenuation, body bias boost and linear-region
-    /// parabolic correction are applied in place to ids/gm/gds/gmb.
-    /// @param ids       [in/out] drain current [A]
-    /// @param gm        [in/out] transconductance [S]
-    /// @param gds       [in/out] output conductance [S]
-    /// @param gmb       [in/out] body transconductance [S]
-    /// @param raw_vgst  bias.vgs_eff - th.vth (raw overdrive, can be negative)
-    /// @param bias      bias state (for vds/vgs/vbs)
-    void apply_empirical_corrections(Real& ids, Real& gm, Real& gds, Real& gmb,
-                                     Real raw_vgst, const BSIM4BiasState& bias) const;
-
     mutable BSIM4Params params_;  // mutable to allow temperature updates in evaluate()
     Real polarity_;  ///< +1 for N-channel, -1 for P-channel
 
