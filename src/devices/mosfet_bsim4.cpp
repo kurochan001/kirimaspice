@@ -106,8 +106,9 @@ MOSFET_BSIM4<P>::~MOSFET_BSIM4() = default;
 
 template<Polarity P>
 void MOSFET_BSIM4<P>::set_temperature(Real temp_kelvin) {
+    // The core keeps the card's parameters at TNOM; evaluate() takes the
+    // operating temperature and scales them from TNOM to it.
     temperature_ = temp_kelvin;
-    core_.set_temperature(temp_kelvin);
 
     // Recompute instance-specific theta0vb0 at new temperature
     const Real leff = params_.get_leff();

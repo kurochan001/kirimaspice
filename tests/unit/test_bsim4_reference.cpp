@@ -26,6 +26,7 @@
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/core/matrix_types.hpp"
 #include "kirimaspice/parser/netlist_parser.hpp"
+#include "kirimaspice/solvers/temperature_utils.hpp"
 
 using namespace kirimaspice;
 
@@ -64,12 +65,19 @@ struct DrainRow {
     Real gmb = 0.0;
 };
 
+// options holds further lines such as ".options temp=100", whose temperature
+// is applied to the devices as the DC solver applies it.
 DrainRow drain_row_of_m1(const std::string& instance, const std::string& card,
-                         Real vd, Real vg, Real vs, Real vb) {
+                         Real vd, Real vg, Real vs, Real vb,
+                         const std::string& options = "") {
     parser::NetlistParser parser;
-    auto parsed = parser.parse_string("bias\n" + instance + "\n" + card + ".end\n");
+    auto parsed =
+        parser.parse_string("bias\n" + instance + "\n" + card + options + ".end\n");
     EXPECT_NE(parsed.circuit, nullptr);
     auto& circuit = *parsed.circuit;
+    if (parsed.config.temperature_explicitly_set) {
+        solvers::apply_temperature_to_devices(circuit, parsed.config.temperature);
+    }
     auto device = circuit.get_device("M1");
     EXPECT_NE(device, nullptr);
 
@@ -120,6 +128,26 @@ TEST(BSIM4AgainstNgspice, DrainCurrent) {
     for (const auto& ref : kReference) {
         const DrainRow row = nmos_at(ref.vgs, ref.vds, ref.vbs);
         EXPECT_NEAR(row.ids, ref.id, 2e-4 * ref.id) << bias_of(ref);
+    }
+}
+
+// The drain current at other temperatures than TNOM = 27 C: Vth (KT1),
+// the mobility (UTE, UA1, UB1) and VSAT (AT) follow the temperature.
+// ngspice-47 with ".temp <T>" (here ".options temp=<T>"), VDS = 1 V, VBS = 0.
+TEST(BSIM4AgainstNgspice, DrainCurrentAtOtherTemperatures) {
+    struct AtTemperature {
+        Real celsius, vgs, id;
+    };
+    const AtTemperature points[] = {
+        {100.0, 0.6, 6.04225e-07}, {100.0, 1.0, 1.04236e-04}, {100.0, 1.8, 5.17267e-04},
+        {-40.0, 0.6, 1.20355e-07}, {-40.0, 1.0, 1.45518e-04}, {-40.0, 1.8, 7.41321e-04},
+    };
+    for (const auto& p : points) {
+        char options[64];
+        std::snprintf(options, sizeof options, ".options temp=%.1f\n", p.celsius);
+        const DrainRow row = drain_row_of_m1("M1 d g s b nch L=0.18u W=1u", kCard, 1.0, p.vgs,
+                                             0.0, 0.0, options);
+        EXPECT_NEAR(row.ids, p.id, 2e-4 * p.id) << options << "VGS=" << p.vgs;
     }
 }
 

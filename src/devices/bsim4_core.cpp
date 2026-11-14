@@ -86,11 +86,6 @@ BSIM4Core::BSIM4Core(const BSIM4Params& params, bool p_channel)
     params_.compute_derived_params(params_.tnom);
 }
 
-void BSIM4Core::set_temperature(Real temperature) {
-    params_.tnom = temperature;
-    params_.compute_derived_params(temperature);
-}
-
 BSIM4OperatingPoint BSIM4Core::evaluate(Real vg, Real vd, Real vs, Real vb,
                                          Real temperature, Real theta0vb0) const {
     // Thread-safety: Lock mutex to prevent concurrent modification of params_

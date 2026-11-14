@@ -98,12 +98,6 @@ class BSIM4Core {
 public:
     BSIM4Core(const BSIM4Params& params, bool p_channel);
 
-    /// Update core temperature-dependent parameters (lightweight hook).
-    /// Currently stores temperature into params_ so subsequent evaluate() calls
-    /// see the updated nominal temperature. More detailed recomputation can be
-    /// added here when the full BSIM4 temperature model is integrated.
-    void set_temperature(Real temperature);
-
     /// Evaluate BSIM4 operating point
     /// @param vg Gate voltage [V]
     /// @param vd Drain voltage [V]
