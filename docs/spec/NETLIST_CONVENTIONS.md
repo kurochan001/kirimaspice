@@ -103,3 +103,6 @@ carry `Approved-by`:
 - rule 4: `DCSweepTest.TwoDimensionalSweep_BasicStructure`;
 - rule 5: `cli_op_gnd_is_a_node`;
 - rule 2: none.
+
+`cli_op_gnd_is_a_node` was renamed `cli_op_gnd_is_ground` when its
+expected value was changed (commit `e147d5c`).

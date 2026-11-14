@@ -82,3 +82,6 @@ ngspice-47（Homebrew、macOS arm64）で小さなネットリストを動かし
 - 決まり 4：`DCSweepTest.TwoDimensionalSweep_BasicStructure`
 - 決まり 5：`cli_op_gnd_is_a_node`
 - 決まり 2：なし
+
+`cli_op_gnd_is_a_node` は、期待値を変えたときに `cli_op_gnd_is_ground` へ名前を変えました（コミット
+`e147d5c`）。
