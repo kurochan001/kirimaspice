@@ -413,7 +413,7 @@ void VDMOS<Pol>::stamp_transient(MNASystem& mna, const DenseVector& node_voltage
 
     Real vd = (nd == NODE_GND) ? 0.0 : node_voltages[nd - 1];
     Real vg = (ng == NODE_GND) ? 0.0 : node_voltages[ng - 1];
-    Real vs = (ns == NODE_GND) ? 0.0 : node_voltages[vs - 1];
+    Real vs = (ns == NODE_GND) ? 0.0 : node_voltages[ns - 1];
 
     Real vgs = vg - vs;
     Real vgd = vg - vd;
