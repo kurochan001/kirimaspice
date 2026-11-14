@@ -1251,3 +1251,82 @@ TEST_F(BSIM4ComprehensiveTest, GmbVerification) {
     SUCCEED() << "gmb verification completed. "
               << "gmb/gm ratios are in physically reasonable range.";
 }
+
+// K1 and K2 from the doping when the card gives neither (BSIM4 manual,
+// section 2.2, eqs. 2.13-2.17, appendix A.18 Notes 1, 3 and 5). For
+// TOXE = 3 nm and the defaults NDEP = 1.7e17, NSUB = 6e16 cm^-3,
+// XT = 1.55e-7 m and VBM = -3 V, the equations give K1 = 0.38154 and
+// K2 = -0.066277. ngspice-47 computes the same: given these two values
+// explicitly it reproduces its own operating point without them (an NMOS
+// at VGS = 1 V behind 10 kOhm: 0.6785253 V and 0.6785255 V).
+TEST(BSIM4BodyEffectCoefficients, ComputedFromDopingWhenNotGiven) {
+    BSIM4Params p;
+    p.toxe = 3e-9;
+    p.toxp = 3e-9;
+    p.toxm = 3e-9;
+    p.k1_given = false;  // as bsim4_params_from_model marks a card without them
+    p.k2_given = false;
+    p.compute_derived_params(p.tnom);
+
+    // The manual's equations, with q and epsSi
+    const Real q = 1.602176634e-19;
+    const Real eps_si = 11.7 * 8.854187817e-12;
+    const Real coxe = 3.9 * 8.854187817e-12 / p.toxe;
+    const Real phi = p.phi;
+    const Real gamma1 = std::sqrt(2.0 * q * eps_si * p.ndep * 1e6) / coxe;
+    const Real gamma2 = std::sqrt(2.0 * q * eps_si * p.nsub * 1e6) / coxe;
+    const Real vbx = phi - q * p.ndep * 1e6 * p.xt * p.xt / (2.0 * eps_si);
+    const Real k2 = (gamma1 - gamma2) * (std::sqrt(phi - vbx) - std::sqrt(phi)) /
+                    (2.0 * std::sqrt(phi) * (std::sqrt(phi - p.vbm) - std::sqrt(phi)) + p.vbm);
+    const Real k1 = gamma2 - 2.0 * k2 * std::sqrt(phi - p.vbm);
+    // 5.753e-12 and 7.7348e-4 of the BSIM4 code round the constants: 0.3 %
+    EXPECT_NEAR(p.k1, k1, 3e-3 * std::abs(k1));
+    EXPECT_NEAR(p.k2, k2, 3e-3 * std::abs(k2));
+    // The values ngspice-47 uses for this card
+    EXPECT_NEAR(p.k1, 0.3815354, 1e-6);
+    EXPECT_NEAR(p.k2, -0.06627691, 1e-7);
+}
+
+// A .MODEL card that gives neither K1 nor K2 gets them computed, and one
+// that gives them keeps them (bsim4_params_from_model marks which).
+TEST(BSIM4BodyEffectCoefficients, CardWithoutThemGetsThemComputed) {
+    BSIM4Params without = bsim4_params_from_model({{"toxe", 3e-9}, {"vth0", 0.5}}, "nch");
+    without.compute_derived_params(without.tnom);
+    EXPECT_NEAR(without.k1, 0.3815354, 1e-6);
+    EXPECT_NEAR(without.k2, -0.06627691, 1e-7);
+
+    BSIM4Params with = bsim4_params_from_model({{"toxe", 3e-9}, {"k1", 0.5}, {"k2", 0.0}}, "nch");
+    with.compute_derived_params(with.tnom);
+    EXPECT_DOUBLE_EQ(with.k1, 0.5);
+    EXPECT_DOUBLE_EQ(with.k2, 0.0);
+}
+
+// Values set directly in code count as given and are used as they are.
+TEST(BSIM4BodyEffectCoefficients, ValuesSetInCodeAreUsed) {
+    BSIM4Params p;
+    p.k1 = 0.53;
+    p.k2 = 0.02;
+    p.compute_derived_params(p.tnom);
+    EXPECT_DOUBLE_EQ(p.k1, 0.53);
+    EXPECT_DOUBLE_EQ(p.k2, 0.02);
+}
+
+// When the card gives only one of K1 and K2, the other takes its default
+// (K1 = 0.53, K2 = -0.0186), as in the BSIM4 4.8.3 code.
+TEST(BSIM4BodyEffectCoefficients, DefaultWhenOnlyOneIsGiven) {
+    BSIM4Params only_k1;
+    only_k1.k1 = 0.4;
+    only_k1.k1_given = true;
+    only_k1.k2_given = false;
+    only_k1.compute_derived_params(only_k1.tnom);
+    EXPECT_DOUBLE_EQ(only_k1.k1, 0.4);
+    EXPECT_DOUBLE_EQ(only_k1.k2, -0.0186);
+
+    BSIM4Params only_k2;
+    only_k2.k2 = 0.01;
+    only_k2.k1_given = false;
+    only_k2.k2_given = true;
+    only_k2.compute_derived_params(only_k2.tnom);
+    EXPECT_DOUBLE_EQ(only_k2.k1, 0.53);
+    EXPECT_DOUBLE_EQ(only_k2.k2, 0.01);
+}

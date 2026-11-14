@@ -72,9 +72,11 @@ struct BSIM4Params {
     Real vbm = -3.0;        ///< Maximum Vbs [V]
     // Whether these were given on the .MODEL card: when neither K1 nor K2
     // is, they are computed from GAMMA1, GAMMA2, VBX and VBM (BSIM4 manual,
-    // section 2.2 and appendix A.18, Notes 1, 3 and 5)
-    bool k1_given = false;
-    bool k2_given = false;
+    // section 2.2 and appendix A.18, Notes 1, 3 and 5). K1 and K2 count as
+    // given by default, so that values set directly in code are used;
+    // bsim4_params_from_model marks them not given when the card has neither.
+    bool k1_given = true;
+    bool k2_given = true;
     bool gamma1_given = false;
     bool gamma2_given = false;
     bool vbx_given = false;

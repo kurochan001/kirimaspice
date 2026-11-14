@@ -112,13 +112,14 @@ says otherwise.
   of `CircuitGraph::add_finfet_n` carries about 3 pA at
   V<sub>GS</sub> = V<sub>DS</sub> = 0.8 V (read in the code; the current
   measured at the commit that gave the FinFET its temperature).
-- **BSIM4's operating point differs from ngspice-47 for a small model
-  card.** An NMOS with 10 kΩ from 1.8 V to its drain and its gate at 1 V
-  (`L=0.18u W=1u`, `level=14 version=4.8.1 toxe=3e-9 vth0=0.5 u0=0.067
-  vsat=8e4`) gives `V(d)` = 0.2987 V, where ngspice-47 gives 0.6785 V.
-  With `k1=0 k2=0` on the card ngspice-47 gives 0.2980 V, so the
-  difference is that the program takes K1 and K2 as 0 when the card does
-  not give them.
+- **BSIM4's operating point differs from ngspice-47 by 2 % for a small
+  model card.** An NMOS with 10 kΩ from 1.8 V to its drain and its gate at
+  1 V (`L=0.18u W=1u`, `level=14 version=4.8.1 toxe=3e-9 vth0=0.5 u0=0.067
+  vsat=8e4`) gives `V(d)` = 0.6914 V, where ngspice-47 gives 0.6785 V. Both
+  use K1 = 0.3815354 and K2 = −0.06627691 here (ngspice-47 given these
+  values reproduces its result), and with `k1=0 k2=0` the two agree to
+  0.7 mV (0.2987 V and 0.2980 V), so the difference lies in the parts of
+  the model that K1 or K2 enter. Which part is not confirmed.
 - KLU is the only working linear solver. The SuperLU_DIST backend is a
   placeholder: asking for it falls back to KLU.
 

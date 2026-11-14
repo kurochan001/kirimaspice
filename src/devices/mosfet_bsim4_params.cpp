@@ -126,6 +126,38 @@ void BSIM4Params::compute_derived_params(Real temp) {
         spdlog::warn("BSIM4: toxe <= 0, using default factor1 = 1.0");
     }
 
+    // K1 and K2 (BSIM4 manual, section 2.2, eqs. 2.13-2.17, and appendix
+    // A.18, Notes 1, 3 and 5): when the card gives neither, they follow from
+    // the doping. gamma1 and gamma2 are the body-effect coefficients for NDEP
+    // and NSUB, sqrt(2 q epsSi N) / Coxe (5.753e-12 sqrt(N[cm^-3]) / Coxe, as
+    // in the BSIM4 4.8.3 code); VBX is the body bias at which the depletion
+    // width is XT, phi - q NDEP XT^2 / (2 epsSi) (7.7348e-4 NDEP XT^2); VBM
+    // and VBX are taken as negative. When the card gives only one of K1 and
+    // K2, the other takes its default (K1 = 0.53, K2 = -0.0186), as in the
+    // BSIM4 4.8.3 code.
+    if (k1_given || k2_given) {
+        if (!k1_given) {
+            k1 = 0.53;
+        }
+        if (!k2_given) {
+            k2 = -0.0186;
+        }
+    } else if (toxe > 0.0) {
+        const Real coxe = epsrox * eps0 / toxe;
+        Real vbx_eff = vbx_given ? vbx : phi - 7.7348e-4 * ndep * xt * xt;
+        if (vbx_eff > 0.0) {
+            vbx_eff = -vbx_eff;
+        }
+        const Real vbm_eff = (vbm > 0.0) ? -vbm : vbm;
+        const Real g1 = gamma1_given ? gamma1 : 5.753e-12 * std::sqrt(ndep) / coxe;
+        const Real g2 = gamma2_given ? gamma2 : 5.753e-12 * std::sqrt(nsub) / coxe;
+        const Real t0 = g1 - g2;
+        const Real t1 = std::sqrt(phi - vbx_eff) - sqrtPhi;
+        const Real t2 = std::sqrt(phi * (phi - vbm_eff)) - phi;
+        k2 = t0 * t1 / (2.0 * t2 + vbm_eff);
+        k1 = g2 - 2.0 * k2 * std::sqrt(phi - vbm_eff);
+    }
+
     // Calculate k1ox (oxide-thickness corrected body-effect coefficient)
     // From ngspice b4temp.c line 1516-1517:
     //   pParam->BSIM4k1ox = pParam->BSIM4k1 * toxe / model->BSIM4toxm;
