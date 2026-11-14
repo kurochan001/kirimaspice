@@ -171,6 +171,28 @@ TEST(BSIM4AgainstNgspice, DrainCurrentAtOtherTemperaturesWithBodyBias) {
     }
 }
 
+// A PMOS card gives VTH0 negative, as BSIM4 cards do; the model takes
+// TYPE * VTH0. ngspice-47's `show m1 : id` for
+// .model pch pmos level=14 version=4.8.1 toxe=3e-9 vth0=-0.5 u0=0.025 vsat=8e4,
+// M1 d g 0 b pch L=0.18u W=1u, VBS = 0. ngspice gives the magnitude; the
+// current that flows from drain to source is negative.
+TEST(BSIM4AgainstNgspice, PmosDrainCurrent) {
+    const std::string card =
+        ".model pch pmos level=14 version=4.8.1 toxe=3e-9 vth0=-0.5 u0=0.025 vsat=8e4\n";
+    struct Point {
+        Real vgs, vds, id;
+    };
+    const Point points[] = {
+        {-0.6, -0.1, 5.14543e-08}, {-0.6, -1.0, 1.11298e-07}, {-1.0, -0.1, 2.23597e-05},
+        {-1.0, -1.0, 5.50758e-05}, {-1.8, -0.1, 7.44459e-05}, {-1.8, -1.0, 3.39023e-04},
+    };
+    for (const auto& p : points) {
+        const DrainRow row =
+            drain_row_of_m1("M1 d g s b pch L=0.18u W=1u", card, p.vds, p.vgs, 0.0, 0.0);
+        EXPECT_NEAR(-row.ids, p.id, 2e-4 * p.id) << "VGS=" << p.vgs << " VDS=" << p.vds;
+    }
+}
+
 // gm, gds and gmb are the derivatives of that drain current.
 TEST(BSIM4AgainstNgspice, Conductances) {
     for (const auto& ref : kReference) {

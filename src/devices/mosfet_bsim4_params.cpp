@@ -253,16 +253,15 @@ void BSIM4Params::compute_derived_params(Real temp) {
 
     // Quantum Correction Parameters (Coxeff support)
 
-    // Step 1: Calculate flat-band voltage (vfb)
-    // vfb = vth0 - phi - k1*sqrtPhi
-    const Real vfb = vth0 - phi - k1 * sqrtPhi;
+    // Step 1: the flat-band voltage, TYPE * VTH0 - phi - K1 sqrt(phi) (BSIM4
+    // 4.8.3 b4temp.c), with VTH0 signed as on the card
+    const Real vfb = type * vth0 - phi - k1 * sqrtPhi;
 
     // Step 2: Calculate vtfbphi2 (ENABLED)
     // Formula from ngspice b4temp.c lines 1786-1788:
     // T3 = type * vth0 - vfb - phi;
     // vtfbphi2 = 4.0 * T3;
     // if (vtfbphi2 < 0.0) vtfbphi2 = 0.0;
-    const Real type = this->type;  // +1 for NMOS, -1 for PMOS
     const Real T3 = type * vth0 - vfb - phi;
     vtfbphi2 = 4.0 * T3;
     if (vtfbphi2 < 0.0) {

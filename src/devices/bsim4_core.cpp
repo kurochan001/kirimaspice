@@ -567,8 +567,9 @@ BSIM4ThresholdState BSIM4Core::compute_threshold(const BSIM4BiasState& bias,
     const Real DIBL_MAX = 0.5;  // Allow up to 0.5V DIBL shift for extreme bias
     DIBL_Sft = std::clamp(DIBL_Sft, -DIBL_MAX, DIBL_MAX);
 
-    // DEBUG: Print each term contributing to Vth
-    Real term_vth0 = params_.vth0;
+    // VTH0 is signed as on the card (negative for a PMOS); the threshold of
+    // the N-channel equations takes TYPE * VTH0 (BSIM4 4.8.3 b4ld.c)
+    Real term_vth0 = params_.type * params_.vth0;
     // Use k1ox and Lpe_Vb instead of simple k1
     // ngspice formula: (k1ox * sqrtPhis - k1 * sqrtPhi) * Lpe_Vb
     // CRITICAL FIX: Use sqrtPhi_nom (nominal temperature value) NOT params_.sqrtPhi (operating temperature value)

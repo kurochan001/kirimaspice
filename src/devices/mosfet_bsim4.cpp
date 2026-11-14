@@ -61,7 +61,9 @@ MOSFET_BSIM4<P>::MOSFET_BSIM4(DeviceId id, const std::string& name,
       core_(params_, P == Polarity::P) {
     // The derived parameters (Xdep0, factor1, ...) are computed here, as the
     // core computes its own, so that the device does not depend on whether
-    // its caller computed them (subcircuit expansion did not)
+    // its caller computed them (subcircuit expansion did not). TYPE is the
+    // polarity, as in the core.
+    params_.type = (P == Polarity::P) ? -1.0 : 1.0;
     params_.compute_derived_params(params_.tnom);
 
     // Calculate instance-specific theta0vb0
