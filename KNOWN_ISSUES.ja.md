@@ -20,7 +20,8 @@
   11.7 度ずれ、許容は 5 度です。どちらが正しいかは未確認です。
 - `validation/` と `tests/validation/` の参照データを作った ngspice の版は記録されていません。
 - `BSIM4TemperatureValidationTest.TemperatureSweepValidation` はスキップされます。
-  `scripts/` のスクリプトが書き出す `/tmp/phase_b7_temperature_refs.json` を読むためです。
+  `scripts/bench/generate_bsim4_temperature_refs.py` が書き出す `/tmp/bsim4_temperature_refs.json` を
+  読むためです。
 - `BSIM4ComprehensiveTest.NgspiceComparison` は `ngspice` を実行し、ngspice が入っていなければ
   スキップされます。macOS で Homebrew の ngspice-47 を入れると、実行して合格します。
 - テストの一部は、ビルドディレクトリからの相対位置でデータを探すので、ビルドディレクトリが

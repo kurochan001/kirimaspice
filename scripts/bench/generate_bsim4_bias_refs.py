@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 """
-Generate ngspice reference data for Phase B.6 multi-bias point validation.
+Generate ngspice reference data for the BSIM4 multi-bias point validation
+in tests/unit/test_bsim4_comprehensive.cpp.
 This script creates SPICE decks for 13 bias points and runs ngspice to extract
 operating point data (ids, vth, vdsat).
 """
@@ -52,7 +53,7 @@ TEST_POINTS = [
 
 def create_spice_deck(vgs, vds, vbs, output_file):
     """Create SPICE deck for a single bias point."""
-    deck = f"""* BSIM4 Phase B.6 Reference Point
+    deck = f"""* BSIM4 Bias Point Reference
 VDS drain 0 DC {vds}
 VGS gate 0 DC {vgs}
 VBS bulk 0 DC {vbs}
@@ -127,7 +128,7 @@ def main():
         print(f"Generating reference for {region} (VGS={vgs}V, VDS={vds}V, VBS={vbs}V)...")
 
         # Create SPICE deck
-        spice_file = f"/tmp/phase_b6_{region.replace('-', '_').lower()}.sp"
+        spice_file = f"/tmp/bsim4_bias_{region.replace('-', '_').lower()}.sp"
         create_spice_deck(vgs, vds, vbs, spice_file)
 
         # Run ngspice
@@ -147,7 +148,7 @@ def main():
             os.remove(spice_file)
 
     # Save results to JSON
-    output_json = "/tmp/phase_b6_ngspice_refs.json"
+    output_json = "/tmp/bsim4_bias_refs.json"
     with open(output_json, 'w') as f:
         json.dump(results, f, indent=2)
 

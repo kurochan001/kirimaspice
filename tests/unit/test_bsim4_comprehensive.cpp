@@ -687,7 +687,7 @@ TEST_F(BSIM4ComprehensiveTest, PhaseB6_MultiBiasPointValidation) {
     const Real temp = 300.15;  // K
 
     // Define test matrix covering different operating regions
-    // ngspice reference data generated via scripts/generate_phase_b6_ngspice_refs.py
+    // ngspice reference data generated via scripts/bench/generate_bsim4_bias_refs.py
     struct BiasPoint {
         Real vgs;
         Real vds;

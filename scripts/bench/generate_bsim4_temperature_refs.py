@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 """
-Phase B.7: Generate ngspice reference data for BSIM4 temperature dependence validation
+Generate ngspice reference data for BSIM4 temperature dependence validation
 
 This script generates reference I-V curves at multiple temperatures (-40°C to 125°C)
 for BSIM4 N-channel MOSFET to validate temperature-dependent parameters:
@@ -170,14 +170,14 @@ def generate_temperature_sweep_refs():
 
 def main():
     """Main entry point"""
-    print("Phase B.7: Generating BSIM4 temperature dependence reference data")
+    print("Generating BSIM4 temperature dependence reference data")
     print("=" * 80)
 
     # Generate reference data
     results = generate_temperature_sweep_refs()
 
     # Save to JSON
-    output_path = '/tmp/phase_b7_temperature_refs.json'
+    output_path = '/tmp/bsim4_temperature_refs.json'
     with open(output_path, 'w') as f:
         json.dump(results, f, indent=2)
 

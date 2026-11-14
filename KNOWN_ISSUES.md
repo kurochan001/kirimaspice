@@ -26,8 +26,8 @@ and SuiteSparse 7.6.1 unless an entry says otherwise.
 - The ngspice version used to make the reference data in `validation/` and
   `tests/validation/` is not recorded.
 - `BSIM4TemperatureValidationTest.TemperatureSweepValidation` is skipped: it
-  reads `/tmp/phase_b7_temperature_refs.json`, which a script in `scripts/`
-  writes.
+  reads `/tmp/bsim4_temperature_refs.json`, which
+  `scripts/bench/generate_bsim4_temperature_refs.py` writes.
 - `BSIM4ComprehensiveTest.NgspiceComparison` runs `ngspice` and is skipped
   when ngspice is not installed. On macOS with ngspice-47 from Homebrew it
   runs and passes.

@@ -32,7 +32,7 @@ class BSIM4TemperatureValidationTest : public ::testing::Test {
 protected:
     void SetUp() override {
         // Initialize BSIM4 parameters matching the ngspice reference generation script
-        // (from generate_phase_b7_temperature_refs.py)
+        // (from scripts/bench/generate_bsim4_temperature_refs.py)
         params_.w = 1e-6;
         params_.l = 50e-9;
         // params_.toxe = 4.5e-9;  // REMOVED: Use BSIM4 default (3.0e-9) to match ngspice
@@ -137,14 +137,14 @@ TEST_F(BSIM4TemperatureValidationTest, TemperatureSweepValidation) {
     // GTEST_SKIP() << "Known BSIM4 Vth temperature model limitation (227-332% error vs ngspice). "
     //              << "Root cause: Different Vth calculation approach.";
     // Load ngspice reference data
-    const std::string ref_file = "/tmp/phase_b7_temperature_refs.json";
+    const std::string ref_file = "/tmp/bsim4_temperature_refs.json";
     json refs;
 
     try {
         refs = load_temperature_refs(ref_file);
     } catch (const std::exception& e) {
         GTEST_SKIP() << "Temperature reference file not found: " << ref_file
-                     << ". Run scripts/bench/generate_phase_b7_temperature_refs.py first.";
+                     << ". Run scripts/bench/generate_bsim4_temperature_refs.py first.";
         return;
     }
 
