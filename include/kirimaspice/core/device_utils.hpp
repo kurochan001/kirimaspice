@@ -513,31 +513,22 @@ inline Real flicker_noise_psd(Real kf, Real af, Real ef, Real current, Real freq
 }
 
 /// Stamp voltage-controlled current source (3-terminal: D, G, S)
-/// For N-channel: Id = gm × (Vg - Vs)
-/// For P-channel: Is = gm × (Vs - Vg) (use polarity = -1)
+/// For N-channel: Id = gm × (Vg - Vs), from drain to source
+/// For P-channel: Is = gm × (Vs - Vg), from source to drain (use polarity = -1)
+/// In both cases the current from drain to source is gm × (Vg - Vs), so the
+/// entries are the same: the drain row takes +gm at the gate and -gm at the
+/// source, the source row the opposite. The drain row has nothing at the
+/// drain, whose voltage does not control this current.
 template<typename Matrix>
-inline void stamp_vccs_3terminal(Matrix& G, int nd_idx, int ng_idx, int ns_idx, Real gm, Real polarity) {
-    // Current flows into drain for N (polarity=+1), into source for P (polarity=-1)
-    if (polarity > 0) {
-        // N-channel: current flows D→S
-        if (nd_idx >= 0) {
-            if (ng_idx >= 0) G.add_entry(nd_idx, ng_idx, gm);
-            if (ns_idx >= 0) G.add_entry(nd_idx, ns_idx, -gm);
-        }
-        if (ns_idx >= 0) {
-            if (ng_idx >= 0) G.add_entry(ns_idx, ng_idx, -gm);
-            if (ns_idx >= 0) G.add_entry(ns_idx, ns_idx, gm);
-        }
-    } else {
-        // P-channel: current flows S→D
-        if (ns_idx >= 0) {
-            if (ng_idx >= 0) G.add_entry(ns_idx, ng_idx, -gm);
-            G.add_entry(ns_idx, ns_idx, gm);
-        }
-        if (nd_idx >= 0) {
-            if (ng_idx >= 0) G.add_entry(nd_idx, ng_idx, gm);
-            G.add_entry(nd_idx, nd_idx, -gm);
-        }
+inline void stamp_vccs_3terminal(Matrix& G, int nd_idx, int ng_idx, int ns_idx, Real gm,
+                                 Real /*polarity*/) {
+    if (nd_idx >= 0) {
+        if (ng_idx >= 0) G.add_entry(nd_idx, ng_idx, gm);
+        if (ns_idx >= 0) G.add_entry(nd_idx, ns_idx, -gm);
+    }
+    if (ns_idx >= 0) {
+        if (ng_idx >= 0) G.add_entry(ns_idx, ng_idx, -gm);
+        G.add_entry(ns_idx, ns_idx, gm);
     }
 }
 
@@ -574,28 +565,18 @@ inline void stamp_capacitor_companion(MNA& mna, int n1_idx, int n2_idx,
     if (n2_idx >= 0) mna.b[n2_idx] += ieq;
 }
 
-/// Stamp complex VCCS for AC analysis
+/// Stamp complex VCCS for AC analysis: the small-signal current gm × (vg - vs)
+/// from drain to source, the same for both polarities (stamp_vccs_3terminal)
 template<typename ComplexMatrix>
 inline void stamp_complex_vccs_3terminal(ComplexMatrix& Y, int nd_idx, int ng_idx, int ns_idx,
-                                         Complex gm, Real polarity) {
-    if (polarity > 0) {
-        if (nd_idx >= 0) {
-            if (ng_idx >= 0) Y.add_entry(nd_idx, ng_idx, gm);
-            if (ns_idx >= 0) Y.add_entry(nd_idx, ns_idx, -gm);
-        }
-        if (ns_idx >= 0) {
-            if (ng_idx >= 0) Y.add_entry(ns_idx, ng_idx, -gm);
-            Y.add_entry(ns_idx, ns_idx, gm);
-        }
-    } else {
-        if (ns_idx >= 0) {
-            if (ng_idx >= 0) Y.add_entry(ns_idx, ng_idx, -gm);
-            Y.add_entry(ns_idx, ns_idx, gm);
-        }
-        if (nd_idx >= 0) {
-            if (ng_idx >= 0) Y.add_entry(nd_idx, ng_idx, gm);
-            Y.add_entry(nd_idx, nd_idx, -gm);
-        }
+                                         Complex gm, Real /*polarity*/) {
+    if (nd_idx >= 0) {
+        if (ng_idx >= 0) Y.add_entry(nd_idx, ng_idx, gm);
+        if (ns_idx >= 0) Y.add_entry(nd_idx, ns_idx, -gm);
+    }
+    if (ns_idx >= 0) {
+        if (ng_idx >= 0) Y.add_entry(ns_idx, ng_idx, -gm);
+        Y.add_entry(ns_idx, ns_idx, gm);
     }
 }
 

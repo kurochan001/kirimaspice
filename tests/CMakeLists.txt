@@ -1148,6 +1148,11 @@ add_executable(test_bsim4_reference unit/test_bsim4_reference.cpp)
 target_link_libraries(test_bsim4_reference PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_bsim4_reference)
 
+# P-channel devices stamp the mirror of the N-channel ones
+add_executable(test_p_channel_stamps unit/test_p_channel_stamps.cpp)
+target_link_libraries(test_p_channel_stamps PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_p_channel_stamps)
+
 # BSIM4 high VDS Vth tests
 add_executable(test_bsim4_high_vds_vth unit/test_bsim4_high_vds_vth.cpp)
 target_link_libraries(test_bsim4_high_vds_vth PRIVATE kirimaspice_lib GTest::gtest_main)
