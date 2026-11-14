@@ -646,6 +646,24 @@ X1 in out RESISTOR_DIV
     std::filesystem::remove(main_file);
 }
 
+// .INC is the short form of .INCLUDE, in any case, as ngspice-47 reads it
+// (a netlist that pulls in a resistor with .inc gives the same result as
+// with .include). Without it the file was skipped without a message.
+TEST(NetlistParser, IncludeShortForm) {
+    auto lib_file = create_temp_file("short_form.lib", "R2 out 0 1k\n");
+    auto main_file = create_temp_file("main_short_form.cir",
+        fmt::format("Short form of include\nV1 in 0 DC 1\nR1 in out 1k\n.inc {}\n.end\n",
+                    lib_file.string()));
+
+    parser::NetlistParser parser;
+    auto result = parser.parse_file(main_file.string());
+    ASSERT_NE(result.circuit, nullptr);
+    EXPECT_NO_THROW(result.circuit->get_device("R2"));
+
+    std::filesystem::remove(lib_file);
+    std::filesystem::remove(main_file);
+}
+
 // Test 2: Nested include (2 tests)
 TEST(NetlistParser, IncludeNested2Levels) {
     // Create level 2 file (innermost)

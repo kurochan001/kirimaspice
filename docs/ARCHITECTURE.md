@@ -100,7 +100,7 @@ is evaluated inside the transient solver.
 steps:
 
 1. Preprocessing of the text: `.INCLUDE` (recursive, with cycle
-   detection; `.INC` is not recognised), `.LIB` sections (nested up to
+   detection; `.INC` is its short form), `.LIB` sections (nested up to
    10 deep), and continuation lines. Blank lines are dropped, so the line
    number of a `ParseError` counts the preprocessed lines.
 2. `.IF`/`.ELIF`/`.ELSE`/`.ENDIF`, evaluated with the parameters known

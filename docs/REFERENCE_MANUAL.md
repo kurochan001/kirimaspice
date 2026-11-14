@@ -281,7 +281,7 @@ parser stores it, but the program does not use it (the library can).
 | `.MODEL` | see [Models](#models) | used |
 | `.SUBCKT` / `.ENDS` | `.SUBCKT <name> <pins...> [NAME=<default> ...]` | used; no nesting of definitions; no `PARAMS:` |
 | `.GLOBAL` | `.GLOBAL <node> ...` | used in subcircuit expansion |
-| `.INCLUDE` | `.INCLUDE <file>` | used; relative to the netlist's directory |
+| `.INCLUDE`, `.INC` | `.INCLUDE <file>` | used; relative to the netlist's directory |
 | `.LIB` / `.ENDL` | `.LIB <file> <section>` | used |
 | `.IF` / `.ELIF` / `.ELSE` / `.ENDIF` | `.IF (<expr>)` | used, but `.PARAM` values are not visible; an expression that cannot be evaluated keeps all branches |
 | `.END` | `.END` | ignored; lines after it are read |

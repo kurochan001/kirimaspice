@@ -59,10 +59,6 @@ document also lists differences not decided there.
   evaluated, the parser warns and keeps every branch.
 - **A second `.PARAM` for the same name is ignored** with the warning
   `Failed to add ... to symbol table`.
-- **`.INC` is ignored without a message;** only the full `.INCLUDE` is
-  read. A netlist that pulls in a resistor with `.inc` gives `V(out)` = 1 V
-  where `.include`, and `.inc` in ngspice-47, give 0.5 V (measured at
-  commit `ff52eba`).
 - **`.IC` and `.NODESET` need an upper-case `V(`;** `v(out)=1` is skipped
   with a warning.
 - **`PULSE` is the only waveform, and only after a DC value.**

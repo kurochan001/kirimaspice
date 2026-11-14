@@ -227,15 +227,14 @@ std::string preprocess_includes(
             return !std::isspace(ch);
         }).base(), trimmed.end());
 
-        // Check for .INCLUDE directive
-        if (trimmed.size() >= 8) {  // ".INCLUDE" is 8 characters
-            std::string directive_upper = trimmed.substr(0, 8);
-            std::transform(directive_upper.begin(), directive_upper.end(),
-                         directive_upper.begin(), ::toupper);
-
-            if (directive_upper == ".INCLUDE") {
-                // Extract filepath (everything after .INCLUDE)
-                std::string filepath_str = trimmed.substr(8);
+        // Check for .INCLUDE directive, or its short form .INC (as in ngspice)
+        std::string directive_upper = trimmed.substr(0, trimmed.find_first_of(" \t"));
+        std::transform(directive_upper.begin(), directive_upper.end(),
+                       directive_upper.begin(), ::toupper);
+        {
+            if (directive_upper == ".INCLUDE" || directive_upper == ".INC") {
+                // Extract filepath (everything after the keyword)
+                std::string filepath_str = trimmed.substr(directive_upper.size());
 
                 // Trim leading/trailing whitespace
                 filepath_str.erase(filepath_str.begin(), std::find_if(filepath_str.begin(), filepath_str.end(), [](unsigned char ch) {

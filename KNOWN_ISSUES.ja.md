@@ -46,9 +46,6 @@ ngspice について書いていることは、それぞれのマニュアルに
 - **`.IF` は `.PARAM` の値を読めません。** 条件を評価できないと、パーサーは警告を出して、すべての
   分岐を残します。
 - **同じ名前の 2 つ目の `.PARAM` は無視されます。** 警告 `Failed to add ... to symbol table` が出ます。
-- **`.INC` はメッセージなしで無視されます。** 読むのは省略しない `.INCLUDE` だけです。`.inc` で抵抗を
-  取り込むネットリストは `V(out)` = 1 V になりますが、`.include` と、ngspice-47 の `.inc` では 0.5 V です
-  （コミット `ff52eba` で測りました）。
 - **`.IC` と `.NODESET` は大文字の `V(` が必要です。** `v(out)=1` は警告を出して飛ばします。
 - **波形は `PULSE` だけで、DC の値の後にしか書けません。** `V1 in 0 PULSE(...)` は
   `Invalid number format: missing digits` で止まります。

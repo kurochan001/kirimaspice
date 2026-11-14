@@ -90,7 +90,7 @@ flowchart LR
 
 `NetlistParser::parse_file`（`src/parser/netlist_parser.cpp`）は、段階を追って処理します。
 
-1. テキストの前処理。`.INCLUDE`（再帰的で、循環を検出します。`.INC` は認識しません）、`.LIB` の節
+1. テキストの前処理。`.INCLUDE`（再帰的で、循環を検出します。`.INC` はその短い形です）、`.LIB` の節
    （10 段まで入れ子にできます）、継続行です。空行は捨てるので、`ParseError` の行番号は前処理の後の行を
    数えます。
 2. 解析の前に分かっているパラメータで評価する `.IF`／`.ELIF`／`.ELSE`／`.ENDIF` と、`.CONTROL` のブロック。
