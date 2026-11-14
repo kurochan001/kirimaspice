@@ -6,6 +6,9 @@
 #include "kirimaspice/parser/netlist_parser.hpp"
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/devices/mosfet_level3.hpp"  // Unified template
+#include "kirimaspice/solvers/dc_solver.hpp"
+#include <cstdio>
+#include <string>
 
 using namespace kirimaspice;
 using namespace kirimaspice::parser;
@@ -227,4 +230,40 @@ V4 4 0 DC 3.0
         }
     }
     EXPECT_EQ(mosfet_count, 3);
+}
+
+// A LEVEL=3 MOSFET in a netlist carries the current of its equations. With
+// KAPPA = 0 and the other parameters at their defaults (UO = 600 cm^2/Vs,
+// TOX = 100 nm, no body effect), the linear region is the square law
+// beta (Vov VDS - VDS^2 / 2), and ngspice-47's `show m1 : id` gives the same
+// for M1 d g 0 b m L=0.18u W=1u. The PMOS card is the mirror (VTO = -0.7 V,
+// every voltage negated).
+TEST(MOSFET_Level3_Netlist, LinearRegionCurrentMatchesNgspice) {
+    struct Point {
+        const char* card;
+        Real vgs, vds, id;
+    };
+    const Point points[] = {
+        {".model m nmos level=3 vto=0.7 kappa=0", 3.0, 1.0, 2.07189e-04},
+        {".model m nmos level=3 vto=0.7 kappa=0", 1.5, 0.1, 8.63286e-06},
+        {".model m nmos level=3 vto=0.7 kappa=0", 3.0, 0.5, 1.17982e-04},
+        {".model m pmos level=3 vto=-0.7 kappa=0", -3.0, -1.0, 2.07189e-04},
+        {".model m pmos level=3 vto=-0.7 kappa=0", -1.5, -0.1, 8.63286e-06},
+    };
+    for (const auto& p : points) {
+        char lines[256];
+        std::snprintf(lines, sizeof lines,
+                      "level3\nVD d 0 DC %g\nVG g 0 DC %g\nVB b 0 DC 0\n"
+                      "M1 d g 0 b m L=0.18u W=1u\n%s\n.end\n",
+                      p.vds, p.vgs, p.card);
+        NetlistParser parser;
+        auto parsed = parser.parse_string(lines);
+        ASSERT_NE(parsed.circuit, nullptr);
+        solvers::DCSolver solver(*parsed.circuit, parsed.config);
+        DenseVector solution;
+        SolverStats stats;
+        ASSERT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS) << lines;
+        EXPECT_NEAR(std::abs(solver.get_branch_current("VD").value()), p.id, 2e-5 * p.id)
+            << lines;
+    }
 }

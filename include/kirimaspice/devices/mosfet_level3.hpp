@@ -188,6 +188,9 @@ protected:
 private:
     void stamp_gmin(MNASystem& mna) const;
 
+    /// Terminal voltages from a vector with node k at element k - 1
+    void terminal_voltages(const DenseVector& v, Real& vd, Real& vg, Real& vs, Real& vb) const;
+
     std::vector<NodeId> nodes_;  ///< [Drain, Gate, Source, Bulk]
     MOSFETLevel3Params params_;  ///< Model parameters
 

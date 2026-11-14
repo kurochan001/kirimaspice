@@ -241,106 +241,69 @@ void MOSFET_Level3<P>::stamp_dc_linear(MNASystem& mna, const DenseVector& /*node
     stamp_gmin(mna);
 }
 
+namespace {
+
+// The current from drain to source has the derivatives gm, gds, gmb and
+// -(gm + gds + gmb) with respect to the gate, drain, bulk and source voltages,
+// for both polarities: for P it is -Ids(VSG, VSD, VSB), whose effective
+// voltages are the negatives of VGS, VDS and VBS.
+template <typename Matrix, typename T>
+void stamp_channel(Matrix& m, std::uint32_t d, std::uint32_t g, std::uint32_t s, std::uint32_t b,
+                   T gm, T gds, T gmb) {
+    const T gss = gm + gds + gmb;
+    auto add = [&](std::uint32_t row, std::uint32_t col, T value) {
+        if (row != NODE_INVALID && col != NODE_INVALID) m.add_entry(row, col, value);
+    };
+    add(d, g, gm);
+    add(d, d, gds);
+    add(d, b, gmb);
+    add(d, s, -gss);
+    add(s, g, -gm);
+    add(s, d, -gds);
+    add(s, b, -gmb);
+    add(s, s, gss);
+}
+
+std::uint32_t row_of(NodeId node) {
+    return (node == NODE_GND) ? NODE_INVALID : static_cast<std::uint32_t>(node - 1);
+}
+
+}  // namespace
+
+template<Polarity P>
+void MOSFET_Level3<P>::terminal_voltages(const DenseVector& v, Real& vd, Real& vg, Real& vs,
+                                         Real& vb) const {
+    // node k at element k - 1, as the stamps receive the iterate
+    vd = (nodes_[0] == NODE_GND) ? 0.0 : v[nodes_[0] - 1];
+    vg = (nodes_[1] == NODE_GND) ? 0.0 : v[nodes_[1] - 1];
+    vs = (nodes_[2] == NODE_GND) ? 0.0 : v[nodes_[2] - 1];
+    vb = (nodes_[3] == NODE_GND) ? 0.0 : v[nodes_[3] - 1];
+}
+
 template<Polarity P>
 void MOSFET_Level3<P>::stamp_dc_nonlinear(MNASystem& mna, const DenseVector& node_voltages) const {
-    // Extract node voltages
-    Real vd = (nodes_[0] == NODE_GND) ? 0.0 : node_voltages[nodes_[0]];
-    Real vg = (nodes_[1] == NODE_GND) ? 0.0 : node_voltages[nodes_[1]];
-    Real vs = (nodes_[2] == NODE_GND) ? 0.0 : node_voltages[nodes_[2]];
-    Real vb = (nodes_[3] == NODE_GND) ? 0.0 : node_voltages[nodes_[3]];
-
+    Real vd = 0.0, vg = 0.0, vs = 0.0, vb = 0.0;
+    terminal_voltages(node_voltages, vd, vg, vs, vb);
     Real v_gs_eff, v_ds_eff, v_bs_eff;
     compute_effective_voltages(vd, vg, vs, vb, v_gs_eff, v_ds_eff, v_bs_eff);
 
-    // Get drain current and conductances
-    Real ids = get_drain_current(v_gs_eff, v_ds_eff, v_bs_eff);
-    Real gm = get_transconductance(v_gs_eff, v_ds_eff, v_bs_eff);
-    Real gds = get_output_conductance(v_gs_eff, v_ds_eff, v_bs_eff);
-    Real gmb = get_bulk_transconductance(v_gs_eff, v_ds_eff, v_bs_eff);
+    const Real ids = get_drain_current(v_gs_eff, v_ds_eff, v_bs_eff);
+    const Real gm = get_transconductance(v_gs_eff, v_ds_eff, v_bs_eff);
+    const Real gds = get_output_conductance(v_gs_eff, v_ds_eff, v_bs_eff);
+    const Real gmb = get_bulk_transconductance(v_gs_eff, v_ds_eff, v_bs_eff);
 
-    // Norton equivalent: I_norton = Ids - gm×Vgs_eff - gds×Vds_eff - gmb×Vbs_eff
-    Real i_norton = ids - gm * v_gs_eff - gds * v_ds_eff - gmb * v_bs_eff;
+    // Ids flows from drain to source for N and from source to drain for P
+    constexpr Real sign = (P == Polarity::N) ? 1.0 : -1.0;
+    const Real i_ds = sign * ids;
+    const Real i_eq = i_ds - gm * (vg - vs) - gds * (vd - vs) - gmb * (vb - vs);
 
-    std::uint32_t d = (nodes_[0] == NODE_GND) ? NODE_INVALID : (nodes_[0] - 1);
-    std::uint32_t g = (nodes_[1] == NODE_GND) ? NODE_INVALID : (nodes_[1] - 1);
-    std::uint32_t s = (nodes_[2] == NODE_GND) ? NODE_INVALID : (nodes_[2] - 1);
-    std::uint32_t b = (nodes_[3] == NODE_GND) ? NODE_INVALID : (nodes_[3] - 1);
-
-    if constexpr (P == Polarity::N) {
-        // N-channel: current flows D→S (enters at drain, exits at source)
-        // gm connects to vgs = vg - vs
-        if (g != NODE_INVALID && d != NODE_INVALID) {
-            mna.G.add_entry(d, g, gm);
-        }
-        if (g != NODE_INVALID && s != NODE_INVALID) {
-            mna.G.add_entry(s, g, -gm);
-        }
-
-        // gds between d and s
-        if (d != NODE_INVALID) {
-            mna.G.add_entry(d, d, gds);
-        }
-        if (d != NODE_INVALID && s != NODE_INVALID) {
-            mna.G.add_entry(d, s, -gds);
-            mna.G.add_entry(s, d, -gds);
-        }
-        if (s != NODE_INVALID) {
-            mna.G.add_entry(s, s, gds);
-        }
-
-        // gmb connects to vbs = vb - vs
-        if (b != NODE_INVALID && d != NODE_INVALID) {
-            mna.G.add_entry(d, b, gmb);
-        }
-        if (b != NODE_INVALID && s != NODE_INVALID) {
-            mna.G.add_entry(s, b, -gmb);
-        }
-
-        // Current source
-        if (d != NODE_INVALID) {
-            mna.b[d] += i_norton;
-        }
-        if (s != NODE_INVALID) {
-            mna.b[s] -= i_norton;
-        }
-    } else {
-        // P-channel: current flows S→D (enters at source, exits at drain)
-        // gm connects to vsg = vs - vg (= -vgs)
-        if (s != NODE_INVALID && g != NODE_INVALID) {
-            mna.G.add_entry(s, g, -gm);
-        }
-        if (g != NODE_INVALID && d != NODE_INVALID) {
-            mna.G.add_entry(d, g, gm);
-        }
-
-        // gds between s and d
-        if (s != NODE_INVALID) {
-            mna.G.add_entry(s, s, gds);
-        }
-        if (s != NODE_INVALID && d != NODE_INVALID) {
-            mna.G.add_entry(s, d, -gds);
-            mna.G.add_entry(d, s, -gds);
-        }
-        if (d != NODE_INVALID) {
-            mna.G.add_entry(d, d, gds);
-        }
-
-        // gmb connects to vsb = vs - vb
-        if (s != NODE_INVALID && b != NODE_INVALID) {
-            mna.G.add_entry(s, b, -gmb);
-        }
-        if (b != NODE_INVALID && d != NODE_INVALID) {
-            mna.G.add_entry(d, b, gmb);
-        }
-
-        // Current source (S→D)
-        if (s != NODE_INVALID) {
-            mna.b[s] -= i_norton;
-        }
-        if (d != NODE_INVALID) {
-            mna.b[d] += i_norton;
-        }
-    }
+    const std::uint32_t d = row_of(nodes_[0]);
+    const std::uint32_t g = row_of(nodes_[1]);
+    const std::uint32_t s = row_of(nodes_[2]);
+    const std::uint32_t b = row_of(nodes_[3]);
+    stamp_channel(mna.G, d, g, s, b, gm, gds, gmb);
+    if (d != NODE_INVALID) mna.b[d] -= i_eq;
+    if (s != NODE_INVALID) mna.b[s] += i_eq;
 }
 
 template<Polarity P>
@@ -388,10 +351,8 @@ template<Polarity P>
 void MOSFET_Level3<P>::stamp_ac(ComplexMNASystem& sys, Real omega,
                                  const DenseVector& dc_solution) const {
     // Extract DC operating point
-    Real vd = (nodes_[0] == NODE_GND) ? 0.0 : dc_solution[nodes_[0]];
-    Real vg = (nodes_[1] == NODE_GND) ? 0.0 : dc_solution[nodes_[1]];
-    Real vs = (nodes_[2] == NODE_GND) ? 0.0 : dc_solution[nodes_[2]];
-    Real vb = (nodes_[3] == NODE_GND) ? 0.0 : dc_solution[nodes_[3]];
+    Real vd = 0.0, vg = 0.0, vs = 0.0, vb = 0.0;
+    terminal_voltages(dc_solution, vd, vg, vs, vb);
 
     Real v_gs_eff, v_ds_eff, v_bs_eff;
     compute_effective_voltages(vd, vg, vs, vb, v_gs_eff, v_ds_eff, v_bs_eff);
@@ -413,51 +374,8 @@ void MOSFET_Level3<P>::stamp_ac(ComplexMNASystem& sys, Real omega,
 
     Complex j_omega(0.0, omega);
 
-    // Stamp transconductances (polarity-dependent)
-    if constexpr (P == Polarity::N) {
-        if (g != NODE_INVALID && d != NODE_INVALID) {
-            sys.Y.add_entry(d, g, gm);
-        }
-        if (g != NODE_INVALID && s != NODE_INVALID) {
-            sys.Y.add_entry(s, g, -gm);
-        }
-    } else {
-        if (s != NODE_INVALID && g != NODE_INVALID) {
-            sys.Y.add_entry(s, g, -gm);
-        }
-        if (g != NODE_INVALID && d != NODE_INVALID) {
-            sys.Y.add_entry(d, g, gm);
-        }
-    }
-
-    // gds (same for both polarities)
-    if (d != NODE_INVALID) {
-        sys.Y.add_entry(d, d, gds);
-    }
-    if (d != NODE_INVALID && s != NODE_INVALID) {
-        sys.Y.add_entry(d, s, -gds);
-        sys.Y.add_entry(s, d, -gds);
-    }
-    if (s != NODE_INVALID) {
-        sys.Y.add_entry(s, s, gds);
-    }
-
-    // gmb (polarity-dependent)
-    if constexpr (P == Polarity::N) {
-        if (b != NODE_INVALID && d != NODE_INVALID) {
-            sys.Y.add_entry(d, b, gmb);
-        }
-        if (b != NODE_INVALID && s != NODE_INVALID) {
-            sys.Y.add_entry(s, b, -gmb);
-        }
-    } else {
-        if (s != NODE_INVALID && b != NODE_INVALID) {
-            sys.Y.add_entry(s, b, -gmb);
-        }
-        if (b != NODE_INVALID && d != NODE_INVALID) {
-            sys.Y.add_entry(d, b, gmb);
-        }
-    }
+    // The small-signal current from drain to source, as in the DC stamp
+    stamp_channel(sys.Y, d, g, s, b, Complex(gm, 0.0), Complex(gds, 0.0), Complex(gmb, 0.0));
 
     // Stamp capacitances: Y = jωC
     if (g != NODE_INVALID && s != NODE_INVALID && cgs > 0.0) {
