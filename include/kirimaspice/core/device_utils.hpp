@@ -118,7 +118,7 @@ inline Real compute_thermal_voltage(Real temp_kelvin = 300.0) {
 }
 
 /// Compute critical voltage for PN junction voltage limiting
-/// Above this voltage, logarithmic compression is applied to improve convergence
+/// Above this voltage, limit_junction_step limits large Newton steps
 ///
 /// @param vt Thermal voltage (V_T = kT/q ≈ 26mV at 300K)
 /// @param is Saturation current [A]
@@ -155,74 +155,6 @@ inline Real limit_junction_step(Real vnew, Real vold, Real nvt, Real vcrit) {
     }
     // From zero or reverse bias: start near the knee of the exponential.
     return (vnew > nvt) ? nvt * std::log(vnew / nvt) : vnew;
-}
-
-/// Limit PN junction voltage using logarithmic compression
-/// Prevents extreme junction voltages during Newton-Raphson iteration
-/// This improves convergence for difficult circuits without affecting final solution
-///
-/// @param v Junction voltage (V_anode - V_cathode) [V]
-/// @param vt Thermal voltage (V_T) [V]
-/// @param is Saturation current (I_S) [A]
-/// @param enable_limiting If false, no limiting is applied
-/// @return Limited voltage [V]
-///
-/// Algorithm:
-/// - If v ≤ vcrit OR limiting disabled: return v unchanged
-/// - If v > vcrit: return vcrit + V_T * ln(1 + (v - vcrit)/V_T)
-///
-/// This function is C1-continuous (smooth first derivative), which is essential
-/// for Newton-Raphson convergence. The derivative factor is computed by
-/// limit_pn_junction_derivative().
-inline Real limit_pn_junction(Real v, Real vt, Real is, bool enable_limiting = true) {
-    if (!enable_limiting) {
-        return v;
-    }
-
-    Real vcrit = compute_vcrit(vt, is);
-    if (v <= vcrit) {
-        return v;  // No limiting needed
-    }
-
-    // Logarithmic compression for v > vcrit
-    Real dv = v - vcrit;
-    return vcrit + vt * std::log(1.0 + dv / vt);
-}
-
-/// Compute derivative factor for limited PN junction voltage
-/// This factor multiplies the original conductance when voltage limiting is active
-///
-/// @param v Junction voltage (original, before limiting) [V]
-/// @param vt Thermal voltage (V_T) [V]
-/// @param is Saturation current (I_S) [A]
-/// @param enable_limiting If false, returns 1.0 (no change)
-/// @return Derivative factor: dV_limited/dV_original
-///
-/// Algorithm:
-/// - If v ≤ vcrit OR limiting disabled: return 1.0 (no change)
-/// - If v > vcrit: return 1 / (1 + (v - vcrit)/V_T)
-///
-/// Usage in device models:
-/// ```
-/// Real v_limited = limit_pn_junction(v, vt, is, enable);
-/// Real current = safe_exp_junction(v_limited, vt, is);
-/// Real conductance = safe_exp_conductance(v_limited, vt, is/vt);
-/// Real derivative_factor = limit_pn_junction_derivative(v, vt, is, enable);
-/// conductance *= derivative_factor;  // Apply chain rule
-/// ```
-inline Real limit_pn_junction_derivative(Real v, Real vt, Real is, bool enable_limiting = true) {
-    if (!enable_limiting) {
-        return 1.0;
-    }
-
-    Real vcrit = compute_vcrit(vt, is);
-    if (v <= vcrit) {
-        return 1.0;  // No limiting, derivative = 1
-    }
-
-    // Derivative of ln(1 + x) is 1/(1 + x)
-    Real dv = v - vcrit;
-    return 1.0 / (1.0 + dv / vt);
 }
 
 // ============================================================================
