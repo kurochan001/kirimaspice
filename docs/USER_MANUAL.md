@@ -4,16 +4,10 @@
 
 This manual covers building kirimaspice, writing a netlist, running the
 analyses the program offers and reading the results. It was checked on
-**2026-11-14** against commit `91af284`, built on macOS 27.2 (arm64) with
-GCC 16.2.0; the program reported `kirimaspice v0.0.0`. Every example below
-was run with that build. Model lookup, the raw file of an operating point,
-the output of a node named `GND`, `B` sources, `NAME={expr}` parameters,
-the lossless line, the trapezoidal rule and coupled inductors were checked
-again after the fixes in commits `6a007ab` to `6edd93a`, and the five
-netlist conventions of
-[NETLIST_CONVENTIONS.md](spec/NETLIST_CONVENTIONS.md) after commit
-`282ae9f`. The section on the Python tools was checked at commit
-`f94ff34`.
+**2026-11-14** against commit `91af284` and reviewed again on
+**2026-11-15** at commit `db0fef6`, built on macOS 27.2 (arm64) with GCC
+16.2.0; the program reported `kirimaspice v0.0.0`. Every example below was
+run with those builds.
 
 For lookup by option, element, directive or output format, use the
 [Reference Manual](REFERENCE_MANUAL.md). For what is known to be wrong or
@@ -42,8 +36,8 @@ SuiteSparse 7.6.1), and Git. CMake fetches the other dependencies with Git
 at fixed versions during the first configure, so that step needs a network
 connection.
 
-On Ubuntu 24.04, these are the packages CI installs, and Git, which its
-runners already have:
+On Ubuntu 24.04, these are the packages CI installs (it adds `clang` for
+its Clang job), and Git, which its runners already have:
 
 ```sh
 sudo apt install build-essential cmake ninja-build python3 libsuitesparse-dev git
@@ -77,7 +71,7 @@ The repository has a small voltage divider in
 
 ```spice
 * Simple voltage divider test
-* Expected: V(n1) = 1.65V (half of 3.3V)
+* Expected: V(n2) = 1.65V (half of 3.3V)
 
 .title Simple Voltage Divider
 
@@ -165,43 +159,60 @@ The program runs these analyses:
 | `.DC <src1> ... <src2> <start2> <stop2> <step2>` | nested sweep; the first source is swept for each value of the second |
 | `.TRAN <tstep> <tstop> [<tstart> [<tmax>]] [UIC]` | transient |
 | `.AC DEC\|OCT\|LIN <n> <fstart> <fstop>` | small-signal AC |
-| `.TEMP <t1> <t2> ...` (°C) | the operating point or transient at each temperature |
+| `.TEMP <t1> <t2> ...` (°C) | the operating point or transient at each temperature (see below) |
+| `.FOUR <f> v(<node>)` | the harmonics of one signal, after the transient |
 
-A netlist can ask for more than one; they run in the order operating point
-or DC sweep, transient, AC. A netlist that asks for none gets an operating
-point whose node voltages are printed, without source currents and without
-any file.
+A netlist can ask for more than one; they run in the order DC sweep or
+operating point, transient, AC. With both `.OP` and `.DC`, only the sweep
+runs. A netlist that asks for none gets an operating point computed with
+the default settings (its `.OPTIONS` and `.TEMP` are not applied), whose
+node voltages are printed, without source currents and without any file.
 
 The program decides whether to run the operating point and the transient
-by searching each line of the netlist file for the text `.op`, `.dc` or
-`.tran`, in any case and anywhere in the line. So a `.OPTIONS` line also
-asks for an operating point, and a comment that mentions `.tran` asks for a
-transient. Keep those words out of comments.
+by searching each line of the netlist file, but not of included files, for
+the text `.op` or `.dc`, or `.tran` followed by two words, in any case and
+anywhere in the line. So a `.OPTIONS` line also asks for an operating
+point, and a comment such as `* see .tran 1u 1m` asks for a transient,
+while `* the .tran line below` stops the program with `Invalid number
+format`. A `.tran` line in an `.INCLUDE` file is not seen. Keep those
+words out of comments, and keep the analysis lines in the netlist file.
+The [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-analyses)
+draws these rules as a chart.
+
+Under `.TEMP`, the operating point is printed once per temperature, but
+the transient prints only log lines, no table, and neither writes files; a
+DC sweep and AC run at 27 °C. For one temperature other than 27 °C, write
+`.OPTIONS TEMP=<t>` instead: every analysis then uses it.
 
 The other analyses in the library (noise, transfer function, pole-zero,
-Fourier, distortion, sensitivity, S-parameters, Monte Carlo, worst case,
-optimization) are not run by the program; their directives are read and
-then not used.
+distortion, sensitivity, S-parameters, Monte Carlo, worst case,
+optimization) are not run by the program. `.TF`, `.PZ`, `.DISTO`, `.SENS`,
+`.PORT`, `.MC`, `.WCASE` and `.OPTIMIZE` are read and not used; noise has
+no directive, and `.NOISE` is ignored.
 
 ### Operating point
 
 The result is printed: one `V(<node>)` line per node and one `I(<source>)`
-line per voltage source (and per `E` and `H` source).
+line per voltage source (and per `E`, `H` and voltage-form `B` source).
 
 ### DC sweep
 
 The program prints a summary (source, range, number of points solved). The
-values are written only to a raw file, so add `--raw-out`:
+values are written only to a raw file, so add `--raw-out` after the
+netlist:
 
 ```sh
-build/kirimaspice divider.cir --raw-out divider.raw
+build/kirimaspice examples/diode_iv.sp --raw-out diode_iv.raw
 ```
 
 ### Transient
 
 The program prints a table with one row per time point and one column per
 node, including `V(0)`. The program steps by `tstep`; `tmax` is read but
-has no effect ([KNOWN_ISSUES](../KNOWN_ISSUES.md#analyses)). With `UIC`,
+has no effect ([KNOWN_ISSUES](../KNOWN_ISSUES.md#analyses)). `tstart` is
+not as in SPICE: the program starts the simulation at `tstart` from the
+operating point, instead of simulating from 0 and saving the results from
+`tstart`. With `UIC`,
 the transient starts from the values in `.IC` instead of from an operating
 point; `.IC` must be written with an upper-case `V`, as in
 `.IC V(out)=1`. Without `UIC`, the operating point that starts the
@@ -223,16 +234,29 @@ For an RC low-pass filter (1 kΩ, 1 µF) driven with `AC 1`, the program gave
 
 ## Save the results
 
-| Option | File | Written for |
-| --- | --- | --- |
-| `--raw-out <file>` | SPICE3 raw, ASCII | operating point, DC sweep, transient |
-| `--raw-binary-out <file>` | SPICE3 raw, binary | operating point, DC sweep, transient |
-| `-o <file>` | SSF | operating point, transient |
-| `--wav-out <file>` | WAV audio | transient |
-| (always) | CSV | AC |
+| Option | File |
+| --- | --- |
+| `--raw-out <file>` | SPICE3 raw, ASCII |
+| `--raw-binary-out <file>` | SPICE3 raw, binary |
+| `-o <file>` | SSF |
+| `--wav-out <file>` | WAV audio |
+| (always) | CSV of the AC result |
+
+Not every run writes every file:
+
+| Run | Raw files | SSF (`-o`) | WAV | AC CSV |
+| --- | --- | --- | --- | --- |
+| operating point | yes | yes | — | — |
+| DC sweep | yes | — | — | — |
+| transient | yes | yes | yes | — |
+| AC | — | — | — | yes |
+| operating point or transient under `.TEMP` | — | — | — | — |
+| no analysis line (default operating point) | — | — | — | — |
 
 - When a netlist runs more than one analysis, the raw file holds one plot
-  per analysis, one after another.
+  per analysis, one after another. The SSF file holds one analysis: with
+  both an operating point and a transient, the transient replaces the
+  operating point.
 - The AC CSV is named by taking the `-o` path, or the netlist path if there
   is no `-o`, removing the part from its last dot, and adding `_ac.csv`.
   `circuit.cir` gives `circuit_ac.csv` next to it.
@@ -240,8 +264,6 @@ For an RC low-pass filter (1 kΩ, 1 µF) driven with `AC 1`, the program gave
   scale, and voltages outside that range are clipped. `--wav-sample-rate`
   (default 44100) and `--wav-bits` (8, 16, 24 or 32; default 16) set the
   format.
-- No file is written for an operating point or transient run under
-  `.TEMP`, and no SSF for a DC sweep.
 
 The layouts of these files are in the
 [Reference Manual](REFERENCE_MANUAL.md#output-formats).
@@ -253,6 +275,12 @@ the standard library; pandas, matplotlib and numpy add features when they
 are installed. Each looks for the program at `build/kirimaspice` and takes
 `--binary <path>` for another place. CTest runs a test of each
 (`python_tools_*`).
+
+| Script | For | Reads | Optional |
+| --- | --- | --- | --- |
+| `kirimaspice_pyapi.py` | running a netlist from Python | the first plot of the ASCII raw file | pandas (`to_dataframe`, `--csv`) |
+| `kirimaspice_repl.py` | an interactive shell | the raw file of each `run` | matplotlib (`plot`), numpy (`expr`) |
+| `ngspice_shim.py` | tools that call `ngspice -b` | — (writes the raw file) | — |
 
 ### Run a netlist from Python
 
@@ -278,8 +306,11 @@ print(vout[time.index(1e-3)])    # 0.6321053213059
 - `result.to_dataframe()` needs pandas.
 
 From the command line, `python3 tools/kirimaspice_pyapi.py <netlist>`
-prints the names of the signals and the first samples, and `--csv <file>`
-(with pandas) writes all of them to a CSV file.
+prints the names of the signals and the first samples of the first signal,
+and `--csv <file>` (with pandas) writes all of them to a CSV file. The
+netlist is copied to a temporary directory and run there, so a relative
+`.INCLUDE` path and the AC CSV refer to that directory (read in the code,
+not run).
 
 ### Work interactively
 
@@ -292,7 +323,7 @@ prints the names of the signals and the first samples, and `--csv <file>`
 | `list` | list the signals of the last run |
 | `plot [--x <name>] <signal>...` | plot with matplotlib; without it, print the first ten points |
 | `expr <name> = <expression>` | define a waveform from others with numpy |
-| `let <name> <value>`, `vars` | set and list variables; `{name}` in a later command is replaced by the value |
+| `let <name> <value>`, `vars` | set and list variables; `{name}` in the options of a later `run` is replaced by the value |
 | `shell <command>`, `open` | run a shell command; edit the netlist in `$EDITOR` |
 | `recent`, `help`, `quit` | show the current files; list the commands; leave |
 
@@ -355,16 +386,16 @@ X1 in out DIV RTOP=3k
   `.SUBCKT` line and the values on the `X` line come before them. A
   `.PARAM` written inside a `.SUBCKT` is local to the subcircuit and is
   evaluated for each instance.
-- Inside a subcircuit, only `R`, `C`, `L`, `V` (DC value), `I` (DC value),
-  `M` (with four terminals) and `X` are expanded. Other elements are
-  skipped with a warning, so put diodes and bipolar transistors at the top
-  level.
+- Inside a subcircuit, only `R`, `C`, `L`, `V` and `I` (DC and AC values,
+  no `PULSE`), `M` (four terminals, level 1 or BSIM4) and `X` are
+  expanded. Other elements are skipped with a warning, so put diodes,
+  bipolar transistors and the other MOSFET levels at the top level.
 - `.GLOBAL <node> ...` makes a node visible inside every subcircuit.
 
 ### Include files and libraries
 
 - `.INCLUDE <file>` reads another file in place. A relative path is taken
-  from the directory of the netlist.
+  from the directory of the file that holds the `.INCLUDE`.
 - `.LIB <file> <section>` reads the part of `<file>` between
   `.LIB <section>` and `.ENDL`.
 - `.IF (<condition>)` ... `.ELSE` ... `.ENDIF` cannot use parameters from
@@ -399,15 +430,16 @@ options are listed in the
 | 1 | no netlist was given, the file could not be read, the netlist could not be parsed, an analysis failed, or an option value was rejected |
 | other | the program was stopped by an uncaught error, for example a non-numeric `--wav-sample-rate` |
 
-One case returns 0 without a result: a netlist that asks for no analysis,
-whose operating point does not converge.
+Two cases return 0 without a result: a netlist that asks for no analysis,
+whose operating point does not converge, and a transient under `.TEMP`,
+which prints only log lines.
 
 A parse error names a line: `Parse error at line 3: ...`. The number counts
 lines after `.INCLUDE` and `.LIB` files have been inserted, continuation
-lines joined and empty lines dropped, so it can differ from the line number
-in your editor.
+lines joined, empty lines dropped, `.IF` blocks resolved and `.CONTROL`
+blocks taken out, so it can differ from the line number in your editor.
 
-Warnings start with `[warning]`. Read them: several mistakes (an unknown
+Warnings start with the time stamp and `[warning]`. Read them: several mistakes (an unknown
 `.OPTIONS` name, a value with a suffix where none is allowed, an element
 inside a subcircuit that is not expanded) produce only a warning and the
 run continues without that setting or element.
@@ -418,7 +450,9 @@ run continues without that setting or element.
 
 No `.MODEL` in the netlist has that name. Check the spelling (case does not
 matter), and check that the file holding the model is read with
-`.INCLUDE` or `.LIB`.
+`.INCLUDE` or `.LIB`. On a four-terminal MOSFET line whose model is not
+defined, the parser takes the line as three-terminal, so the message names
+the bulk node instead: `M1 a a 0 0 NOM` gives `Undefined MOSFET model: 0`.
 
 ### `Invalid number format: missing digits` on a source
 

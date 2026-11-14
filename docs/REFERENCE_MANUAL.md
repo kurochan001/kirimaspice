@@ -4,15 +4,10 @@
 
 This is a reference to the command line, the netlist language and the
 output files of the program `kirimaspice`. It was written on
-**2026-11-14** from the source at commit `91af284`, and the behaviour it
-describes was checked by running that build (macOS 27.2, arm64, GCC 16.2.0,
-`kirimaspice v0.0.0`). Model lookup, the raw file of an operating point,
-the output of a node named `GND`, `B` sources, `NAME={expr}` parameters,
-the lossless line, the trapezoidal rule and coupled inductors were checked
-again after the fixes in commits `6a007ab` to `6edd93a`, and the netlist
-conventions of [NETLIST_CONVENTIONS.md](spec/NETLIST_CONVENTIONS.md) after
-commit `282ae9f`. Where an entry
-was read in the code but not run, it says so. For a guided first run, use
+**2026-11-14** from the source at commit `91af284` and reviewed again on
+**2026-11-15** at commit `db0fef6`; the behaviour it describes was checked
+by running those builds (macOS 27.2, arm64, GCC 16.2.0, `kirimaspice
+v0.0.0`). Where an entry was read in the code but not run, it says so. For a guided first run, use
 the [User Manual](USER_MANUAL.md); for what is wrong or missing, see
 [KNOWN_ISSUES.md](../KNOWN_ISSUES.md).
 
@@ -28,7 +23,7 @@ the [User Manual](USER_MANUAL.md); for what is wrong or missing, see
 - [Options](#options)
 - [Output formats](#output-formats)
 - [Build options](#build-options)
-- [Sources](#sources)
+- [Source files](#source-files)
 
 ## Command line
 
@@ -40,11 +35,14 @@ The netlist must be the first argument. Options that take a value accept
 both `--opt value` and `--opt=value`, except `-o`, which takes only
 `-o value`, and the solver options, which take only `--opt=value`.
 Options the program does not know are ignored without a message.
+The output options write files only for some runs; the table under
+[How the program chooses analyses](#how-the-program-chooses-analyses)
+says which.
 
 | Option | Effect |
 | --- | --- |
 | `-h`, `--help` | print the usage and exit with 0 |
-| `-o <file>` | write the operating point or transient result to `<file>` as SSF, and name the AC CSV after `<file>` |
+| `-o <file>` | write the operating point or transient result to `<file>` as SSF (when both run, the transient replaces the operating point in the file), and name the AC CSV after `<file>` |
 | `--raw-out <file>` | write the operating point, DC sweep and transient results as an ASCII SPICE3 raw file |
 | `--raw-binary-out <file>` | the same as a binary SPICE3 raw file |
 | `--wav-out <file>` | write the transient result as a WAV file |
@@ -67,7 +65,7 @@ stops with exit code 1.
 | `KIRIMASPICE_SOLVER_FALLBACK_ORDER` | comma-separated fallback order for the variable above (default `klu`) |
 | `KIRIMASPICE_SOLVER_STRICT` | `1` makes an unavailable backend from the variable above an error |
 | `KIRIMASPICE_TLINE_LOSSY_IIR` | `1` turns on a second-order IIR loss filter in `O` lines (read in the code, not run) |
-| `KIRIMASPICE_DEBUG_DUMP` | for development: writes the MNA matrix of each DC iteration to files such as `debug_coo.txt` in the current directory |
+| `KIRIMASPICE_DEBUG_DUMP` | for development: when set, to any value, writes the MNA system of the second Newton iteration of each DC solve to `debug_coo.txt`, `debug_csc.txt`, `debug_b.txt` and `debug_x.txt` in the current directory, each solve overwriting the last |
 | `KIRIMASPICE_BSIM1_DEBUG` | for development: debug logs for BSIM1 devices (optionally only those whose name is the value) |
 
 ## Exit codes
@@ -90,6 +88,22 @@ does not converge.
   before them and empty lines are dropped, `.IF` blocks are resolved, and
   `.CONTROL` blocks are taken out. The lines that remain are read one by
   one.
+
+  ```mermaid
+  flowchart LR
+    F[netlist file] --> I[".INCLUDE / .INC: insert the files"]
+    I --> L[".LIB: insert the section"]
+    L --> C["join + lines, drop empty lines"]
+    C --> IF[".IF / .ELIF / .ELSE: keep one branch"]
+    IF --> CT[".CONTROL: take out"]
+    CT --> T[first line: title]
+    T --> R["the other lines, one by one"]
+    R --> D["elements whose model comes later: read again at the end"]
+  ```
+
+- An included file is found relative to the directory of the file that
+  includes it. `.LIB <file>` without a section inserts the whole file; an
+  `.INCLUDE` inside a `.LIB` section is dropped without a message.
 - The first remaining line is the title.
 - A line whose first non-blank character is `*` is a comment. `;` starts a
   comment that runs to the end of the line. There is no other comment
@@ -99,13 +113,14 @@ does not converge.
 - Lines after `.END` are read like any other. Unknown directives are
   ignored without a message; an unknown element letter gives the warning
   `Unknown device type`.
-- Line numbers in messages count the remaining lines, not the lines of the
-  file.
+- Line numbers in messages count the lines that remain after these steps,
+  not the lines of the file. An error in `.INCLUDE`, `.LIB` or `.IF`
+  itself gives the line number of the text at that step.
 
 ### Names
 
-- Node, element and subcircuit names are case-sensitive; model names are
-  not.
+- Node and element names are case-sensitive; model and subcircuit names
+  are not.
 - `0` is ground, and so is a node named `gnd` in any case, at the top
   level and inside subcircuits.
 - Nodes inside a subcircuit instance are named `<instance>.<node>`, for
@@ -141,7 +156,10 @@ the parameters defined so far, the constants `pi` and `e`, ExprTk's
 built-in functions, and, in `.PARAM` only, functions defined by `.FUNC`.
 Scale suffixes are not accepted inside braces (`{1m}` is an error). A brace
 group is one token even if it contains spaces, and one that follows `=`
-stays in the same token, so `IS={ISAT}` is one parameter.
+stays in the same token, so `IS={ISAT}` is one parameter. In a `.MODEL`
+line and inside `PULSE(...)`, however, the text is split again at spaces,
+so an expression there must have none (`IS={a * 2}` stops with `Invalid
+number format`).
 
 ## Elements
 
@@ -149,36 +167,46 @@ stays in the same token, so `IS={ISAT}` is one parameter.
 braces. Parameters written `NAME=value` may appear in any order; names are
 not case-sensitive.
 
-| Element | Syntax | Notes |
-| --- | --- | --- |
-| Resistor | `R<name> <n+> <n-> <value>` | further tokens are ignored |
-| Capacitor | `C<name> <n+> <n-> <value>` | further tokens (such as `IC=`) are ignored |
-| Inductor | `L<name> <n+> <n-> <value>` | further tokens are ignored |
-| Mutual inductance | `K<name> <L1> <L2> <k>` | `<L1>`, `<L2>` are inductor names |
-| Voltage source | `V<name> <n+> <n-> [DC] <value> [AC <mag> [<phase>]] [PULSE(<v1> <v2> <td> <tr> <tf> <pw> <per>)]` | see below |
-| Current source | `I<name> <n+> <n-> [DC] <value> [AC <mag> [<phase>]]` | no waveforms |
-| VCVS | `E<name> <n+> <n-> <nc+> <nc-> <gain>` | |
-| CCCS | `F<name> <n+> <n-> <Vcontrol> <gain>` | |
-| VCCS | `G<name> <n+> <n-> <nc+> <nc-> <gm>` | |
-| CCVS | `H<name> <n+> <n-> <Vcontrol> <r>` | |
-| Behavioural source | `B<name> <n+> <n-> I=<expr>` or `V=<expr>` | see below |
-| Diode | `D<name> <anode> <cathode> [<model>] [IS=<v>] [N=<v>]` | |
-| Bipolar transistor | `Q<name> <c> <b> <e> <NPN\|PNP\|model> [parameters]` | |
-| MOSFET and related | `M<name> <d> <g> <s> [<b>] <NMOS\|PMOS\|model> [parameters]` | model `LEVEL` selects the device |
-| MESFET | `Z<name> <d> <g> <s> [<NMF\|PMF\|model>] [parameters]` | |
-| SCR | `S<name> <anode> <cathode> <gate> [parameters]` | |
-| TRIAC | `Y<name> <mt2> <mt1> <gate> [parameters]` | |
-| Lossless line | `T<name> <a+> <a-> <b+> <b-> Z0=<v> TD=<v>` | both required and positive; `ZO` is accepted for `Z0` |
-| Lossy line | `O<name> <a+> <a-> <b+> <b-> R=<v> L=<v> C=<v> G=<v> TD=<v>` | per unit length; `TD` required and positive |
-| Subcircuit instance | `X<name> <nodes...> <subckt> [NAME=<v> ...]` | |
+| Element | Syntax | Notes | In `.SUBCKT` |
+| --- | --- | --- | --- |
+| Resistor | `R<name> <n+> <n-> <value>` | further tokens are ignored | yes |
+| Capacitor | `C<name> <n+> <n-> <value>` | further tokens (such as `IC=`) are ignored | yes |
+| Inductor | `L<name> <n+> <n-> <value>` | further tokens are ignored | yes |
+| Mutual inductance | `K<name> <L1> <L2> <k>` | `<L1>`, `<L2>` are inductor names; `<k>` outside 0 to 1 is an error | no |
+| Voltage source | `V<name> <n+> <n-> [DC] <value> [AC <mag> [<phase>]] [PULSE(<v1> <v2> <td> <tr> <tf> <pw> <per>)]` | see below | DC and AC, not `PULSE` |
+| Current source | `I<name> <n+> <n-> [DC] <value> [AC <mag> [<phase>]]` | no waveforms | DC and AC |
+| VCVS | `E<name> <n+> <n-> <nc+> <nc-> <gain>` | | no |
+| CCCS | `F<name> <n+> <n-> <Vcontrol> <gain>` | `<Vcontrol>` must be a `V` source | no |
+| VCCS | `G<name> <n+> <n-> <nc+> <nc-> <gm>` | | no |
+| CCVS | `H<name> <n+> <n-> <Vcontrol> <r>` | `<Vcontrol>` must be a `V` source | no |
+| Behavioural source | `B<name> <n+> <n-> I=<expr>` or `V=<expr>` | see below | no |
+| Diode | `D<name> <anode> <cathode> [<model>] [IS=<v>] [N=<v>]` | | no |
+| Bipolar transistor | `Q<name> <c> <b> <e> <NPN\|PNP\|model> [parameters]` | | no |
+| MOSFET and related | `M<name> <d> <g> <s> [<b>] <NMOS\|PMOS\|model> [parameters]` | model `LEVEL` selects the device | four terminals, level 1 or BSIM4 |
+| MESFET | `Z<name> <d> <g> <s> [<NMF\|PMF\|model>] [parameters]` | | no |
+| SCR | `S<name> <anode> <cathode> <gate> [parameters]` | | no |
+| TRIAC | `Y<name> <mt2> <mt1> <gate> [parameters]` | | no |
+| Lossless line | `T<name> <a+> <a-> <b+> <b-> Z0=<v> TD=<v>` | both required and positive; `ZO` is accepted for `Z0` | no |
+| Lossy line | `O<name> <a+> <a-> <b+> <b-> R=<v> L=<v> C=<v> G=<v> TD=<v>` | per unit length; `TD` required and positive | no |
+| Subcircuit instance | `X<name> <nodes...> <subckt> [NAME=<v> ...]` | | yes |
+
+Inside a subcircuit, an element marked "no" is dropped with the warning
+`Subcircuit expansion: Unsupported device type`.
 
 ### Sources
 
-- A voltage source needs a value: `V1 a b` alone is an error. `DC` before
-  it is optional.
-- `PULSE(...)` must come after the DC value and needs all seven arguments;
-  commas between them are allowed. There are no `SIN`, `EXP`, `PWL` or
-  `SFFM` waveforms.
+- A voltage source needs a value: `V1 a b` alone, and `V1 a b AC 1`, are
+  errors; `V1 a b DC` without a number is accepted as 0 V. `DC` before
+  the value is optional.
+- `PULSE(...)` must come after the DC value and needs all seven arguments.
+  A comma may follow an argument only when a space comes after it
+  (`PULSE(0, 1, ...)`); `PULSE(0,1,...)` is an error. With `PULSE`, the DC
+  value and `AC` are ignored: the operating point takes the pulse's value
+  at t = 0, and the source is not an AC input. A source with `PULSE`
+  cannot be swept by `.DC`.
+- There are no `SIN`, `EXP`, `PWL` or `SFFM` waveforms: they are dropped
+  without a message, and the source keeps its DC value. `PULSE` on a
+  current source is dropped in the same way.
 - Only a source whose line has `AC` is an input of AC analysis; `AC`
   without a magnitude means 1, and the phase, in degrees, defaults to 0. A
   source without `AC` has magnitude 0. Inside subcircuits the same holds.
@@ -192,8 +220,10 @@ not case-sensitive.
 
 `B` takes the first token that starts with `V=` or `I=`; the expression may
 be in braces (`V={2*V(in)}`), and without braces it must have no spaces.
-It can use `V(<node>)` or `v(<node>)`, `TIME`, the constants and ExprTk's
-built-in functions; `I(<source>)` is not available. An expression that
+It can use `V(<node>)` or `v(<node>)`, `TIME`, `pi` (not `e`) and
+ExprTk's built-in functions; `.PARAM` names and `I(<source>)` are not
+available. In the program, `TIME` is always 0, also in a transient
+([KNOWN_ISSUES](../KNOWN_ISSUES.md#netlist-input)). An expression that
 cannot be compiled is an error at the `B` line. Both forms work in the
 operating point and the transient; in AC analysis a `B` source contributes
 nothing and logs `AC analysis not yet supported`.
@@ -201,15 +231,15 @@ nothing and logs `AC analysis not yet supported`.
 ### Parameters of the simpler devices
 
 These are the parameters the parser reads; any other parameter in the
-element line or the `.MODEL` card is ignored. An instance parameter
-overrides the model's.
+element line or the `.MODEL` card is ignored without a message. An
+instance parameter overrides the model's.
 
 | Element | Parameters (default) |
 | --- | --- |
 | `D` | `IS` (1e-14 A), `N` (1) |
 | `Q` | `IS` (1e-14 A), `BF` (100), `NF` from a model or `N` on the instance (1), `ISE` (0), `NE` (1.5), `ISC` (0), `NC` (2), noise `KF` (0), `AF` (1), `FF` (1) |
-| `M`, level 1 | `KP` (2e-5 A/V²), `W` (10 µm), `L` (1 µm), `VTO` or `VTH` (0.7 V for NMOS, −0.7 V for PMOS), noise `KF` (0), `AF` (1), `EF` (1), `GAMMA` (0.667) |
-| `Z` | `LEVEL`/`MODEL` (formula), `BETA` (0.1), `VTO` (−2 V), `LAMBDA` (0.05), `ALPHA` (2), `B` (0.3), `VP` (3 V), `CGS` (1 pF), `CGD` (0.5 pF), `CDS` (0.1 pF), `KF`, `AF`, `EF`, `TNOM` (27 °C) |
+| `M`, level 1 | `KP` (2e-5 A/V²), `W` (10 µm), `L` (1 µm), `VTO` or `VTH` on the card and `VTH` on the element line (0.7 V for NMOS, −0.7 V for PMOS), noise `KF` (0), `AF` (1), `EF` (1), `GAMMA` (0.667) |
+| `Z` | `LEVEL`/`MODEL` (formula), `BETA` (0.1), `VTO` (−2 V; +2 V when the element line says `PMF`), `LAMBDA` (0.05), `ALPHA` (2), `B` (0.3), `VP` (3 V), `CGS` (1 pF), `CGD` (0.5 pF), `CDS` (0.1 pF), `KF`, `AF`, `EF`, `TNOM` (27 °C) |
 | `S` | `VBF` (400 V), `IGT` (20 mA), `IH` (10 mA), `IL` (30 mA), `VGT` (1 V), `RON` (0.1 Ω), `VTM` (1.5 V), `DV_DT` (10), `TNOM` (27 °C) |
 | `Y` | `VBO` (400 V), `IGT` (20 mA), `IH` (10 mA), `VGT` (1 V), `RON` (0.1 Ω), `VTM` (1.5 V), `DV_DT` or `DVDT` (10), `TNOM` (27 °C) |
 
@@ -217,7 +247,8 @@ overrides the model's.
   length modulation and no capacitances. Its `GAMMA` is the coefficient of
   channel thermal noise, not the body-effect coefficient of SPICE.
 - `S` and `Y` take parameters only on the element line: `.MODEL` has no
-  SCR or TRIAC type.
+  SCR or TRIAC type, and a model name on their line that is not defined
+  before them is ignored without a message.
 - With three terminals, `M` ties the bulk to the source. The parser treats
   a line as four-terminal when its sixth token starts with `NMOS` or
   `PMOS` or names a model of the netlist.
@@ -237,37 +268,42 @@ overrides the model's.
   device; so are `.TEMP` and `.OPTIONS TEMP`. The default `TNOM` is 27 °C.
 - Model names are compared without regard to case; a `.MODEL` whose name
   differs from an earlier one only in case replaces it.
-- A `.MODEL` line applies to the whole netlist: an element may come before
-  its model. An element whose model is not defined anywhere is an error
+- A `.MODEL` line applies to the whole netlist: a `D`, `Q`, `M` or `Z`
+  element may come before its model. An element whose model is not
+  defined anywhere is an error
   (`Undefined diode model`, `Undefined BJT model`, `Undefined MESFET
   model`, `Undefined MOSFET model`), given at the element's line.
 
 For `NMOS` and `PMOS`, `LEVEL` selects the device:
 
-| `LEVEL` | Device |
-| --- | --- |
-| 1 (default), and any value not listed below | level 1 (square law) |
-| 3 | level 3 |
-| 9 | BSIM1 |
-| 8, 49 | BSIM3 |
-| 14, 54 | BSIM4 (a model card with a `VERSION` other than 4.83 gives a warning) |
-| 10 | SiC MOSFET |
-| 11 | GaN HEMT |
-| 12 | FinFET |
-| 20 | VDMOS |
-| 21 | IGBT (`M` terminals are collector, gate, emitter) |
+| `LEVEL` | Device | Unknown card parameters | Element-line parameters | In `.SUBCKT` |
+| --- | --- | --- | --- | --- |
+| 1 (default), and any value not listed below | level 1 (square law) | ignored without a message | `KP`, `W`, `L`, `VTH`, `KF`, `AF`, `EF`, `GAMMA` | yes, four terminals |
+| 3 | SPICE's level 3 | warning | `W`, `L` | no |
+| 9 | BSIM1 | warning | `W`, `L` | no |
+| 8, 49 | BSIM3 | warning | `W`, `L` | no |
+| 14, 54 | BSIM4 (a model card with a `VERSION` other than 4.83 gives a warning) | ignored without a message | `W`, `L`, `MULT_I`, `MULT_Q`, `MULT_FN` | yes, four terminals |
+| 10 | SiC MOSFET | warning | all, by name | no |
+| 11 | GaN HEMT | warning | all, by name | no |
+| 12 | FinFET | warning | `L` only (others ignored without a message) | no |
+| 20 | VDMOS | warning | all, by name | no |
+| 21 | IGBT (`M` terminals are collector, gate, emitter) | warning | all, by name | no |
+
+A `LEVEL` that is not listed gives level 1 without a message. `AD`, `AS`,
+`PD`, `PS`, `NRD` and `NRS` on the element line are ignored without a
+message (read in the code).
 
 The parameter names of levels 3, 9, 8/49 and 14/54 follow the respective
 Berkeley model manuals. Level 3 computes SPICE's level 3 equations with
 TOX, NSUB, NSS, TPG, XJ, LD, WD, VTO, PHI, GAMMA, UO, KP, THETA, VMAX,
 ETA, KAPPA, DELTA and NFS; PHI, GAMMA and VTO that the card does not give
-follow from NSUB (and TPG, NSS), and LAMBDA is not a level 3 parameter. For these levels the parser passes on the names it
-knows and ignores the others without a warning; the lists are in
-`parse_mosfet_device` in `src/parser/netlist_parser.cpp`. Levels 10, 11,
-12, 20 and 21 start from the device's own defaults, those of its polarity,
-and take every parameter of the card and then of the element line by name;
-a name the device does not have, or a value out of range, gives a warning.
-Inside a subcircuit, only level 1 and BSIM4 MOSFETs are expanded.
+follow from NSUB (and TPG, NSS). LAMBDA, RS, RD, CJ, CJSW and MJSW are
+accepted on a level 3 card without a warning and not used. The parameter
+lists are in `parse_mosfet_device` in `src/parser/netlist_parser.cpp`, and
+for BSIM4 in `bsim4_params_from_model` in
+`src/devices/mosfet_bsim4_params.cpp`. Levels 10, 11, 12, 20 and 21 start
+from the device's own defaults, those of its polarity, and take the
+parameters of the card and then of the element line by name.
 
 ### FinFET (`LEVEL=12`)
 
@@ -275,8 +311,8 @@ The FinFET is kirimaspice's own simplified square-law model
 (`src/devices/finfet.cpp`), not BSIM-CMG. Its terminals are drain, gate and
 source; a bulk node on the `M` line is accepted and not used. Every
 parameter of the `.MODEL` card goes to the device, and one that the FinFET
-does not have, or a value out of range, gives a warning and is ignored. `L`
-may also be given on the element line, which overrides the card.
+does not have, or a value out of range, gives a warning and is ignored. Of
+the element line's parameters only `L` is read; it overrides the card.
 
 | Parameter | Meaning | NMOS default | PMOS default |
 | --- | --- | --- | --- |
@@ -328,9 +364,9 @@ parser stores it, but the program does not use it (the library can).
 | --- | --- | --- |
 | `.OP` | `.OP` | used: operating point (found by a text search, see [below](#how-the-program-chooses-analyses)) |
 | `.DC` | `.DC <src> <start> <stop> <step> [<src2> <start2> <stop2> <step2>]` | used; `<src>` is a voltage or current source and is swept for each value of `<src2>`; a zero step is an error |
-| `.TRAN` | `.TRAN <tstep> <tstop> [<tstart> [<tmax>]] [UIC]` | used; the program steps by `tstep`, and `tmax` is read but has no effect |
-| `.AC` | `.AC DEC\|OCT\|LIN <n> <fstart> <fstop>` | used; `DEC`, `OCT`: `<n>` points per decade or octave, both ends included; `LIN`: `<n>` points in all |
-| `.TEMP` | `.TEMP <t1> [<t2> ...]` (°C) | used for the operating point and transient; a DC sweep and AC use the first value |
+| `.TRAN` | `.TRAN <tstep> <tstop> [<tstart> [<tmax>]] [UIC]` | used; the program steps by `tstep`, and `tmax` is read but has no effect; unlike SPICE, the simulation starts at `tstart` from the operating point (it does not simulate from 0 and save from `tstart`) |
+| `.AC` | `.AC DEC\|OCT\|LIN <n> <fstart> <fstop>` | used; `DEC`, `OCT`: round(`<n>` × the number of decades or octaves) + 1 points, evenly spaced in log from `<fstart>` to `<fstop>`, both included (`.AC DEC 3 10 50` gives 10, 22.36, 50 Hz, where ngspice-47 gives 10, 21.54, 46.42 Hz); `LIN`: `<n>` points in all |
+| `.TEMP` | `.TEMP <t1> [<t2> ...]` (°C) | used for the operating point and transient, which run once per value; a DC sweep and AC run at 27 °C (use `.OPTIONS TEMP=<t>` for them) |
 | `.OPTIONS`, `.OPTION` | `.OPTIONS <name>=<value> ...` | used; see [Options](#options) |
 | `.IC` | `.IC V(<node>)=<value> ...` | used by a transient: with `UIC` it starts from these values, without `UIC` its operating point holds the nodes at them; `V` must be upper case |
 | `.NODESET` | `.NODESET V(<node>)=<value> ...` | used as the initial guess; `V` must be upper case |
@@ -340,11 +376,11 @@ parser stores it, but the program does not use it (the library can).
 | `.SUBCKT` / `.ENDS` | `.SUBCKT <name> <pins...> [NAME=<default> ...]` | used; no nesting of definitions; no `PARAMS:` |
 | `.GLOBAL` | `.GLOBAL <node> ...` | used in subcircuit expansion |
 | `.INCLUDE`, `.INC` | `.INCLUDE <file>` | used; relative to the netlist's directory |
-| `.LIB` / `.ENDL` | `.LIB <file> <section>` | used |
+| `.LIB` / `.ENDL` | `.LIB <file> [<section>]` | used; without a section, the whole file |
 | `.IF` / `.ELIF` / `.ELSE` / `.ENDIF` | `.IF (<expr>)` | used, but `.PARAM` values are not visible; an expression that cannot be evaluated keeps all branches |
 | `.END` | `.END` | ignored; lines after it are read |
 | `.PRINT`, `.SAVE` | `.PRINT DC\|TRAN\|AC <signals>`, `.SAVE <signals>` | read only |
-| `.FOUR` | `.FOUR <frequency> v(<node>)\|i(<source>) ...` | used with `.TRAN`: prints the harmonics and the THD of the last period after the transient |
+| `.FOUR` | `.FOUR <frequency> v(<node>)\|i(<source>)` | used with `.TRAN`: prints the harmonics and the THD of the last period of the first signal after the transient; further signals are ignored |
 | `.STEP`, `.SENS`, `.MC`, `.TF`, `.PZ`, `.DISTO`, `.PORT`, `.WCASE`, `.OPTIMIZE` | | read only |
 | `.CONTROL` / `.ENDC` | | taken out and run by the parser; the program does not take its analyses from it (see [KNOWN_ISSUES.md](../KNOWN_ISSUES.md)) |
 | `.TITLE`, `.MEASURE`, others | | ignored |
@@ -354,12 +390,40 @@ parser stores it, but the program does not use it (the library can).
 - The DC sweep runs when the parser has read a complete `.DC` line, and AC
   when it has read `.AC`.
 - The operating point and the transient are chosen by searching each raw
-  line of the netlist file (not of included files) for `.op`, `.dc` or
-  `.tran`, in any case and anywhere in the line, comments included. A
-  `.OPTIONS` line therefore selects the operating point. A `.DC` line
-  selects the sweep instead of the operating point.
-- With none of these, the program computes the operating point, prints the
+  line of the netlist file (not of included files) for `.op`, `.dc`, or
+  `.tran` followed by two words, in any case and anywhere in the line,
+  comments included. A `.OPTIONS` line therefore selects the operating
+  point. A `.DC` line selects the sweep instead of the operating point,
+  also when `.OP` is there too.
+- With none of these, the program computes the operating point with the
+  default settings (`.OPTIONS` and `.TEMP` are not applied), prints the
   node voltages only and writes no file.
+
+```mermaid
+flowchart TD
+  N[netlist] --> P{"parser: complete .DC?"}
+  P -- yes --> SW["DC sweep"]
+  P -- no --> S{"text search: .op or .dc?"}
+  S -- yes --> OP["operating point"]
+  N --> TS{"text search: .tran a b?"}
+  TS -- yes --> TR["transient, then .FOUR"]
+  N --> A{"parser: .AC?"}
+  A -- yes --> AC["AC"]
+  S -- "no, and no .tran or .AC" --> DEF["operating point with default settings"]
+```
+
+They run in this order: DC sweep, operating point, transient, AC. What
+each run prints and writes:
+
+| Run | Standard output | `-o` (SSF) | `--raw-out`, `--raw-binary-out` | `--wav-out` | AC CSV |
+| --- | --- | --- | --- | --- | --- |
+| DC sweep | a summary | — | yes | — | — |
+| operating point | voltages and currents | yes, replaced by a later transient | yes | — | — |
+| operating point under `.TEMP` | one block per temperature | — | — | — | — |
+| transient | the table, then `.FOUR` | yes | yes | yes | — |
+| transient under `.TEMP` | log lines only | — | — | — | — |
+| AC | nothing | — | — | — | always, named after `-o` or the netlist |
+| default operating point | voltages only | — | — | — | — |
 
 ## Options
 
@@ -380,11 +444,11 @@ or unknown option gives a warning and is ignored.
 | `ITL5` | 100000 | limit on transient steps |
 | `ITL6` | 0 (use `ITL1`) | iteration limit per source-stepping step |
 | `METHOD` | `trap` | `trap`/`trapezoidal`, `euler`/`be`/`bdf1`, `gear`/`gear2`/`bdf2`, `gear3`/`bdf3`, `tr_bdf2`/`trbdf2` |
-| `MAXORD`, `MAXORDER` | 3 | highest order, 1 to 6 |
-| `TRTOL` | 7 | truncation error tolerance factor |
-| `CHGTOL` | 1e-14 | charge tolerance (C) |
-| `LTE_ABSTOL`, `LTE_RELTOL` | 1e-6, 1e-3 | local truncation error tolerances |
-| `ERROR_EST`, `ERRMETHOD` | `physical` | `physical`/`charge`/`embedded`, `predictor_corrector`/`pc`/`dvdt`, `combined`/`both` |
+| `MAXORD`, `MAXORDER` | 3 | highest order, 1 to 6 (no effect in the program) |
+| `TRTOL` | 7 | truncation error tolerance factor (no effect in the program) |
+| `CHGTOL` | 1e-14 | charge tolerance (C) (no effect in the program) |
+| `LTE_ABSTOL`, `LTE_RELTOL` | 1e-6, 1e-3 | local truncation error tolerances (no effect in the program) |
+| `ERROR_EST`, `ERRMETHOD` | `physical` | `physical`/`charge`/`embedded`, `predictor_corrector`/`pc`/`dvdt`, `combined`/`both` (no effect in the program) |
 | `GMIN_STEPPING` | 0 | 1 turns gmin stepping on |
 | `GMIN_STEPS`, `GMIN_START`, `GMIN_END` | 5, 1e-6, 1e-12 | its steps and range |
 | `SOURCE_STEPPING` | 0 | 1 turns source stepping on |
@@ -399,8 +463,11 @@ or unknown option gives a warning and is ignored.
 | `PSEUDO_DT`, `PSEUDO_STEPS`, `PSEUDO_CAP` | 1e-9, 30, 1e-12 | its step, count and capacitance |
 | `VOLTAGE_LIMITING` | 1 | junction voltage limiting; 0 turns it off |
 
-How each method is applied when the operating point does not converge is
-in `src/solvers/dc_solver.cpp`; this manual does not describe it.
+The options marked "no effect in the program" act only on the adaptive
+time step, which the program does not use: its transient steps by
+`tstep`. How each method is applied when the operating point does not
+converge is in `src/solvers/dc_solver.cpp`; this manual does not describe
+it.
 
 ## Output formats
 
@@ -411,19 +478,20 @@ written to standard output. The results are:
 
 - operating point: `=== DC Operating Point ===`, then `V(0) = 0 V`, one
   `V(<node>) = <value> V` per node and one `I(<source>) = <value> A` per
-  voltage, `E` and `H` source;
+  voltage, `E`, `H` and voltage-form `B` source;
 - under `.TEMP`: the same block per temperature, headed
   `=== DC Operating Point @ <t> °C ===`;
 - DC sweep: a summary only;
 - transient: `=== Transient Analysis Results ===` and a tab-separated table
   with a `Time (s)` column and one `V(<node>)` column per node, `V(0)`
-  included, one row per time point;
+  included, one row per time point; under `.TEMP`, log lines only;
 - AC: nothing.
 
 ### SPICE3 raw, ASCII (`--raw-out`)
 
-The header has `Title`, `Date`, `Plotname`, `Flags: real`,
-`No. Variables`, `No. Points` and `Variables`, followed by `Values`.
+The header has `Title` (`kirimaspice <plot name>`, not the netlist's
+title), `Date`, `Plotname`, `Flags: real`, `No. Variables`, `No. Points`
+and `Variables`, followed by `Values`.
 
 | Analysis | `Plotname` | Variables |
 | --- | --- | --- |
@@ -439,7 +507,10 @@ line with the point index.
 
 The same header, with the names in upper case (`V(<node>)`, `I(<source>)`),
 then `Binary:` and the values as 8-byte IEEE doubles in the byte order of
-the machine (little-endian on x86-64 and arm64), point after point.
+the machine (little-endian on x86-64 and arm64), point after point. For a
+two-source DC sweep the binary file differs: its plot name is `DC Sweep`,
+its title `kirimaspice DC Sweep Analysis`, and it has one sweep variable,
+named `<src>-<src2>`, holding the value of `<src>`.
 
 ngspice-47 loads both raw files: on 2026-11-14 its `load` command read a
 transient plot of 502 points written by kirimaspice, ASCII and binary,
@@ -449,16 +520,18 @@ with the same values. Other plots and other readers are not confirmed.
 
 A binary file with a fixed header (`SSF`), a list of `key=value` metadata
 (`file.format`, `file.version` 4.3, `file.generator`, `file.analysis`,
-`axis.0.*`, and `signal.<n>.name`, `.node` or `.device`, `.quantity`,
-`.unit`), and data blocks compressed with zstd. Its specification is not
+`file.timestamp`, `axis.0.*`, and `signal.<n>.name`, `.node` or
+`.device`, `.quantity`, `.unit`; the signals include `v(0)`), and data
+blocks compressed with zstd. Its specification is not
 published in this repository; the writer is `src/output/ssf_writer.cpp`.
 
 ### AC CSV
 
 The file `<base>_ac.csv`, where `<base>` is the `-o` path, or the netlist
 path, without the part from its last dot. Lines that start with `#` give
-the title, date, simulator, number of points and nodes, frequency range,
-status, number of linear solves and time. Then a header and one row per
+`AC Analysis Result`, the title, date, simulator, analysis type, number of
+points and nodes, frequency range, status, number of linear solves and
+time. Then a header and one row per
 frequency:
 
 ```text
@@ -492,7 +565,7 @@ By `CMakeLists.txt`, `cmake --install build` installs `kirimaspice`, the
 static library `kirimaspice_lib` and the headers under `include/` (read in
 the file, not run).
 
-## Sources
+## Source files
 
 - The command line: `src/main.cpp`.
 - The netlist parser: `src/parser/netlist_parser.cpp`; numbers:

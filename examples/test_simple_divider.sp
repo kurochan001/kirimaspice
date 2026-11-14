@@ -1,5 +1,5 @@
 * Simple voltage divider test
-* Expected: V(n1) = 1.65V (half of 3.3V)
+* Expected: V(n2) = 1.65V (half of 3.3V)
 
 .title Simple Voltage Divider
 

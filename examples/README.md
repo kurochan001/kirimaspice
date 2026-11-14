@@ -3,19 +3,21 @@
 [日本語](README.ja.md) · [Project README](../README.md) · This English text is the main version; the Japanese version follows it, and where they differ, this text holds.
 
 Small netlists that show one feature each. Every one has an analytic
-solution, and CTest runs each one and compares the result with it
-(`tests/scripts/test_examples.py`, tests `example_*`), so the numbers below
-are checked on every test run. Run them from the top of the source tree
-after [building](../docs/USER_MANUAL.md#build).
+solution, and CTest runs each one and compares the result with it, within
+the tolerance given for that example in the table
+(`tests/scripts/test_examples.py`, tests `example_*`). The program's values quoted below are from a run at commit
+`db0fef6`; CTest checks them against the analytic values, not these
+digits. Run the examples from the top of the source tree after
+[building](../docs/USER_MANUAL.md#build).
 
-| File | Shows | Analysis |
-| --- | --- | --- |
-| [test_simple_divider.sp](test_simple_divider.sp) | the first run of the [User Manual](../docs/USER_MANUAL.md#run-your-first-simulation) | operating point |
-| [params_subckt.sp](params_subckt.sp) | `.PARAM`, `.FUNC` and a subcircuit with a parameter | operating point |
-| [diode_iv.sp](diode_iv.sp) | a `.MODEL`, a DC sweep and the sign of a source current | DC sweep |
-| [rc_step.sp](rc_step.sp) | a `PULSE` source and the raw output | transient |
-| [rc_discharge.sp](rc_discharge.sp) | `.IC` with `UIC`, and the integration methods | transient |
-| [rc_lowpass_ac.sp](rc_lowpass_ac.sp) | an AC input and the AC CSV | AC |
+| File | Shows | Analysis | Checked quantity | Analytic value | Program | CTest tolerance |
+| --- | --- | --- | --- | --- | --- | --- |
+| [test_simple_divider.sp](test_simple_divider.sp) | the first run of the [User Manual](../docs/USER_MANUAL.md#run-your-first-simulation) | operating point | V(n2) | 1.65 V | 1.65 V | 1e-6 V |
+| [params_subckt.sp](params_subckt.sp) | `.PARAM`, `.FUNC` and a subcircuit with a parameter | operating point | V(out) | 1.33333 V | 1.33333 V | 1e-5 V |
+| [diode_iv.sp](diode_iv.sp) | a `.MODEL`, a DC sweep and the sign of a source current | DC sweep | i(V1) at 0.6 V | −1.18719×10⁻⁴ A | −1.18719×10⁻⁴ A | 1e-6 relative |
+| [rc_step.sp](rc_step.sp) | a `PULSE` source and the raw output | transient | V(out) at 1 ms | 0.632121 | 0.632105 | 5e-5 |
+| [rc_discharge.sp](rc_discharge.sp) | `.IC` with `UIC`, and the integration methods | transient | V(out) at 1 ms | 0.367879 | 0.367895 (trap) | 5e-5 (trap), 1e-4 (gear), 3e-3 (euler) |
+| [rc_lowpass_ac.sp](rc_lowpass_ac.sp) | an AC input and the AC CSV | AC | \|V(out)\| at 1 kHz | −16.0722 dB | −16.0722 dB | 1e-6 dB |
 
 ## Voltage divider
 
@@ -51,7 +53,9 @@ file. With `IS=1e-14` and `N=1` at 27 °C the current follows
 I = IS·(exp(V/V<sub>T</sub>) − 1), V<sub>T</sub> = kT/q = 25.865 mV, and
 `i(V1)` is −I. The program agrees with this to better than one part in a
 million at every point of the sweep, for example −1.18719×10⁻⁴ A at 0.6 V
-and −0.270827 A at 0.8 V, which ngspice-47 gives too. Above about 0.73 V
+and −0.270827 A at 0.8 V. ngspice-47 gives −1.18720×10⁻⁴ A and −0.270830 A,
+up to 1.1×10⁻⁵ apart relative to the value; whether that comes from its values of k and q is not
+confirmed. Above about 0.73 V
 the Newton iteration limits how far the junction voltage moves per step,
 as SPICE does; the converged result is still that of the equation.
 
@@ -95,6 +99,8 @@ build/kirimaspice examples/rc_lowpass_ac.sp -o rc_lowpass
 
 The AC result is written to `rc_lowpass_ac.csv`, not printed. `AC 1` makes
 `V1` the input. At 1 kHz the response 1/(1 + j2πfRC) is −16.0722 dB and
-−80.957°, and the program gives the same to the digits printed in the CSV.
+−80.957°. The CSV prints 16 digits, and they agree with the formula to
+about 10: the rest is the 10⁻¹² S GMIN at node `out`, which the formula
+reproduces when it is added.
 The CSV's header line `Simulator: kirimaspice v0.27` is a known issue: the
 version is 0.0.0.
