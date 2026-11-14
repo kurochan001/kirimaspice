@@ -130,7 +130,8 @@ first order), for the exact 0.367879. Set the method with
 
 ### Is the time step adaptive?
 
-Not in the program: it steps by `tstep`, at most `tmax`. The library has an
+Not in the program: it steps by `tstep`, and `tmax` has no effect
+([KNOWN_ISSUES](../KNOWN_ISSUES.md#analyses)). The library has an
 adaptive path that chooses each step from the [LTE](GLOSSARY.md#lte); the
 program does not use it yet.
 

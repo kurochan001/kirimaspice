@@ -200,10 +200,12 @@ build/kirimaspice divider.cir --raw-out divider.raw
 ### Transient
 
 The program prints a table with one row per time point and one column per
-node, including `V(0)`. `tstep` is both the first time step and, unless
-`tmax` is given, the largest one. With `UIC`, the transient starts from the
-values in `.IC` instead of from an operating point; `.IC` must be written
-with an upper-case `V`, as in `.IC V(out)=1`.
+node, including `V(0)`. The program steps by `tstep`; `tmax` is read but
+has no effect ([KNOWN_ISSUES](../KNOWN_ISSUES.md#analyses)). With `UIC`,
+the transient starts from the values in `.IC` instead of from an operating
+point; `.IC` must be written with an upper-case `V`, as in
+`.IC V(out)=1`. Without `UIC` the program ignores `.IC`, whereas ngspice
+uses it.
 
 For the RC example above, `V(out)` is 0.632105 at 1 ms; the exact value is
 1 − e⁻¹ = 0.632121.

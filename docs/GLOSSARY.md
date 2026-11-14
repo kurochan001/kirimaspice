@@ -67,7 +67,7 @@ For practical questions see the [FAQ](FAQ.md).
 | <a id="integration-method"></a>integration method | How a transient step turns the derivatives of capacitors and inductors into equations: backward Euler (first order), trapezoidal (`trap`, the default), BDF2 (`gear`), BDF3 (`gear3`) and TR-BDF2. The trapezoidal methods start with a backward-Euler step |
 | companion model | A capacitor or inductor replaced, for one time step, by a conductance and a current source that follow from the integration method |
 | <a id="lte"></a>LTE | Local truncation error: the error one step adds, estimated from the charge of capacitors and the flux of inductors (for coupled inductors, their coupled fluxes) |
-| <a id="time-step"></a>fixed and adaptive time step | The program steps by `tstep` (at most `tmax`). The library also has an adaptive path that chooses each step from the LTE; the program does not use it |
+| <a id="time-step"></a>fixed and adaptive time step | The program steps by `tstep`; `tmax` has no effect. The library also has an adaptive path that chooses each step from the LTE; the program does not use it |
 
 ## Output
 

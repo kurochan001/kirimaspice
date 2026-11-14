@@ -270,7 +270,7 @@ parser stores it, but the program does not use it (the library can).
 | --- | --- | --- |
 | `.OP` | `.OP` | used: operating point (found by a text search, see [below](#how-the-program-chooses-analyses)) |
 | `.DC` | `.DC <src> <start> <stop> <step> [<src2> <start2> <stop2> <step2>]` | used; `<src>` is a voltage or current source and is swept for each value of `<src2>`; a zero step is an error |
-| `.TRAN` | `.TRAN <tstep> <tstop> [<tstart> [<tmax>]] [UIC]` | used; `tmax` defaults to `tstep` |
+| `.TRAN` | `.TRAN <tstep> <tstop> [<tstart> [<tmax>]] [UIC]` | used; the program steps by `tstep`, and `tmax` is read but has no effect |
 | `.AC` | `.AC DEC\|OCT\|LIN <n> <fstart> <fstop>` | used; `DEC`, `OCT`: `<n>` points per decade or octave, both ends included; `LIN`: `<n>` points in all |
 | `.TEMP` | `.TEMP <t1> [<t2> ...]` (°C) | used for the operating point and transient; a DC sweep and AC use the first value |
 | `.OPTIONS`, `.OPTION` | `.OPTIONS <name>=<value> ...` | used; see [Options](#options) |

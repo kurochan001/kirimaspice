@@ -102,6 +102,10 @@ says otherwise.
   ignores `.IC` and the transient starts from that operating point: an RC
   with `.IC V(out)=1` stays at 0 V. ngspice-47 starts the same transient at
   1 V and gives 0.367876 at 1 ms (measured at commit `d858190`).
+- **`tmax` of `.TRAN` has no effect.** The parser reads it, but the
+  program steps by `tstep`: `.TRAN 10u 1m 0 2u` gives 101 points, as
+  `.TRAN 10u 1m` does. ngspice-47 limits the step to `tmax` and gives 508
+  points with a largest step of 2 µs (measured at commit `d858190`).
 
 ## Device models
 
@@ -131,6 +135,22 @@ says otherwise.
   Shockley equation and ngspice-47 give −3.919×10⁻² A and −0.2708 A; up to
   0.7 V the program agrees with the equation to 10⁻¹² (measured at commit
   `d858190`; the NPN is read in the code, not run).
+- **`.OPTIONS VOLTAGE_LIMITING=0` has no effect.** It sets
+  `config.dc.enable_voltage_limiting`, which nothing reads; the diode and
+  the transistors always limit (read in the code, not run).
+- **Some devices keep the voltages of other nodes in their history (read
+  in the code, not run).** After each accepted transient step the solver
+  passes the devices a vector whose element 0 is ground and element k is
+  node k (`TransientSolver::accept_timestep_solution`). The capacitor and
+  the level-1 MOSFET read it so. The diode (through
+  `core::safe_get_node_voltage`, which reads element k − 1), BSIM4, FinFET
+  and BSIM1 read element k − 1, so the voltages they record for their
+  charges are those of another node. What this changes in a result has not
+  been measured.
+- **`.TEMP` and `.OPTIONS TEMP` do not reach the FinFET (read in the
+  code, not run).** `apply_temperature_to_devices`
+  (`src/solvers/temperature_utils.cpp`) sets the temperature of the device
+  types it lists; the FinFET has a temperature but is not among them.
 
 ## Solvers
 
