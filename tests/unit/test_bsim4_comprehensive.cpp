@@ -735,7 +735,7 @@ TEST_F(BSIM4ComprehensiveTest, PhaseB6_MultiBiasPointValidation) {
     Real sum_vdsat_error = 0.0;
     std::string worst_ids_region, worst_vth_region, worst_vdsat_region;
 
-    std::cout << "\n=== Phase B.6: Multi-Bias Point Validation with ngspice Reference ===" << std::endl;
+    std::cout << "\n=== Multi-Bias Point Validation with ngspice Reference ===" << std::endl;
     std::cout << "Testing " << test_points.size() << " bias points across different operating regions\n" << std::endl;
 
     // Test each bias point
@@ -821,7 +821,7 @@ TEST_F(BSIM4ComprehensiveTest, PhaseB6_MultiBiasPointValidation) {
     Real success_rate_5pct = static_cast<Real>(points_under_5pct) / total_points * 100.0;
     Real success_rate_10pct = static_cast<Real>(points_under_10pct) / total_points * 100.0;
 
-    std::cout << "\n=== Phase B.6 Results Summary ===" << std::endl;
+    std::cout << "\n=== Multi-Bias Point Results Summary ===" << std::endl;
     std::cout << "Total test points: " << total_points << std::endl;
     std::cout << "\nAverage Errors:" << std::endl;
     std::cout << "  Ids:   " << avg_ids_error << "%" << std::endl;
@@ -852,15 +852,15 @@ TEST_F(BSIM4ComprehensiveTest, PhaseB6_MultiBiasPointValidation) {
 
     // Secondary goals (informational, not strict requirements):
     // - Ids error < 50% average (current: ~57%, needs improvement)
-    // - Vdsat error < 30% average (current: ~15%, acceptable.2+)
+    // - Vdsat error < 30% average (current: ~15%, acceptable)
 
-    std::cout << "\n=== Phase B.6 Assessment ===" << std::endl;
+    std::cout << "\n=== Multi-Bias Point Assessment ===" << std::endl;
     if (avg_vth_error < 1.0) {
         std::cout << "✅ Vth accuracy: EXCELLENT (avg error: " << avg_vth_error << "%)" << std::endl;
     }
     if (avg_vdsat_error < 30.0) {
         std::cout << "✅ Vdsat accuracy: ACCEPTABLE (avg error: " << avg_vdsat_error
-                  << "%, per Phase B.5.2+ decision)" << std::endl;
+                  << "%, limit 30%)" << std::endl;
     } else {
         std::cout << "⚠️  Vdsat accuracy: NEEDS IMPROVEMENT (avg error: " << avg_vdsat_error << "%)" << std::endl;
     }
@@ -871,7 +871,7 @@ TEST_F(BSIM4ComprehensiveTest, PhaseB6_MultiBiasPointValidation) {
         std::cout << "    → Subthreshold region shows Ids=0A (known issue)" << std::endl;
     }
 
-    SUCCEED() << "✅ Phase B.6 framework validation PASSED. "
+    SUCCEED() << "✅ Multi-bias point validation PASSED. "
               << "All " << total_points << " bias points completed. "
               << "Quantitative ngspice comparison operational. "
               << "Vth error: " << avg_vth_error << "% (excellent). "
@@ -888,7 +888,7 @@ TEST_F(BSIM4ComprehensiveTest, PhaseB6_MultiBiasPointValidation) {
 //          additional model calibration. See test_bsim4_ngspice_compare.cpp for validated tests.
 TEST_F(BSIM4ComprehensiveTest, PhaseB47_VdsatBranchFix) {
     // SKIP - Reference Ids=2.1A seems incorrect for W=5µm device
-    GTEST_SKIP() << "Phase 30.30: Reference Ids=2.1A requires verification. "
+    GTEST_SKIP() << "Reference Ids=2.1A requires verification. "
                  << "Calculated Ids=29mA matches analytical estimate better than 2.1A.";
     // Override with ngspice test parameters (test_vascbe_2p5.sp)
     BSIM4Params ngspice_params = params_;  // Start with defaults
@@ -978,7 +978,7 @@ TEST_F(BSIM4ComprehensiveTest, PhaseB47_VdsatBranchFix) {
     const Real ids_error_pct = std::abs(op.ids - ids_ref) / ids_ref * 100.0;
 
     // Print detailed results
-    std::cout << "\n=== Phase B.4.7 vdsat Branch Fix Verification ===" << std::endl;
+    std::cout << "\n=== vdsat Branch Selection Verification ===" << std::endl;
     std::cout << "Test Conditions: VGS=" << vg << "V, VDS=" << vd << "V, VBS=" << vb << "V" << std::endl;
     std::cout << "Results:" << std::endl;
     std::cout << "  Vdsat: " << op.vdsat << " V (ref: " << vdsat_ref << " V, error: "
@@ -994,9 +994,9 @@ TEST_F(BSIM4ComprehensiveTest, PhaseB47_VdsatBranchFix) {
 
     // Success message
     if (vdsat_error_pct < 1.0 && ids_error_pct < 1.0) {
-        SUCCEED() << "✅ Phase B.4.7 fix successful! Errors < 1%";
+        SUCCEED() << "✅ vdsat branch selection: errors < 1%";
     } else if (vdsat_error_pct < 10.0 && ids_error_pct < 10.0) {
-        SUCCEED() << "⚠️  Phase B.4.7 partial success. Errors < 10%, further tuning may be needed.";
+        SUCCEED() << "⚠️  vdsat branch selection: errors < 10%, further tuning may be needed.";
     }
 }
 
@@ -1006,7 +1006,7 @@ TEST_F(BSIM4ComprehensiveTest, PhaseB47_VdsatBranchFix) {
 //             when using default lpe0=1.74e-7. ngspice tests typically use lpe0=0.
 // Expected: Vth error < 5% when lpe0=0 (matching ngspice reference)
 TEST_F(BSIM4ComprehensiveTest, PhaseB6_Vth_With_lpe0_Zero) {
-    // parameters matching ngspice /tmp/bsim4_phaseB6_exact.sp
+    // parameters of the ngspice reference run below
     BSIM4Params params;
     params.w = 10e-6;     // 10 μm
     params.l = 45e-9;     // 45 nm
@@ -1099,7 +1099,7 @@ TEST_F(BSIM4ComprehensiveTest, PhaseB6_Vth_With_lpe0_Zero) {
     const Real vdsat_error_pct = std::abs(op.vdsat - ngspice_vdsat) / ngspice_vdsat * 100.0;
     const Real ids_error_pct = std::abs(op.ids - ngspice_ids) / ngspice_ids * 100.0;
 
-    std::cout << "\n=== PhaseB6 with lpe0=0 Verification ===" << std::endl;
+    std::cout << "\n=== Vth with lpe0=0 Verification ===" << std::endl;
     std::cout << "Purpose: Verify Vth matches ngspice when lpe0=0" << std::endl;
     std::cout << "Bias: Vgs=" << vgs << "V, Vds=" << vds << "V, Vbs=" << vbs << "V" << std::endl;
     std::cout << "\nResults:" << std::endl;
@@ -1188,7 +1188,7 @@ TEST_F(BSIM4ComprehensiveTest, Phase30_46_GmbVerification) {
         {1.2, 1.0, -1.0, 15.9973, 1.3573, "Strong saturation, Vbs=-1.0V"},
     };
 
-    std::cout << "\n=== Phase 30.46: gmb (Body Transconductance) Verification ===" << std::endl;
+    std::cout << "\n=== gmb (Body Transconductance) Verification ===" << std::endl;
     std::cout << "Parameters: W=10um, L=45nm, toxe=1.25nm, vth0=0.45V" << std::endl;
     std::cout << "ngspice reference values obtained via numerical differentiation\n" << std::endl;
 
@@ -1248,6 +1248,6 @@ TEST_F(BSIM4ComprehensiveTest, Phase30_46_GmbVerification) {
     EXPECT_GE(gmb_gm_ratio_ok, total / 2)
         << "At least half the points should have valid gmb/gm ratio (0.01-0.5)";
 
-    SUCCEED() << "Phase 30.46 gmb verification completed. "
+    SUCCEED() << "gmb verification completed. "
               << "gmb/gm ratios are in physically reasonable range.";
 }

@@ -285,7 +285,7 @@ Real BSIM3Core::calc_vdseff(Real vds, Real vdsat) const {
 
 Real BSIM3Core::compute_ids_subthreshold(Real vgs, Real vds, Real vbs, Real vth,
                                          Real leff, Real weff, Real temperature) const {
-    (void)vbs; // vbs 依存は Phase C 以降で拡張予定
+    (void)vbs; // the vbs dependence is not modelled yet
 
     // Subthreshold region: exponential tail for Vgs below Vth but above 0V.
     //  - Ids ∝ (W/L) * exp((Vgs - Vth - VOFF)/(n*Vt)) * (1 - exp(-Vds/(n*Vt)))

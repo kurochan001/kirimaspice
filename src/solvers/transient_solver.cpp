@@ -1270,7 +1270,7 @@ BDFCoefficients TransientSolver::get_bdf_coefficients(IntegrationMethod method, 
     }
 }
 
-// ====== Phase A: Initialization helper methods (refactoring) ======
+// ====== Initialization helper methods ======
 
 bool TransientSolver::check_has_dynamic_devices() const {
     // Check if circuit has dynamic devices (C, L)
@@ -1482,7 +1482,7 @@ TransientResult TransientSolver::initialize_simulation(Real t_start, Real timest
 }
 
 // ============================================================================
-// Phase B: Timestepping loop methods
+// Timestepping loop methods
 // ============================================================================
 
 void TransientSolver::run_adaptive_timestepping(TransientResult& result, DenseVector& solution,

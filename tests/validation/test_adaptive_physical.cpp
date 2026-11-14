@@ -64,7 +64,7 @@ int main() {
 
     // Print header
     std::cout << std::fixed << std::setprecision(6);
-    std::cout << "\n=== Phase 3.1 Sprint 2: Physical Quantity-Based Error Estimation ===" << std::endl;
+    std::cout << "\n=== Physical Quantity-Based Error Estimation ===" << std::endl;
     std::cout << "Circuit: RC (R=1k, C=10u, tau=10ms)" << std::endl;
     std::cout << "Method: BDF2/BDF3 with adaptive timestep and order control" << std::endl;
     std::cout << "\nSprint 2 Improvements:" << std::endl;

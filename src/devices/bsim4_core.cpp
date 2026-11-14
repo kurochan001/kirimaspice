@@ -653,7 +653,7 @@ BSIM4ThresholdState BSIM4Core::compute_threshold(const BSIM4BiasState& bias,
     // Debug dVth_dVb breakdown
     thread_local static int dvth_debug_count = 0;
     if (dvth_debug_count < 2) {
-        spdlog::warn("==== Phase 30.49: dVth_dVb Term Breakdown (call {}) ====", dvth_debug_count);
+        spdlog::warn("==== dVth_dVb Term Breakdown (call {}) ====", dvth_debug_count);
         spdlog::warn("  sqrtPhis         = {:.6e}", sqrtPhis);
         spdlog::warn("  dVbs_eff_dVb     = {:.6e}", bias.dVbs_eff_dVb);
         spdlog::warn("  dSqrtPhis_dVb    = {:.6e} (-0.5/sqrtPhis * dVbs_eff_dVb)", dSqrtPhis_dVb);
@@ -1037,7 +1037,7 @@ BSIM4ThresholdState BSIM4Core::compute_threshold(const BSIM4BiasState& bias,
     // CRITICAL FIX (Priority 1): Match ngspice condition exactly: Branch 1 only when BOTH Rds=0 AND Lambda=1
     // Previous code used Branch 1 when Lambda≈1.0 (regardless of Rds), causing 28.15% Vdsat error
     // The WVCoxRds fix (vsat instead of vgsteff) solved the numerical instability in Branch 2
-    spdlog::debug("=== Phase B.4.7: vdsat Branch Selection ===");
+    spdlog::debug("=== vdsat Branch Selection ===");
     spdlog::debug("  prwg   = {:.6e}", params_.prwg);
     spdlog::debug("  Rds    = {:.6e} Ω", Rds);
     spdlog::debug("  Lambda = {:.6e}", Lambda);
@@ -1265,7 +1265,7 @@ BSIM4ThresholdState BSIM4Core::compute_threshold(const BSIM4BiasState& bias,
     // DEBUG: Log VADITS calculation (first call only)
     static bool vadits_calc_logged = false;
     if (!vadits_calc_logged) {
-        spdlog::debug("=== Phase B.3.1b: VADITS Calculation (Debug) ===");
+        spdlog::debug("=== VADITS Calculation (Debug) ===");
         spdlog::debug("  pdits      = {:.6e}", params_.pdits);
         spdlog::debug("  pditsl     = {:.6e}", params_.pditsl);
         spdlog::debug("  pditsd     = {:.6e}", params_.pditsd);
@@ -1411,7 +1411,7 @@ Real BSIM4Core::compute_vgsteff_smoothed(
         // DEBUG: T9 calculation
         thread_local static int t9_debug_count = 0;
         if (t9_debug_count < 2) {
-            spdlog::warn("==== Phase 30.27: T9 (quantum) Debug (call {}) ====", t9_debug_count);
+            spdlog::warn("==== T9 (quantum) Debug (call {}) ====", t9_debug_count);
             spdlog::warn("  T1_offset = {:.6e} (voffcbn - (1-mstar)*Vgst)", T1_offset);
             spdlog::warn("  T2_offset = {:.6e} (T1_offset / n*Vtm)", T2_offset);
             spdlog::warn("  ExpVgst_offset = {:.6e} (exp(T2_offset))", ExpVgst_offset);
@@ -1427,7 +1427,7 @@ Real BSIM4Core::compute_vgsteff_smoothed(
         // Debug dT9_dVb individual terms
         thread_local static int dt9_debug_count = 0;
         if (dt9_debug_count < 2) {
-            spdlog::warn("==== Phase 30.48: dT9_dVb Term Breakdown (call {}) ====", dt9_debug_count);
+            spdlog::warn("==== dT9_dVb Term Breakdown (call {}) ====", dt9_debug_count);
             spdlog::warn("  T4             = {:.6e}", T4);
             spdlog::warn("  T5             = {:.6e}", T5);
             spdlog::warn("  dn_dVb         = {:.6e}", dn_dVb);
@@ -1473,7 +1473,7 @@ Real BSIM4Core::compute_vgsteff_smoothed(
         // Debug logging (first 3 calls)
         thread_local static int sub_calib_count = 0;
         if (sub_calib_count < 3) {
-            spdlog::debug("==== Phase 59: Subthreshold T9 Calibration (call {}) ====", sub_calib_count);
+            spdlog::debug("==== Subthreshold T9 Calibration (call {}) ====", sub_calib_count);
             spdlog::debug("  T2            = {:.6f} (subthreshold indicator)", T2);
             spdlog::debug("  x = -T2/2     = {:.6f}", x);
             spdlog::debug("  sub_factor    = {:.6f} (1 + 0.17*tanh(x))", sub_factor);
@@ -1503,7 +1503,7 @@ Real BSIM4Core::compute_vgsteff_smoothed(
     // Debug logging (+ derivative debugging)
     thread_local static int vgsteff_debug_count = 0;
     if (vgsteff_debug_count < 2) {
-        spdlog::warn("==== Phase 30.27: Vgsteff Derivative Debug (call {}) ====", vgsteff_debug_count);
+        spdlog::warn("==== Vgsteff Derivative Debug (call {}) ====", vgsteff_debug_count);
         spdlog::warn("  Inputs:");
         spdlog::warn("    Vgst (raw)     = {:.6e} V", Vgst);
         spdlog::warn("    n              = {:.6e}", n);
@@ -1536,7 +1536,7 @@ Real BSIM4Core::compute_vgsteff_smoothed(
         spdlog::warn("    dVgsteff_dVg   = {:.6e}", dVgsteff_dVg);
         vgsteff_debug_count++;
     }
-    spdlog::debug("==== Phase 30.9: Vgsteff Smoothing Function ====");
+    spdlog::debug("==== Vgsteff Smoothing Function ====");
     spdlog::debug("  Inputs:");
     spdlog::debug("    Vgst (raw)     = {:.6e} V (can be negative)", Vgst);
     spdlog::debug("    n              = {:.6e}", n);
@@ -3073,7 +3073,7 @@ Real BSIM4Core::compute_mobility(Real vgt_eff, Real vth, Real vbs_eff, Real temp
     // ===================================================================
     thread_local static int mobility_debug_count = 0;
     if (mobility_debug_count < 10) {  // Increased limit for better diagnosis
-        spdlog::info("=== Phase 60.1: μeff Diagnostic [call {}] ===", mobility_debug_count);
+        spdlog::info("=== μeff Diagnostic [call {}] ===", mobility_debug_count);
         spdlog::info("  Input parameters:");
         spdlog::info("    vgt_eff (Vgsteff) = {:+.6e} V", vgt_eff);
         spdlog::info("    vth (bias-dep)    = {:+.6e} V", vth);
@@ -3205,7 +3205,7 @@ Real BSIM4Core::compute_vdsat_complex(Real Vgst2Vtm, Real Abulk, Real EsatL,
     // These detailed logs were useful.4 debugging but swamp test output.
     // Keep them at debug level and guard with should_log to avoid formatting cost when disabled.
     if (spdlog::should_log(spdlog::level::debug)) {
-        spdlog::debug("=== compute_vdsat_complex() inputs (Phase B.8.4 DEBUG) ===");
+        spdlog::debug("=== compute_vdsat_complex() inputs ===");
         spdlog::debug("  Vgst2Vtm = {:.6e} V", Vgst2Vtm);
         spdlog::debug("  Abulk    = {:.6e}", Abulk);
         spdlog::debug("  EsatL    = {:.6e} V", EsatL);

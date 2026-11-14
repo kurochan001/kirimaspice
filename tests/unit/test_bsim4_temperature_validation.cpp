@@ -183,7 +183,7 @@ TEST_F(BSIM4TemperatureValidationTest, TemperatureSweepValidation) {
         int count = 0;
     } stats;
 
-    std::cout << "\n=== Phase B.7: BSIM4 Temperature Dependence Validation ===" << std::endl;
+    std::cout << "\n=== BSIM4 Temperature Dependence Validation ===" << std::endl;
     std::cout << std::fixed << std::setprecision(6);
 
     // Iterate over all reference data points
@@ -270,9 +270,9 @@ TEST_F(BSIM4TemperatureValidationTest, TemperatureSweepValidation) {
 
     // Success message
     if (stats.avg_ids_error < 15.0 && stats.avg_vdsat_error < 5.0) {
-        SUCCEED() << "✅ Phase B.7 temperature validation successful! Ids < 15%, Vdsat < 5%";
+        SUCCEED() << "✅ Temperature validation successful! Ids < 15%, Vdsat < 5%";
     } else if (stats.avg_ids_error < 30.0 && stats.avg_vdsat_error < 20.0) {
-        SUCCEED() << "✅ Phase B.7 acceptable accuracy. Ids < 30%, Vdsat < 20% (Vth has known limitations)";
+        SUCCEED() << "✅ Temperature validation: acceptable accuracy. Ids < 30%, Vdsat < 20% (Vth has known limitations)";
     }
 }
 

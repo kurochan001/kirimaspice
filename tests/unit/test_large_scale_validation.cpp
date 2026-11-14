@@ -121,7 +121,7 @@ TEST_F(LargeScaleValidation100, DC_ResistorMesh_MatchesNgspice) {
         }
     }
 
-    std::cout << "\nPhase 1 (100 devices) - 10x10 Resistor Mesh Validation:\n";
+    std::cout << "\n100 devices - 10x10 Resistor Mesh Validation:\n";
     std::cout << "  Nodes compared: " << comparison.size() << "\n";
     std::cout << "  Max absolute error: " << std::scientific << max_abs_err << " V\n";
     std::cout << "  Max relative error: " << std::fixed << std::setprecision(4) << (max_rel_err * 100.0) << " %\n";
@@ -183,7 +183,7 @@ TEST_F(LargeScaleValidation300, DC_ResistorMesh_MatchesNgspice) {
         }
     }
 
-    std::cout << "\nPhase 2 (300 devices) - 13x13 Resistor Mesh Validation:\n";
+    std::cout << "\n300 devices - 13x13 Resistor Mesh Validation:\n";
     std::cout << "  Nodes compared: " << comparison.size() << "\n";
     std::cout << "  Max absolute error: " << std::scientific << max_abs_err << " V\n";
     std::cout << "  Max relative error: " << std::fixed << std::setprecision(4) << (max_rel_err * 100.0) << " %\n";
@@ -245,7 +245,7 @@ TEST_F(LargeScaleValidation1000, DC_ResistorMesh_MatchesNgspice) {
         }
     }
 
-    std::cout << "\nPhase 3 (1000 devices) - 22x22 Resistor Mesh Validation:\n";
+    std::cout << "\n1000 devices - 22x22 Resistor Mesh Validation:\n";
     std::cout << "  Nodes compared: " << comparison.size() << "\n";
     std::cout << "  Max absolute error: " << std::scientific << max_abs_err << " V\n";
     std::cout << "  Max relative error: " << std::fixed << std::setprecision(4) << (max_rel_err * 100.0) << " %\n";
@@ -307,7 +307,7 @@ TEST_F(LargeScaleValidation3000, DC_ResistorMesh_MatchesNgspice) {
         }
     }
 
-    std::cout << "\nPhase 4 (3000 devices) - 39x39 Resistor Mesh Validation:\n";
+    std::cout << "\n3000 devices - 39x39 Resistor Mesh Validation:\n";
     std::cout << "  Nodes compared: " << comparison.size() << "\n";
     std::cout << "  Max absolute error: " << std::scientific << max_abs_err << " V\n";
     std::cout << "  Max relative error: " << std::fixed << std::setprecision(4) << (max_rel_err * 100.0) << " %\n";

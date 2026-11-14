@@ -479,5 +479,5 @@ Q1 c b e QGPN
     std::cout << "Successfully parsed Gummel-Poon .MODEL card" << std::endl;
     std::cout << "Q1 Parameters: IS=" << q1->saturation_current()
               << ", BF=" << q1->forward_beta() << std::endl;
-    std::cout << "Note: ISE/NE parsed successfully (Phase 15.4)" << std::endl;
+    std::cout << "Note: ISE/NE parsed successfully" << std::endl;
 }

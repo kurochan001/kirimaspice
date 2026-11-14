@@ -64,7 +64,7 @@ TEST_F(ParameterSweepIntegrationTest, VoltageDivider_ResistorSweep) {
     std::string netlist = R"(
 .title Voltage Divider Parameter Sweep
 * Sweep R1 from 1k to 10k with 1k steps
-* Phase 15.3: Use {R1_value} expansion with default .PARAM value
+* Use {R1_value} expansion with default .PARAM value
 .PARAM R1_value=1k
 .STEP param R1_value 1k 10k 1k
 
@@ -246,7 +246,7 @@ R2 2 0 {R_load}
 // Test 5: Multiple .STEP directives (Cartesian product)
 TEST_F(ParameterSweepIntegrationTest, MultipleSteps_CartesianProduct) {
     std::string netlist = R"(
-.title Multiple STEP Test (Phase 8.11.4)
+.title Multiple STEP Test
 * This test verifies Cartesian product sweep
 .STEP param R1_value 1k 3k 1k
 .STEP param R2_value 5k 10k 5k

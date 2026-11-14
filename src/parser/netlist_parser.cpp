@@ -5818,7 +5818,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
             // Note: Additional BSIM4 parameters (200+ more) will be added.4+
             // For now, warn about unrecognized parameters
             else {
-                spdlog::debug("BSIM4 parameter '{}' recognized but not yet implemented (Phase 20.4+)", key);
+                spdlog::debug("BSIM4 parameter '{}' recognized but not yet implemented", key);
             }
         }
 
