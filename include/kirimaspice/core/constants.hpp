@@ -124,13 +124,15 @@ constexpr Real DEFAULT_MOSFET_CGD = 1e-12;
 // === Debug Options ===
 //
 // KIRIMASPICE_DEBUG_DUMP
-//   Values: Any non-empty string
+//   Values: Any (only whether it is set matters)
 //   Default: Not set
-//   Description: Enable dumping of MNA matrices to files for debugging
-//   Files created: /tmp/kirimaspice_mna_*.txt
+//   Description: Write the MNA system of the second Newton iteration of
+//                each DC solve, overwriting the files of the previous solve
+//   Files created: debug_coo.txt, debug_csc.txt, debug_b.txt and
+//                  debug_x.txt in the current directory
 //
 // KIRIMASPICE_BSIM1_DEBUG
-//   Values: Any non-empty string
+//   Values: Any; a non-empty value is the name of the one device to log
 //   Default: Not set
 //   Description: Enable verbose BSIM1 model debugging output
 //
