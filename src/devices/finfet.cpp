@@ -504,9 +504,9 @@ void FinFET<P>::accept_solution(const DenseVector& node_voltages) {
     NodeId ng_node = nodes_[1];
     NodeId ns_node = nodes_[2];
 
-    Real v_d = (nd_node == NODE_GND) ? 0.0 : node_voltages[nd_node - 1];
-    Real v_g = (ng_node == NODE_GND) ? 0.0 : node_voltages[ng_node - 1];
-    Real v_s = (ns_node == NODE_GND) ? 0.0 : node_voltages[ns_node - 1];
+    Real v_d = (nd_node == NODE_GND) ? 0.0 : node_voltages[nd_node];
+    Real v_g = (ng_node == NODE_GND) ? 0.0 : node_voltages[ng_node];
+    Real v_s = (ns_node == NODE_GND) ? 0.0 : node_voltages[ns_node];
 
     if constexpr (P == Polarity::N) {
         v_gs_prev_ = v_g - v_s;

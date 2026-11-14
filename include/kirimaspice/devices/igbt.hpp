@@ -654,9 +654,9 @@ public:
     }
 
     void accept_solution(const DenseVector& node_voltages) override {
-        Real vc = (collector_ != NODE_GND) ? node_voltages[collector_ - 1] : 0.0;
-        Real vg = (gate_ != NODE_GND) ? node_voltages[gate_ - 1] : 0.0;
-        Real ve = (emitter_ != NODE_GND) ? node_voltages[emitter_ - 1] : 0.0;
+        Real vc = (collector_ != NODE_GND) ? node_voltages[collector_] : 0.0;
+        Real vg = (gate_ != NODE_GND) ? node_voltages[gate_] : 0.0;
+        Real ve = (emitter_ != NODE_GND) ? node_voltages[emitter_] : 0.0;
 
         Real vge = polarity_sign * (vg - ve);
         Real vce = polarity_sign * (vc - ve);

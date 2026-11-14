@@ -904,10 +904,10 @@ void MOSFET_BSIM1<P>::accept_solution(const DenseVector& node_voltages) {
     NodeId s = source();
     NodeId b = bulk();
 
-    Real vd = (d > 0) ? node_voltages[d - 1] : 0.0;
-    Real vg = (g > 0) ? node_voltages[g - 1] : 0.0;
-    Real vs = (s > 0) ? node_voltages[s - 1] : 0.0;
-    Real vb = (b > 0) ? node_voltages[b - 1] : 0.0;
+    Real vd = (d > 0) ? node_voltages[d] : 0.0;
+    Real vg = (g > 0) ? node_voltages[g] : 0.0;
+    Real vs = (s > 0) ? node_voltages[s] : 0.0;
+    Real vb = (b > 0) ? node_voltages[b] : 0.0;
 
     Real v_gs_eff, v_ds_eff, v_bs_eff;
     compute_effective_voltages(vd, vg, vs, vb, v_gs_eff, v_ds_eff, v_bs_eff);

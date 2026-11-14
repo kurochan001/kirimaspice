@@ -6,6 +6,7 @@
 // Reference: BSIM3v3.3 User's Manual (UC Berkeley, 2005)
 
 #include "kirimaspice/devices/mosfet_bsim3.hpp"
+#include "kirimaspice/core/constants.hpp"
 #include <spdlog/spdlog.h>
 #include <cmath>
 #include <algorithm>
@@ -441,18 +442,16 @@ void MOSFET_BSIM3<P>::restore_state() const {
 }
 
 template<Polarity P>
-void MOSFET_BSIM3<P>::accept_solution(const DenseVector& node_voltages, Real time) const {
-    (void)time;
-
+void MOSFET_BSIM3<P>::accept_solution(const DenseVector& node_voltages) {
     NodeId d = nodes_[0];
     NodeId g = nodes_[1];
     NodeId s = nodes_[2];
     NodeId b = nodes_[3];
 
-    Real vd = (d == 0) ? 0.0 : node_voltages[d - 1];
-    Real vg = (g == 0) ? 0.0 : node_voltages[g - 1];
-    Real vs = (s == 0) ? 0.0 : node_voltages[s - 1];
-    Real vb = (b == 0) ? 0.0 : node_voltages[b - 1];
+    Real vd = core::accepted_node_voltage(node_voltages, d);
+    Real vg = core::accepted_node_voltage(node_voltages, g);
+    Real vs = core::accepted_node_voltage(node_voltages, s);
+    Real vb = core::accepted_node_voltage(node_voltages, b);
 
     // Calculate voltages (polarity-aware)
     Real vgs_new, vgd_new, vgb_new, vbd_new, vbs_new;

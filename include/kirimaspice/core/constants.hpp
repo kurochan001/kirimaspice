@@ -167,4 +167,14 @@ inline Real safe_get_node_voltage(const std::vector<Real>& node_voltages,
                                  node_voltages.size(), default_value);
 }
 
+/// Voltage of a node in the vector that Device::accept_solution receives,
+/// whose element 0 is ground and element k is node k (unlike the stamps'
+/// vectors, which hold node k at element k - 1).
+inline Real accepted_node_voltage(const std::vector<Real>& node_voltages, NodeId node_id) {
+    if (node_id == NODE_GND || node_id >= node_voltages.size()) {
+        return 0.0;
+    }
+    return node_voltages[node_id];
+}
+
 }  // namespace kirimaspice::core

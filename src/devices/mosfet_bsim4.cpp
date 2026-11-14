@@ -439,10 +439,10 @@ void MOSFET_BSIM4<P>::stamp_ac(ComplexMNASystem& mna, Real frequency,
 
 template<Polarity P>
 void MOSFET_BSIM4<P>::accept_solution(const DenseVector& node_voltages) {
-    Real vg = (gate_ != NODE_GND) ? node_voltages[gate_ - 1] : 0.0;
-    Real vd = (drain_ != NODE_GND) ? node_voltages[drain_ - 1] : 0.0;
-    Real vs = (source_ != NODE_GND) ? node_voltages[source_ - 1] : 0.0;
-    Real vb = (bulk_ != NODE_GND) ? node_voltages[bulk_ - 1] : 0.0;
+    Real vg = (gate_ != NODE_GND) ? node_voltages[gate_] : 0.0;
+    Real vd = (drain_ != NODE_GND) ? node_voltages[drain_] : 0.0;
+    Real vs = (source_ != NODE_GND) ? node_voltages[source_] : 0.0;
+    Real vb = (bulk_ != NODE_GND) ? node_voltages[bulk_] : 0.0;
 
     Real vgs_new = vg - vs;
     Real vgd_new = vg - vd;

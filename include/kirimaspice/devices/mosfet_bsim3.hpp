@@ -102,7 +102,13 @@ public:
     // State management
     void save_state() const;
     void restore_state() const;
-    void accept_solution(const DenseVector& node_voltages, Real time) const;
+    // Record an accepted time point (Device::accept_solution: ground at
+    // element 0, node k at element k)
+    void accept_solution(const DenseVector& node_voltages) override;
+    void accept_solution(const DenseVector& node_voltages, Real time) {
+        (void)time;
+        accept_solution(node_voltages);
+    }
 
     Real get_physical_lte(Real chgtol, const DenseVector& node_voltages) const override;
 

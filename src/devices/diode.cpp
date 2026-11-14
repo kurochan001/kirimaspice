@@ -516,8 +516,8 @@ void Diode::accept_solution(const DenseVector& node_voltages) {
     NodeId anode_node = nodes_[0];
     NodeId cathode_node = nodes_[1];
 
-    Real v_anode = core::safe_get_node_voltage(node_voltages, anode_node);
-    Real v_cathode = core::safe_get_node_voltage(node_voltages, cathode_node);
+    Real v_anode = core::accepted_node_voltage(node_voltages, anode_node);
+    Real v_cathode = core::accepted_node_voltage(node_voltages, cathode_node);
 
     Real voltage_new = v_anode - v_cathode;
 

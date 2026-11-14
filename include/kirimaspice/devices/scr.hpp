@@ -325,8 +325,8 @@ public:
         NodeId t1 = nodes_[0];
         NodeId t2 = nodes_[1];
 
-        Real vt1 = (t1 != NODE_GND) ? node_voltages[t1 - 1] : 0.0;
-        Real vt2 = (t2 != NODE_GND) ? node_voltages[t2 - 1] : 0.0;
+        Real vt1 = (t1 != NODE_GND) ? node_voltages[t1] : 0.0;
+        Real vt2 = (t2 != NODE_GND) ? node_voltages[t2] : 0.0;
         Real v12 = vt1 - vt2;
 
         // Update previous current

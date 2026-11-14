@@ -247,9 +247,9 @@ private:
 
     void update_operating_point(const DenseVector& node_voltages) {
         NodeId drain = nodes_[0], gate = nodes_[1], source = nodes_[2];
-        Real vd = (drain == NODE_GND) ? 0.0 : node_voltages[drain - 1];
-        Real vg = (gate == NODE_GND) ? 0.0 : node_voltages[gate - 1];
-        Real vs = (source == NODE_GND) ? 0.0 : node_voltages[source - 1];
+        Real vd = (drain == NODE_GND) ? 0.0 : node_voltages[drain];
+        Real vg = (gate == NODE_GND) ? 0.0 : node_voltages[gate];
+        Real vs = (source == NODE_GND) ? 0.0 : node_voltages[source];
 
         vgs_prev_ = vg - vs;
         vgd_prev_ = vg - vd;

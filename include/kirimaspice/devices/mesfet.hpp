@@ -513,9 +513,9 @@ public:
         const NodeId g = nodes_[1];
         const NodeId s = nodes_[2];
 
-        const Real vd = (d > 0) ? node_voltages[d - 1] : 0.0;
-        const Real vg = (g > 0) ? node_voltages[g - 1] : 0.0;
-        const Real vs = (s > 0) ? node_voltages[s - 1] : 0.0;
+        const Real vd = (d > 0) ? node_voltages[d] : 0.0;
+        const Real vg = (g > 0) ? node_voltages[g] : 0.0;
+        const Real vs = (s > 0) ? node_voltages[s] : 0.0;
 
         v_gs_prev2_ = v_gs_prev_;
         v_gd_prev2_ = v_gd_prev_;

@@ -392,3 +392,38 @@ TEST(Diode, ACStampWithJunctionCapacitance) {
         EXPECT_GT(std::abs(val), 0.0);
     }
 }
+
+// accept_solution receives node k at element k, with ground at element 0
+// (TransientSolver::accept_devices). A diode that accepted V = 0.6 V and is
+// then stamped for a backward Euler step at the same 0.6 V has no current in
+// its junction capacitance, cj/dt (V - V_prev) = 0, so its stamp gives the
+// DC current at 0.6 V. Reading the accepted vector one element off took the
+// ground slot as the anode and added cj/dt * 0.6 V of spurious current.
+TEST(DiodeTest, AcceptedVoltageIsTheHistoryOfTheJunctionCapacitance) {
+    Diode diode(1, "D1", 1, NODE_GND, 1e-14, 1.0, 10e-12);
+    const Real v = 0.6;
+    const DenseVector accepted = {0.0, v};  // ground, node 1
+    diode.accept_solution(accepted);
+
+    const DenseVector iterate = {v};  // node 1 at element 0, as in the stamps
+    auto current_into_anode_row = [&](bool transient) {
+        MNASystem mna;
+        mna.resize(1, 0);
+        mna.zero();
+        if (transient) {
+            diode.stamp_transient(mna, iterate, 1e-9, IntegrationMethod::BACKWARD_EULER,
+                                  nullptr, nullptr);
+        } else {
+            diode.stamp_dc_nonlinear(mna, iterate);
+        }
+        Real current = -mna.b[0];
+        for (std::size_t k = 0; k < mna.G.nnz(); ++k) {
+            if (mna.G.rows[k] == 0) {
+                current += mna.G.values[k] * iterate[mna.G.cols[k]];
+            }
+        }
+        return current;
+    };
+    const Real dc = current_into_anode_row(false);
+    EXPECT_NEAR(current_into_anode_row(true), dc, 1e-12 * std::abs(dc));
+}

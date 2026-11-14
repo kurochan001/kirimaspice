@@ -240,7 +240,7 @@ void TLineLossy::accept_solution(const DenseVector& node_voltages) {
     const NodeId bn = nodes_[3];
 
     // node_voltages is 0-based; NodeId starts at 1 (0 is ground)
-    auto val = [&](NodeId n) { return (n == NODE_GND) ? 0.0 : node_voltages[n - 1]; };
+    auto val = [&](NodeId n) { return (n == NODE_GND) ? 0.0 : node_voltages[n]; };
     Real v_a = val(ap) - val(an);
     Real v_b = val(bp) - val(bn);
 

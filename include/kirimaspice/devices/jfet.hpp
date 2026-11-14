@@ -488,9 +488,9 @@ public:
         NodeId ng = nodes_[1];
         NodeId ns = nodes_[2];
 
-        Real vd = (nd == NODE_GND) ? 0.0 : node_voltages[nd - 1];
-        Real vg = (ng == NODE_GND) ? 0.0 : node_voltages[ng - 1];
-        Real vs = (ns == NODE_GND) ? 0.0 : node_voltages[ns - 1];
+        Real vd = (nd == NODE_GND) ? 0.0 : node_voltages[nd];
+        Real vg = (ng == NODE_GND) ? 0.0 : node_voltages[ng];
+        Real vs = (ns == NODE_GND) ? 0.0 : node_voltages[ns];
 
         Real vgs = vg - vs;
         Real vgd = vg - vd;

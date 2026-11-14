@@ -93,6 +93,10 @@ public:
     virtual void save_state() {}
     virtual void restore_state() {}
     virtual void reset_state() {}  // Reset to initial state (for reused circuits)
+    /// Record an accepted transient time point. node_voltages has ground at
+    /// element 0 and node k at element k (core::accepted_node_voltage), as
+    /// TransientSolver::accept_devices builds it; the stamps' vectors instead
+    /// hold node k at element k - 1.
     virtual void accept_solution(const DenseVector& node_voltages) {}
 
     /// Get charge/flux (for error estimation, dynamic elements only)
