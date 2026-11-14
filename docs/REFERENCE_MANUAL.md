@@ -258,10 +258,13 @@ For `NMOS` and `PMOS`, `LEVEL` selects the device:
 | 21 | IGBT (`M` terminals are collector, gate, emitter) |
 
 The parameter names of levels 3, 9, 8/49 and 14/54 follow the respective
-Berkeley model manuals. The parser passes on the names it knows and ignores
-the others without a warning; the lists are in `parse_mosfet_device` in
-`src/parser/netlist_parser.cpp`. Inside a subcircuit, only level 1 and
-BSIM4 MOSFETs are expanded.
+Berkeley model manuals. For these levels the parser passes on the names it
+knows and ignores the others without a warning; the lists are in
+`parse_mosfet_device` in `src/parser/netlist_parser.cpp`. Levels 10, 11,
+12, 20 and 21 start from the device's own defaults, those of its polarity,
+and take every parameter of the card and then of the element line by name;
+a name the device does not have, or a value out of range, gives a warning.
+Inside a subcircuit, only level 1 and BSIM4 MOSFETs are expanded.
 
 ### FinFET (`LEVEL=12`)
 

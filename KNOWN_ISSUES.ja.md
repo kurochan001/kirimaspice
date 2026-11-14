@@ -91,6 +91,14 @@ ngspice について書いていることは、それぞれのマニュアルに
 - **BSIM4 の gm、gds、gmb は、ドレイン電流の中心差分です**（`BSIM4Core::evaluate`）。そのため
   1 回のスタンプで電流を 7 回計算します。`BSIM4Core::compute_cdrain` は解析的な微分もまだ計算して
   いますが、使っていません。
+- **レベル 3 の MOSFET は、SPICE のレベル 3 ではありません。** 飽和電圧が
+  V<sub>ov</sub>/(1 + KAPPA·V<sub>ov</sub>/L<sub>eff</sub>) で次元が合わないので、既定の KAPPA = 0.2 では、
+  短いデバイスは飽和領域でほとんど電流を流しません（0.18 µm のデバイスで V<sub>GS</sub> = 3 V、
+  V<sub>DS</sub> = 1 V のとき約 5·10<sup>−17</sup> A。ngspice-47 では 207 µA）。ETA はしきい値の静的
+  フィードバックではなくチャネル長変調として働き、線形領域の電流に (1 + F<sub>b</sub>) の項がなく
+  （GAMMA = 0.5、バックゲート 1 V で ngspice-47 より 3 % 大きい）、過渡解析に容量がありません。
+  KAPPA = 0 でバックゲートがなければ、線形領域は ngspice-47 と一致します。レベル 3 と BSIM1 は
+  TNOM を読みますが、温度依存はありません。
 - **JFET はネットリストから使えません。** ライブラリには JFET のモデル
   （`include/kirimaspice/devices/jfet.hpp`）がありますが、パーサーに `J` 素子がありません。ゲートの
   容量は、現在の反復の C/dt (V − V<sub>prev</sub>) を右辺に入れています。GaN HEMT、VDMOS、

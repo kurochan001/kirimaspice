@@ -117,6 +117,17 @@ says otherwise.
   (`BSIM4Core::evaluate`), so a stamp evaluates the current seven times.
   `BSIM4Core::compute_cdrain` still computes analytic derivatives, which are
   not used.
+- **The level 3 MOSFET is not SPICE's level 3.** Its saturation voltage
+  is V<sub>ov</sub>/(1 + KAPPA·V<sub>ov</sub>/L<sub>eff</sub>), which is not
+  dimensionless, so with the default KAPPA = 0.2 a short device carries
+  almost nothing in saturation (a 0.18 µm device at V<sub>GS</sub> = 3 V,
+  V<sub>DS</sub> = 1 V: about 5·10<sup>−17</sup> A, where ngspice-47 gives
+  207 µA). ETA acts as channel-length modulation instead of the static
+  feedback on the threshold, the linear current has no (1 + F<sub>b</sub>)
+  term (3 % high against ngspice-47 with GAMMA = 0.5 and 1 V of body bias),
+  and the transient has no capacitances. With KAPPA = 0 and no body bias
+  the linear region matches ngspice-47. Level 3 and BSIM1 read TNOM but
+  have no temperature dependence.
 - **JFET cannot be used from a netlist.** The library has a JFET model
   (`include/kirimaspice/devices/jfet.hpp`), but the parser has no `J`
   element. Its gate capacitances put C/dt (V − V<sub>prev</sub>) of the
