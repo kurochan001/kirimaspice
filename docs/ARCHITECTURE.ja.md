@@ -100,8 +100,8 @@ flowchart LR
 5. 素子どうしの参照の解決。`F` と `H` の制御電源、`K` のインダクタです。
 6. `.CONTROL` のブロックのコマンド。
 
-ディレクティブは `.SUBCKT` の本体かどうかを調べる前に処理するので、サブ回路の中の `.MODEL` や `.PARAM` は
-グローバルになります。`.SUBCKT` の中の素子の行はテキストのまま保存し、展開のときに解析します。入れ子の
+ディレクティブは `.SUBCKT` の本体かどうかを調べる前に処理するので、サブ回路の中の `.MODEL` はグローバルに
+なります。そこにある `.PARAM` は本体と一緒に保存し、インスタンスごとにその中だけで効きます。`.SUBCKT` の中の素子の行はテキストのまま保存し、展開のときに解析します。入れ子の
 `.SUBCKT` の定義はエラーです。知らないディレクティブは、`.MEASURE` も含め、メッセージなしで捨てます。
 
 **使う前に定義されていないモデル。** ダイオード、BJT、MOSFET、MESFET の解析は、モデルがまだ分からないと
@@ -110,7 +110,8 @@ flowchart LR
 
 **式**は ExprTk を使い、4 か所でそれぞれ別の記号表を用意します。中括弧の素子の値（`ExpressionEvaluator` を
 通した `read_element_value`）、`.PARAM`（それまでに定義した `.FUNC` も登録します）、サブ回路の
-パラメータ（`SubcircuitDefinition::substitute_parameters`。そのサブ回路自身のパラメータしか見えません）、
+パラメータ（`SubcircuitDefinition::substitute_parameters`。グローバルの `.PARAM` の値の上に、サブ回路の既定値、
+インスタンスの値、本体の `.PARAM` の行が重なります）、
 `B` 電源（`CircuitGraph`）です。
 
 結果は `NetlistParseResult { std::unique_ptr<CircuitGraph>, SimulationConfig }` です。`SimulationConfig`

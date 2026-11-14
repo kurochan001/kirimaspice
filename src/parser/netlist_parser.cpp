@@ -6361,7 +6361,16 @@ void process_line(const std::string& raw_line, ParseState& state) {
         if (directive == ".PRINT") { parse_print_directive(tokens, state); return; }
         if (directive == ".SAVE") { parse_save_directive(tokens, state); return; }
         if (directive == ".GLOBAL") { parse_global_directive(tokens, state); return; }
-        if (directive == ".PARAM") { parse_param_directive(tokens, state); return; }
+        if (directive == ".PARAM") {
+            // Inside a .SUBCKT, .PARAM is local: kept with the body and
+            // evaluated per instance (SubcircuitDefinition::substitute_parameters)
+            if (state.inside_subcircuit) {
+                state.current_subcircuit->internal_netlist_lines.push_back(line);
+                return;
+            }
+            parse_param_directive(tokens, state);
+            return;
+        }
         if (directive == ".STEP") { parse_step_directive(tokens, state); return; }
         if (directive == ".SENS" || directive == ".SENSITIVITY") { parse_sens_directive(tokens, state); return; }
         if (directive == ".TEMP") { parse_temp_directive(tokens, state); return; }

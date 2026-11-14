@@ -4,7 +4,9 @@
 // src/circuit/subcircuit.cpp
 #include "kirimaspice/circuit/subcircuit.hpp"
 #include "kirimaspice/core/constants.hpp"
+#include "kirimaspice/util/units.hpp"
 #include <algorithm>
+#include <cctype>
 #include <stdexcept>
 #include <regex>
 #include <sstream>
@@ -190,39 +192,78 @@ void SubcircuitRegistry::dfs_topological_sort(
 //==============================================================================
 
 std::vector<std::string> SubcircuitDefinition::substitute_parameters(
-    const std::map<std::string, Real>& instance_params) const {
+    const std::map<std::string, Real>& instance_params,
+    const std::map<std::string, Real>& global_params) const {
 
-    // Merge parameters: instance parameters override default parameters
-    std::map<std::string, Real> merged_params = default_params;
+    // Scope, from the lowest priority: the global .PARAM values, the defaults
+    // on the .SUBCKT line, the values on the X line. A .PARAM line inside the
+    // body adds or replaces values for the lines after it, in this instance
+    // only.
+    std::map<std::string, Real> scope = global_params;
+    for (const auto& [key, value] : default_params) {
+        scope[key] = value;
+    }
     for (const auto& [key, value] : instance_params) {
-        merged_params[key] = value;  // Override default with instance value
+        scope[key] = value;
     }
 
-    // Setup ExprTk symbol table with all parameters
-    exprtk::symbol_table<Real> symbol_table;
-    for (const auto& [name, value] : merged_params) {
-        // ExprTk requires non-const variables, so we create a copy
-        // We'll use a map to store the actual values
-        symbol_table.add_constant(name, value);
-    }
+    auto evaluate = [&](const std::string& expression) -> Real {
+        exprtk::symbol_table<Real> symbol_table;
+        for (const auto& [param_name, value] : scope) {
+            symbol_table.add_constant(param_name, value);
+        }
+        symbol_table.add_constants();
 
-    // Add standard constants
-    symbol_table.add_constants();
+        exprtk::expression<Real> expr;
+        expr.register_symbol_table(symbol_table);
+        exprtk::parser<Real> parser;
+        if (!parser.compile(expression, expr)) {
+            throw std::runtime_error(fmt::format(
+                "Failed to parse parameter expression '{{{}}}' in subcircuit '{}': {}",
+                expression, name, parser.error()));
+        }
+        return expr.value();
+    };
+
+    // NAME=value or NAME={expression}, as on a global .PARAM line
+    static const std::regex assignment(R"(([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(\{[^}]*\}|[^\s{}=]+))");
+    auto is_param_line = [](const std::string& line) {
+        const auto first = line.find_first_not_of(" \t");
+        if (first == std::string::npos || line.size() - first < 6) {
+            return false;
+        }
+        std::string head = line.substr(first, 6);
+        std::transform(head.begin(), head.end(), head.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+        return head == ".PARAM" &&
+               (line.size() == first + 6 || std::isspace(static_cast<unsigned char>(line[first + 6])));
+    };
 
     std::vector<std::string> substituted_lines;
     substituted_lines.reserve(internal_netlist_lines.size());
 
     // Regular expression to match {expression} patterns
-    std::regex param_pattern(R"(\{([^}]+)\})");
+    static const std::regex param_pattern(R"(\{([^}]+)\})");
 
     for (const auto& line : internal_netlist_lines) {
-        std::string result_line = line;
-        std::smatch match;
-        std::string search_str = result_line;
-        std::string::const_iterator search_start(search_str.cbegin());
+        if (is_param_line(line)) {
+            for (auto it = std::sregex_iterator(line.begin(), line.end(), assignment);
+                 it != std::sregex_iterator(); ++it) {
+                const std::string param_name = (*it)[1].str();
+                const std::string value_str = (*it)[2].str();
+                try {
+                    scope[param_name] = (value_str.front() == '{')
+                        ? evaluate(value_str.substr(1, value_str.size() - 2))
+                        : util::parse_value_with_unit(value_str);
+                } catch (const std::exception& e) {
+                    throw std::runtime_error(fmt::format(
+                        "Error evaluating .PARAM {} in subcircuit '{}': {}",
+                        param_name, name, e.what()));
+                }
+            }
+            continue;  // a .PARAM line is not an element
+        }
 
-        // Find and replace all {expression} patterns
-        std::string replaced_line;
         auto words_begin = std::sregex_iterator(line.begin(), line.end(), param_pattern);
         auto words_end = std::sregex_iterator();
 
@@ -232,7 +273,8 @@ std::vector<std::string> SubcircuitDefinition::substitute_parameters(
             continue;
         }
 
-        // Process each match
+        // Replace each {expression} by its value
+        std::string replaced_line;
         size_t last_pos = 0;
         for (std::sregex_iterator i = words_begin; i != words_end; ++i) {
             std::smatch m = *i;
@@ -242,18 +284,7 @@ std::vector<std::string> SubcircuitDefinition::substitute_parameters(
             replaced_line += line.substr(last_pos, m.position() - last_pos);
 
             try {
-                // Compile and evaluate expression with ExprTk
-                exprtk::expression<Real> expr;
-                expr.register_symbol_table(symbol_table);
-
-                exprtk::parser<Real> parser;
-                if (!parser.compile(expression, expr)) {
-                    throw std::runtime_error(fmt::format(
-                        "Failed to parse parameter expression '{{{}}}' in subcircuit '{}': {}",
-                        expression, name, parser.error()));
-                }
-
-                Real result = expr.value();
+                Real result = evaluate(expression);
 
                 // Convert result to string
                 // Use scientific notation for very large/small values

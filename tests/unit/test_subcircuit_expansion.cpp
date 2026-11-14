@@ -709,3 +709,84 @@ V1 sig_in 0 DC 1
         EXPECT_LT(max_voltage, 1.5) << "Voltages should not exceed input voltage significantly";
     }
 }
+
+// Parameter scope, as in SPICE and ngspice-47: a subcircuit body sees the
+// global .PARAM values, below its own defaults and the instance values, and
+// a .PARAM inside a .SUBCKT is local to it.
+namespace {
+Real source_current(const std::string& netlist, const std::string& source) {
+    parser::NetlistParser p;
+    auto result = p.parse_string(netlist);
+    EXPECT_NE(result.circuit, nullptr);
+    result.circuit->set_simulation_config(&result.config);
+    result.circuit->expand_all_subcircuits();
+    solvers::DCSolver solver(*result.circuit, result.config);
+    DenseVector solution;
+    SolverStats stats;
+    EXPECT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS);
+    return solver.get_branch_current(source).value();
+}
+}  // namespace
+
+// 1 V across X1, whose body is a resistor of {RX} = 5 kOhm from the global
+// .PARAM: 0.2 mA, delivered by V1 (ngspice-47 gives -2.00000e-04).
+TEST_F(SubcircuitExpansionTest, BodySeesGlobalParam) {
+    const std::string netlist = R"(global parameter in a subcircuit
+.PARAM RX=5k
+.SUBCKT S a
+R1 a 0 {RX}
+.ENDS S
+V1 in 0 DC 1
+X1 in S
+.END
+)";
+    EXPECT_NEAR(source_current(netlist, "V1"), -1.0 / 5e3, 1e-12);
+}
+
+// Defaults and instance values come before the global value of the same name.
+TEST_F(SubcircuitExpansionTest, InstanceAndDefaultComeBeforeGlobalParam) {
+    const std::string netlist = R"(parameter priority
+.PARAM RX=5k
+.SUBCKT S a RX=2k
+R1 a 0 {RX}
+.ENDS S
+V1 in 0 DC 1
+X1 in S
+X2 in S RX=4k
+.END
+)";
+    EXPECT_NEAR(source_current(netlist, "V1"), -(1.0 / 2e3 + 1.0 / 4e3), 1e-12);
+}
+
+// A .PARAM in the body is local: inside, RX is 5 kOhm; outside, the global
+// RX stays 1 kOhm. 1/1k + 1/5k = 1.2 mA (ngspice-47 gives -1.20000e-03).
+TEST_F(SubcircuitExpansionTest, ParamInsideSubcircuitIsLocal) {
+    const std::string netlist = R"(local parameter
+.PARAM RX=1k
+.SUBCKT S a
+.PARAM RX=5k
+R1 a 0 {RX}
+.ENDS S
+V1 in 0 DC 1
+R2 in 0 {RX}
+X1 in S
+.END
+)";
+    EXPECT_NEAR(source_current(netlist, "V1"), -(1.0 / 1e3 + 1.0 / 5e3), 1e-12);
+}
+
+// A local .PARAM can use the subcircuit's parameters and is evaluated per
+// instance: RLOC = 2*RX gives 2 kOhm in X1 and 6 kOhm in X2.
+TEST_F(SubcircuitExpansionTest, LocalParamIsEvaluatedPerInstance) {
+    const std::string netlist = R"(local parameter per instance
+.SUBCKT S a RX=1k
+.PARAM RLOC={2*RX}
+R1 a 0 {RLOC}
+.ENDS S
+V1 in 0 DC 1
+X1 in S
+X2 in S RX=3k
+.END
+)";
+    EXPECT_NEAR(source_current(netlist, "V1"), -(1.0 / 2e3 + 1.0 / 6e3), 1e-12);
+}

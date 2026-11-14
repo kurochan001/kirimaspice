@@ -351,9 +351,10 @@ X1 in out DIV RTOP=3k
 
 - Default parameter values follow the pins as `NAME=value`; an instance
   overrides them the same way. The `PARAMS:` keyword is not accepted.
-- A subcircuit body sees only its own parameters, not the global `.PARAM`
-  values. Pass a global value on the `X` line, as in `X1 in out DIV
-  RTOP={RG}` ([KNOWN_ISSUES](../KNOWN_ISSUES.md#netlist-input)).
+- A subcircuit body sees the global `.PARAM` values; the defaults of the
+  `.SUBCKT` line and the values on the `X` line come before them. A
+  `.PARAM` written inside a `.SUBCKT` is local to the subcircuit and is
+  evaluated for each instance.
 - Inside a subcircuit, only `R`, `C`, `L`, `V` (DC value), `I` (DC value),
   `M` (with four terminals) and `X` are expanded. Other elements are
   skipped with a warning, so put diodes and bipolar transistors at the top

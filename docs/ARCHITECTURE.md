@@ -115,7 +115,8 @@ steps:
 6. The commands of a `.CONTROL` block.
 
 Directives are handled before the check for a `.SUBCKT` body, so a
-`.MODEL` or `.PARAM` inside a subcircuit is global. Inside a `.SUBCKT`,
+`.MODEL` inside a subcircuit is global; a `.PARAM` there is kept with the
+body and is local to each instance. Inside a `.SUBCKT`,
 element lines are stored as text and parsed at expansion. Nested
 `.SUBCKT` definitions are an error. Unknown directives, `.MEASURE` among
 them, are dropped without a message.
@@ -129,8 +130,9 @@ are parsed again; a model still missing is then a `ParseError`.
 symbol table: element values in braces (`read_element_value` through the
 `ExpressionEvaluator`), `.PARAM` (which also registers the `.FUNC`s
 defined so far), subcircuit parameters
-(`SubcircuitDefinition::substitute_parameters`, which sees the
-subcircuit's own parameters only), and `B` sources (`CircuitGraph`).
+(`SubcircuitDefinition::substitute_parameters`, which sees the global
+`.PARAM` values below the subcircuit's defaults, the instance values and
+the `.PARAM` lines of the body), and `B` sources (`CircuitGraph`).
 
 The result is `NetlistParseResult { std::unique_ptr<CircuitGraph>,
 SimulationConfig }`. `SimulationConfig` (`include/kirimaspice/core/types.hpp`)

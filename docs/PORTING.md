@@ -89,9 +89,9 @@ the values of a sweep are in the raw file.
   others are skipped with a warning. Move diodes, bipolar transistors and
   controlled sources to the top level.
 - [ ] **Parameters of a subcircuit.** Write defaults as `NAME=value` after
-  the pins; `PARAMS:` is not accepted. A subcircuit body cannot read a
-  global `.PARAM`: pass the value on the `X` line, as in
-  `X1 in out DIV RTOP={RG}`. A `.PARAM` inside a `.SUBCKT` is global.
+  the pins; `PARAMS:` is not accepted. As in ngspice, a subcircuit body
+  sees the global `.PARAM` values, and a `.PARAM` inside a `.SUBCKT` is
+  local to it.
 - [ ] **`.FUNC` only in `.PARAM` expressions**, not in element values.
 - [ ] **`.IF` conditions without `.PARAM` names.** `.IF` cannot read them,
   and keeps every branch when it cannot evaluate the condition.

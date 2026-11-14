@@ -60,11 +60,16 @@ struct SubcircuitDefinition {
     }
 
     /// Substitute parameters in internal netlist lines
-    /// Merges instance parameters with default parameters and evaluates expressions
+    /// Braces see, from the lowest priority, the global .PARAM values, the
+    /// defaults of the .SUBCKT line and the instance values; a .PARAM line
+    /// in the body adds values for the lines after it, in this instance only,
+    /// and is not returned.
     /// @param instance_params Parameters from instance (e.g., X1 ... GAIN=20)
+    /// @param global_params The global .PARAM values
     /// @return Netlist lines with parameter expressions replaced by values
     std::vector<std::string> substitute_parameters(
-        const std::map<std::string, Real>& instance_params) const;
+        const std::map<std::string, Real>& instance_params,
+        const std::map<std::string, Real>& global_params = {}) const;
 };
 
 /// Subcircuit instance (X device)

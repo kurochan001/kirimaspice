@@ -2078,7 +2078,9 @@ void CircuitGraph::expand_subcircuit_instance(const std::string& instance_name) 
 
     // Perform parameter substitution
     // Merges instance parameters with default parameters and evaluates {expression} patterns
-    std::vector<std::string> expanded_lines = definition.substitute_parameters(instance.instance_params);
+    static const std::map<std::string, Real> no_globals;
+    std::vector<std::string> expanded_lines = definition.substitute_parameters(
+        instance.instance_params, config_ ? config_->global_params : no_globals);
 
     // Expand internal netlist
     // For each internal device line, clone the device with hierarchical node names
