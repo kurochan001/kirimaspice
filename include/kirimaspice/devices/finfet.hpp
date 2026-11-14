@@ -177,6 +177,21 @@ protected:
 private:
     void stamp_gmin(MNASystem& mna) const;
 
+    /// The drain current of the model and its derivatives
+    struct DrainCurrent {
+        Real id = 0.0;   ///< From drain to source for N, from source to drain for P [A]
+        Real gm = 0.0;   ///< d id / d Vgs_eff [S]
+        Real gds = 0.0;  ///< d id / d Vds_eff, with the DIBL term [S]
+    };
+
+    /// The drain current at the effective voltages (VGS and VDS for N, VSG
+    /// and VSD for P) and the operating temperature. The DC, transient and
+    /// AC stamps and the noise sources all take it from here.
+    DrainCurrent drain_current(Real v_gs_eff, Real v_ds_eff) const;
+
+    /// Terminal voltages from a vector with node k at element k - 1
+    void terminal_voltages(const DenseVector& v, Real& vd, Real& vg, Real& vs) const;
+
     std::vector<NodeId> nodes_;  ///< [Drain, Gate, Source]
 
     // FinFET geometry parameters
@@ -201,8 +216,8 @@ private:
     // Capacitances
     Real cgs_;      ///< Gate-source capacitance [F]
     Real cgd_;      ///< Gate-drain capacitance [F]
-    mutable Real v_gs_prev_ = 0.0;  ///< Previous effective Vgs
-    mutable Real v_gd_prev_ = 0.0;  ///< Previous Vgd (for N) or computed from v_ds_prev (for P)
+    mutable Real v_gs_prev_ = 0.0;  ///< Accepted Vg - Vs
+    mutable Real v_gd_prev_ = 0.0;  ///< Accepted Vg - Vd
 
     // Noise parameters
     Real kf_;       ///< Flicker noise coefficient

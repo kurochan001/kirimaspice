@@ -111,3 +111,17 @@ TEST(PChannelStamps, VdmosMirrorsTheNChannel) {
         },
         1.0, 7.0, 11.0, 11.0, 2.0);
 }
+
+TEST(PChannelStamps, FinFetMirrorsTheNChannel) {
+    expect_mirror(
+        [](CircuitGraph& c, bool p) {
+            if (p) {
+                c.add_finfet_p("M1", "d", "g", "s", 1, 30e-9, 7e-9, -0.4, 300e-4, 1e5, 70e-3,
+                               0.05, 1e-9, 1e-15, 1e-16, 0.0, 1.0, -1e-3, 300.15, 1e-6);
+            } else {
+                c.add_finfet_n("M1", "d", "g", "s", 1, 30e-9, 7e-9, 0.4, 300e-4, 1e5, 70e-3,
+                               0.05, 1e-9, 1e-15, 1e-16, 0.0, 1.0, -1e-3, 300.15, 1e-6);
+            }
+        },
+        0.2, 1.0, 1.0, 1.2, 10e3);
+}

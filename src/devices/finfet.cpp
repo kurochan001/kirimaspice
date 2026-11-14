@@ -62,141 +62,120 @@ void FinFET<P>::stamp_gmin(MNASystem& mna) const {
     }
 }
 
+namespace {
+
+int node_index(NodeId node) {
+    return (node == NODE_GND) ? -1 : static_cast<int>(node - 1);
+}
+
+// The channel between drain and source: the current from drain to source
+// has the derivatives gm, gds and -(gm + gds) with respect to the gate,
+// drain and source voltages, for both polarities (see stamp_dc_nonlinear).
+template <typename Matrix, typename T>
+void stamp_channel(Matrix& m, int nd, int ng, int ns, T gm, T gds) {
+    if (nd >= 0) {
+        if (ng >= 0) m.add_entry(nd, ng, gm);
+        m.add_entry(nd, nd, gds);
+        if (ns >= 0) m.add_entry(nd, ns, -(gm + gds));
+    }
+    if (ns >= 0) {
+        if (ng >= 0) m.add_entry(ns, ng, -gm);
+        if (nd >= 0) m.add_entry(ns, nd, -gds);
+        m.add_entry(ns, ns, gm + gds);
+    }
+}
+
+// A two-terminal admittance y between nodes a and b
+template <typename Matrix, typename T>
+void stamp_admittance(Matrix& m, int a, int b, T y) {
+    if (a >= 0) {
+        m.add_entry(a, a, y);
+        if (b >= 0) m.add_entry(a, b, -y);
+    }
+    if (b >= 0) {
+        m.add_entry(b, b, y);
+        if (a >= 0) m.add_entry(b, a, -y);
+    }
+}
+
+}  // namespace
+
+template<Polarity P>
+typename FinFET<P>::DrainCurrent FinFET<P>::drain_current(Real v_gs_eff, Real v_ds_eff) const {
+    // Threshold at the operating temperature, lowered by DIBL for VDS > 0
+    const Real delta_t = temperature_ - tnom_;
+    const Real vth_temp = get_effective_threshold() + kt1_ * delta_t;
+    const Real dibl_slope = (v_ds_eff > 0.0) ? dibl_ : 0.0;  // -d Vth_eff / d VDS
+    const Real vth_eff = vth_temp - dibl_slope * v_ds_eff;
+
+    // Mobility u0 (Tnom / T)^1.5 and the gain factor u Cox Weff / L
+    const Real u_temp = u0_ * std::pow(tnom_ / temperature_, 1.5);
+    const Real beta = cox_ * weff_ * u_temp / l_;
+
+    DrainCurrent out;
+    if (v_gs_eff < vth_eff) {
+        // Below the threshold: beta Vt^2 exp((VGS - Vth_eff) / (n Vt)) (1 - exp(-VDS / Vt))
+        const Real vt = k_boltzmann * temperature_ / q_electron;
+        const Real n = 1.0 + (ss_ * std::log(10.0)) / vt;
+        const Real channel = beta * vt * vt * std::exp((v_gs_eff - vth_eff) / (n * vt));
+        const Real drain_factor = 1.0 - std::exp(-v_ds_eff / vt);
+        out.id = channel * drain_factor;
+        out.gm = out.id / (n * vt);
+        out.gds = channel * std::exp(-v_ds_eff / vt) / vt + out.gm * dibl_slope;
+        return out;
+    }
+
+    const Real vov = v_gs_eff - vth_eff;
+    if (v_ds_eff < vov) {
+        // Linear region
+        out.id = beta * (vov * v_ds_eff - 0.5 * v_ds_eff * v_ds_eff);
+        out.gm = beta * v_ds_eff;
+        out.gds = beta * (vov - v_ds_eff);
+    } else {
+        // Saturation
+        out.id = 0.5 * beta * vov * vov;
+        out.gm = beta * vov;
+        out.gds = 0.0;
+    }
+    // Vth_eff falls with VDS, which raises the current as VGS would
+    out.gds += out.gm * dibl_slope;
+    return out;
+}
+
+template<Polarity P>
+void FinFET<P>::terminal_voltages(const DenseVector& v, Real& vd, Real& vg, Real& vs) const {
+    vd = (nodes_[0] == NODE_GND) ? 0.0 : v[nodes_[0] - 1];
+    vg = (nodes_[1] == NODE_GND) ? 0.0 : v[nodes_[1] - 1];
+    vs = (nodes_[2] == NODE_GND) ? 0.0 : v[nodes_[2] - 1];
+}
+
 template<Polarity P>
 void FinFET<P>::stamp_dc_nonlinear(MNASystem& mna, const DenseVector& node_voltages) const {
-    NodeId nd_node = nodes_[0];  // Drain
-    NodeId ng_node = nodes_[1];  // Gate
-    NodeId ns_node = nodes_[2];  // Source
+    Real vd = 0.0, vg = 0.0, vs = 0.0;
+    terminal_voltages(node_voltages, vd, vg, vs);
+    Real v_gs_eff = 0.0, v_ds_eff = 0.0;
+    compute_effective_voltages(vd, vg, vs, v_gs_eff, v_ds_eff);
+    const DrainCurrent dc = drain_current(v_gs_eff, v_ds_eff);
 
-    // Extract node voltages
-    Real v_d = (nd_node == NODE_GND) ? 0.0 : node_voltages[nd_node - 1];
-    Real v_g = (ng_node == NODE_GND) ? 0.0 : node_voltages[ng_node - 1];
-    Real v_s = (ns_node == NODE_GND) ? 0.0 : node_voltages[ns_node - 1];
+    // The current from drain to source is id for N and -id for P, where id
+    // is a function of (VGS, VDS) for N and of (VSG, VSD) = -(VGS, VDS) for
+    // P. Its derivatives with respect to Vg, Vd and Vs are gm, gds and
+    // -(gm + gds) in both cases, so the matrix entries are the same and only
+    // the current's sign differs.
+    constexpr Real sign = (P == Polarity::N) ? 1.0 : -1.0;
+    const Real i_ds = sign * dc.id;
+    const Real i_eq = i_ds - dc.gm * (vg - vs) - dc.gds * (vd - vs);
 
-    // Compute effective voltages using polarity-specific convention
-    Real v_gs_eff, v_ds_eff;
-    compute_effective_voltages(v_d, v_g, v_s, v_gs_eff, v_ds_eff);
-
-    // Temperature-adjusted threshold voltage: Vth(T) = Vth0 + KT1 × (T - Tnom)
-    Real delta_t = temperature_ - tnom_;
-    Real vth_temp = get_effective_threshold() + kt1_ * delta_t;
-
-    // DIBL effect: Vth_eff = Vth(T) - DIBL × Vds_eff
-    Real vth_eff = vth_temp - dibl_ * std::max(0.0, v_ds_eff);
-
-    // Temperature-scaled mobility: u(T) = u0 × (T/Tnom)^(-1.5)
-    Real u_temp = u0_ * std::pow(tnom_ / temperature_, 1.5);
-    Real beta_temp = cox_ * weff_ * u_temp / l_;
-
-    auto nd_idx = (nd_node == NODE_GND) ? -1 : static_cast<int>(nd_node - 1);
-    auto ng_idx = (ng_node == NODE_GND) ? -1 : static_cast<int>(ng_node - 1);
-    auto ns_idx = (ns_node == NODE_GND) ? -1 : static_cast<int>(ns_node - 1);
-
-    // Cutoff region: Vgs_eff < Vth_eff (for N) or Vsg < |Vth| (for P)
-    if (v_gs_eff < vth_eff) {
-        // Subthreshold conduction (simplified exponential model)
-        Real vt = k_boltzmann * temperature_ / q_electron;  // Thermal voltage
-        Real n = 1.0 + (ss_ * std::log(10.0)) / vt;
-
-        // Subthreshold current: Ids = I0 × exp((Vgs_eff - Vth_eff) / (n × Vt))
-        Real i0 = beta_temp * vt * vt;
-        Real id_sub = i0 * std::exp((v_gs_eff - vth_eff) / (n * vt)) * (1.0 - std::exp(-v_ds_eff / vt));
-
-        stamp_gmin(mna);
-
-        // Stamp subthreshold current (polarity-specific)
-        if constexpr (P == Polarity::N) {
-            if (nd_idx >= 0) mna.b[nd_idx] -= id_sub;
-            if (ns_idx >= 0) mna.b[ns_idx] += id_sub;
-        } else {
-            if (ns_idx >= 0) mna.b[ns_idx] -= id_sub;
-            if (nd_idx >= 0) mna.b[nd_idx] += id_sub;
-        }
-
-        spdlog::trace("FinFET {} cutoff: Vgs_eff={:.6f}V < Vth={:.6f}V, Ids_sub={:.3e}A",
-                     name_, v_gs_eff, vth_eff, id_sub);
-        return;
-    }
-
-    // Active region: Vgs_eff >= Vth_eff
-    Real vov = v_gs_eff - vth_eff;  // Overdrive voltage
-    Real vdsat = vov;  // Simplified velocity saturation
-
-    Real id_intrinsic = 0.0;
-    Real gm_intrinsic = 0.0;
-    Real gds_intrinsic = 0.0;
-
-    // Linear region: Vds_eff < Vdsat
-    if (v_ds_eff < vdsat) {
-        id_intrinsic = beta_temp * (vov * v_ds_eff - 0.5 * v_ds_eff * v_ds_eff);
-        gm_intrinsic = beta_temp * v_ds_eff;
-        gds_intrinsic = beta_temp * (vov - v_ds_eff);
-    }
-    // Saturation region: Vds_eff >= Vdsat
-    else {
-        id_intrinsic = 0.5 * beta_temp * vov * vov;
-        gm_intrinsic = beta_temp * vov;
-        gds_intrinsic = 0.0;
-    }
-
-    Real id = id_intrinsic;
-    Real gm = gm_intrinsic;
-    Real gds = gds_intrinsic + gmin_default;
-    Real id_eq = id - gm * v_gs_eff - gds * v_ds_eff;
-
-    // MNA stamps differ for N-channel and P-channel
-    if constexpr (P == Polarity::N) {
-        // N-channel: Transconductance (Gm) from gate/source
-        if (nd_idx >= 0) {
-            if (ng_idx >= 0) mna.G.add_entry(nd_idx, ng_idx, gm);
-            if (ns_idx >= 0) mna.G.add_entry(nd_idx, ns_idx, -gm);
-        }
-        if (ns_idx >= 0) {
-            if (ng_idx >= 0) mna.G.add_entry(ns_idx, ng_idx, -gm);
-            mna.G.add_entry(ns_idx, ns_idx, gm);
-        }
-
-        // Output conductance (Gds)
-        if (nd_idx >= 0) {
-            mna.G.add_entry(nd_idx, nd_idx, gds);
-            if (ns_idx >= 0) mna.G.add_entry(nd_idx, ns_idx, -gds);
-        }
-        if (ns_idx >= 0) {
-            if (nd_idx >= 0) mna.G.add_entry(ns_idx, nd_idx, -gds);
-            mna.G.add_entry(ns_idx, ns_idx, gds);
-        }
-
-        // Equivalent current source
-        if (nd_idx >= 0) mna.b[nd_idx] -= id_eq;
-        if (ns_idx >= 0) mna.b[ns_idx] += id_eq;
-    } else {
-        // P-channel: Source-referenced (Vsg, Vsd)
-        if (ns_idx >= 0) {
-            if (ng_idx >= 0) mna.G.add_entry(ns_idx, ng_idx, -gm);
-            mna.G.add_entry(ns_idx, ns_idx, gm);
-        }
-        if (nd_idx >= 0) {
-            if (ng_idx >= 0) mna.G.add_entry(nd_idx, ng_idx, gm);
-            mna.G.add_entry(nd_idx, nd_idx, -gm);
-        }
-
-        // Output conductance
-        if (ns_idx >= 0) {
-            if (nd_idx >= 0) mna.G.add_entry(ns_idx, nd_idx, -gds);
-            mna.G.add_entry(ns_idx, ns_idx, gds);
-        }
-        if (nd_idx >= 0) {
-            if (ns_idx >= 0) mna.G.add_entry(nd_idx, ns_idx, gds);
-            mna.G.add_entry(nd_idx, nd_idx, -gds);
-        }
-
-        // Current source
-        if (ns_idx >= 0) mna.b[ns_idx] -= id_eq;
-        if (nd_idx >= 0) mna.b[nd_idx] += id_eq;
-    }
+    const int nd = node_index(nodes_[0]);
+    const int ng = node_index(nodes_[1]);
+    const int ns = node_index(nodes_[2]);
+    stamp_channel(mna.G, nd, ng, ns, dc.gm, dc.gds);
+    if (nd >= 0) mna.b[nd] -= i_eq;
+    if (ns >= 0) mna.b[ns] += i_eq;
+    stamp_gmin(mna);
 
     spdlog::trace("FinFET {} DC: Vgs_eff={:.6f}V Vds_eff={:.6f}V Id={:.3e}A Gm={:.3e}S Gds={:.3e}S",
-                 name_, v_gs_eff, v_ds_eff, id, gm, gds);
+                  name_, v_gs_eff, v_ds_eff, dc.id, dc.gm, dc.gds);
 }
 
 template<Polarity P>
@@ -204,317 +183,92 @@ void FinFET<P>::stamp_transient(MNASystem& mna, const DenseVector& node_voltages
                                  Real timestep, IntegrationMethod /*method*/,
                                  const BDFCoefficients* /*bdf_coef*/,
                                  const TR_BDF2_Coefficients* /*tr_bdf2_coef*/) const {
-    // First stamp DC nonlinear part
     stamp_dc_nonlinear(mna, node_voltages);
 
-    NodeId nd_node = nodes_[0];
-    NodeId ng_node = nodes_[1];
-    NodeId ns_node = nodes_[2];
-
-    Real v_d = (nd_node == NODE_GND) ? 0.0 : node_voltages[nd_node - 1];
-    Real v_g = (ng_node == NODE_GND) ? 0.0 : node_voltages[ng_node - 1];
-    Real v_s = (ns_node == NODE_GND) ? 0.0 : node_voltages[ns_node - 1];
-
-    auto nd_idx = (nd_node == NODE_GND) ? -1 : static_cast<int>(nd_node - 1);
-    auto ng_idx = (ng_node == NODE_GND) ? -1 : static_cast<int>(ng_node - 1);
-    auto ns_idx = (ns_node == NODE_GND) ? -1 : static_cast<int>(ns_node - 1);
-
-    Real dt = timestep;
-
-    if constexpr (P == Polarity::N) {
-        Real vgs = v_g - v_s;
-        Real vgd = v_g - v_d;
-
-        // Gate-Source capacitance (Cgs)
-        if (cgs_ > 0.0) {
-            Real g_cgs = cgs_ / dt;
-            Real ieq_gs = g_cgs * (vgs - v_gs_prev_);
-
-            if (ng_idx >= 0) {
-                mna.G.add_entry(ng_idx, ng_idx, g_cgs);
-                if (ns_idx >= 0) mna.G.add_entry(ng_idx, ns_idx, -g_cgs);
-                mna.b[ng_idx] -= ieq_gs;
-            }
-            if (ns_idx >= 0) {
-                if (ng_idx >= 0) mna.G.add_entry(ns_idx, ng_idx, -g_cgs);
-                mna.G.add_entry(ns_idx, ns_idx, g_cgs);
-                mna.b[ns_idx] += ieq_gs;
-            }
+    // CGS and CGD by backward Euler: the current C / dt (V - V_prev) from the
+    // gate, with V = Vg - Vs and Vg - Vd and V_prev the accepted values
+    const int nd = node_index(nodes_[0]);
+    const int ng = node_index(nodes_[1]);
+    const int ns = node_index(nodes_[2]);
+    auto stamp_capacitance = [&](Real c, int other, Real v_prev) {
+        if (c <= 0.0) {
+            return;
         }
-
-        // Gate-Drain capacitance (Cgd)
-        if (cgd_ > 0.0) {
-            Real g_cgd = cgd_ / dt;
-            Real ieq_gd = g_cgd * (vgd - v_gd_prev_);
-
-            if (ng_idx >= 0) {
-                mna.G.add_entry(ng_idx, ng_idx, g_cgd);
-                if (nd_idx >= 0) mna.G.add_entry(ng_idx, nd_idx, -g_cgd);
-                mna.b[ng_idx] -= ieq_gd;
-            }
-            if (nd_idx >= 0) {
-                if (ng_idx >= 0) mna.G.add_entry(nd_idx, ng_idx, -g_cgd);
-                mna.G.add_entry(nd_idx, nd_idx, g_cgd);
-                mna.b[nd_idx] += ieq_gd;
-            }
-        }
-    } else {
-        // P-channel: Vsg = Vs - Vg, Vsd = Vs - Vd
-        Real vsg = v_s - v_g;
-        Real vgd = v_g - v_d;
-
-        // Gate-Source capacitance (using Vsg)
-        if (cgs_ > 0.0) {
-            Real g_cgs = cgs_ / dt;
-            Real ieq_sg = g_cgs * (vsg - v_gs_prev_);
-
-            if (ns_idx >= 0) {
-                mna.G.add_entry(ns_idx, ns_idx, g_cgs);
-                if (ng_idx >= 0) mna.G.add_entry(ns_idx, ng_idx, -g_cgs);
-                mna.b[ns_idx] -= ieq_sg;
-            }
-            if (ng_idx >= 0) {
-                if (ns_idx >= 0) mna.G.add_entry(ng_idx, ns_idx, -g_cgs);
-                mna.G.add_entry(ng_idx, ng_idx, g_cgs);
-                mna.b[ng_idx] += ieq_sg;
-            }
-        }
-
-        // Gate-Drain capacitance
-        if (cgd_ > 0.0) {
-            Real g_cgd = cgd_ / dt;
-            Real ieq_gd = g_cgd * (vgd - v_gd_prev_);
-
-            if (ng_idx >= 0) {
-                mna.G.add_entry(ng_idx, ng_idx, g_cgd);
-                if (nd_idx >= 0) mna.G.add_entry(ng_idx, nd_idx, -g_cgd);
-                mna.b[ng_idx] -= ieq_gd;
-            }
-            if (nd_idx >= 0) {
-                if (ng_idx >= 0) mna.G.add_entry(nd_idx, ng_idx, -g_cgd);
-                mna.G.add_entry(nd_idx, nd_idx, g_cgd);
-                mna.b[nd_idx] += ieq_gd;
-            }
-        }
-    }
+        const Real g = c / timestep;
+        stamp_admittance(mna.G, ng, other, g);
+        if (ng >= 0) mna.b[ng] += g * v_prev;
+        if (other >= 0) mna.b[other] -= g * v_prev;
+    };
+    stamp_capacitance(cgs_, ns, v_gs_prev_);
+    stamp_capacitance(cgd_, nd, v_gd_prev_);
 }
 
 template<Polarity P>
 void FinFET<P>::stamp_ac(ComplexMNASystem& sys, Real omega,
                           const DenseVector& dc_solution) const {
-    NodeId nd_node = nodes_[0];
-    NodeId ng_node = nodes_[1];
-    NodeId ns_node = nodes_[2];
+    Real vd = 0.0, vg = 0.0, vs = 0.0;
+    terminal_voltages(dc_solution, vd, vg, vs);
+    Real v_gs_eff = 0.0, v_ds_eff = 0.0;
+    compute_effective_voltages(vd, vg, vs, v_gs_eff, v_ds_eff);
+    const DrainCurrent dc = drain_current(v_gs_eff, v_ds_eff);
 
-    Real v_d = (nd_node == NODE_GND) ? 0.0 : dc_solution[nd_node - 1];
-    Real v_g = (ng_node == NODE_GND) ? 0.0 : dc_solution[ng_node - 1];
-    Real v_s = (ns_node == NODE_GND) ? 0.0 : dc_solution[ns_node - 1];
-
-    Real v_gs_eff, v_ds_eff;
-    compute_effective_voltages(v_d, v_g, v_s, v_gs_eff, v_ds_eff);
-
-    Real delta_t = temperature_ - tnom_;
-    Real vth_temp = get_effective_threshold() + kt1_ * delta_t;
-    Real vth_eff = vth_temp - dibl_ * std::max(0.0, v_ds_eff);
-
-    auto nd_idx = (nd_node == NODE_GND) ? -1 : static_cast<int>(nd_node - 1);
-    auto ng_idx = (ng_node == NODE_GND) ? -1 : static_cast<int>(ng_node - 1);
-    auto ns_idx = (ns_node == NODE_GND) ? -1 : static_cast<int>(ns_node - 1);
-
-    // Numerical differentiation for gm
-    Real delta = 1e-6;
-    Real u_temp = u0_ * std::pow(tnom_ / temperature_, 1.5);
-    Real beta_temp = cox_ * weff_ * u_temp / l_;
-
-    Real vgs_plus = v_gs_eff + delta;
-    Real vgs_eff_plus = vgs_plus - vth_eff;
-    Real id_plus = (vgs_eff_plus > 0.0) ? 0.5 * beta_temp * vgs_eff_plus * vgs_eff_plus : 0.0;
-
-    Real vgs_minus = v_gs_eff - delta;
-    Real vgs_eff_minus = vgs_minus - vth_eff;
-    Real id_minus = (vgs_eff_minus > 0.0) ? 0.5 * beta_temp * vgs_eff_minus * vgs_eff_minus : 0.0;
-
-    Real gm = (id_plus - id_minus) / (2.0 * delta);
-    Real gds = gmin_default;
-
-    Complex gm_complex(gm, 0.0);
-    Complex gds_complex(gds, 0.0);
-
-    if constexpr (P == Polarity::N) {
-        // N-channel AC stamps
-        if (nd_idx >= 0 && ng_idx >= 0) sys.Y.add_entry(nd_idx, ng_idx, gm_complex);
-        if (nd_idx >= 0 && ns_idx >= 0) sys.Y.add_entry(nd_idx, ns_idx, -gm_complex);
-        if (ns_idx >= 0 && ng_idx >= 0) sys.Y.add_entry(ns_idx, ng_idx, -gm_complex);
-        if (ns_idx >= 0) sys.Y.add_entry(ns_idx, ns_idx, gm_complex);
-
-        if (nd_idx >= 0) {
-            sys.Y.add_entry(nd_idx, nd_idx, gds_complex);
-            if (ns_idx >= 0) sys.Y.add_entry(nd_idx, ns_idx, -gds_complex);
-        }
-        if (ns_idx >= 0) {
-            if (nd_idx >= 0) sys.Y.add_entry(ns_idx, nd_idx, -gds_complex);
-            sys.Y.add_entry(ns_idx, ns_idx, gds_complex);
-        }
-
-        // Capacitances: G-S, G-D
-        if (cgs_ > 0.0) {
-            Complex y_cgs(0.0, omega * cgs_);
-            if (ng_idx >= 0) {
-                sys.Y.add_entry(ng_idx, ng_idx, y_cgs);
-                if (ns_idx >= 0) sys.Y.add_entry(ng_idx, ns_idx, -y_cgs);
-            }
-            if (ns_idx >= 0) {
-                if (ng_idx >= 0) sys.Y.add_entry(ns_idx, ng_idx, -y_cgs);
-                sys.Y.add_entry(ns_idx, ns_idx, y_cgs);
-            }
-        }
-        if (cgd_ > 0.0) {
-            Complex y_cgd(0.0, omega * cgd_);
-            if (ng_idx >= 0) {
-                sys.Y.add_entry(ng_idx, ng_idx, y_cgd);
-                if (nd_idx >= 0) sys.Y.add_entry(ng_idx, nd_idx, -y_cgd);
-            }
-            if (nd_idx >= 0) {
-                if (ng_idx >= 0) sys.Y.add_entry(nd_idx, ng_idx, -y_cgd);
-                sys.Y.add_entry(nd_idx, nd_idx, y_cgd);
-            }
-        }
-    } else {
-        // P-channel AC stamps
-        if (ns_idx >= 0 && ng_idx >= 0) sys.Y.add_entry(ns_idx, ng_idx, -gm_complex);
-        if (ns_idx >= 0) sys.Y.add_entry(ns_idx, ns_idx, gm_complex);
-        if (nd_idx >= 0 && ng_idx >= 0) sys.Y.add_entry(nd_idx, ng_idx, gm_complex);
-        if (nd_idx >= 0) sys.Y.add_entry(nd_idx, nd_idx, -gm_complex);
-
-        if (ns_idx >= 0) {
-            if (nd_idx >= 0) sys.Y.add_entry(ns_idx, nd_idx, -gds_complex);
-            sys.Y.add_entry(ns_idx, ns_idx, gds_complex);
-        }
-        if (nd_idx >= 0) {
-            if (ns_idx >= 0) sys.Y.add_entry(nd_idx, ns_idx, gds_complex);
-            sys.Y.add_entry(nd_idx, nd_idx, -gds_complex);
-        }
-
-        // Capacitances: S-G, G-D
-        if (cgs_ > 0.0) {
-            Complex y_cgs(0.0, omega * cgs_);
-            if (ns_idx >= 0) {
-                sys.Y.add_entry(ns_idx, ns_idx, y_cgs);
-                if (ng_idx >= 0) sys.Y.add_entry(ns_idx, ng_idx, -y_cgs);
-            }
-            if (ng_idx >= 0) {
-                if (ns_idx >= 0) sys.Y.add_entry(ng_idx, ns_idx, -y_cgs);
-                sys.Y.add_entry(ng_idx, ng_idx, y_cgs);
-            }
-        }
-        if (cgd_ > 0.0) {
-            Complex y_cgd(0.0, omega * cgd_);
-            if (ng_idx >= 0) {
-                sys.Y.add_entry(ng_idx, ng_idx, y_cgd);
-                if (nd_idx >= 0) sys.Y.add_entry(ng_idx, nd_idx, -y_cgd);
-            }
-            if (nd_idx >= 0) {
-                if (ng_idx >= 0) sys.Y.add_entry(nd_idx, ng_idx, -y_cgd);
-                sys.Y.add_entry(nd_idx, nd_idx, y_cgd);
-            }
-        }
-    }
+    // The small-signal current from drain to source, gm vgs + gds vds, as in
+    // the DC stamp, with GMIN in parallel, and the gate capacitances
+    const int nd = node_index(nodes_[0]);
+    const int ng = node_index(nodes_[1]);
+    const int ns = node_index(nodes_[2]);
+    stamp_channel(sys.Y, nd, ng, ns, Complex(dc.gm, 0.0), Complex(dc.gds + gmin_default, 0.0));
+    if (cgs_ > 0.0) stamp_admittance(sys.Y, ng, ns, Complex(0.0, omega * cgs_));
+    if (cgd_ > 0.0) stamp_admittance(sys.Y, ng, nd, Complex(0.0, omega * cgd_));
 
     spdlog::trace("FinFET {} AC: gm={:.6e}S gds={:.6e}S @{:.3e}Hz",
-                 name_, gm, gds, omega / (2.0 * M_PI));
+                  name_, dc.gm, dc.gds, omega / (2.0 * M_PI));
 }
 
 template<Polarity P>
 std::vector<NoiseSource> FinFET<P>::get_noise_sources(const DenseVector& dc_solution,
                                                         Real frequency) const {
     std::vector<NoiseSource> sources;
+    Real vd = 0.0, vg = 0.0, vs = 0.0;
+    terminal_voltages(dc_solution, vd, vg, vs);
+    Real v_gs_eff = 0.0, v_ds_eff = 0.0;
+    compute_effective_voltages(vd, vg, vs, v_gs_eff, v_ds_eff);
+    const DrainCurrent dc = drain_current(v_gs_eff, v_ds_eff);
 
-    NodeId nd_node = nodes_[0];
-    NodeId ng_node = nodes_[1];
-    NodeId ns_node = nodes_[2];
-
-    Real v_d = (nd_node == NODE_GND) ? 0.0 : dc_solution[nd_node - 1];
-    Real v_g = (ng_node == NODE_GND) ? 0.0 : dc_solution[ng_node - 1];
-    Real v_s = (ns_node == NODE_GND) ? 0.0 : dc_solution[ns_node - 1];
-
-    Real v_gs_eff, v_ds_eff;
-    compute_effective_voltages(v_d, v_g, v_s, v_gs_eff, v_ds_eff);
-
-    Real vth_eff = get_effective_threshold();
-    Real u_temp = u0_ * std::pow(tnom_ / temperature_, 1.5);
-    Real beta_temp = cox_ * weff_ * u_temp / l_;
-
-    // Calculate gm for thermal noise using numerical differentiation
-    Real delta = 1e-6;
-    Real vgs_plus = v_gs_eff + delta;
-    Real vgs_eff_plus = vgs_plus - vth_eff;
-    Real id_plus = (vgs_eff_plus > 0.0) ? 0.5 * beta_temp * vgs_eff_plus * vgs_eff_plus : 0.0;
-
-    Real vgs_minus = v_gs_eff - delta;
-    Real vgs_eff_minus = vgs_minus - vth_eff;
-    Real id_minus = (vgs_eff_minus > 0.0) ? 0.5 * beta_temp * vgs_eff_minus * vgs_eff_minus : 0.0;
-
-    Real gm = (id_plus - id_minus) / (2.0 * delta);
-
-    // Channel thermal noise: I_n² = 4kT × γ × gm [A²/Hz]
-    Real gamma = 2.0 / 3.0;
-    Real thermal_psd = 4.0 * k_boltzmann * temperature_ * gamma * gm;
-
+    // Channel thermal noise: I_n^2 = 4 k T (2/3) gm [A^2/Hz]
+    const Real thermal_psd = 4.0 * k_boltzmann * temperature_ * (2.0 / 3.0) * std::abs(dc.gm);
     if (thermal_psd > 0.0) {
         NoiseSource thermal;
         thermal.name = name_ + "_thermal";
-        if constexpr (P == Polarity::N) {
-            thermal.node_p = nd_node;
-            thermal.node_n = ns_node;
-        } else {
-            thermal.node_p = ns_node;
-            thermal.node_n = nd_node;
-        }
+        thermal.node_p = nodes_[0];
+        thermal.node_n = nodes_[2];
         thermal.spectral_density = thermal_psd;
         thermal.is_current = true;
         sources.push_back(thermal);
     }
 
-    // Flicker noise: I_n² = KF × |ID|^AF / f [A²/Hz]
+    // Flicker noise: I_n^2 = KF |ID|^AF / f [A^2/Hz]
     if (kf_ > 0.0 && frequency > 0.0) {
-        Real vov = v_gs_eff - vth_eff;
-        Real id = (vov > 0.0) ? 0.5 * beta_temp * vov * vov : 0.0;
-        Real flicker_psd = kf_ * std::pow(std::abs(id), af_) / frequency;
-
         NoiseSource flicker;
         flicker.name = name_ + "_flicker";
-        if constexpr (P == Polarity::N) {
-            flicker.node_p = nd_node;
-            flicker.node_n = ns_node;
-        } else {
-            flicker.node_p = ns_node;
-            flicker.node_n = nd_node;
-        }
-        flicker.spectral_density = flicker_psd;
+        flicker.node_p = nodes_[0];
+        flicker.node_n = nodes_[2];
+        flicker.spectral_density = kf_ * std::pow(std::abs(dc.id), af_) / frequency;
         flicker.is_current = true;
         sources.push_back(flicker);
     }
-
     return sources;
 }
 
 template<Polarity P>
 void FinFET<P>::accept_solution(const DenseVector& node_voltages) {
-    NodeId nd_node = nodes_[0];
-    NodeId ng_node = nodes_[1];
-    NodeId ns_node = nodes_[2];
-
-    Real v_d = (nd_node == NODE_GND) ? 0.0 : node_voltages[nd_node];
-    Real v_g = (ng_node == NODE_GND) ? 0.0 : node_voltages[ng_node];
-    Real v_s = (ns_node == NODE_GND) ? 0.0 : node_voltages[ns_node];
-
-    if constexpr (P == Polarity::N) {
-        v_gs_prev_ = v_g - v_s;
-        v_gd_prev_ = v_g - v_d;
-    } else {
-        v_gs_prev_ = v_s - v_g;  // Store vsg for P-channel
-        v_gd_prev_ = v_g - v_d;  // Store vgd
-    }
+    // node k at element k, ground at element 0 (Device::accept_solution);
+    // the capacitances keep Vg - Vs and Vg - Vd for both polarities
+    const Real v_d = (nodes_[0] == NODE_GND) ? 0.0 : node_voltages[nodes_[0]];
+    const Real v_g = (nodes_[1] == NODE_GND) ? 0.0 : node_voltages[nodes_[1]];
+    const Real v_s = (nodes_[2] == NODE_GND) ? 0.0 : node_voltages[nodes_[2]];
+    v_gs_prev_ = v_g - v_s;
+    v_gd_prev_ = v_g - v_d;
 }
 
 template<Polarity P>

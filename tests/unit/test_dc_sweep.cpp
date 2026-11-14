@@ -9,6 +9,7 @@
 #include "kirimaspice/devices/finfet.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
 #include "kirimaspice/parser/netlist_parser.hpp"
+#include "kirimaspice/solvers/transient_solver.hpp"
 
 using namespace kirimaspice;
 using namespace kirimaspice::circuit;
@@ -680,4 +681,34 @@ TEST(FinFETGainFactor, CardAndInstanceSetTheParameters) {
     auto* m1 = dynamic_cast<devices::FinFET_N*>(parsed.circuit->get_device("M1").get());
     ASSERT_NE(m1, nullptr);
     EXPECT_DOUBLE_EQ(m1->get_parameter("cgs").value(), 1e-15);  // the device's default
+}
+
+// The gate capacitances of a FinFET charge through the gate resistor with the
+// time constant R (CGS + CGD) and then carry no current: a gate fed through
+// 1 MOhm from a 1 V step settles at 1 V. Backward Euler, the FinFET's own
+// integration, follows 1 - exp(-t / tau) to within a few percent at
+// dt = tau / 20.
+TEST(FinFETGateCapacitance, ChargesThroughTheGateResistor) {
+    CircuitGraph circuit;
+    circuit.add_voltage_source("VD", "d", "0", 0.8);
+    circuit.add_pulse_voltage_source("VG", "in", "0", 0.0, 1.0, 0.0, 1e-12, 1e-12, 1.0, 2.0);
+    circuit.add_resistor("RG", "in", "g", 1e6);
+    const Real cgs = 1e-15, cgd = 1e-16;
+    circuit.add_finfet_n("M1", "d", "g", "0", 1, 30e-9, 7e-9, 0.4, 300e-4, 1e5, 70e-3, 0.05,
+                         1e-9, cgs, cgd, 0.0, 1.0, -1e-3, 300.15, 1e-6);
+    const Real tau = 1e6 * (cgs + cgd);
+    SimulationConfig config;
+    config.transient.use_adaptive_timestep = false;
+    config.transient.method = IntegrationMethod::BACKWARD_EULER;
+    TransientSolver solver(circuit, config);
+    TransientResult result = solver.solve(0.0, 10.0 * tau, tau / 20.0);
+    ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
+    const NodeId g = circuit.get_node_id("g");
+    for (const auto& tp : result.timepoints) {
+        if (tp.time > 0.0) {
+            EXPECT_NEAR(tp.node_voltages[g - 1], 1.0 - std::exp(-tp.time / tau), 0.03)
+                << "t=" << tp.time;
+        }
+    }
+    EXPECT_NEAR(result.timepoints.back().node_voltages[g - 1], 1.0, 1e-3);
 }
