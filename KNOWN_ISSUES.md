@@ -93,33 +93,46 @@ says otherwise.
 
 ## Device models
 
-- **BSIM4 noise uses a separate, simplified current model.** The operating
-  point, DC, transient and AC analyses evaluate BSIM4 through `BSIM4Core`
-  (`src/devices/bsim4_core.cpp`). The noise sources
-  (`MOSFET_BSIM4::get_noise_sources`) instead use `compute_drain_current`
-  and `compute_threshold_voltage` in `src/devices/mosfet_bsim4.cpp`, with a
-  numerical derivative for gm.
-- **The default of BSIM4's UB is under review.** It is 2.5e-21 (m/V)², and
-  the comment beside it says it was changed from 1.0e-19 to follow a
-  0.18 µm process model card. Whether this matches the default in the BSIM4
-  manual is not confirmed.
+- **BSIM4 noise and the BSIM4 parameter extractor use a separate,
+  simplified current model.** The operating point, DC, transient and AC
+  analyses evaluate BSIM4 through `BSIM4Core` (`src/devices/bsim4_core.cpp`).
+  The noise sources (`MOSFET_BSIM4::get_noise_sources`) and
+  `BSIM4ParameterExtractor` instead use `compute_drain_current` and
+  `compute_threshold_voltage` in `src/devices/mosfet_bsim4.cpp`.
+- **BSIM4 has no DC model of its source and drain junctions.** ngspice-47's
+  `i(vd)` holds their GMIN currents as well (10<sup>−12</sup> S times the
+  junction voltage), which shows below the threshold: for the card of
+  `tests/unit/test_bsim4_reference.cpp` at V<sub>GS</sub> = 0.2 V the
+  channel currents agree and `i(vd)` is larger by GMIN·V<sub>DB</sub>.
+- **BSIM4's MOBMOD 3 (the high-k mobility model) to 6 are computed as
+  MOBMOD 0,** without a warning. MOBMOD 0, 1 and 2 follow the BSIM4 4.8.3
+  code.
+- **BSIM4's threshold differs from ngspice-47's by up to 10 µV with body
+  bias** (1 µV at V<sub>BS</sub> = 0, 6 to 10 µV from −0.5 V to −3 V, for
+  the card of the reference test). The cause is not confirmed; the BSIM4
+  code's k/q (8.617087·10<sup>−5</sup> V/K) differs from the one
+  kirimaspice uses (CODATA, 8.617333·10<sup>−5</sup> V/K) by 2.8·10<sup>−5</sup>,
+  which moves φ by about 12 µV (an estimate, not checked).
+- **BSIM4's gm, gds and gmb are central differences of its drain current**
+  (`BSIM4Core::evaluate`), so a stamp evaluates the current seven times.
+  `BSIM4Core::compute_cdrain` still computes analytic derivatives, which are
+  not used.
 - **JFET cannot be used from a netlist.** The library has a JFET model
   (`include/kirimaspice/devices/jfet.hpp`), but the parser has no `J`
-  element.
-- **The FinFET's current has no channel length.** Its gain factor is
-  β = C<sub>ox</sub>·W<sub>eff</sub>·µ (`beta_` in `src/devices/finfet.cpp`),
-  where a MOSFET's is µ·C<sub>ox</sub>·W/L, so a FinFET with the defaults
-  of `CircuitGraph::add_finfet_n` carries about 3 pA at
-  V<sub>GS</sub> = V<sub>DS</sub> = 0.8 V (read in the code; the current
-  measured at the commit that gave the FinFET its temperature).
-- **BSIM4's operating point differs from ngspice-47 by 2 % for a small
-  model card.** An NMOS with 10 kΩ from 1.8 V to its drain and its gate at
-  1 V (`L=0.18u W=1u`, `level=14 version=4.8.1 toxe=3e-9 vth0=0.5 u0=0.067
-  vsat=8e4`) gives `V(d)` = 0.6914 V, where ngspice-47 gives 0.6785 V. Both
-  use K1 = 0.3815354 and K2 = −0.06627691 here (ngspice-47 given these
-  values reproduces its result), and with `k1=0 k2=0` the two agree to
-  0.7 mV (0.2987 V and 0.2980 V), so the difference lies in the parts of
-  the model that K1 or K2 enter. Which part is not confirmed.
+  element. Its gate capacitances put C/dt (V − V<sub>prev</sub>) of the
+  present iterate into the right-hand side, the form that the GaN HEMT,
+  the VDMOS and the FinFET had before their fixes (read in the code; not
+  run).
+- **The FinFET is a simplified square-law model** (`src/devices/finfet.cpp`).
+  Below the threshold its current is β·V<sub>t</sub><sup>2</sup>·exp(…)·(1 −
+  exp(−V<sub>DS</sub>/V<sub>t</sub>)), which at the threshold is about
+  β·V<sub>t</sub><sup>2</sup> where the square law above it starts at 0, so
+  the current jumps there (read in the code). W<sub>eff</sub> is
+  NFIN·HFIN, without the fin's other side and top. Drain and source are not
+  swapped when V<sub>DS</sub> < 0. Its parameters are not in the reference
+  manual.
+- **The GaN HEMT, VDMOS and FinFET integrate their capacitances by
+  backward Euler** whatever integration method the transient uses.
 - KLU is the only working linear solver. The SuperLU_DIST backend is a
   placeholder: asking for it falls back to KLU.
 

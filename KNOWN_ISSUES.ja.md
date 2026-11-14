@@ -73,25 +73,35 @@ ngspice について書いていることは、それぞれのマニュアルに
 
 ## デバイスモデル
 
-- **BSIM4 のノイズは、別の簡略化した電流のモデルを使います。** 動作点、DC、過渡、AC の解析は
-  `BSIM4Core`（`src/devices/bsim4_core.cpp`）を通して BSIM4 を評価します。ノイズ源
-  （`MOSFET_BSIM4::get_noise_sources`）は、代わりに `src/devices/mosfet_bsim4.cpp` の
-  `compute_drain_current` と `compute_threshold_voltage` を使い、gm を数値微分で求めます。
-- **BSIM4 の UB の既定値は見直し中です。** 値は 2.5e-21 (m/V)² で、横のコメントは、0.18 µm の
-  プロセスのモデルカードに合わせて 1.0e-19 から変えたと書いています。BSIM4 マニュアルの
-  既定値と合っているかは未確認です。
+- **BSIM4 のノイズと BSIM4 のパラメーター抽出は、別の簡略化した電流のモデルを使います。** 動作点、
+  DC、過渡、AC の解析は `BSIM4Core`（`src/devices/bsim4_core.cpp`）を通して BSIM4 を評価します。
+  ノイズ源（`MOSFET_BSIM4::get_noise_sources`）と `BSIM4ParameterExtractor` は、代わりに
+  `src/devices/mosfet_bsim4.cpp` の `compute_drain_current` と `compute_threshold_voltage` を使います。
+- **BSIM4 には、ソースとドレインの接合の DC モデルがありません。** ngspice-47 の `i(vd)` は、これらの
+  GMIN の電流（10<sup>−12</sup> S と接合の電圧の積）も含むので、しきい値より下で差が見えます。
+  `tests/unit/test_bsim4_reference.cpp` のカードで V<sub>GS</sub> = 0.2 V のとき、チャネルの電流は
+  一致し、`i(vd)` は GMIN·V<sub>DB</sub> だけ大きくなります。
+- **BSIM4 の MOBMOD 3（high-k の移動度モデル）〜6 は、警告なしに MOBMOD 0 として計算します。**
+  MOBMOD 0、1、2 は BSIM4 4.8.3 のコードに従います。
+- **バックゲート電圧があると、BSIM4 のしきい値が ngspice-47 と最大 10 µV 違います**（参照テストの
+  カードで、V<sub>BS</sub> = 0 で 1 µV、−0.5 V から −3 V で 6〜10 µV）。原因は未確認です。BSIM4 の
+  コードの k/q（8.617087·10<sup>−5</sup> V/K）は、kirimaspice が使う値（CODATA、
+  8.617333·10<sup>−5</sup> V/K）と 2.8·10<sup>−5</sup> 違い、φ を約 12 µV 動かします（見積もりで、
+  確かめていません）。
+- **BSIM4 の gm、gds、gmb は、ドレイン電流の中心差分です**（`BSIM4Core::evaluate`）。そのため
+  1 回のスタンプで電流を 7 回計算します。`BSIM4Core::compute_cdrain` は解析的な微分もまだ計算して
+  いますが、使っていません。
 - **JFET はネットリストから使えません。** ライブラリには JFET のモデル
-  （`include/kirimaspice/devices/jfet.hpp`）がありますが、パーサーに `J` 素子がありません。
-- **FinFET の電流にチャネル長がありません。** 利得係数が β = C<sub>ox</sub>·W<sub>eff</sub>·µ
-  （`src/devices/finfet.cpp` の `beta_`）で、MOSFET の µ·C<sub>ox</sub>·W/L になっていないので、
-  `CircuitGraph::add_finfet_n` の既定値の FinFET は、V<sub>GS</sub> = V<sub>DS</sub> = 0.8 V で約 3 pA しか
-  流しません（コードで読みました。電流は、FinFET に温度を届けたコミットで測りました）。
-- **小さなモデルカードで、BSIM4 の動作点が ngspice-47 と 2 % 違います。** 1.8 V からドレインへ 10 kΩ を
-  つなぎ、ゲートを 1 V にした NMOS（`L=0.18u W=1u`、`level=14 version=4.8.1 toxe=3e-9 vth0=0.5 u0=0.067
-  vsat=8e4`）は `V(d)` = 0.6914 V になります。ngspice-47 では 0.6785 V です。どちらもここで
-  K1 = 0.3815354、K2 = −0.06627691 を使い（ngspice-47 にこの値を与えると同じ結果になります）、`k1=0 k2=0` では
-  両者は 0.7 mV まで一致する（0.2987 V と 0.2980 V）ので、違いは K1 か K2 が入るモデルの部分にあります。
-  どの部分かは未確認です。
+  （`include/kirimaspice/devices/jfet.hpp`）がありますが、パーサーに `J` 素子がありません。ゲートの
+  容量は、現在の反復の C/dt (V − V<sub>prev</sub>) を右辺に入れています。GaN HEMT、VDMOS、
+  FinFET が修正前に持っていた形です（コードで読みました。実行はしていません）。
+- **FinFET は簡略化した二乗則のモデルです**（`src/devices/finfet.cpp`）。しきい値より下の電流は
+  β·V<sub>t</sub><sup>2</sup>·exp(…)·(1 − exp(−V<sub>DS</sub>/V<sub>t</sub>)) で、しきい値では
+  ほぼ β·V<sub>t</sub><sup>2</sup> になりますが、その上の二乗則は 0 から始まるので、そこで電流が跳びます
+  （コードで読みました）。W<sub>eff</sub> は NFIN·HFIN で、フィンの反対側と上面を含みません。
+  V<sub>DS</sub> < 0 のときにドレインとソースを入れ替えません。パラメーターはリファレンス
+  マニュアルに載っていません。
+- **GaN HEMT、VDMOS、FinFET は、過渡解析の積分法にかかわらず、容量を後退オイラーで積分します。**
 - 動く線形ソルバーは KLU だけです。SuperLU_DIST のバックエンドは仮置きで、指定しても KLU に
   切り替わります。
 
