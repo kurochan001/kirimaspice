@@ -1,9 +1,0 @@
-* Simple RC circuit example
-* RC time constant = 1ms
-
-V1 1 0 DC 5.0
-R1 1 2 1k
-C1 2 0 1u
-
-.TRAN 1u 5m
-.END

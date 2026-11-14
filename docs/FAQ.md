@@ -114,14 +114,16 @@ that the file with the model is read with `.INCLUDE` or `.LIB`.
 Compare it with an analytic solution where one exists, or with ngspice,
 recording its version. The project's own [expected values](GLOSSARY.md#expected-value)
 come from model specifications, analytic solutions and recorded reference
-runs, never from the implementation itself. The User Manual gives two
-checks: an RC low-pass filter at 1 kHz (−16.072 dB, −80.96°) and an RC
+runs, never from the implementation itself. The [examples](../examples/README.md)
+are netlists with analytic solutions, and CTest checks each of them: for
+example an RC low-pass filter at 1 kHz (−16.072 dB, −80.96°) and an RC
 charge at 1 ms (0.632105 for the exact 0.632121).
 
 ### Which integration method should I use?
 
-The default, `trap`, is second order. On an RC discharge from 1 V with
-`.TRAN 10u 1m` (RC = 1 ms) the value at 1 ms was 0.367895 with `trap`,
+The default, `trap`, is second order. On an RC discharge from 1 V
+([rc_discharge.sp](../examples/rc_discharge.sp): `.IC V(out)=1` and
+`.TRAN 10u 1m UIC`, RC = 1 ms) the value at 1 ms was 0.367895 with `trap`,
 0.367913 with `gear` (BDF2) and 0.369711 with `euler` (backward Euler,
 first order), for the exact 0.367879. Set the method with
 `.OPTIONS METHOD=<name>`.

@@ -72,6 +72,17 @@ set_tests_properties(cli_op_gnd_is_ground PROPERTIES
     PASS_REGULAR_EXPRESSION "V\\(a\\) = 1 V\nV\\(mid\\) = 0\\.75 V\nI\\(V1\\) = -0\\.00025 A"
 )
 
+# The netlists of examples/, run by the program and checked against the
+# analytic solutions that examples/README.md and the manuals quote.
+foreach(example_case divider params_subckt rc_step rc_discharge rc_lowpass_ac diode_iv)
+    add_test(NAME example_${example_case}
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/scripts/test_examples.py
+            --binary $<TARGET_FILE:kirimaspice>
+            --examples ${CMAKE_SOURCE_DIR}/examples
+            --case ${example_case}
+    )
+endforeach()
+
 #==============================================================================
 # Unit Tests
 #==============================================================================
