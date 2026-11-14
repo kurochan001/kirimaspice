@@ -13,8 +13,9 @@ and SuiteSparse 7.6.1 unless an entry says otherwise.
     include `tests/models/2N3904.lib` and `tests/models/1N4148.lib`, which are
     not in the repository.
   - `CMOS_Inverter.DCTransferCharacteristic_HighInput` checks that the output
-    voltage is at least 0 V and gets -4.1e-25 V on macOS (arm64). It passes
-    on Ubuntu 24.04 (x86-64) with GCC 13.3.0 and clang 18.1.3.
+    voltage is at least 0 V and gets -4.1e-25 V on macOS (arm64) and on
+    Ubuntu 24.04 (arm64). It passes on Ubuntu 24.04 (x86-64) with GCC 13.3.0
+    and clang 18.1.3.
 - **Twenty comparison tests are always skipped.** They look for reference
   data under `tests/validation/` (for example
   `tests/validation/rc_lowpass_ac_ngspice.csv`), but the files are in
@@ -147,4 +148,12 @@ says otherwise.
   18.1.3 (libstdc++), CMake 3.31.6 and SuiteSparse 7.6.1 from
   `libsuitesparse-dev`; the results differ from macOS only in
   `CMOS_Inverter.DCTransferCharacteristic_HighInput`, which passes.
+- On 2026-11-14, the README's steps were followed in a fresh `ubuntu:24.04`
+  container on arm64 (Colima on macOS): GCC 13.3.0, CMake 3.28.3, Ninja
+  1.11.1, Python 3.12.3, Git 2.43.0 and `libsuitesparse-dev`
+  1:7.6.1+dfsg-1build1. It built, and 1097 tests were registered: 1066
+  passed, 23 were skipped, 1 is disabled, and the 7 listed tests failed,
+  as on macOS (arm64).
+- CMake 3.25, the minimum the README names, is not tested; the oldest
+  tested is 3.28.3.
 - Windows is not tested.

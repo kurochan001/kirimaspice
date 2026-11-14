@@ -11,8 +11,8 @@
   - `ManufacturerModels.*`（5 件）と `BJTModelTest.SimpleCommonEmitter` は、リポジトリにない
     `tests/models/2N3904.lib` と `tests/models/1N4148.lib` を読み込みます。
   - `CMOS_Inverter.DCTransferCharacteristic_HighInput` は、出力電圧が 0 V 以上であることを
-    確かめ、macOS（arm64）では -4.1e-25 V を得ます。Ubuntu 24.04（x86-64）の GCC 13.3.0 と
-    clang 18.1.3 では合格します。
+    確かめ、macOS（arm64）と Ubuntu 24.04（arm64）では -4.1e-25 V を得ます。Ubuntu 24.04（x86-64）の
+    GCC 13.3.0 と clang 18.1.3 では合格します。
 - **比較のテスト 20 件が、常にスキップされます。** テストは参照データを `tests/validation/` の下で
   探しますが（例：`tests/validation/rc_lowpass_ac_ngspice.csv`）、ファイルは `validation/` にあります。
   テストが探す場所にファイルを置くと、20 件のうち 19 件が合格し、
@@ -118,4 +118,9 @@ ngspice について書いていることは、それぞれのマニュアルに
 - Ubuntu 24.04（x86-64）では、CI が GCC 13.3.0 と clang 18.1.3（libstdc++）、CMake 3.31.6、
   `libsuitesparse-dev` の SuiteSparse 7.6.1 でビルドとテストを行います。macOS との違いは、
   `CMOS_Inverter.DCTransferCharacteristic_HighInput` が合格することだけです。
+- 2026-11-14 に、arm64 の新しい `ubuntu:24.04` のコンテナ（macOS 上の Colima）で、README の手順どおりに
+  行いました。GCC 13.3.0、CMake 3.28.3、Ninja 1.11.1、Python 3.12.3、Git 2.43.0、`libsuitesparse-dev`
+  1:7.6.1+dfsg-1build1 で、ビルドでき、登録された 1097 件のテストのうち、1066 件が合格、23 件がスキップ、
+  1 件が無効で、一覧の 7 件が macOS（arm64）と同じく失敗しました。
+- README が最低の版としている CMake 3.25 は試していません。試した中でいちばん古いのは 3.28.3 です。
 - Windows は試していません。
