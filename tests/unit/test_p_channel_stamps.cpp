@@ -15,6 +15,7 @@
 #include <string>
 
 #include "kirimaspice/circuit/circuit_graph.hpp"
+#include "kirimaspice/devices/finfet.hpp"
 #include "kirimaspice/solvers/ac_solver.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
 
@@ -124,4 +125,34 @@ TEST(PChannelStamps, FinFetMirrorsTheNChannel) {
             }
         },
         0.2, 1.0, 1.0, 1.2, 10e3);
+}
+
+// KT1 is the temperature coefficient of the signed threshold: with VTH =
+// -0.4 V and KT1 = +1 mV/K the P-channel threshold moves toward 0 as the
+// N-channel one with VTH = 0.4 V and KT1 = -1 mV/K does, so at 400 K the
+// two still mirror each other.
+TEST(PChannelStamps, FinFetThresholdFollowsTheTemperatureAsTheMirror) {
+    auto current = [](bool p) {
+        CircuitGraph c;
+        const Real s = p ? -1.0 : 1.0;
+        c.add_voltage_source("VD", "d", "0", s * 0.8, 0.0);
+        c.add_voltage_source("VG", "g", "0", s * 0.8, 0.0);
+        if (p) {
+            c.add_finfet_p("M1", "d", "g", "0", 1, 30e-9, 7e-9, -0.4, 300e-4, 1e5, 70e-3, 0.05,
+                           1e-9, 1e-15, 1e-16, 0.0, 1.0, 1e-3, 300.15, 1e-6);
+            dynamic_cast<devices::FinFET_P*>(c.get_device("M1").get())->set_temperature(400.0);
+        } else {
+            c.add_finfet_n("M1", "d", "g", "0", 1, 30e-9, 7e-9, 0.4, 300e-4, 1e5, 70e-3, 0.05,
+                           1e-9, 1e-15, 1e-16, 0.0, 1.0, -1e-3, 300.15, 1e-6);
+            dynamic_cast<devices::FinFET_N*>(c.get_device("M1").get())->set_temperature(400.0);
+        }
+        SimulationConfig config;
+        DCSolver solver(c, config);
+        DenseVector solution;
+        SolverStats stats;
+        EXPECT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS);
+        return solver.get_branch_current("VD").value();
+    };
+    const Real n_current = current(false);
+    EXPECT_NEAR(current(true), -n_current, 1e-9 * std::abs(n_current));
 }

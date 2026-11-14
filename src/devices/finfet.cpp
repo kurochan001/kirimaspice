@@ -102,9 +102,12 @@ void stamp_admittance(Matrix& m, int a, int b, T y) {
 
 template<Polarity P>
 typename FinFET<P>::DrainCurrent FinFET<P>::drain_current(Real v_gs_eff, Real v_ds_eff) const {
-    // Threshold at the operating temperature, lowered by DIBL for VDS > 0
+    // Threshold at the operating temperature, VTH + KT1 (T - TNOM) with VTH
+    // signed as given (negative for P), taken as a magnitude for P; lowered
+    // by DIBL for VDS > 0
     const Real delta_t = temperature_ - tnom_;
-    const Real vth_temp = get_effective_threshold() + kt1_ * delta_t;
+    const Real vth_signed = vth_ + kt1_ * delta_t;
+    const Real vth_temp = Traits::use_abs_threshold ? std::abs(vth_signed) : vth_signed;
     const Real dibl_slope = (v_ds_eff > 0.0) ? dibl_ : 0.0;  // -d Vth_eff / d VDS
     const Real vth_eff = vth_temp - dibl_slope * v_ds_eff;
 
