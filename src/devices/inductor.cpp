@@ -29,7 +29,7 @@ Inductor::Inductor(DeviceId id, const std::string& name,
     , last_method_(IntegrationMethod::BACKWARD_EULER)  // Default method
     , timestep_saved_(1e-9)  // Default timestep for saved state
     , method_saved_(IntegrationMethod::BACKWARD_EULER)  // Default method for saved state
-    , first_accept_(true)  // Sprint 2.1 fix: initialize to true
+    , first_accept_(true)  // initialize to true
     , bdf_alpha0_(0.0)
     , bdf_alpha1_(0.0)
     , bdf_alpha2_(0.0)
@@ -421,7 +421,7 @@ void Inductor::accept_solution(const DenseVector& node_voltages) {
     voltage_prev_ = voltage_new;
 
     // Update flux and save previous flux
-    // Sprint 2.1 fix: On first call, initialize flux_prev from current state
+    // On the first call, initialize flux_prev from current state
     if (first_accept_) {
         // First accept_solution(): Initialize history from DC operating point
         flux_ = inductance_ * current_prev_;

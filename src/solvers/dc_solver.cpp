@@ -4,7 +4,7 @@
 // src/solvers/dc_solver.cpp
 #include "kirimaspice/solvers/dc_solver.hpp"
 
-// Step 2.4: Reduced device includes - only include what's directly used
+// Only the device headers used directly here are included
 #include "kirimaspice/devices/device.hpp"          // Base class for polymorphism
 #include "kirimaspice/devices/voltage_source.hpp"  // Source scaling/sweep
 #include "kirimaspice/devices/current_source.hpp"  // Source scaling
@@ -277,7 +277,7 @@ void DCSolver::build_mna_system(const DenseVector& node_voltages) {
 void DCSolver::stamp_devices(const DenseVector& node_voltages) {
     const auto& devices = circuit_.get_devices();
 
-    // Step 2.3: Use unified ParallelDeviceStamper
+    // Use unified ParallelDeviceStamper
     // benchmark results: threshold=10000 based on empirical data
     ParallelDeviceStamper::execute(
         devices, mna_, thread_local_mna_mgr_,
@@ -321,7 +321,7 @@ void DCSolver::compute_residual(const DenseVector& x, DenseVector& f) const {
 bool DCSolver::check_convergence(const DenseVector& x_new,
                                  const DenseVector& x_old,
                                  const DenseVector& f_new) const {
-    // Step 2.1: Delegate to ConvergenceChecker
+    // Delegate to ConvergenceChecker
     const auto& dc_config = config_.dc;
 
     // Build ConvergenceConfig from SimulationConfig

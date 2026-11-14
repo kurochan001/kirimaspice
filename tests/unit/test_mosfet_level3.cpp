@@ -3,7 +3,7 @@
 
 // tests/unit/test_mosfet_level3.cpp
 #include <gtest/gtest.h>
-#include "kirimaspice/devices/mosfet_level3.hpp"  // Step 5.4: Unified template
+#include "kirimaspice/devices/mosfet_level3.hpp"  // Unified template
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include <cmath>
 

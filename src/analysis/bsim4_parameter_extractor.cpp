@@ -3,7 +3,7 @@
 
 // src/analysis/bsim4_parameter_extractor.cpp
 #include "kirimaspice/analysis/bsim4_parameter_extractor.hpp"
-#include "kirimaspice/devices/mosfet_bsim4.hpp"  // Step 5.7: Unified BSIM4 template
+#include "kirimaspice/devices/mosfet_bsim4.hpp"  // Unified BSIM4 template
 #include <spdlog/spdlog.h>
 #include <nlopt.hpp>
 #include <cmath>

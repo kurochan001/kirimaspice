@@ -276,14 +276,14 @@ add_library(kirimaspice_lib STATIC
     src/core/types.cpp
     src/core/matrix_types.cpp
 
-    # Parser (Week 1-2)
+    # Parser
     src/parser/netlist_parser.cpp
 
-    # Circuit (Week 1-2)
+    # Circuit
     src/circuit/circuit_graph.cpp
     src/circuit/subcircuit.cpp  # Subcircuit support
 
-    # Devices (Week 3)
+    # Devices
     src/devices/resistor.cpp
     src/devices/capacitor.cpp
     src/devices/inductor.cpp
@@ -295,28 +295,19 @@ add_library(kirimaspice_lib STATIC
     src/devices/bjt_base.cpp    # BJT common base class
     src/devices/bjt_npn.cpp
     src/devices/bjt_pnp.cpp
-    # Step 5.1: mosfet_n.cpp and mosfet_p.cpp removed - now unified in mosfet_level1.cpp
     src/devices/mosfet_level1.cpp    # Unified Level 1 template (MOSFET_N/P)
-    # Step 5.4: mosfet_level3_n.cpp and mosfet_level3_p.cpp removed - now unified in mosfet_level3.cpp
     src/devices/mosfet_level3.cpp    # Unified Level 3 template (MOSFET_Level3_N/P)
-    # Step 4.1: jfet_n.cpp and jfet_p.cpp removed - now header-only template in jfet.hpp
-    # Step 5.5: mosfet_bsim1_n.cpp and mosfet_bsim1_p.cpp removed - now unified in mosfet_bsim1.cpp
-    src/devices/mosfet_bsim1.cpp    # Step 5.5: Unified BSIM1 template (MOSFET_BSIM1_N/P)
+    src/devices/mosfet_bsim1.cpp    # Unified BSIM1 template (MOSFET_BSIM1_N/P)
     src/devices/bsim3_core.cpp      # Shared BSIM3 DC core (Ids/Vth/Vdsat)
-    # Step 5.6: mosfet_bsim3_n.cpp and mosfet_bsim3_p.cpp removed - now unified in mosfet_bsim3.cpp
-    src/devices/mosfet_bsim3.cpp    # Step 5.6: Unified BSIM3 template (MOSFET_BSIM3_N/P)
-    # Step 5.7: mosfet_bsim4_n.cpp and mosfet_bsim4_p.cpp removed - now unified in mosfet_bsim4.cpp
-    src/devices/mosfet_bsim4.cpp    # Step 5.7: Unified BSIM4 template (MOSFET_BSIM4_N/P)
+    src/devices/mosfet_bsim3.cpp    # Unified BSIM3 template (MOSFET_BSIM3_N/P)
+    src/devices/mosfet_bsim4.cpp    # Unified BSIM4 template (MOSFET_BSIM4_N/P)
     src/devices/bsim4_core.cpp      # Shared BSIM4 evaluator
     src/devices/mosfet_bsim4_params.cpp  # BSIM4 parameter initialization
-    src/devices/mosfet_sic.cpp      # Step 5.3: Unified SiC MOSFET template
-    # Step 3.1: gan_hemt_n.cpp and gan_hemt_p.cpp removed - now header-only template in gan_hemt.hpp
-    src/devices/finfet.cpp          # Step 5.2: Unified FinFET template
-    # Step 3.2: vdmos_n.cpp and vdmos_p.cpp removed - now header-only template in vdmos.hpp
-    # Step 3.3: igbt_n.cpp and igbt_p.cpp removed - now header-only template in igbt.hpp
-    # Step 4.3: scr_n.cpp and scr_p.cpp removed - now header-only template in scr.hpp
+    src/devices/mosfet_sic.cpp      # Unified SiC MOSFET template
+    src/devices/finfet.cpp          # Unified FinFET template
     src/devices/triac.cpp           # TRIAC (Triode for Alternating Current)
-    # Step 4.2: mesfet_n.cpp and mesfet_p.cpp removed - now header-only template in mesfet.hpp
+    # JFET, GaN HEMT, VDMOS, IGBT, SCR and MESFET are header-only templates
+    # (jfet.hpp, gan_hemt.hpp, vdmos.hpp, igbt.hpp, scr.hpp, mesfet.hpp).
 
     # Controlled Sources
     src/devices/vcvs.cpp
@@ -331,12 +322,12 @@ add_library(kirimaspice_lib STATIC
     src/devices/tline_lossless.cpp
     src/devices/tline_lossy.cpp
 
-    # Solvers (Week 3-5)
+    # Solvers
     src/solvers/klu_solver.cpp
     src/solvers/solver_factory.cpp
     src/solvers/superlu_dist_solver.cpp
     src/solvers/dc_solver.cpp
-    src/solvers/convergence_checker.cpp  # Step 2.1
+    src/solvers/convergence_checker.cpp
     src/solvers/transient_solver.cpp
     src/solvers/ac_solver.cpp
     src/solvers/noise_solver.cpp
@@ -347,7 +338,7 @@ add_library(kirimaspice_lib STATIC
     src/solvers/pole_zero_solver.cpp
     src/solvers/distortion_solver.cpp
     src/solvers/sparam_solver.cpp
-    src/solvers/temperature_utils.cpp  # Step 2.4
+    src/solvers/temperature_utils.cpp
 
     # Analysis
     src/analysis/random_distribution.cpp  # Monte Carlo distributions

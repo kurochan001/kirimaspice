@@ -6,7 +6,7 @@
 
 #include <gtest/gtest.h>
 #include "kirimaspice/circuit/circuit_graph.hpp"
-#include "kirimaspice/devices/scr.hpp"  // Step 4.3: Unified SCR template
+#include "kirimaspice/devices/scr.hpp"  // Unified SCR template
 #include "kirimaspice/solvers/dc_solver.hpp"
 #include "kirimaspice/solvers/transient_solver.hpp"
 #include "kirimaspice/core/types.hpp"

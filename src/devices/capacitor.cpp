@@ -27,7 +27,7 @@ Capacitor::Capacitor(DeviceId id, const std::string& name,
     , last_method_(IntegrationMethod::BACKWARD_EULER)  // Default method
     , timestep_saved_(1e-9)  // Initialize saved timestep
     , method_saved_(IntegrationMethod::BACKWARD_EULER)  // Initialize saved method
-    , first_accept_(true)  // Sprint 2.1 fix: initialize to true
+    , first_accept_(true)  // initialize to true
     , bdf_alpha0_(0.0)
     , bdf_alpha1_(0.0)
     , bdf_alpha2_(0.0)
@@ -424,7 +424,7 @@ void Capacitor::accept_solution(const DenseVector& node_voltages) {
     voltage_prev_ = voltage_new;
 
     // Update charge and save previous charge
-    // Sprint 2.1 fix: On first call, initialize charge_prev from current state
+    // On the first call, initialize charge_prev from current state
     if (first_accept_) {
         // First accept_solution(): Initialize history from DC operating point
         // CRITICAL FIX: DC operating point has no current flow through capacitors

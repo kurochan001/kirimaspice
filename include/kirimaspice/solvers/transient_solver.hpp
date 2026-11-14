@@ -6,10 +6,10 @@
 
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/core/types.hpp"
-#include "kirimaspice/solvers/convergence_checker.hpp"  // Step 2.1
+#include "kirimaspice/solvers/convergence_checker.hpp"
 #include "kirimaspice/solvers/isparse_solver.hpp"
 #include "kirimaspice/solvers/solver_factory.hpp"
-#include "kirimaspice/solvers/thread_local_mna.hpp"  // Step 2.2
+#include "kirimaspice/solvers/thread_local_mna.hpp"
 #include <memory>
 #include <vector>
 #include <string>
@@ -93,7 +93,7 @@ private:
     std::unique_ptr<ISparseLinearSolver> lin_solver_;
     std::unique_ptr<DCSolver> dc_solver_;
 
-    // Step 2.2: Unified thread-local MNA manager for parallel device stamping
+    // Unified thread-local MNA manager for parallel device stamping
     ThreadLocalMNAManager thread_local_mna_mgr_;  ///< Thread-local MNA systems (reused across timesteps)
 
     // Adaptive order control state

@@ -5,7 +5,7 @@
 // MESFET Device Tests
 
 #include <gtest/gtest.h>
-#include "kirimaspice/devices/mesfet.hpp"  // Step 4.2: Unified MESFET template
+#include "kirimaspice/devices/mesfet.hpp"  // Unified MESFET template
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
 #include "kirimaspice/solvers/ac_solver.hpp"

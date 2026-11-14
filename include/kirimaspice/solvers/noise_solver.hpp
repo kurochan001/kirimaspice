@@ -46,11 +46,6 @@ struct NoiseResult {
  * - Thermal noise: 4kTR (resistors)
  * - Shot noise: 2qI (diodes, BJTs)
  * - Flicker noise: K_f * I^α / f^β (BJTs, MOSFETs)
- *
- * Implementation:
- * - Week 1: NoiseSolver infrastructure + resistor thermal noise + diode shot noise
- * - Week 2: BJT/MOSFET noise models (shot + flicker)
- * - Week 3: ngspice validation + documentation
  */
 class NoiseSolver {
 public:

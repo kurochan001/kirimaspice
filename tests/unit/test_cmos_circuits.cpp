@@ -5,7 +5,7 @@
 #include <gtest/gtest.h>
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
-#include "kirimaspice/devices/mosfet_level1.hpp"  // Step 5.1: Unified MOSFET Level 1
+#include "kirimaspice/devices/mosfet_level1.hpp"  // Unified MOSFET Level 1
 #include <cmath>
 
 using namespace kirimaspice;

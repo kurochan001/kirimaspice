@@ -4,7 +4,7 @@
 // tests/unit/test_bsim4_comprehensive.cpp
 // BSIM4 Comprehensive Testing and ngspice Comparison
 #include <gtest/gtest.h>
-#include "kirimaspice/devices/mosfet_bsim4.hpp"  // Step 5.7: Unified BSIM4 template
+#include "kirimaspice/devices/mosfet_bsim4.hpp"  // Unified BSIM4 template
 #include "kirimaspice/devices/mosfet_bsim4_params.hpp"
 #include "kirimaspice/devices/bsim4_core.hpp"
 #include <cmath>

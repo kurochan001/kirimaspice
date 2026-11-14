@@ -5,7 +5,7 @@
 #include <gtest/gtest.h>
 #include "kirimaspice/parser/netlist_parser.hpp"
 #include "kirimaspice/circuit/circuit_graph.hpp"
-#include "kirimaspice/devices/mosfet_level3.hpp"  // Step 5.4: Unified template
+#include "kirimaspice/devices/mosfet_level3.hpp"  // Unified template
 
 using namespace kirimaspice;
 using namespace kirimaspice::parser;

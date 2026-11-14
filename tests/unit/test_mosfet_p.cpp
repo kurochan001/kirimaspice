@@ -3,7 +3,7 @@
 
 // tests/unit/test_mosfet_p.cpp
 #include <gtest/gtest.h>
-#include "kirimaspice/devices/mosfet_level1.hpp"  // Step 5.1: Unified MOSFET Level 1
+#include "kirimaspice/devices/mosfet_level1.hpp"  // Unified MOSFET Level 1
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
 #include <cmath>

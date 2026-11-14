@@ -5,7 +5,7 @@
 // Meyer gate capacitance model tests
 
 #include <gtest/gtest.h>
-#include "kirimaspice/devices/mosfet_level3.hpp"  // Step 5.4: Unified template
+#include "kirimaspice/devices/mosfet_level3.hpp"  // Unified template
 #include <cmath>
 
 using namespace kirimaspice;

@@ -189,7 +189,7 @@ extern template class MOSFET_Level1<Polarity::P>;
 using MOSFET_N_Level1 = MOSFET_Level1<Polarity::N>;
 using MOSFET_P_Level1 = MOSFET_Level1<Polarity::P>;
 
-// Step 5.1: Primary type aliases (replaces mosfet_n.hpp/mosfet_p.hpp)
+// Primary type aliases
 using MOSFET_N = MOSFET_Level1<Polarity::N>;
 using MOSFET_P = MOSFET_Level1<Polarity::P>;
 

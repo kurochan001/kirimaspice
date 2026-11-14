@@ -7,10 +7,10 @@
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/core/matrix_types.hpp"
 #include "kirimaspice/core/types.hpp"
-#include "kirimaspice/solvers/convergence_checker.hpp"  // Step 2.1
+#include "kirimaspice/solvers/convergence_checker.hpp"
 #include "kirimaspice/solvers/isparse_solver.hpp"
 #include "kirimaspice/solvers/solver_factory.hpp"
-#include "kirimaspice/solvers/thread_local_mna.hpp"  // Step 2.2
+#include "kirimaspice/solvers/thread_local_mna.hpp"
 
 #include <memory>
 #include <optional>
@@ -71,7 +71,7 @@ private:
     DenseVector last_solution_;             ///< Last solved solution
     bool has_nonlinear_devices_ = false;    ///< True if circuit contains any nonlinear device (for voltage limiting)
 
-    // Step 2.2: Unified thread-local MNA manager for parallel device stamping
+    // Unified thread-local MNA manager for parallel device stamping
     ThreadLocalMNAManager thread_local_mna_mgr_;  ///< Thread-local MNA systems (reused across iterations)
 
     /// Build MNA system for current iteration

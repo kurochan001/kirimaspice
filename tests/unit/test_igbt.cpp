@@ -6,7 +6,7 @@
 
 #include <gtest/gtest.h>
 #include "kirimaspice/circuit/circuit_graph.hpp"
-#include "kirimaspice/devices/igbt.hpp"  // Step 3.3: Unified IGBT template
+#include "kirimaspice/devices/igbt.hpp"  // Unified IGBT template
 #include "kirimaspice/solvers/dc_solver.hpp"
 #include "kirimaspice/solvers/transient_solver.hpp"
 #include "kirimaspice/core/types.hpp"

@@ -4,7 +4,7 @@
 // include/kirimaspice/circuit/circuit_graph.hpp
 #pragma once
 #include "kirimaspice/core/types.hpp"
-#include "kirimaspice/devices/mosfet_level1.hpp"         // Step 5.1: Unified MOSFET Level 1 (MOSFET_N/P)
+#include "kirimaspice/devices/mosfet_level1.hpp"         // Unified MOSFET Level 1 (MOSFET_N/P)
 #include "kirimaspice/devices/mosfet_level3_params.hpp"
 #include "kirimaspice/devices/mosfet_bsim1_params.hpp"
 #include "kirimaspice/devices/mosfet_bsim3_params.hpp"
@@ -28,7 +28,7 @@ class CurrentSource;
 class Diode;
 class BJT_NPN;
 class BJT_PNP;
-// MOSFET_N and MOSFET_P are type aliases defined in mosfet_level1.hpp (Step 5.1)
+// MOSFET_N and MOSFET_P are type aliases defined in mosfet_level1.hpp
 class TLineLossless;
 class TLineLossy;
 }

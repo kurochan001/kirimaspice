@@ -6,8 +6,8 @@
  * @file temperature_utils.hpp
  * @brief Temperature utility functions for device temperature propagation
  *
- * Step 2.4: Moved implementation to .cpp to reduce header dependencies.
- * This header now contains only the function declaration.
+ * The implementation is in temperature_utils.cpp, so this header holds
+ * only the declaration and needs no device headers.
  */
 #pragma once
 

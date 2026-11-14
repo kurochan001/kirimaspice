@@ -6,8 +6,8 @@
 #include "kirimaspice/solvers/dc_solver.hpp"
 #include "kirimaspice/solvers/fourier_analyzer.hpp"
 
-// Step 2.4: Reduced device includes - only include what's directly used
-// Temperature-dependent device headers moved to temperature_utils.cpp
+// Only the device headers used directly here are included; the
+// temperature-dependent device headers are in temperature_utils.cpp
 #include "kirimaspice/devices/device.hpp"                     // Base class
 #include "kirimaspice/devices/time_varying_voltage_source.hpp" // set_time()
 #include "kirimaspice/solvers/temperature_utils.hpp"
@@ -285,7 +285,7 @@ void TransientSolver::stamp_devices_transient(const DenseVector& node_voltages,
 
     const auto& devices = circuit_.get_devices();
 
-    // Step 2.3: Use unified ParallelDeviceStamper
+    // Use unified ParallelDeviceStamper
     // benchmark results: threshold=1000000 (effectively disabled for transient)
     ParallelDeviceStamper::execute(
         devices, mna_, thread_local_mna_mgr_,
@@ -805,7 +805,7 @@ ConvergenceStatus TransientSolver::solve_timestep_tr_bdf2(DenseVector& solution,
 
 bool TransientSolver::check_convergence(const DenseVector& x_new,
                                        const DenseVector& x_old) const {
-    // Step 2.1: Delegate to ConvergenceChecker
+    // Delegate to ConvergenceChecker
     const auto& tran_config = config_.transient;
 
     // Build ConvergenceConfig from SimulationConfig (Transient mode)

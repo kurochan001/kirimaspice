@@ -354,7 +354,7 @@ inline Real shot_noise_current_sq(Real current) {
 }
 
 // ============================================================================
-// Parameter Access Utilities (Step 1.4)
+// Parameter Access Utilities
 // ============================================================================
 
 /// Parameter definition for unified parameter access
@@ -533,7 +533,7 @@ private:
 } // namespace kirimaspice::core
 
 // ============================================================================
-// MNA Stamping Utilities for Device Models (Step 3.1)
+// MNA Stamping Utilities for Device Models
 // ============================================================================
 
 namespace kirimaspice::device_utils {

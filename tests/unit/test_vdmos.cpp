@@ -6,7 +6,7 @@
 
 #include <gtest/gtest.h>
 #include "kirimaspice/circuit/circuit_graph.hpp"
-#include "kirimaspice/devices/vdmos.hpp"  // Step 3.2: Unified VDMOS template
+#include "kirimaspice/devices/vdmos.hpp"  // Unified VDMOS template
 #include "kirimaspice/solvers/dc_solver.hpp"
 #include "kirimaspice/core/types.hpp"
 #include <cmath>

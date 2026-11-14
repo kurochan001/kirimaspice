@@ -11,7 +11,7 @@
 // These tests verify the correct behavior to prevent regression.
 
 #include <gtest/gtest.h>
-#include "kirimaspice/devices/mosfet_bsim4.hpp"  // Step 5.7: Unified BSIM4 template
+#include "kirimaspice/devices/mosfet_bsim4.hpp"  // Unified BSIM4 template
 #include "kirimaspice/devices/mosfet_bsim4_params.hpp"
 #include "kirimaspice/solvers/noise_solver.hpp"
 #include "kirimaspice/parser/netlist_parser.hpp"

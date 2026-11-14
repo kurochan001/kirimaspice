@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 // include/kirimaspice/devices/scr.hpp
-// Step 4.3: Unified SCR (N/P) template class
+// Unified SCR (N/P) template class
 #pragma once
 #include "kirimaspice/devices/device.hpp"
 #include <spdlog/spdlog.h>
@@ -14,7 +14,7 @@ namespace kirimaspice::devices {
 /// SCR Polarity type for template parameter
 enum class SCRPolarity { N, P };
 
-/// SCR (Silicon Controlled Rectifier) unified template (+ Step 4.3)
+/// SCR (Silicon Controlled Rectifier) unified template
 /// Unidirectional thyristor for AC-DC conversion and phase-control applications
 ///
 /// Device structure:

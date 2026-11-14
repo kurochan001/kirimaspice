@@ -4,7 +4,7 @@
 // tests/unit/test_bsim4_parameter_extractor.cpp
 #include <gtest/gtest.h>
 #include "kirimaspice/analysis/bsim4_parameter_extractor.hpp"
-#include "kirimaspice/devices/mosfet_bsim4.hpp"  // Step 5.7: Unified BSIM4 template
+#include "kirimaspice/devices/mosfet_bsim4.hpp"  // Unified BSIM4 template
 #include "kirimaspice/devices/mosfet_bsim4_params.hpp"
 #include <cmath>
 

@@ -87,7 +87,7 @@ private:
     mutable IntegrationMethod last_method_;  // Integration method used in last stamp
     mutable Real timestep_saved_;  // Saved timestep for restore
     mutable IntegrationMethod method_saved_;  // Saved method for restore
-    mutable bool first_accept_;  // Flag for first accept_solution() call (Sprint 2.1 fix)
+    mutable bool first_accept_;  // Flag for first accept_solution() call
 
     // BDF coefficients for variable-timestep integration (saved from stamp_transient)
     mutable Real bdf_alpha0_;  // α₀ coefficient

@@ -3,7 +3,7 @@
 
 // tests/unit/test_jfet.cpp
 #include <gtest/gtest.h>
-#include "kirimaspice/devices/jfet.hpp"  // Step 4.1: Unified JFET template
+#include "kirimaspice/devices/jfet.hpp"  // Unified JFET template
 #include <cmath>
 
 using namespace kirimaspice;

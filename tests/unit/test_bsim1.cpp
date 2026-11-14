@@ -11,7 +11,7 @@
 
 #include <gtest/gtest.h>
 #include <string>
-#include "kirimaspice/devices/mosfet_bsim1.hpp"  // Step 5.5: Unified BSIM1 template
+#include "kirimaspice/devices/mosfet_bsim1.hpp"  // Unified BSIM1 template
 #include "kirimaspice/devices/mosfet_bsim1_params.hpp"
 #include "kirimaspice/parser/netlist_parser.hpp"
 #include "kirimaspice/circuit/circuit_graph.hpp"

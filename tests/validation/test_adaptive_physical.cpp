@@ -35,13 +35,13 @@ int main() {
     config.transient.method = IntegrationMethod::GEAR2;  // Start with BDF2
     config.transient.adaptive_order = true;  // Enable adaptive order control
 
-    // Sprint 2 uses physical quantity-based error estimation:
+    // This run uses physical quantity-based error estimation:
     // - Capacitor: Charge Q = C * V (predictor-corrector method)
     // - Inductor: Flux Φ = L * I (predictor-corrector method)
     // - LTE = max(LTE_voltage, LTE_physical)
     // - CHGTOL = 1e-14 Coulombs (ngspice default)
 
-    // Parameters from Sprint 1 (proven effective)
+    // Step and tolerance parameters
     config.transient.initial_step = 1e-7;  // 0.1us
     config.transient.max_step = 1e-3;  // 1ms max step
     config.transient.min_step = 1e-12; // 1ps min step
@@ -67,7 +67,7 @@ int main() {
     std::cout << "\n=== Physical Quantity-Based Error Estimation ===" << std::endl;
     std::cout << "Circuit: RC (R=1k, C=10u, tau=10ms)" << std::endl;
     std::cout << "Method: BDF2/BDF3 with adaptive timestep and order control" << std::endl;
-    std::cout << "\nSprint 2 Improvements:" << std::endl;
+    std::cout << "\nError estimation:" << std::endl;
     std::cout << "  - Physical LTE: Charge Q = C * V (predictor-corrector)" << std::endl;
     std::cout << "  - CHGTOL: 1e-14 Coulombs (ngspice default)" << std::endl;
     std::cout << "  - Combined LTE: max(voltage-based, physical-based)" << std::endl;
@@ -134,9 +134,9 @@ int main() {
     std::cout << std::string(80, '-') << std::endl;
     std::cout << "Maximum errors: vs ngspice = " << max_error_ng << "%, vs theory = " << max_error_th << "%" << std::endl;
 
-    // Success criteria (Sprint 2 target: < 2% error)
-    std::cout << "\n=== Sprint 2 Success Criteria ===" << std::endl;
-    bool criterion1 = (max_error_ng < 2.0);  // Target: < 2% (down from 6.07% in Sprint 1)
+    // Success criteria (target: < 2% error)
+    std::cout << "\n=== Success Criteria ===" << std::endl;
+    bool criterion1 = (max_error_ng < 2.0);  // Target: < 2% (a recorded tuned-control run gave 6.07%)
     bool criterion2 = (result.stats.timestep_rejects < 20);  // Target: < 20
     bool criterion3 = (result.timepoints.size() >= 400);  // Should have enough resolution
 
@@ -150,21 +150,21 @@ int main() {
     bool all_passed = criterion1 && criterion2 && criterion3;
     std::cout << "\nOverall: " << (all_passed ? "✅ PASS" : "❌ FAIL") << std::endl;
 
-    // Comparison with Sprint 1
-    std::cout << "\n=== Sprint 1 vs Sprint 2 Comparison ===" << std::endl;
-    double sprint1_error = 6.07;  // Sprint 1 result
-    int sprint1_rejects = 15;     // Sprint 1 result
-    double improvement = ((sprint1_error - max_error_ng) / sprint1_error) * 100.0;
+    // Comparison with the tuned-control run (test_adaptive_tuned.cpp)
+    std::cout << "\n=== Tuned Control vs Physical LTE ===" << std::endl;
+    double tuned_error = 6.07;  // recorded tuned-control result
+    int tuned_rejects = 15;     // recorded tuned-control result
+    double improvement = ((tuned_error - max_error_ng) / tuned_error) * 100.0;
 
-    std::cout << "Max error:       Sprint 1: " << sprint1_error << "% → Sprint 2: " << max_error_ng << "%";
-    if (max_error_ng < sprint1_error) {
+    std::cout << "Max error:       tuned: " << tuned_error << "% → physical: " << max_error_ng << "%";
+    if (max_error_ng < tuned_error) {
         std::cout << " (✅ " << improvement << "% improvement)" << std::endl;
     } else {
         std::cout << " (⚠️ " << -improvement << "% regression)" << std::endl;
     }
 
-    std::cout << "Timestep rejects: Sprint 1: " << sprint1_rejects << " → Sprint 2: " << result.stats.timestep_rejects;
-    if (result.stats.timestep_rejects <= sprint1_rejects) {
+    std::cout << "Timestep rejects: tuned: " << tuned_rejects << " → physical: " << result.stats.timestep_rejects;
+    if (result.stats.timestep_rejects <= tuned_rejects) {
         std::cout << " (✅ same or better)" << std::endl;
     } else {
         std::cout << " (⚠️ more rejects)" << std::endl;

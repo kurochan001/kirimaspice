@@ -7,15 +7,15 @@
 #include "kirimaspice/devices/diode.hpp"
 #include "kirimaspice/devices/bjt_npn.hpp"
 #include "kirimaspice/devices/bjt_pnp.hpp"
-#include "kirimaspice/devices/jfet.hpp"  // Step 4.1: Unified JFET
-#include "kirimaspice/devices/mosfet_level1.hpp"  // Step 5.1: Unified MOSFET Level 1
-#include "kirimaspice/devices/mosfet_bsim1.hpp"    // Step 5.5: Unified BSIM1 (Level 9)
-#include "kirimaspice/devices/mosfet_bsim3.hpp"  // Step 5.6: Unified BSIM3 template
-#include "kirimaspice/devices/mosfet_bsim4.hpp"  // Step 5.7: Unified BSIM4 template
-#include "kirimaspice/devices/mosfet_sic.hpp"    // Step 5.3: Unified SiC MOSFET
-#include "kirimaspice/devices/gan_hemt.hpp"  // Step 3.1: Unified GaN HEMT
-#include "kirimaspice/devices/vdmos.hpp"   // Step 3.2: Unified VDMOS
-#include "kirimaspice/devices/igbt.hpp"  // Step 3.3: Unified IGBT
+#include "kirimaspice/devices/jfet.hpp"  // Unified JFET
+#include "kirimaspice/devices/mosfet_level1.hpp"  // Unified MOSFET Level 1
+#include "kirimaspice/devices/mosfet_bsim1.hpp"    // Unified BSIM1 (Level 9)
+#include "kirimaspice/devices/mosfet_bsim3.hpp"  // Unified BSIM3 template
+#include "kirimaspice/devices/mosfet_bsim4.hpp"  // Unified BSIM4 template
+#include "kirimaspice/devices/mosfet_sic.hpp"    // Unified SiC MOSFET
+#include "kirimaspice/devices/gan_hemt.hpp"  // Unified GaN HEMT
+#include "kirimaspice/devices/vdmos.hpp"   // Unified VDMOS
+#include "kirimaspice/devices/igbt.hpp"  // Unified IGBT
 
 namespace kirimaspice::solvers {
 

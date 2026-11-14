@@ -11,7 +11,7 @@
 //  5. Circuit integration
 
 #include <gtest/gtest.h>
-#include "kirimaspice/devices/mosfet_bsim3.hpp"  // Step 5.6: Unified BSIM3 template
+#include "kirimaspice/devices/mosfet_bsim3.hpp"  // Unified BSIM3 template
 #include "kirimaspice/devices/mosfet_bsim3_params.hpp"
 #include "kirimaspice/parser/netlist_parser.hpp"
 #include "kirimaspice/circuit/circuit_graph.hpp"

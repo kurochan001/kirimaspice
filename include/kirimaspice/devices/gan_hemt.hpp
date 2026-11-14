@@ -6,8 +6,7 @@
  * @file gan_hemt.hpp
  * @brief Unified GaN HEMT (High Electron Mobility Transistor) template class
  *
- * Step 3.1: Unified N/P-channel GaN HEMT using template pattern.
- * Reduces code duplication by ~40% (1452 lines → ~900 lines).
+ * N- and P-channel GaN HEMTs share one template.
  */
 #pragma once
 

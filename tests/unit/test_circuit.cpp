@@ -107,12 +107,11 @@ TEST(CircuitGraph, SetTitle) {
 }
 
 //==============================================================================
-// CircuitGraph - Device Management Tests (Stubs for Week 1-2)
+// CircuitGraph - Device Management Tests (basic checks)
 //==============================================================================
 TEST(CircuitGraph, AddResistor) {
     CircuitGraph circuit;
 
-    // This is a stub implementation for Week 1-2
     // Just check it doesn't crash and creates nodes
     EXPECT_NO_THROW(circuit.add_resistor("R1", "in", "out", 1000.0));
 
@@ -234,6 +233,6 @@ TEST(CircuitGraph, NodePropertiesInGraph) {
     const auto& graph = circuit.graph();
 
     // Verify node properties are stored in graph
-    // (This is a basic check, more detailed tests will be in Week 3)
+    // (This is a basic check)
     EXPECT_GT(boost::num_vertices(graph), 0);
 }

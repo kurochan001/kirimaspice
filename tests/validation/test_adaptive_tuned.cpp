@@ -35,7 +35,7 @@ int main() {
     config.transient.method = IntegrationMethod::GEAR2;  // Start with BDF2
     config.transient.adaptive_order = true;  // Enable adaptive order control
 
-    // Sprint 1 uses NEW DEFAULT PARAMETERS from types.hpp:
+    // This run uses the default parameters from types.hpp:
     // - trtol = 2.0 (reduced from hardcoded 10.0)
     // - lte_abstol = 1e-7 (tightened from 1e-6)
     // - lte_reltol = 1e-4 (tightened from 1e-3)
@@ -65,7 +65,7 @@ int main() {
     std::cout << "\n=== Tuned Adaptive Control ===" << std::endl;
     std::cout << "Circuit: RC (R=1k, C=10u, tau=10ms)" << std::endl;
     std::cout << "Method: BDF2/BDF3 with adaptive timestep and order control" << std::endl;
-    std::cout << "\nSprint 1 Improvements:" << std::endl;
+    std::cout << "\nChanges from the earlier defaults:" << std::endl;
     std::cout << "  - TRTOL: 10.0 → 2.0 (5x stricter acceptance)" << std::endl;
     std::cout << "  - LTE_ABSTOL: 1e-6 → 1e-7 (10x stricter)" << std::endl;
     std::cout << "  - LTE_RELTOL: 1e-3 → 1e-4 (10x stricter)" << std::endl;
@@ -135,7 +135,7 @@ int main() {
     std::cout << "Maximum errors: vs ngspice = " << max_error_ng << "%, vs theory = " << max_error_th << "%" << std::endl;
 
     // Success criteria
-    std::cout << "\n=== Sprint 1 Success Criteria ===" << std::endl;
+    std::cout << "\n=== Success Criteria ===" << std::endl;
     bool criterion1 = (max_error_ng < 5.0);  // Target: < 5% (down from 9.63%)
     bool criterion2 = (result.stats.timestep_rejects < 20);  // Target: < 20 (down from 29)
     bool criterion3 = (result.timepoints.size() >= 400);  // Should have enough resolution

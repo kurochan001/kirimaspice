@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 // include/kirimaspice/devices/mesfet.hpp
-// Step 4.2: Unified MESFET N/P-channel template
+// Unified MESFET N/P-channel template
 #pragma once
 #include "kirimaspice/devices/device.hpp"
 #include "kirimaspice/core/matrix_types.hpp"
@@ -21,7 +21,7 @@ enum class MESFETModel {
     STATZ = 2     ///< Level 2: Statz model (higher accuracy)
 };
 
-/// Unified MESFET template (GaAs Metal-Semiconductor FET) (Step 4.2)
+/// Unified MESFET template (GaAs Metal-Semiconductor FET)
 /// Used in GaAs high-frequency amplifiers and microwave circuits
 ///
 /// Two models supported:
