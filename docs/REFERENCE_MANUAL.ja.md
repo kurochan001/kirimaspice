@@ -231,6 +231,49 @@ ExprTk の組み込み関数、そして `.PARAM` の中だけは `.FUNC` で定
 `src/parser/netlist_parser.cpp` の `parse_mosfet_device` にあります。サブサーキットの中で展開する
 MOSFET は、レベル 1 と BSIM4 だけです。
 
+### FinFET（`LEVEL=12`）
+
+FinFET は、kirimaspice 独自の簡略化した二乗則のモデルです（`src/devices/finfet.cpp`）。BSIM-CMG
+ではありません。端子はドレイン、ゲート、ソースで、`M` の行のバルクのノードは受け付けますが使い
+ません。`.MODEL` のカードのパラメーターはすべてデバイスに渡し、FinFET にないパラメーターや範囲外の
+値は、警告を出して無視します。`L` は素子の行にも書け、カードより優先します。
+
+| パラメーター | 意味 | NMOS の既定値 | PMOS の既定値 |
+| --- | --- | --- | --- |
+| `NFIN` | フィンの数 | 1 | 1 |
+| `HFIN` | フィンの高さ [m] | 30e-9 | 30e-9 |
+| `TFIN` | フィンの厚さ [m]。読みますが、電流には使いません | 7e-9 | 7e-9 |
+| `L` | ゲート長 [m] | 1e-6 | 1e-6 |
+| `VTH`、`VTH0` または `VTO` | 符号つきのしきい値 [V] | 0.4 | −0.4 |
+| `U0` | 低電界の移動度 [m²/Vs] | 0.03 | 0.025 |
+| `VSAT` | 飽和速度 [m/s]。読みますが、電流には使いません | 1e5 | 8e4 |
+| `SS` | サブスレッショルドスイング [V/桁] | 0.07 | 0.075 |
+| `DIBL` | V<sub>DS</sub> 1 V あたりのしきい値の低下 [V/V] | 0.05 | 0.06 |
+| `TOX` | ゲート酸化膜の厚さ [m] | 1e-9 | 1e-9 |
+| `CGS`、`CGD` | ゲート・ソース間とゲート・ドレイン間の容量 [F] | 1e-15、1e-16 | 1e-15、1e-16 |
+| `KF`、`AF` | フリッカーノイズの係数と指数 | 0、1 | 0、1 |
+| `KT1` | 符号つきのしきい値の温度係数 [V/K] | −1e-3 | 1e-3 |
+| `TNOM` | 公称温度 [K] | 300.15 | 300.15 |
+
+NMOS のドレインからソースへの電流を V<sub>GS</sub> と V<sub>DS</sub> で書きます。PMOS は同じ式を
+V<sub>SG</sub> と V<sub>SD</sub> で使い、電流はソースからドレインへ流れます。
+
+- W<sub>eff</sub> = `NFIN`·`HFIN`、C<sub>ox</sub> = 3.9 ε<sub>0</sub>/`TOX`、
+  β = `U0`·(`TNOM`/T)<sup>1.5</sup>·C<sub>ox</sub>·W<sub>eff</sub>/`L`。
+- V<sub>th</sub>(T) = `VTH` + `KT1`·(T − `TNOM`)。PMOS ではその絶対値を使います。
+  V<sub>DS</sub> > 0 のとき V<sub>th,eff</sub> = V<sub>th</sub>(T) − `DIBL`·V<sub>DS</sub>。
+- しきい値以上では、V<sub>ov</sub> = V<sub>GS</sub> − V<sub>th,eff</sub> として、V<sub>DS</sub> <
+  V<sub>ov</sub> なら β (V<sub>ov</sub> V<sub>DS</sub> − V<sub>DS</sub><sup>2</sup>/2)、それ以上なら
+  β V<sub>ov</sub><sup>2</sup>/2 です。
+- しきい値より下では β V<sub>t</sub><sup>2</sup> exp(V<sub>ov</sub> / (n V<sub>t</sub>))
+  (1 − exp(−V<sub>DS</sub>/V<sub>t</sub>)) で、n = `SS`/(V<sub>t</sub> ln 10) です。ゲート電圧が
+  `SS` 変わるごとに、電流は 1 桁変わります。
+- ドレインとソースの間に 10<sup>−12</sup> S があります。`CGS` と `CGD` は一定で、過渡解析では
+  後退オイラーで積分します。ノイズ源は 4kT·(2/3)·g<sub>m</sub> と
+  `KF`·|I<sub>D</sub>|<sup>`AF`</sup>/f です。
+
+このモデルが含まないものは [KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#デバイスモデル) にあります。
+
 ## ディレクティブ
 
 「使う」はプログラムがそのディレクティブに従って動くこと、「読むだけ」はパーサーが記録するものの

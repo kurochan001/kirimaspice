@@ -261,6 +261,56 @@ the others without a warning; the lists are in `parse_mosfet_device` in
 `src/parser/netlist_parser.cpp`. Inside a subcircuit, only level 1 and
 BSIM4 MOSFETs are expanded.
 
+### FinFET (`LEVEL=12`)
+
+The FinFET is kirimaspice's own simplified square-law model
+(`src/devices/finfet.cpp`), not BSIM-CMG. Its terminals are drain, gate and
+source; a bulk node on the `M` line is accepted and not used. Every
+parameter of the `.MODEL` card goes to the device, and one that the FinFET
+does not have, or a value out of range, gives a warning and is ignored. `L`
+may also be given on the element line, which overrides the card.
+
+| Parameter | Meaning | NMOS default | PMOS default |
+| --- | --- | --- | --- |
+| `NFIN` | number of fins | 1 | 1 |
+| `HFIN` | fin height [m] | 30e-9 | 30e-9 |
+| `TFIN` | fin thickness [m]; read, not used by the current | 7e-9 | 7e-9 |
+| `L` | gate length [m] | 1e-6 | 1e-6 |
+| `VTH`, `VTH0` or `VTO` | threshold [V], with its sign | 0.4 | −0.4 |
+| `U0` | low-field mobility [m²/Vs] | 0.03 | 0.025 |
+| `VSAT` | saturation velocity [m/s]; read, not used by the current | 1e5 | 8e4 |
+| `SS` | subthreshold swing [V/decade] | 0.07 | 0.075 |
+| `DIBL` | threshold lowering per volt of V<sub>DS</sub> [V/V] | 0.05 | 0.06 |
+| `TOX` | gate oxide thickness [m] | 1e-9 | 1e-9 |
+| `CGS`, `CGD` | gate–source and gate–drain capacitance [F] | 1e-15, 1e-16 | 1e-15, 1e-16 |
+| `KF`, `AF` | flicker noise coefficient and exponent | 0, 1 | 0, 1 |
+| `KT1` | temperature coefficient of the threshold, with its sign [V/K] | −1e-3 | 1e-3 |
+| `TNOM` | nominal temperature [K] | 300.15 | 300.15 |
+
+The current from drain to source of an NMOS, with V<sub>GS</sub> and
+V<sub>DS</sub>; a PMOS has the same equations in V<sub>SG</sub> and
+V<sub>SD</sub>, with its current from source to drain:
+
+- W<sub>eff</sub> = `NFIN`·`HFIN`, C<sub>ox</sub> = 3.9 ε<sub>0</sub>/`TOX`,
+  β = `U0`·(`TNOM`/T)<sup>1.5</sup>·C<sub>ox</sub>·W<sub>eff</sub>/`L`.
+- V<sub>th</sub>(T) = `VTH` + `KT1`·(T − `TNOM`), its magnitude for a PMOS;
+  V<sub>th,eff</sub> = V<sub>th</sub>(T) − `DIBL`·V<sub>DS</sub> for
+  V<sub>DS</sub> > 0.
+- At or above the threshold, with V<sub>ov</sub> = V<sub>GS</sub> −
+  V<sub>th,eff</sub>: β (V<sub>ov</sub> V<sub>DS</sub> −
+  V<sub>DS</sub><sup>2</sup>/2) for V<sub>DS</sub> < V<sub>ov</sub>, and
+  β V<sub>ov</sub><sup>2</sup>/2 above.
+- Below the threshold: β V<sub>t</sub><sup>2</sup> exp(V<sub>ov</sub> /
+  (n V<sub>t</sub>)) (1 − exp(−V<sub>DS</sub>/V<sub>t</sub>)), with
+  n = `SS`/(V<sub>t</sub> ln 10), so the current changes by one decade per
+  `SS` of gate voltage.
+- 10<sup>−12</sup> S lies between drain and source. `CGS` and `CGD` are
+  constant, and the transient integrates them by backward Euler. The noise
+  sources are 4kT·(2/3)·g<sub>m</sub> and `KF`·|I<sub>D</sub>|<sup>`AF`</sup>/f.
+
+[KNOWN_ISSUES](../KNOWN_ISSUES.md#device-models) lists what this model
+leaves out.
+
 ## Directives
 
 "Used" means the program acts on the directive. "Read only" means the

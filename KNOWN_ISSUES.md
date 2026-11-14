@@ -129,8 +129,8 @@ says otherwise.
   β·V<sub>t</sub><sup>2</sup> where the square law above it starts at 0, so
   the current jumps there (read in the code). W<sub>eff</sub> is
   NFIN·HFIN, without the fin's other side and top. Drain and source are not
-  swapped when V<sub>DS</sub> < 0. Its parameters are not in the reference
-  manual.
+  swapped when V<sub>DS</sub> < 0, and `TFIN` and `VSAT` are read but not
+  used ([reference manual](docs/REFERENCE_MANUAL.md#finfet-level12)).
 - **The GaN HEMT, VDMOS and FinFET integrate their capacitances by
   backward Euler** whatever integration method the transient uses.
 - KLU is the only working linear solver. The SuperLU_DIST backend is a

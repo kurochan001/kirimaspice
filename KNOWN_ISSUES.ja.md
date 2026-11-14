@@ -99,8 +99,8 @@ ngspice について書いていることは、それぞれのマニュアルに
   β·V<sub>t</sub><sup>2</sup>·exp(…)·(1 − exp(−V<sub>DS</sub>/V<sub>t</sub>)) で、しきい値では
   ほぼ β·V<sub>t</sub><sup>2</sup> になりますが、その上の二乗則は 0 から始まるので、そこで電流が跳びます
   （コードで読みました）。W<sub>eff</sub> は NFIN·HFIN で、フィンの反対側と上面を含みません。
-  V<sub>DS</sub> < 0 のときにドレインとソースを入れ替えません。パラメーターはリファレンス
-  マニュアルに載っていません。
+  V<sub>DS</sub> < 0 のときにドレインとソースを入れ替えません。`TFIN` と `VSAT` は読みますが
+  使いません（[リファレンスマニュアル](docs/REFERENCE_MANUAL.ja.md#finfetlevel12)）。
 - **GaN HEMT、VDMOS、FinFET は、過渡解析の積分法にかかわらず、容量を後退オイラーで積分します。**
 - 動く線形ソルバーは KLU だけです。SuperLU_DIST のバックエンドは仮置きで、指定しても KLU に
   切り替わります。
