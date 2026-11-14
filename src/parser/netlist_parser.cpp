@@ -5,6 +5,7 @@
 #include "kirimaspice/parser/netlist_parser.hpp"
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/circuit/subcircuit.hpp"
+#include "kirimaspice/core/constants.hpp"
 #include "kirimaspice/devices/device.hpp"
 #include "kirimaspice/devices/mosfet_level3_params.hpp"
 #include "kirimaspice/devices/mosfet_bsim1_params.hpp"  // BSIM1 (Level 9)
@@ -2399,7 +2400,7 @@ static void parse_options_directive(const std::vector<std::string>& tokens, Pars
         } else if (opt_name == "temp") {
             // Temperature in Celsius, convert to Kelvin
             if (auto v = safe_stod(opt_value, "temp")) {
-                state.config->temperature = *v + 273.15;
+                state.config->temperature = core::celsius_to_kelvin(*v);
                 state.config->temperature_explicitly_set = true;
                 spdlog::debug("Set TEMP={}°C ({}K)", *v, state.config->temperature);
             }
@@ -3085,7 +3086,7 @@ static void parse_temp_directive(const std::vector<std::string>& tokens, ParseSt
     // Parse all temperature values (in Celsius) and convert to Kelvin
     for (size_t i = 1; i < tokens.size(); ++i) {
         Real temp_celsius = parse_value_with_unit(tokens[i]);
-        Real temp_kelvin = temp_celsius + 273.15;
+        Real temp_kelvin = core::celsius_to_kelvin(temp_celsius);
 
         // Validate temperature (must be above absolute zero)
         if (temp_kelvin < 0.0) {
@@ -4477,7 +4478,7 @@ static void parse_scr_device(const std::vector<std::string>& tokens, const std::
                 if (model.params.count("ron")) ron = model.params.at("ron");
                 if (model.params.count("vtm")) vtm = model.params.at("vtm");
                 if (model.params.count("dv_dt")) dv_dt = model.params.at("dv_dt");
-                if (model.params.count("tnom")) tnom = model.params.at("tnom");
+                if (model.params.count("tnom")) tnom = core::celsius_to_kelvin(model.params.at("tnom"));
 
                 param_start = 5;  // Skip model name in parameter parsing
             }
@@ -4520,7 +4521,7 @@ static void parse_scr_device(const std::vector<std::string>& tokens, const std::
             } else if (key == "dv_dt") {
                 dv_dt = value;
             } else if (key == "tnom") {
-                tnom = value;
+                tnom = core::celsius_to_kelvin(value);
             }
         }
     }
@@ -4581,7 +4582,7 @@ static void parse_triac_device(const std::vector<std::string>& tokens, const std
                 if (model.params.count("dv_dt") || model.params.count("dvdt")) {
                     dv_dt = model.params.count("dv_dt") ? model.params.at("dv_dt") : model.params.at("dvdt");
                 }
-                if (model.params.count("tnom")) tnom = model.params.at("tnom");
+                if (model.params.count("tnom")) tnom = core::celsius_to_kelvin(model.params.at("tnom"));
 
                 param_start = 5;  // Skip model name in parameter parsing
             }
@@ -4622,7 +4623,7 @@ static void parse_triac_device(const std::vector<std::string>& tokens, const std
             } else if (key == "dv_dt" || key == "dvdt") {
                 dv_dt = value;
             } else if (key == "tnom") {
-                tnom = value;
+                tnom = core::celsius_to_kelvin(value);
             }
         }
     }
@@ -4711,7 +4712,7 @@ static void parse_mesfet_device(const std::vector<std::string>& tokens, const st
                 if (model_def.params.count("kf")) kf = model_def.params.at("kf");
                 if (model_def.params.count("af")) af = model_def.params.at("af");
                 if (model_def.params.count("ef")) ef = model_def.params.at("ef");
-                if (model_def.params.count("tnom")) tnom = model_def.params.at("tnom");
+                if (model_def.params.count("tnom")) tnom = core::celsius_to_kelvin(model_def.params.at("tnom"));
 
                 param_start = 5;  // Skip model name in parameter parsing
             } else {
@@ -4772,7 +4773,7 @@ static void parse_mesfet_device(const std::vector<std::string>& tokens, const st
             } else if (key == "ef") {
                 ef = value;
             } else if (key == "tnom") {
-                tnom = value;
+                tnom = core::celsius_to_kelvin(value);
             }
         }
     }
@@ -5138,7 +5139,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         if (model.params.count("kt2")) kt2 = model.params.at("kt2");
         if (model.params.count("ute")) ute = model.params.at("ute");
         if (model.params.count("rdtemp")) rdtemp = model.params.at("rdtemp");
-        if (model.params.count("tnom")) tnom = model.params.at("tnom");
+        if (model.params.count("tnom")) tnom = core::celsius_to_kelvin(model.params.at("tnom"));
 
         // GaN HEMT-specific parameters
         if (model.params.count("beta")) beta_hemt = model.params.at("beta");
@@ -5252,7 +5253,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
             } else if (key == "rdtemp") {
                 rdtemp = value;
             } else if (key == "tnom") {
-                tnom = value;
+                tnom = core::celsius_to_kelvin(value);
             } else if (key == "beta") {
                 beta_hemt = value;
             } else if (key == "lambda") {
@@ -5345,7 +5346,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
             else if (key == "cjsw") level3_params.cjsw = value;
             else if (key == "mjsw") level3_params.mjsw = value;
             // Temperature
-            else if (key == "tnom") level3_params.tnom = value + 273.15;  // Convert °C to K
+            else if (key == "tnom") level3_params.tnom = core::celsius_to_kelvin(value);
             // Series resistance
             else if (key == "rs") level3_params.rs = value;
             else if (key == "rd") level3_params.rd = value;
@@ -5435,7 +5436,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
             // Oxide parameters
             else if (key == "tox") bsim1_params.tox = normalize_tox_value(value);
             // Temperature
-            else if (key == "tnom") bsim1_params.tnom = value;
+            else if (key == "tnom") bsim1_params.tnom = core::celsius_to_kelvin(value);
             // Noise
             else if (key == "kf") bsim1_params.kf = value;
             else if (key == "af") bsim1_params.af = value;
@@ -5579,18 +5580,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
             else if (key == "ijth") bsim3_params.ijth = value;
             else if (key == "xti") bsim3_params.xti = value;
             // Temperature parameters
-            else if (key == "tnom") {
-                // BSIM3 tnom is often specified in °C in SPICE model cards,
-                // but some libraries (including our reference) use Kelvin.
-                // Heuristic:
-                //   - If |tnom| > 200, assume Kelvin.
-                //   - Otherwise, treat as Celsius and convert to Kelvin.
-                if (std::abs(value) > 200.0) {
-                    bsim3_params.tnom = value;          // Already in Kelvin
-                } else {
-                    bsim3_params.tnom = value + 273.15; // °C → K
-                }
-            }
+            else if (key == "tnom") bsim3_params.tnom = core::celsius_to_kelvin(value);
             else if (key == "ute") bsim3_params.ute = value;
             else if (key == "kt1") bsim3_params.kt1 = value;
             else if (key == "kt1l") bsim3_params.kt1l = value;
@@ -5737,7 +5727,9 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         auto finfet = state.circuit->get_device(dev_name);
         const ModelDefinition* finfet_model = state.config->find_model(type_or_model);
         if (finfet_model != nullptr) {
-            for (const auto& [key, value] : finfet_model->params) {
+            for (const auto& [key, card_value] : finfet_model->params) {
+                // FinFET::set_parameter takes TNOM in kelvin
+                const Real value = (key == "tnom") ? core::celsius_to_kelvin(card_value) : card_value;
                 if (key != "level" && !finfet->set_parameter(key, value)) {
                     spdlog::warn("FinFET model {}: {}={} is not a FinFET parameter or is out "
                                  "of range; ignored",

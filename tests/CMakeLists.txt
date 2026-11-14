@@ -1158,6 +1158,11 @@ add_executable(test_gate_capacitances unit/test_gate_capacitances.cpp)
 target_link_libraries(test_gate_capacitances PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_gate_capacitances)
 
+# Temperatures of a netlist (TNOM) are in degrees Celsius
+add_executable(test_netlist_temperatures unit/test_netlist_temperatures.cpp)
+target_link_libraries(test_netlist_temperatures PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_netlist_temperatures)
+
 # BSIM4 high VDS Vth tests
 add_executable(test_bsim4_high_vds_vth unit/test_bsim4_high_vds_vth.cpp)
 target_link_libraries(test_bsim4_high_vds_vth PRIVATE kirimaspice_lib GTest::gtest_main)

@@ -67,7 +67,7 @@ struct MOSFETBsim1Params {
     Real tox = 1e-7;       ///< Oxide thickness [m] (100nm default, accepts µm inputs)
 
     // Temperature parameters
-    Real tnom = 27.0;      ///< Parameter measurement temperature [°C]
+    Real tnom = 300.15;    ///< Parameter measurement temperature [K]; not used by the model
 
     // Noise parameters
     Real kf = 0.0;         ///< Flicker noise coefficient

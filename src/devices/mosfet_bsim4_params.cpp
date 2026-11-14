@@ -22,6 +22,7 @@
 // BSIM4 parameter initialization and derived parameter calculation
 
 #include "kirimaspice/devices/mosfet_bsim4_params.hpp"
+#include "kirimaspice/core/constants.hpp"
 #include <cmath>
 #include <spdlog/spdlog.h>
 
@@ -432,7 +433,7 @@ BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_par
         else if (key == "alpha1") bsim4_params.alpha1 = value;
         else if (key == "beta0") bsim4_params.beta0 = value;
         // Temperature Parameters
-        else if (key == "tnom") bsim4_params.tnom = value + 273.15;  // Celsius to Kelvin
+        else if (key == "tnom") bsim4_params.tnom = core::celsius_to_kelvin(value);
         else if (key == "kt1") bsim4_params.kt1 = value;
         else if (key == "kt1l") bsim4_params.kt1l = value;
         else if (key == "kt2") bsim4_params.kt2 = value;

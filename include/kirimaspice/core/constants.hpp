@@ -14,6 +14,16 @@ namespace kirimaspice::core {
 // Numerical Constants
 //=============================================================================
 
+/// 0 °C in kelvin. A netlist gives temperatures in °C, as SPICE does: .TEMP,
+/// .OPTIONS TEMP, and TNOM on a model card or an element line. The
+/// configuration and the devices hold them in kelvin.
+constexpr Real ZERO_CELSIUS_IN_KELVIN = 273.15;
+
+/// A temperature of the netlist [°C] in kelvin
+constexpr Real celsius_to_kelvin(Real celsius) {
+    return celsius + ZERO_CELSIUS_IN_KELVIN;
+}
+
 /// Minimum conductance to prevent singular MNA matrix
 /// Used in devices for gmin (minimum junction conductance)
 constexpr Real GMIN_DEFAULT = 1e-12;  // [S]
