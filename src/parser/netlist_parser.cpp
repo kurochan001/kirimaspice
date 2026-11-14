@@ -5321,6 +5321,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
             else if (key == "gamma") level3_params.gamma = value;
             // Mobility
             else if (key == "uo" || key == "u0") level3_params.uo = value;
+            else if (key == "kp") level3_params.kp = value;
             else if (key == "theta") level3_params.theta = value;
             else if (key == "vmax") level3_params.vmax = value;
             // Short-channel effects

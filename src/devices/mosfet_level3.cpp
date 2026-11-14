@@ -35,8 +35,7 @@ MOSFET_Level3<P>::MOSFET_Level3(DeviceId id, const std::string& name,
 
     // Transconductance parameter: β = μ × Cox × W/L [A/V^2]
     // Note: uo is in cm^2/V-s, need to convert to m^2/V-s
-    Real uo_si = params_.uo * 1e-4;  // cm^2/V-s → m^2/V-s
-    beta_ = uo_si * cox_ * (weff / leff);
+    beta_ = process_transconductance() * (weff / leff);
 
     // Surface potential coefficient (for body effect)
     // fs = sqrt(2 × q × εsi × Nsub) / Cox
@@ -52,6 +51,13 @@ MOSFET_Level3<P>::MOSFET_Level3(DeviceId id, const std::string& name,
                  "Cox={:.3e}F/m^2, β={:.3e}A/V^2)",
                  name, Traits::type_string, drain, gate, source, bulk,
                  params_.w, params_.l, leff, weff, cox_, beta_);
+}
+
+template<Polarity P>
+Real MOSFET_Level3<P>::process_transconductance() const {
+    // KP when the card gives it, as in SPICE, and UO Cox otherwise (UO in
+    // cm^2/Vs)
+    return (params_.kp > 0.0) ? params_.kp : params_.uo * 1e-4 * cox_;
 }
 
 template<Polarity P>
@@ -179,7 +185,8 @@ Real MOSFET_Level3<P>::get_drain_current(Real v_gs_eff, Real v_ds_eff, Real v_bs
     Real mu_eff = get_effective_mobility(v_gs_eff, v_ds_eff, v_bs_eff);
     Real leff = params_.get_leff();
     Real weff = params_.get_weff();
-    Real beta_eff = mu_eff * cox_ * (weff / leff);
+    // THETA degrades KP (or UO Cox) by mu_eff / UO
+    Real beta_eff = process_transconductance() * (mu_eff / (params_.uo * 1e-4)) * (weff / leff);
 
     Real ids = 0.0;
 
@@ -569,10 +576,9 @@ bool MOSFET_Level3<P>::set_parameter(const std::string& param_name, Real value) 
             return false;
         }
         params_.uo = value;
-        Real uo_si = params_.uo * 1e-4;
         Real leff = params_.get_leff();
         Real weff = params_.get_weff();
-        beta_ = uo_si * cox_ * (weff / leff);
+        beta_ = process_transconductance() * (weff / leff);
         spdlog::trace("{}: set UO = {} cm^2/V-s (beta = {:.3e} A/V^2)",
                      name_, params_.uo, beta_);
         return true;

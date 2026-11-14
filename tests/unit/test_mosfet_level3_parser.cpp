@@ -293,3 +293,35 @@ TEST(MOSFET_Level3_Netlist, PChannelBodyEffectMirrorsTheNChannel) {
     EXPECT_NEAR(p, -n, 1e-9 * std::abs(n));
     EXPECT_LT(std::abs(n), std::abs(no_bias));  // the reverse bias lowers the current
 }
+
+// KP on a level 3 card replaces UO Cox in the gain factor, KP W / L, and
+// THETA degrades it by 1 / (1 + THETA (VGS - Vth)), as in SPICE: ngspice-47's
+// `show m1 : id` in the linear region (KAPPA = 0, M1 d g 0 b m L=0.18u W=1u).
+TEST(MOSFET_Level3_Netlist, KpReplacesUoCox) {
+    struct Point {
+        const char* card;
+        Real vgs, vds, id;
+    };
+    const Point points[] = {
+        {".model m nmos level=3 vto=0.7 kappa=0 kp=2e-5", 3.0, 1.0, 2.0e-04},
+        {".model m nmos level=3 vto=0.7 kappa=0 kp=2e-5", 1.5, 0.1, 8.33333e-06},
+        {".model m nmos level=3 vto=0.7 kappa=0 kp=2e-5 theta=0.1", 3.0, 1.0, 1.62602e-04},
+        {".model m nmos level=3 vto=0.7 kappa=0 kp=2e-5 theta=0.1", 1.5, 0.1, 7.71605e-06},
+    };
+    for (const auto& p : points) {
+        char lines[256];
+        std::snprintf(lines, sizeof lines,
+                      "level3\nVD d 0 DC %g\nVG g 0 DC %g\nVB b 0 DC 0\n"
+                      "M1 d g 0 b m L=0.18u W=1u\n%s\n.end\n",
+                      p.vds, p.vgs, p.card);
+        NetlistParser parser;
+        auto parsed = parser.parse_string(lines);
+        ASSERT_NE(parsed.circuit, nullptr);
+        solvers::DCSolver solver(*parsed.circuit, parsed.config);
+        DenseVector solution;
+        SolverStats stats;
+        ASSERT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS) << lines;
+        EXPECT_NEAR(std::abs(solver.get_branch_current("VD").value()), p.id, 2e-5 * p.id)
+            << lines;
+    }
+}

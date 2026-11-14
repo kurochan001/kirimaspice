@@ -25,6 +25,7 @@ struct MOSFETLevel3Params {
 
     // Mobility parameters
     Real uo = 600.0;       ///< Low-field mobility [cm^2/V-s] (600 for N, 250 for P)
+    Real kp = 0.0;         ///< Transconductance parameter [A/V^2]; 0 takes UO Cox
     Real theta = 0.0;      ///< Mobility degradation [1/V]
     Real vmax = 0.0;       ///< Maximum drift velocity [m/s] (0 = infinite)
 
