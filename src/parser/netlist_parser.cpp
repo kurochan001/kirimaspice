@@ -4905,6 +4905,25 @@ static void parse_bjt_device(const std::vector<std::string>& tokens, const std::
     }
 }
 
+// Gives a device the parameters of its card or element line by name
+// (Device::set_parameter), so that what they do not give keeps the device's
+// own default. TNOM is in degrees Celsius in the netlist and in kelvin in the
+// device. A parameter the device does not have, or a value it rejects, gets a
+// warning.
+static void set_parameters_by_name(devices::Device& device, const std::map<std::string, Real>& params,
+                                   const std::string& what) {
+    for (const auto& [key, written] : params) {
+        if (key == "level") {
+            continue;
+        }
+        const Real value = (key == "tnom") ? core::celsius_to_kelvin(written) : written;
+        if (!device.set_parameter(key, value)) {
+            spdlog::warn("{}: {}={} is not a parameter of this device or is out of range; ignored",
+                         what, key, written);
+        }
+    }
+}
+
 static void parse_mosfet_device(const std::vector<std::string>& tokens, const std::string& dev_name, const std::string& line, ParseState& state) {
     // MOSFET: M<name> <drain> <gate> <source> [<bulk>] <type_or_model> [parameters]
     // 3-terminal: M<name> <drain> <gate> <source> <NMOS|PMOS|model> [params]
@@ -5012,17 +5031,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
     Real rdtemp = 2.5;   // Drift resistance temperature exponent (SiC: 2-3)
     Real tnom = 300.15;  // Nominal temperature [K] (27°C)
 
-    // GaN HEMT-specific parameters
-    Real beta_hemt = 0.1;    // Transconductance parameter [A/V²]
-    Real lambda = 0.01;      // Channel length modulation [V⁻¹]
-    Real rs = 1e-3;          // Source resistance [Ω] (GaN: 0.1-10mΩ)
-    Real rd = 1e-3;          // Drain resistance [Ω] (GaN: 0.1-10mΩ)
-    Real trap = 0.0;         // Trapping time constant [s] (current collapse)
-    Real cgs = 1e-9;         // Gate-source capacitance [F]
-    Real cgd = 1e-10;        // Gate-drain capacitance [F] (Miller)
-    Real cds = 1e-11;        // Drain-source capacitance [F]
-
-    // FinFET parameters are the device's (FinFET::set_parameter)
+    // GaN HEMT and FinFET parameters are the device's (set_parameters_by_name)
 
     // VDMOS-specific parameters
     Real vto_vdmos = 4.0;    // Threshold voltage [V] (3-5V typical)
@@ -5141,16 +5150,6 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         if (model.params.count("rdtemp")) rdtemp = model.params.at("rdtemp");
         if (model.params.count("tnom")) tnom = core::celsius_to_kelvin(model.params.at("tnom"));
 
-        // GaN HEMT-specific parameters
-        if (model.params.count("beta")) beta_hemt = model.params.at("beta");
-        if (model.params.count("lambda")) lambda = model.params.at("lambda");
-        if (model.params.count("rs")) rs = model.params.at("rs");
-        if (model.params.count("rd")) rd = model.params.at("rd");
-        if (model.params.count("trap")) trap = model.params.at("trap");
-        if (model.params.count("cgs")) cgs = model.params.at("cgs");
-        if (model.params.count("cgd")) cgd = model.params.at("cgd");
-        if (model.params.count("cds")) cds = model.params.at("cds");
-
         // VDMOS-specific parameters
         if (model.params.count("vto")) vto_vdmos = model.params.at("vto");
         if (model.params.count("kp")) kp_vdmos = model.params.at("kp");
@@ -5185,6 +5184,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
     }
 
     // Parse optional parameters (can override model parameters)
+    std::map<std::string, Real> instance_params;  // as written, for devices set by name
     for (size_t i = param_start_idx; i < tokens.size(); ++i) {
         std::string param = tokens[i];
         std::transform(param.begin(), param.end(), param.begin(), ::tolower);
@@ -5201,6 +5201,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
             } else {
                 value = parse_value_with_unit(value_str);
             }
+            instance_params[key] = value;
 
             if (key == "kp") {
                 kp = value;
@@ -5254,25 +5255,12 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
                 rdtemp = value;
             } else if (key == "tnom") {
                 tnom = core::celsius_to_kelvin(value);
-            } else if (key == "beta") {
-                beta_hemt = value;
             } else if (key == "lambda") {
-                lambda = value;
-                lambda_vdmos = value;  // Also for VDMOS
-            } else if (key == "rs") {
-                rs = value;
-            } else if (key == "rd") {
-                rd = value;
-            } else if (key == "trap") {
-                trap = value;
+                lambda_vdmos = value;
             } else if (key == "cgs") {
-                cgs = value;
-                cgs_vdmos = value;  // Also for VDMOS
-            } else if (key == "cgd") {
-                cgd = value;
+                cgs_vdmos = value;
             } else if (key == "cds") {
-                cds = value;
-                cds_vdmos = value;  // Also for VDMOS
+                cds_vdmos = value;
             } else if (key == "vto") {
                 vto_vdmos = value;  // VDMOS threshold voltage
             } else if (key == "rds" || key == "rdson") {
@@ -5693,28 +5681,20 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         spdlog::debug("Added MOSFET_SiC_P: {} D={} G={} S={} Kp={:.3e}A/V² W={:.3e}m L={:.3e}m "
                      "Vth={:.3f}V β={:.3e}A/V² Rdrift={:.3e}Ω THETA={:.3e}V⁻¹ Vbd={:.1f}V",
                      dev_name, drain, gate, source, kp, w, l, vth, beta, rdrift, theta, vbd);
-    } else if (mosfet_type == "GAN_HEMT_N") {
-        // GaN HEMT N-channel (LEVEL=11)
-        state.circuit->add_gan_hemt_n(dev_name, drain, gate, source,
-                                       beta_hemt, vth, lambda,
-                                       rs, rd, vbd, trap,
-                                       cgs, cgd, cds,
-                                       kf, af, ef,
-                                       kt1, kt2, ute, tnom);
-        spdlog::debug("Added GaN_HEMT_N: {} D={} G={} S={} β={:.3e}A/V² Vth={:.3f}V λ={:.3e}V⁻¹ "
-                     "RS={:.3e}Ω RD={:.3e}Ω Vbd={:.1f}V",
-                     dev_name, drain, gate, source, beta_hemt, vth, lambda, rs, rd, vbd);
-    } else if (mosfet_type == "GAN_HEMT_P") {
-        // GaN HEMT P-channel (LEVEL=11)
-        state.circuit->add_gan_hemt_p(dev_name, drain, gate, source,
-                                       beta_hemt, vth, lambda,
-                                       rs, rd, vbd, trap,
-                                       cgs, cgd, cds,
-                                       kf, af, ef,
-                                       kt1, kt2, ute, tnom);
-        spdlog::debug("Added GaN_HEMT_P: {} D={} G={} S={} β={:.3e}A/V² Vth={:.3f}V λ={:.3e}V⁻¹ "
-                     "RS={:.3e}Ω RD={:.3e}Ω Vbd={:.1f}V",
-                     dev_name, drain, gate, source, beta_hemt, vth, lambda, rs, rd, vbd);
+    } else if (mosfet_type == "GAN_HEMT_N" || mosfet_type == "GAN_HEMT_P") {
+        // GaN HEMT (LEVEL=11): the device with its own defaults (those of
+        // its polarity), then the card's parameters and the element line's
+        if (mosfet_type == "GAN_HEMT_N") {
+            state.circuit->add_gan_hemt_n(dev_name, drain, gate, source);
+        } else {
+            state.circuit->add_gan_hemt_p(dev_name, drain, gate, source);
+        }
+        auto hemt = state.circuit->get_device(dev_name);
+        if (const ModelDefinition* hemt_model = state.config->find_model(type_or_model)) {
+            set_parameters_by_name(*hemt, hemt_model->params, "GaN HEMT model " + type_or_model);
+        }
+        set_parameters_by_name(*hemt, instance_params, "GaN HEMT " + dev_name);
+        spdlog::debug("Added {}: {} D={} G={} S={}", mosfet_type, dev_name, drain, gate, source);
     } else if (mosfet_type == "FINFET_N" || mosfet_type == "FINFET_P") {
         // FinFET (LEVEL=12): the device with its own defaults, then the
         // card's parameters and the gate length through
@@ -5728,15 +5708,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         auto finfet = state.circuit->get_device(dev_name);
         const ModelDefinition* finfet_model = state.config->find_model(type_or_model);
         if (finfet_model != nullptr) {
-            for (const auto& [key, card_value] : finfet_model->params) {
-                // FinFET::set_parameter takes TNOM in kelvin
-                const Real value = (key == "tnom") ? core::celsius_to_kelvin(card_value) : card_value;
-                if (key != "level" && !finfet->set_parameter(key, value)) {
-                    spdlog::warn("FinFET model {}: {}={} is not a FinFET parameter or is out "
-                                 "of range; ignored",
-                                 type_or_model, key, value);
-                }
-            }
+            set_parameters_by_name(*finfet, finfet_model->params, "FinFET model " + type_or_model);
         }
         finfet->set_parameter("l", l);
         spdlog::debug("Added {}: {} D={} G={} S={} L={:.3e}m", mosfet_type, dev_name, drain, gate,

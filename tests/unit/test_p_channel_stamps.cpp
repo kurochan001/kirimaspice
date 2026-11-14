@@ -16,6 +16,7 @@
 
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/devices/finfet.hpp"
+#include "kirimaspice/parser/netlist_parser.hpp"
 #include "kirimaspice/solvers/ac_solver.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
 
@@ -155,4 +156,54 @@ TEST(PChannelStamps, FinFetThresholdFollowsTheTemperatureAsTheMirror) {
     };
     const Real n_current = current(false);
     EXPECT_NEAR(current(true), -n_current, 1e-9 * std::abs(n_current));
+}
+
+// A LEVEL=11 card without parameters gives the GaN HEMT the defaults of the
+// device and of its polarity (VTH = -2 V for N, +2 V for P, KT1 = -3 mV/K,
+// UTE = -1), not those the parser keeps for other MOSFET levels; parameters
+// on the card, then on the element line, replace them.
+TEST(GaNHemtNetlist, TakesTheDevicesDefaultsAndThenTheNetlists) {
+    auto parse = [](const std::string& netlist) {
+        parser::NetlistParser parser;
+        auto parsed = parser.parse_string(netlist);
+        EXPECT_NE(parsed.circuit, nullptr);
+        return parsed;
+    };
+    auto defaults = parse(
+        "hemt\nVD d 0 DC 5\nVG g 0 DC 0\nM1 d g 0 mn\nM2 d2 g2 0 mp\n"
+        ".model mn nmos level=11\n.model mp pmos level=11\n.end\n");
+    auto m1 = defaults.circuit->get_device("M1");
+    auto m2 = defaults.circuit->get_device("M2");
+    EXPECT_DOUBLE_EQ(m1->get_parameter("vth").value(), -2.0);
+    EXPECT_DOUBLE_EQ(m2->get_parameter("vth").value(), 2.0);
+    EXPECT_DOUBLE_EQ(m1->get_parameter("kt1").value(), -3e-3);
+    EXPECT_DOUBLE_EQ(m1->get_parameter("ute").value(), -1.0);
+
+    auto given = parse(
+        "hemt\nM1 d g 0 mn vth=-1\n"
+        ".model mn nmos level=11 vto=-1.5 beta=0.2 tnom=27 cgs=2n\n.end\n");
+    auto m = given.circuit->get_device("M1");
+    EXPECT_DOUBLE_EQ(m->get_parameter("vth").value(), -1.0);   // element line over card
+    EXPECT_DOUBLE_EQ(m->get_parameter("beta").value(), 0.2);
+    EXPECT_DOUBLE_EQ(m->get_parameter("tnom").value(), 300.15);
+    EXPECT_DOUBLE_EQ(m->get_parameter("cgs").value(), 2e-9);
+
+    // In a circuit the netlist's default device carries what the API's does
+    auto current = [](CircuitGraph& c) {
+        SimulationConfig config;
+        DCSolver solver(c, config);
+        DenseVector solution;
+        SolverStats stats;
+        EXPECT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS);
+        return solver.get_branch_current("VD").value();
+    };
+    auto from_netlist = parse("hemt\nVD d 0 DC 5\nVG g 0 DC 0\nM1 d g 0 mn\n"
+                              ".model mn nmos level=11\n.end\n");
+    CircuitGraph from_api;
+    from_api.add_voltage_source("VD", "d", "0", 5.0);
+    from_api.add_voltage_source("VG", "g", "0", 0.0);
+    from_api.add_gan_hemt_n("M1", "d", "g", "0");
+    const Real api = current(from_api);
+    ASSERT_GT(std::abs(api), 1e-3);
+    EXPECT_NEAR(current(*from_netlist.circuit), api, 1e-12 * std::abs(api));
 }

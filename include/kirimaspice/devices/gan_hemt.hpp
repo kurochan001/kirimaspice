@@ -12,6 +12,9 @@
 
 #include "kirimaspice/devices/device.hpp"
 #include "kirimaspice/core/device_utils.hpp"
+#include <algorithm>
+#include <array>
+#include <cctype>
 #include <vector>
 #include <string>
 #include <cmath>
@@ -132,28 +135,26 @@ public:
     void set_temperature(Real temp_K) { temperature_ = temp_K; }
     [[nodiscard]] Real get_temperature() const { return temperature_; }
 
-    // Parameter access
+    // Parameter access, by name in any case; TNOM in kelvin
     [[nodiscard]] std::optional<Real> get_parameter(const std::string& param_name) const override {
-        if (param_name == "beta" || param_name == "BETA") return beta_;
-        if (param_name == "vth" || param_name == "VTH") return vth_;
-        if (param_name == "lambda" || param_name == "LAMBDA") return lambda_;
-        if (param_name == "rs" || param_name == "RS") return rs_;
-        if (param_name == "rd" || param_name == "RD") return rd_;
-        if (param_name == "vbd" || param_name == "VBD") return vbd_;
-        if (param_name == "trap" || param_name == "TRAP") return trap_;
-        if (param_name == "cgs" || param_name == "CGS") return cgs_;
-        if (param_name == "cgd" || param_name == "CGD") return cgd_;
-        if (param_name == "cds" || param_name == "CDS") return cds_;
+        const std::string name = lower(param_name);
+        for (const auto& entry : parameter_table()) {
+            if (name == entry.name) return *entry.target;
+        }
+        if (name == "vto") return vth_;
         return std::nullopt;
     }
 
     bool set_parameter(const std::string& param_name, Real value) override {
-        if ((param_name == "beta" || param_name == "BETA") && value > 0.0) {
-            beta_ = value; return true;
-        }
-        if (param_name == "vth" || param_name == "VTH") { vth_ = value; return true; }
-        if ((param_name == "lambda" || param_name == "LAMBDA") && value >= 0.0) {
-            lambda_ = value; return true;
+        const std::string name = lower(param_name);
+        if (name == "vto") return set_parameter("vth", value);
+        for (const auto& entry : parameter_table()) {
+            if (name == entry.name) {
+                if (entry.positive && value <= 0.0) return false;
+                if (!entry.positive && entry.non_negative && value < 0.0) return false;
+                *entry.target = value;
+                return true;
+            }
         }
         return false;
     }
@@ -168,6 +169,31 @@ private:
     std::vector<NodeId> nodes_;  // D, G, S
 
     // Device parameters
+    struct ParameterEntry {
+        const char* name;
+        Real* target;
+        bool positive;      ///< must be > 0
+        bool non_negative;  ///< must be >= 0
+    };
+    // Every parameter of the device, for get_parameter and set_parameter
+    std::array<ParameterEntry, 17> parameter_table() const {
+        auto* self = const_cast<GaN_HEMT*>(this);
+        return {{{"beta", &self->beta_, true, false},  {"vth", &self->vth_, false, false},
+                 {"lambda", &self->lambda_, false, true}, {"rs", &self->rs_, false, true},
+                 {"rd", &self->rd_, false, true},     {"vbd", &self->vbd_, true, false},
+                 {"trap", &self->trap_, false, true}, {"cgs", &self->cgs_, false, true},
+                 {"cgd", &self->cgd_, false, true},   {"cds", &self->cds_, false, true},
+                 {"kf", &self->kf_, false, true},     {"af", &self->af_, true, false},
+                 {"ef", &self->ef_, true, false},     {"kt1", &self->kt1_, false, false},
+                 {"kt2", &self->kt2_, false, false},  {"ute", &self->ute_, false, false},
+                 {"tnom", &self->tnom_, true, false}}};
+    }
+    static std::string lower(std::string text) {
+        std::transform(text.begin(), text.end(), text.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        return text;
+    }
+
     Real beta_, vth_, lambda_;
     Real rs_, rd_, vbd_, trap_;
     Real cgs_, cgd_, cds_;
