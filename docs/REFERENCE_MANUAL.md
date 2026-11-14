@@ -209,9 +209,9 @@ overrides the model's.
 | `D` | `IS` (1e-14 A), `N` (1) |
 | `Q` | `IS` (1e-14 A), `BF` (100), `NF` from a model or `N` on the instance (1), `ISE` (0), `NE` (1.5), `ISC` (0), `NC` (2), noise `KF` (0), `AF` (1), `FF` (1) |
 | `M`, level 1 | `KP` (2e-5 A/V²), `W` (10 µm), `L` (1 µm), `VTO` or `VTH` (0.7 V for NMOS, −0.7 V for PMOS), noise `KF` (0), `AF` (1), `EF` (1), `GAMMA` (0.667) |
-| `Z` | `LEVEL`/`MODEL` (formula), `BETA` (0.1), `VTO` (−2 V), `LAMBDA` (0.05), `ALPHA` (2), `B` (0.3), `VP` (3 V), `CGS` (1 pF), `CGD` (0.5 pF), `CDS` (0.1 pF), `KF`, `AF`, `EF`, `TNOM` |
-| `S` | `VBF` (400 V), `IGT` (20 mA), `IH` (10 mA), `IL` (30 mA), `VGT` (1 V), `RON` (0.1 Ω), `VTM` (1.5 V), `DV_DT` (10), `TNOM` (300.15 K) |
-| `Y` | `VBO` (400 V), `IGT` (20 mA), `IH` (10 mA), `VGT` (1 V), `RON` (0.1 Ω), `VTM` (1.5 V), `DV_DT` or `DVDT` (10), `TNOM` (300.15 K) |
+| `Z` | `LEVEL`/`MODEL` (formula), `BETA` (0.1), `VTO` (−2 V), `LAMBDA` (0.05), `ALPHA` (2), `B` (0.3), `VP` (3 V), `CGS` (1 pF), `CGD` (0.5 pF), `CDS` (0.1 pF), `KF`, `AF`, `EF`, `TNOM` (27 °C) |
+| `S` | `VBF` (400 V), `IGT` (20 mA), `IH` (10 mA), `IL` (30 mA), `VGT` (1 V), `RON` (0.1 Ω), `VTM` (1.5 V), `DV_DT` (10), `TNOM` (27 °C) |
+| `Y` | `VBO` (400 V), `IGT` (20 mA), `IH` (10 mA), `VGT` (1 V), `RON` (0.1 Ω), `VTM` (1.5 V), `DV_DT` or `DVDT` (10), `TNOM` (27 °C) |
 
 - The level-1 MOSFET has no bulk terminal in its equations, no channel
   length modulation and no capacitances. Its `GAMMA` is the coefficient of
@@ -233,6 +233,8 @@ overrides the model's.
   `PMF`, in any case. Any other type is an error.
 - Parameter names are not case-sensitive; `NAME = value` with spaces is
   accepted; values may be expressions in braces.
+- `TNOM`, on a card or an element line, is in °C, as in SPICE, for every
+  device; so are `.TEMP` and `.OPTIONS TEMP`. The default `TNOM` is 27 °C.
 - Model names are compared without regard to case; a `.MODEL` whose name
   differs from an earlier one only in case replaces it.
 - A `.MODEL` line applies to the whole netlist: an element may come before
@@ -285,7 +287,7 @@ may also be given on the element line, which overrides the card.
 | `CGS`, `CGD` | gate–source and gate–drain capacitance [F] | 1e-15, 1e-16 | 1e-15, 1e-16 |
 | `KF`, `AF` | flicker noise coefficient and exponent | 0, 1 | 0, 1 |
 | `KT1` | temperature coefficient of the threshold, with its sign [V/K] | −1e-3 | 1e-3 |
-| `TNOM` | nominal temperature [K] | 300.15 | 300.15 |
+| `TNOM` | nominal temperature [°C] | 27 | 27 |
 
 The current from drain to source of an NMOS, with V<sub>GS</sub> and
 V<sub>DS</sub>; a PMOS has the same equations in V<sub>SG</sub> and
