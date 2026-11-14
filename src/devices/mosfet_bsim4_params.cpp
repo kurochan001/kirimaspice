@@ -263,6 +263,9 @@ void BSIM4Params::compute_derived_params(Real temp) {
     // vtfbphi2 = 4.0 * T3;
     // if (vtfbphi2 < 0.0) vtfbphi2 = 0.0;
     const Real T3 = type * vth0 - vfb - phi;
+    // vtfbphi1, the field term of MOBMOD 2: 2 T3 for NMOS, 2.5 T3 for PMOS,
+    // not below 0 (b4temp.c)
+    vtfbphi1 = std::max((type > 0.0 ? 2.0 : 2.5) * T3, 0.0);
     vtfbphi2 = 4.0 * T3;
     if (vtfbphi2 < 0.0) {
         vtfbphi2 = 0.0;

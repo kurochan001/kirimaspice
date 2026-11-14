@@ -101,6 +101,7 @@ struct BSIM4Params {
 
     // Quantum Correction Parameters (量子補正パラメータ - Coxeff calculation)
     Real vtfbphi2 = 0.0;    ///< Vt*(Vfb+phi) for quantum correction [V] (derived)
+    Real vtfbphi1 = 0.0;    ///< Field term of MOBMOD 2: 2 or 2.5 (TYPE VTH0 - VFB - phi) [V] (derived)
     Real epssub = 0.0;      ///< Substrate permittivity [F/m] (derived)
     Real coxp = 0.0;        ///< Physical oxide capacitance (toxp-based) [F/m²] (derived)
 
@@ -145,8 +146,8 @@ struct BSIM4Params {
     // the defaults for MOBMOD = 0 (BSIM4 manual, appendix A)
     Real uc = -0.0465e-9;   ///< Body-effect coefficient of mobility degradation [m/V²]
     Real ud = 0.0;          ///< Vds dependence of mobility degradation
-    Real up = 0.0;          ///< Vgs dependence of mobility exponent
-    Real lp = 1.0;          ///< Longitudinal field exponent
+    Real up = 0.0;          ///< Mobility channel length coefficient [1/m²]
+    Real lp = 1.0e-8;       ///< Mobility channel length exponential coefficient [m]
     Real eu = 1.67;         ///< Exponent of mobility degradation
     Real ucs = 1.67;        ///< Exponent of velocity degradation for source side
     Real voff = -0.08;      ///< Offset voltage in subthreshold region [V]

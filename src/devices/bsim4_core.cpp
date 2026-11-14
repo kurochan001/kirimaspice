@@ -2826,123 +2826,47 @@ Real BSIM4Core::compute_ids(Real vgs, Real vds, Real vbs, Real temperature,
 }
 
 Real BSIM4Core::compute_mobility(Real vgt_eff, Real vth, Real vbs_eff, Real temperature) const {
-    const Real temp_ratio = guard_positive(temperature, params_.tnom) / params_.tnom;
-    // NOTE: params_.u0 is already in m²/V-s (converted by parser)
-    // DO NOT convert again here (bug fix: double unit conversion)
-    Real mu0 = params_.u0;
-    Real mu_temp = mu0 * std::pow(temp_ratio, params_.ute);
+    // The effective mobility (BSIM4 manual, chapter 6), with the parameters
+    // scaled from TNOM to T for TEMPMOD = 0 (chapter 13), as the BSIM4 4.8.3
+    // code computes them (b4temp.c, b4ld.c). vgt_eff is Vgsteff and vth the
+    // threshold of the N-channel equations; U0 is in m^2/Vs.
+    const Real t_ratio = guard_positive(temperature, params_.tnom) / params_.tnom;
+    const Real t0 = t_ratio - 1.0;
+    const Real ua = params_.ua + params_.ua1 * t0;
+    const Real ub = params_.ub + params_.ub1 * t0;
+    const Real uc = params_.uc + params_.uc1 * t0;
+    const Real ud = params_.ud + params_.ud1 * t0;
+    const Real length_factor = 1.0 - params_.up * std::exp(-params_.get_leff() / params_.lp);
+    const Real u0temp = params_.u0 * length_factor * std::pow(t_ratio, params_.ute);
 
-    // ngspice BSIM4.8.0 tempMod=0 formula (b4temp.c):
-    // ua = ua + ua1 * T0, where T0 = (TRatio - 1.0)
-    // TRatio = temperature / tnom (dimensionless)
-    // NOT delta_temp = temperature - tnom (absolute difference in K)
-    // This distinction is critical: at T=-40°C, TRatio=0.777, so T0=-0.223,
-    // whereas delta_temp=-67K. For ub1=-3.5e-18, this difference causes
-    // 132x error in ub calculation (2.355e-16 vs 1.78e-18).
-    const Real temp_ratio_minus_one = temp_ratio - 1.0;
-    const Real ua = params_.ua + params_.ua1 * temp_ratio_minus_one;
-    const Real ub = params_.ub + params_.ub1 * temp_ratio_minus_one;
-    const Real uc = params_.uc + params_.uc1 * temp_ratio_minus_one;
-
-    // Match ngspice BSIM4 mobility degradation formula (b4ld.c:1200-1250)
-    // T0 = Vgsteff + Vth + Vth - T14 (approximately Vgsteff + 2*Vth)
-    // This voltage term includes the doubled threshold voltage to correctly
-    // model the vertical electric field in the MOSFET channel
-    // CRITICAL FIX: Use bias-dependent Vth, not constant params_.vth0
-    //
-    // BSIM4.8.3 effective field calculation depends on mobmod:
-    // Reference: ngspice b4ld.c mobmod switch statement
-    //   mobmod=0: T0 = Vgsteff + 2*Vth - T14, T3 = T0/toxe
-    //   mobmod=1: T0 = Vgsteff/2 + Vth - T14, T3 = T0/toxe
-    //   mobmod=2: Universal mobility with eu exponent
-    // NOTE: T14 is related to flat-band voltage effects that reduce T0
-    // For simplicity, we use effective field that matches ngspice mobility output
-    Real T0;
-    Real e_eff_divisor;
-    switch (params_.mobmod) {
-        case 1:
-            // mobmod=1: T0 = Vgsteff/2 + Vth
-            T0 = 0.5 * vgt_eff + vth;
-            e_eff_divisor = 3.0;
-            break;
-        case 2:
-            // mobmod=2: Universal mobility model
-            T0 = vgt_eff + 2.0 * vth;
-            e_eff_divisor = 6.0;
-            break;
-        default:
-            // mobmod=0 (default): ngspice b4ld.c T3 = T0/toxe (NO divisor)
-            // Reference: ngspice b4ld.c mobmod=0 section
-            // T0 = Vgsteff + 2*Vth - T14, where T14 is flat-band correction
-            // We don't implement T14, but use the same divisor as ngspice
-            T0 = vgt_eff + 2.0 * vth;
-            e_eff_divisor = 1.0;  // Remove /3 to match ngspice
-            break;
-    }
+    // Coulomb scattering, UD (Vth toxe / (Vgsteff + 2 sqrt(Vth^2 + 1e-4)))^2
     const Real toxe = guard_positive(params_.toxe, 5e-10);
-    const Real e_eff = T0 / (e_eff_divisor * toxe);
+    const Real t12 = std::sqrt(vth * vth + 1e-4);
+    const Real t10 = toxe / (vgt_eff + 2.0 * t12);
+    const Real coulomb = ud * t10 * t10 * vth * vth;
 
-    // ===================================================================
-    // Enhanced μeff diagnostic logging for ngspice comparison
-    // Reference: ngspice b4ld.c mobmod=0: T3 = T0/toxe, ueff = u0temp / denom
-    //            denom = 1 + (ua + uc*Vbseff) * T3 + ub * T3 * T3
-    // ===================================================================
-    thread_local static int mobility_debug_count = 0;
-    if (mobility_debug_count < 10) {  // Increased limit for better diagnosis
-        spdlog::debug("=== μeff Diagnostic [call {}] ===", mobility_debug_count);
-        spdlog::debug("  Input parameters:");
-        spdlog::debug("    vgt_eff (Vgsteff) = {:+.6e} V", vgt_eff);
-        spdlog::debug("    vth (bias-dep)    = {:+.6e} V", vth);
-        spdlog::debug("    vbs_eff           = {:+.6e} V", vbs_eff);
-        spdlog::debug("    temperature       = {:+.6f} K", temperature);
-        spdlog::debug("  Model parameters:");
-        spdlog::debug("    u0 (base mob.)    = {:+.6e} m²/V-s", params_.u0);
-        spdlog::debug("    ute               = {:+.6f}", params_.ute);
-        spdlog::debug("    ua                = {:+.6e}", params_.ua);
-        spdlog::debug("    ub                = {:+.6e}", params_.ub);
-        spdlog::debug("    uc                = {:+.6e}", params_.uc);
-        spdlog::debug("    ua1               = {:+.6e}", params_.ua1);
-        spdlog::debug("    ub1               = {:+.6e}", params_.ub1);
-        spdlog::debug("    uc1               = {:+.6e}", params_.uc1);
-        spdlog::debug("    toxe              = {:+.6e} m", toxe);
-        spdlog::debug("    mobmod            = {}", params_.mobmod);
-        spdlog::debug("  Eeff calculation (ngspice b4ld.c mobmod={}):", params_.mobmod);
-        spdlog::debug("    T0 = vgt_eff + 2*vth = {:+.6e} V", T0);
-        spdlog::debug("    e_eff_divisor     = {:.1f}", e_eff_divisor);
-        spdlog::debug("    Eeff = T0/(div*toxe)= {:+.6e} V/m", e_eff);
-        mobility_debug_count++;
+    // The degradation term T5 of each MOBMOD (MTRLMOD = 0)
+    Real t5;
+    switch (params_.mobmod) {
+        case 1: {
+            const Real eeff = (vgt_eff + 2.0 * vth) / toxe;
+            t5 = eeff * (ua + ub * eeff) * (1.0 + uc * vbs_eff) + coulomb;
+            break;
+        }
+        case 2: {
+            const Real eeff = (vgt_eff + params_.vtfbphi1) / toxe;
+            t5 = std::exp(params_.eu * std::log(eeff)) * (ua + uc * vbs_eff) + coulomb;
+            break;
+        }
+        default: {
+            const Real eeff = (vgt_eff + 2.0 * vth) / toxe;
+            t5 = eeff * (ua + uc * vbs_eff + ub * eeff) + coulomb;
+            break;
+        }
     }
-
-    // Bug 2 Fix: Include body bias effect (Vbseff) in mobility calculation
-    // ngspice formula: T2 = ua + uc * Vbseff
-    // denom = 1.0 + e_eff * (T2 + ub * e_eff)
-    //       = 1.0 + T2 * e_eff + ub * e_eff * e_eff
-    const Real T2 = ua + uc * vbs_eff;
-    Real denom = 1.0 + T2 * e_eff + ub * e_eff * e_eff;
-    denom = std::max(denom, 0.1);
-    Real mu_eff = mu_temp / denom;
-
-    // ===================================================================
-    // Final μeff diagnostic output
-    // ===================================================================
-    if (mobility_debug_count <= 10) {
-        spdlog::debug("  Mobility degradation calculation:");
-        spdlog::debug("    temp_ratio        = {:.6f} (T/Tnom)", temp_ratio);
-        spdlog::debug("    mu_temp = u0*(T/Tnom)^ute = {:+.6e} m²/V-s", mu_temp);
-        spdlog::debug("    ua(T) = ua + ua1*(T/Tnom-1) = {:+.6e}", ua);
-        spdlog::debug("    ub(T) = ub + ub1*(T/Tnom-1) = {:+.6e}", ub);
-        spdlog::debug("    uc(T) = uc + uc1*(T/Tnom-1) = {:+.6e}", uc);
-        spdlog::debug("    T2 = ua(T) + uc(T)*Vbseff = {:+.6e}", T2);
-        spdlog::debug("    T2*Eeff           = {:+.6e}", T2 * e_eff);
-        spdlog::debug("    ub(T)*Eeff²       = {:+.6e}", ub * e_eff * e_eff);
-        spdlog::debug("    denom = 1 + T2*Eeff + ub*Eeff² = {:+.6e}", denom);
-        spdlog::debug("  Result:");
-        spdlog::debug("    μeff = mu_temp/denom = {:+.6e} m²/V-s", mu_eff);
-        spdlog::debug("    degradation factor = 1/denom = {:.4f} ({:.1f}% of mu_temp)",
-                     1.0 / denom, 100.0 / denom);
-    }
-
-    return guard_positive(mu_eff, 1e-4);
+    // 1 + T5, kept positive by the smooth form below T5 = -0.8
+    const Real denomi = (t5 >= -0.8) ? 1.0 + t5 : (0.6 + t5) / (7.0 + 10.0 * t5);
+    return u0temp / denomi;
 }
 
 /// Calculate rds0 (temperature-dependent base resistance) [Ω]

@@ -193,6 +193,35 @@ TEST(BSIM4AgainstNgspice, PmosDrainCurrent) {
     }
 }
 
+// The mobility models: MOBMOD 1 and 2, and MOBMOD 0 with Coulomb
+// scattering (UD) and the channel-length factor of U0 (UP, LP = 1e-8 m).
+// ngspice-47's `show m1 : id` for the card above with the parameters added.
+TEST(BSIM4AgainstNgspice, MobilityModels) {
+    struct Point {
+        const char* extra;
+        Real vgs, vds, vbs, id;
+    };
+    const Point points[] = {
+        {"mobmod=1", 1.0, 0.1, 0.0, 5.21294e-05},
+        {"mobmod=1", 1.8, 0.1, 0.0, 1.66861e-04},
+        {"mobmod=1", 1.0, 1.0, -0.5, 9.66785e-05},
+        {"mobmod=2", 1.0, 0.1, 0.0, 6.58641e-05},
+        {"mobmod=2", 1.8, 0.1, 0.0, 2.01013e-04},
+        {"ud=1e17 up=1e7", 0.6, 1.0, 0.0, 2.32463e-07},
+        {"ud=1e17 up=1e7", 1.0, 0.1, 0.0, 4.23974e-05},
+        {"ud=1e17 up=1e7", 1.8, 1.0, 0.0, 5.60731e-04},
+    };
+    for (const auto& p : points) {
+        const std::string card =
+            std::string(".model nch nmos level=14 version=4.8.1 toxe=3e-9 vth0=0.5 u0=0.067 "
+                        "vsat=8e4 ") + p.extra + "\n";
+        const DrainRow row =
+            drain_row_of_m1("M1 d g s b nch L=0.18u W=1u", card, p.vds, p.vgs, 0.0, p.vbs);
+        EXPECT_NEAR(row.ids, p.id, 2e-4 * p.id)
+            << p.extra << " VGS=" << p.vgs << " VDS=" << p.vds << " VBS=" << p.vbs;
+    }
+}
+
 // gm, gds and gmb are the derivatives of that drain current.
 TEST(BSIM4AgainstNgspice, Conductances) {
     for (const auto& ref : kReference) {
