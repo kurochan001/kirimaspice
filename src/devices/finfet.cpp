@@ -575,7 +575,7 @@ bool FinFET<P>::set_parameter(const std::string& param_name, Real value) {
         }
         return false;
     }
-    if (param_lower == "vth" || param_lower == "vth0") {
+    if (param_lower == "vth" || param_lower == "vth0" || param_lower == "vto") {
         vth_ = value;
         return true;
     }
@@ -586,6 +586,36 @@ bool FinFET<P>::set_parameter(const std::string& param_name, Real value) {
             return true;
         }
         return false;
+    }
+    if (param_lower == "tox") {
+        if (value > 0.0) {
+            tox_ = value;
+            cox_ = epsilon_ox * epsilon_0 / tox_;
+            beta_ = cox_ * weff_ * u0_ / l_;
+            return true;
+        }
+        return false;
+    }
+    // Parameters that no other one is derived from
+    struct Plain {
+        const char* name;
+        Real* target;
+        bool positive;
+    };
+    const Plain plain[] = {
+        {"tfin", &tfin_, true}, {"vsat", &vsat_, true}, {"ss", &ss_, true},
+        {"dibl", &dibl_, false}, {"cgs", &cgs_, false}, {"cgd", &cgd_, false},
+        {"kf", &kf_, false},    {"af", &af_, true},     {"kt1", &kt1_, false},
+        {"tnom", &tnom_, true},
+    };
+    for (const auto& entry : plain) {
+        if (param_lower == entry.name) {
+            if (entry.positive && value <= 0.0) {
+                return false;
+            }
+            *entry.target = value;
+            return true;
+        }
     }
 
     return false;

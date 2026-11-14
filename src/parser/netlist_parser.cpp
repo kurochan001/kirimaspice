@@ -5021,15 +5021,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
     Real cgd = 1e-10;        // Gate-drain capacitance [F] (Miller)
     Real cds = 1e-11;        // Drain-source capacitance [F]
 
-    // FinFET-specific parameters
-    int nfin = 1;            // Number of fins
-    Real hfin = 30e-9;       // Fin height [m] (30nm)
-    Real tfin = 7e-9;        // Fin thickness [m] (7nm)
-    Real u0 = 300e-4;        // Low-field mobility [m²/V-s] (300 cm²/V-s for N-ch)
-    Real vsat = 1e5;         // Saturation velocity [m/s]
-    Real ss = 70e-3;         // Subthreshold swing [V/dec] (70 mV/dec for N-ch)
-    Real dibl = 0.05;        // DIBL coefficient [V/V]
-    Real tox = 1e-9;         // Gate oxide thickness [m] (1nm)
+    // FinFET parameters are the device's (FinFET::set_parameter)
 
     // VDMOS-specific parameters
     Real vto_vdmos = 4.0;    // Threshold voltage [V] (3-5V typical)
@@ -5732,26 +5724,30 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         spdlog::debug("Added GaN_HEMT_P: {} D={} G={} S={} β={:.3e}A/V² Vth={:.3f}V λ={:.3e}V⁻¹ "
                      "RS={:.3e}Ω RD={:.3e}Ω Vbd={:.1f}V",
                      dev_name, drain, gate, source, beta_hemt, vth, lambda, rs, rd, vbd);
-    } else if (mosfet_type == "FINFET_N") {
-        // FinFET N-channel (LEVEL=12)
-        state.circuit->add_finfet_n(dev_name, drain, gate, source,
-                                     nfin, hfin, tfin,
-                                     vth, u0, vsat, ss, dibl, tox,
-                                     cgs, cgd,
-                                     kf, af, kt1, tnom, l);
-        spdlog::debug("Added FinFET_N: {} D={} G={} S={} NFin={} Hfin={:.1f}nm Vth={:.3f}V "
-                     "SS={:.1f}mV/dec DIBL={:.3f}V/V",
-                     dev_name, drain, gate, source, nfin, hfin * 1e9, vth, ss * 1e3, dibl);
-    } else if (mosfet_type == "FINFET_P") {
-        // FinFET P-channel (LEVEL=12)
-        state.circuit->add_finfet_p(dev_name, drain, gate, source,
-                                     nfin, hfin, tfin,
-                                     vth, u0, vsat, ss, dibl, tox,
-                                     cgs, cgd,
-                                     kf, af, kt1, tnom, l);
-        spdlog::debug("Added FinFET_P: {} D={} G={} S={} NFin={} Hfin={:.1f}nm Vth={:.3f}V "
-                     "SS={:.1f}mV/dec DIBL={:.3f}V/V",
-                     dev_name, drain, gate, source, nfin, hfin * 1e9, vth, ss * 1e3, dibl);
+    } else if (mosfet_type == "FINFET_N" || mosfet_type == "FINFET_P") {
+        // FinFET (LEVEL=12): the device with its own defaults, then the
+        // card's parameters and the gate length through
+        // FinFET::set_parameter, so that the defaults are those of the
+        // device and of its polarity
+        if (mosfet_type == "FINFET_N") {
+            state.circuit->add_finfet_n(dev_name, drain, gate, source);
+        } else {
+            state.circuit->add_finfet_p(dev_name, drain, gate, source);
+        }
+        auto finfet = state.circuit->get_device(dev_name);
+        const ModelDefinition* finfet_model = state.config->find_model(type_or_model);
+        if (finfet_model != nullptr) {
+            for (const auto& [key, value] : finfet_model->params) {
+                if (key != "level" && !finfet->set_parameter(key, value)) {
+                    spdlog::warn("FinFET model {}: {}={} is not a FinFET parameter or is out "
+                                 "of range; ignored",
+                                 type_or_model, key, value);
+                }
+            }
+        }
+        finfet->set_parameter("l", l);
+        spdlog::debug("Added {}: {} D={} G={} S={} L={:.3e}m", mosfet_type, dev_name, drain, gate,
+                      source, l);
     } else if (mosfet_type == "VDMOS_N") {
         // VDMOS N-channel (LEVEL=20)
         state.circuit->add_vdmos_n(dev_name, drain, gate, source,

@@ -8,6 +8,7 @@
 #include "kirimaspice/devices/voltage_source.hpp"
 #include "kirimaspice/devices/finfet.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
+#include "kirimaspice/parser/netlist_parser.hpp"
 
 using namespace kirimaspice;
 using namespace kirimaspice::circuit;
@@ -653,4 +654,30 @@ TEST(FinFETGainFactor, HasTheChannelLength) {
     const Real at_1um = drain_current(1e-6);
     EXPECT_NEAR(at_1um, expected, 1e-6 * expected);
     EXPECT_NEAR(drain_current(0.5e-6), 2.0 * at_1um, 1e-6 * at_1um);
+}
+
+// A LEVEL=12 card sets the FinFET's parameters, the instance its gate
+// length, and what the card does not give keeps the device's default: two
+// 40 nm fins at L = 1 um carry 0.5 u0 Cox (2 x 40 nm) / L (VGS - Vth + DIBL
+// VDS)^2 with the defaults u0 = 300 cm^2/Vs, TOX = 1 nm, Vth = 0.4 V and
+// DIBL = 0.05.
+TEST(FinFETGainFactor, CardAndInstanceSetTheParameters) {
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "finfet\nVD d 0 DC 0.8\nVG g 0 DC 0.8\nM1 d g 0 nf L=1u\n"
+        ".model nf nmos level=12 nfin=2 hfin=40n\n.end\n");
+    ASSERT_NE(parsed.circuit, nullptr);
+    DCSolver solver(*parsed.circuit, parsed.config);
+    DenseVector solution;
+    SolverStats stats;
+    ASSERT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS);
+    const Real cox = 3.9 * 8.854187817e-12 / 1e-9;
+    const Real beta = 300e-4 * cox * (2 * 40e-9) / 1e-6;
+    const Real vov = 0.8 - (0.4 - 0.05 * 0.8);
+    const Real expected = 0.5 * beta * vov * vov;
+    EXPECT_NEAR(-solver.get_branch_current("VD").value(), expected, 1e-6 * expected);
+
+    auto* m1 = dynamic_cast<devices::FinFET_N*>(parsed.circuit->get_device("M1").get());
+    ASSERT_NE(m1, nullptr);
+    EXPECT_DOUBLE_EQ(m1->get_parameter("cgs").value(), 1e-15);  // the device's default
 }
