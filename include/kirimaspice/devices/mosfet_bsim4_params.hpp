@@ -80,6 +80,10 @@ struct BSIM4Params {
     bool gamma1_given = false;
     bool gamma2_given = false;
     bool vbx_given = false;
+    // U0 and EU default by TYPE (compute_derived_params); values set in code
+    // count as given
+    bool u0_given = true;
+    bool eu_given = true;
     Real xt = 1.55e-7;      ///< Doping depth [m]
     Real eot = 0.0;         ///< Equivalent oxide thickness [m]
     Real vddeot = 0.0;      ///< Supply voltage for eot extraction [V]
@@ -138,7 +142,7 @@ struct BSIM4Params {
     // Mobility Parameters (移動度パラメータ)
     //==========================================================================
 
-    Real u0 = 670.0;        ///< Low-field mobility at tnom [cm²/Vs]
+    Real u0 = 0.067;        ///< Low-field mobility at tnom [m²/Vs] (NMOS default; see u0_given)
     Real ua = 1.0e-9;       ///< First-order mobility degradation coefficient [m/V]
     // BSIM4 manual, appendix A, and the BSIM4 4.8.3 code (b4set.c): 1.0e-19
     Real ub = 1.0e-19;      ///< Second-order mobility degradation coefficient [(m/V)²]

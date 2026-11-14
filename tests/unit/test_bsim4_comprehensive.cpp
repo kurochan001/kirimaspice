@@ -1361,6 +1361,26 @@ TEST(BSIM4DerivedParameters, MobilityDefaultsFollowMobmod) {
     EXPECT_DOUBLE_EQ(given.uc1, 0.02);
 }
 
+// U0 and EU that the card does not give follow TYPE when the derived
+// parameters are computed; a U0 above 1 on the card is in cm^2/Vs.
+TEST(BSIM4DerivedParameters, U0AndEuDefaultsFollowType) {
+    BSIM4Params p = bsim4_params_from_model({{"toxe", 3e-9}}, "m");
+    p.type = -1.0;
+    p.compute_derived_params(p.tnom);
+    EXPECT_DOUBLE_EQ(p.u0, 0.025);
+    EXPECT_DOUBLE_EQ(p.eu, 1.0);
+    p.type = 1.0;
+    p.compute_derived_params(p.tnom);
+    EXPECT_DOUBLE_EQ(p.u0, 0.067);
+    EXPECT_DOUBLE_EQ(p.eu, 1.67);
+
+    BSIM4Params given = bsim4_params_from_model({{"toxe", 3e-9}, {"u0", 300.0}, {"eu", 1.2}}, "m");
+    given.type = -1.0;
+    given.compute_derived_params(given.tnom);
+    EXPECT_DOUBLE_EQ(given.u0, 0.03);
+    EXPECT_DOUBLE_EQ(given.eu, 1.2);
+}
+
 // When the card gives only one of K1 and K2, the other takes its default
 // (K1 = 0.53, K2 = -0.0186), as in the BSIM4 4.8.3 code.
 TEST(BSIM4BodyEffectCoefficients, DefaultWhenOnlyOneIsGiven) {

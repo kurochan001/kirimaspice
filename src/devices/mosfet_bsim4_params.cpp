@@ -39,6 +39,16 @@ void BSIM4Params::compute_derived_params(Real temp) {
     const Real Vt = kBoltz * T / qElectron;  // Thermal voltage at operating temperature
     const Real Vtm0 = kBoltz * tnom / qElectron;  // Thermal voltage at NOMINAL temperature (for phi/vbi)
 
+    // U0 and EU that the card does not give take the defaults of its TYPE
+    // (BSIM4 manual, appendix A; the BSIM4 4.8.3 code): U0 = 0.067 m^2/Vs
+    // and EU = 1.67 for NMOS, 0.025 m^2/Vs and 1.0 for PMOS
+    if (!u0_given) {
+        u0 = (type > 0.0) ? 0.067 : 0.025;
+    }
+    if (!eu_given) {
+        eu = (type > 0.0) ? 1.67 : 1.0;
+    }
+
     // ngspice compatibility: if toxm is not specified (<=0), use toxe
     // From ngspice b4ld.c: if (model->BSIM4toxm <= 0.0) model->BSIM4toxm = model->BSIM4toxe;
     if (toxm <= 0.0) {
@@ -318,6 +328,8 @@ BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_par
     bsim4_params.gamma1_given = model_params.count("gamma1") > 0;
     bsim4_params.gamma2_given = model_params.count("gamma2") > 0;
     bsim4_params.vbx_given = model_params.count("vbx") > 0;
+    bsim4_params.u0_given = model_params.count("u0") > 0;
+    bsim4_params.eu_given = model_params.count("eu") > 0;
 
     for (const auto& [key, value] : model_params) {
         // Process Parameters
@@ -498,7 +510,9 @@ BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_par
                      model_name, bsim4_params.version, target_bsim4_version);
     }
 
-    if (bsim4_params.u0 > 1.0) {
+    // A U0 above 1 on the card is in cm^2/Vs (the BSIM4 4.8.3 code divides
+    // it by 1e4)
+    if (bsim4_params.u0_given && bsim4_params.u0 > 1.0) {
         Real original_u0 = bsim4_params.u0;
         bsim4_params.u0 *= 1e-4;
         spdlog::warn("BSIM4 model {}: u0={} interpreted as cm^2/Vs. Converted to {:.3e} m^2/Vs (×1e-4).",

@@ -222,6 +222,40 @@ TEST(BSIM4AgainstNgspice, MobilityModels) {
     }
 }
 
+// U0 and EU that a card does not give take the defaults of its TYPE: 0.067
+// m^2/Vs and 1.67 for NMOS, 0.025 m^2/Vs and 1.0 for PMOS (EU acts for
+// MOBMOD 2). ngspice-47's `show m1 : id`, VBS = 0.
+TEST(BSIM4AgainstNgspice, MobilityDefaultsOfEachType) {
+    struct Point {
+        const char* instance;
+        const char* card;
+        Real vgs, vds, id;
+    };
+    const Point points[] = {
+        {"M1 d g s b nch L=0.18u W=1u",
+         ".model nch nmos level=14 version=4.8.1 toxe=3e-9 vth0=0.5 vsat=8e4\n", 1.0, 0.1,
+         5.21294e-05},
+        {"M1 d g s b pch L=0.18u W=1u",
+         ".model pch pmos level=14 version=4.8.1 toxe=3e-9 vth0=-0.5 vsat=8e4\n", -1.0, -0.1,
+         2.23597e-05},
+        {"M1 d g s b pch L=0.18u W=1u",
+         ".model pch pmos level=14 version=4.8.1 toxe=3e-9 vth0=-0.5 vsat=8e4\n", -1.8, -1.0,
+         3.39023e-04},
+        {"M1 d g s b pch L=0.18u W=1u",
+         ".model pch pmos level=14 version=4.8.1 toxe=3e-9 vth0=-0.5 u0=0.025 vsat=8e4 "
+         "mobmod=2\n",
+         -1.0, -0.1, 3.38160e-05},
+        {"M1 d g s b pch L=0.18u W=1u",
+         ".model pch pmos level=14 version=4.8.1 toxe=3e-9 vth0=-0.5 u0=0.025 vsat=8e4 "
+         "mobmod=2\n",
+         -1.8, -1.0, 5.16942e-04},
+    };
+    for (const auto& p : points) {
+        const DrainRow row = drain_row_of_m1(p.instance, p.card, p.vds, p.vgs, 0.0, 0.0);
+        EXPECT_NEAR(std::abs(row.ids), p.id, 2e-4 * p.id) << p.card << "VGS=" << p.vgs;
+    }
+}
+
 // gm, gds and gmb are the derivatives of that drain current.
 TEST(BSIM4AgainstNgspice, Conductances) {
     for (const auto& ref : kReference) {
