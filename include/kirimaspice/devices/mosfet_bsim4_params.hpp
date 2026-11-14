@@ -141,8 +141,9 @@ struct BSIM4Params {
     Real ua = 1.0e-9;       ///< First-order mobility degradation coefficient [m/V]
     // BSIM4 manual, appendix A, and the BSIM4 4.8.3 code (b4set.c): 1.0e-19
     Real ub = 1.0e-19;      ///< Second-order mobility degradation coefficient [(m/V)²]
-    // Fix: Changed from 0.0 to match industry process models (0.18µm process: -1e-10)
-    Real uc = -4.65e-11;    ///< Body-effect coefficient of mobility degradation [V⁻¹]
+    // UA, UC and UC1 default by MOBMOD (bsim4_params_from_model); these are
+    // the defaults for MOBMOD = 0 (BSIM4 manual, appendix A)
+    Real uc = -0.0465e-9;   ///< Body-effect coefficient of mobility degradation [m/V²]
     Real ud = 0.0;          ///< Vds dependence of mobility degradation
     Real up = 0.0;          ///< Vgs dependence of mobility exponent
     Real lp = 1.0;          ///< Longitudinal field exponent
@@ -200,7 +201,7 @@ struct BSIM4Params {
     Real utl = 0.0;         ///< Mobility temperature exponent for high Vgsteff
     Real ua1 = 1.0e-9;      ///< Temperature coefficient of ua [m/V]
     Real ub1 = -1.0e-18;    ///< Temperature coefficient of ub [(m/V)²]
-    Real uc1 = 0.0;         ///< Temperature coefficient of uc [V⁻¹]
+    Real uc1 = -0.056e-9;   ///< Temperature coefficient of uc [m/V²] (MOBMOD = 0)
     Real ud1 = 0.0;         ///< Temperature coefficient of ud
     Real up1 = 0.0;         ///< Temperature coefficient of up
     // Note: 'at' and 'prt' are already defined in Process and Mobility sections

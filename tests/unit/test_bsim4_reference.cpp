@@ -151,6 +151,26 @@ TEST(BSIM4AgainstNgspice, DrainCurrentAtOtherTemperatures) {
     }
 }
 
+// With body bias the temperature also acts through UC1, whose default for
+// MOBMOD = 0 is -0.056e-9 m/V^2. ngspice-47 with ".temp <T>", VDS = 1 V,
+// VBS = -1 V.
+TEST(BSIM4AgainstNgspice, DrainCurrentAtOtherTemperaturesWithBodyBias) {
+    struct AtTemperature {
+        Real celsius, vgs, id;
+    };
+    const AtTemperature points[] = {
+        {100.0, 1.0, 7.04314e-05}, {100.0, 1.8, 4.73168e-04},
+        {-40.0, 1.0, 8.95418e-05}, {-40.0, 1.8, 6.72150e-04},
+    };
+    for (const auto& p : points) {
+        char options[64];
+        std::snprintf(options, sizeof options, ".options temp=%.1f\n", p.celsius);
+        const DrainRow row = drain_row_of_m1("M1 d g s b nch L=0.18u W=1u", kCard, 1.0, p.vgs,
+                                             0.0, -1.0, options);
+        EXPECT_NEAR(row.ids, p.id, 2e-4 * p.id) << options << "VGS=" << p.vgs;
+    }
+}
+
 // gm, gds and gmb are the derivatives of that drain current.
 TEST(BSIM4AgainstNgspice, Conductances) {
     for (const auto& ref : kReference) {

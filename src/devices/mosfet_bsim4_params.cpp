@@ -468,6 +468,22 @@ BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_par
         }
     }
 
+    // UA, UC and UC1 that the card does not give take the defaults of its
+    // MOBMOD (BSIM4 manual, appendix A; the BSIM4 4.8.3 code): UC and UC1
+    // are per volt for MOBMOD 1 and 5 and in m/V^2 otherwise, and UA is
+    // 1.0e-15 m/V for MOBMOD 2 and 6 and 1.0e-9 m/V otherwise.
+    const int mobmod = bsim4_params.mobmod;
+    const bool uc_per_volt = mobmod == 1 || mobmod == 5;
+    if (model_params.count("ua") == 0) {
+        bsim4_params.ua = (mobmod == 2 || mobmod == 6) ? 1.0e-15 : 1.0e-9;
+    }
+    if (model_params.count("uc") == 0) {
+        bsim4_params.uc = uc_per_volt ? -0.0465 : -0.0465e-9;
+    }
+    if (model_params.count("uc1") == 0) {
+        bsim4_params.uc1 = uc_per_volt ? -0.056 : -0.056e-9;
+    }
+
     // Override with instance parameters (W, L from tokens)
 
     const Real target_bsim4_version = 4.83;

@@ -1335,6 +1335,32 @@ TEST(BSIM4DerivedParameters, UbDefaultsToTheManualValue) {
     EXPECT_DOUBLE_EQ(p.ub, 1.0e-19);
 }
 
+// UA, UC and UC1 that the card does not give take the defaults of its
+// MOBMOD (BSIM4 manual, appendix A): UC and UC1 per volt for MOBMOD 1, in
+// m/V^2 otherwise, and UA = 1.0e-15 m/V for MOBMOD 2. Given values are kept.
+TEST(BSIM4DerivedParameters, MobilityDefaultsFollowMobmod) {
+    const BSIM4Params m0 = bsim4_params_from_model({{"toxe", 3e-9}}, "nch");
+    EXPECT_DOUBLE_EQ(m0.ua, 1.0e-9);
+    EXPECT_DOUBLE_EQ(m0.uc, -0.0465e-9);
+    EXPECT_DOUBLE_EQ(m0.uc1, -0.056e-9);
+
+    const BSIM4Params m1 = bsim4_params_from_model({{"toxe", 3e-9}, {"mobmod", 1}}, "nch");
+    EXPECT_DOUBLE_EQ(m1.ua, 1.0e-9);
+    EXPECT_DOUBLE_EQ(m1.uc, -0.0465);
+    EXPECT_DOUBLE_EQ(m1.uc1, -0.056);
+
+    const BSIM4Params m2 = bsim4_params_from_model({{"toxe", 3e-9}, {"mobmod", 2}}, "nch");
+    EXPECT_DOUBLE_EQ(m2.ua, 1.0e-15);
+    EXPECT_DOUBLE_EQ(m2.uc, -0.0465e-9);
+    EXPECT_DOUBLE_EQ(m2.uc1, -0.056e-9);
+
+    const BSIM4Params given = bsim4_params_from_model(
+        {{"toxe", 3e-9}, {"mobmod", 1}, {"ua", 2e-9}, {"uc", 0.01}, {"uc1", 0.02}}, "nch");
+    EXPECT_DOUBLE_EQ(given.ua, 2e-9);
+    EXPECT_DOUBLE_EQ(given.uc, 0.01);
+    EXPECT_DOUBLE_EQ(given.uc1, 0.02);
+}
+
 // When the card gives only one of K1 and K2, the other takes its default
 // (K1 = 0.53, K2 = -0.0186), as in the BSIM4 4.8.3 code.
 TEST(BSIM4BodyEffectCoefficients, DefaultWhenOnlyOneIsGiven) {
