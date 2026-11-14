@@ -130,53 +130,48 @@ BSIM4OperatingPoint BSIM4Core::evaluate(Real vg, Real vd, Real vs, Real vb,
     spdlog::debug("[evaluate call {}] AFTER compute_derived (T={:.2f}K): phi={:.6e}, sqrtPhi={:.6e}, Xdep0={:.6e}",
                  eval_call_count, temperature, params_.phi, params_.sqrtPhi, params_.Xdep0);
 
-    // Use the new analytical flow: compute_bias → compute_threshold → compute_cdrain
-    const BSIM4BiasState bias = compute_bias(vg, vd, vs, vb, temperature);
-    const BSIM4ThresholdState th = compute_threshold(bias, temperature, theta0vb0, sqrtPhi_nom, vbi_nom, phi_nom);
-
-    Real gm_eff = 0.0;
-    Real gds_eff = 0.0;
-    Real gmb_eff = 0.0;
-    Real ids_eff = compute_cdrain(bias, th, gm_eff, gds_eff, gmb_eff);
-
-    // Removed ALL pragmatic scaling to use pure BSIM4.8.3 model.
-    // The previous pragmatic scaling (lines 119-278) tried to compensate for
-    // model inaccuracies but created discontinuities and non-physical behavior.
-    // Instead, we now rely on the accurate compute_cdrain() implementation
-    // which matches ngspice b4ld.c formulas directly.
-    //
-    // Key improvements in compute_cdrain():
-    // - Vgsteff smoothing function matching ngspice (lines 1365-1387)
-    // - Unified gche formula for all regions (lines 1566-1713)
-    // - Accurate vdseff calculation (lines 1584-1634)
-    // - VADIBL/VADITS/VASCBE cascade stages (lines 1737-1967)
-    // - Proper gm/gds/gmb derivatives (lines 1969-2087)
-    //
-    // If there are still accuracy issues, they should be fixed in compute_cdrain()
-    // rather than patched with post-hoc scaling factors.
-
-    constexpr Real VDSAT_CALIB = 1.0;  // Removed arbitrary calibration to use BSIM4 native vdsat
-
-    // Reverse mode current sign correction
-    // If drain and source were swapped (Vds < 0), reverse current direction
-    if (bias.reverse_mode) {
-        ids_eff = -ids_eff;
-        spdlog::trace("BSIM4: Reverse mode current correction: ids = -{:.6e} A", -ids_eff);
-    }
-
-    // Apply multipliers
     const Real mult_current = std::max(params_.m, 1.0) *
                               std::max(params_.nf, 1.0) *
                               std::max(params_.mult_i, 1e-3);
-    const Real gmb_scale = mult_current * std::max(params_.mult_q, 1e-3);
+
+    // The drain current, from drain to source, at gate, drain and bulk
+    // voltages g, d and b (the source at vs): compute_bias swaps drain and
+    // source when Vds < 0, so the current then changes sign.
+    BSIM4ThresholdState th_at_bias;
+    auto drain_current = [&](Real g, Real d, Real b, BSIM4ThresholdState* th_out) {
+        const BSIM4BiasState bias = compute_bias(g, d, vs, b, temperature);
+        const BSIM4ThresholdState th =
+            compute_threshold(bias, temperature, theta0vb0, sqrtPhi_nom, vbi_nom, phi_nom);
+        Real unused_gm = 0.0;
+        Real unused_gds = 0.0;
+        Real unused_gmb = 0.0;
+        Real ids = compute_cdrain(bias, th, unused_gm, unused_gds, unused_gmb);
+        if (bias.reverse_mode) {
+            ids = -ids;
+        }
+        if (th_out != nullptr) {
+            *th_out = th;
+        }
+        return polarity_ * ids * mult_current;
+    };
 
     BSIM4OperatingPoint op;
-    op.ids = polarity_ * ids_eff * mult_current;
-    op.gm = gm_eff * mult_current;
-    op.gds = gds_eff * mult_current;
-    op.gmb = gmb_eff * gmb_scale;
-    op.vth = polarity_ * th.vth;
-    op.vdsat = polarity_ * th.vdsat * VDSAT_CALIB;
+    op.ids = drain_current(vg, vd, vb, &th_at_bias);
+
+    // gm, gds and gmb are the derivatives of that same current with respect
+    // to the gate, drain and bulk voltages, the source held, as the stamps
+    // use them (MOSFET_BSIM4::stamp_dc_nonlinear). They are central
+    // differences of drain_current, so they belong to the one current
+    // function in both modes and for both polarities.
+    constexpr Real kStep = 1e-6;  // [V]
+    op.gm = (drain_current(vg + kStep, vd, vb, nullptr) -
+             drain_current(vg - kStep, vd, vb, nullptr)) / (2.0 * kStep);
+    op.gds = (drain_current(vg, vd + kStep, vb, nullptr) -
+              drain_current(vg, vd - kStep, vb, nullptr)) / (2.0 * kStep);
+    op.gmb = (drain_current(vg, vd, vb + kStep, nullptr) -
+              drain_current(vg, vd, vb - kStep, nullptr)) / (2.0 * kStep);
+    op.vth = polarity_ * th_at_bias.vth;
+    op.vdsat = polarity_ * th_at_bias.vdsat;
 
     // Restore original params to prevent interference between multiple evaluate() calls
     params_ = saved_params;

@@ -1,8 +1,8 @@
 // Copyright (c) 2026 The kirimaspice Authors
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-// The drain current that a BSIM4 transistor stamps, against reference runs
-// of ngspice-47.
+// The drain current and the conductances that a BSIM4 transistor stamps,
+// against reference runs of ngspice-47.
 //
 // The card gives only TOXE, VTH0, U0 and VSAT, so every other parameter takes
 // its default. The values are ngspice-47's `show m1 : id gm gds gmbs` (six
@@ -120,5 +120,51 @@ TEST(BSIM4AgainstNgspice, DrainCurrent) {
     for (const auto& ref : kReference) {
         const DrainRow row = nmos_at(ref.vgs, ref.vds, ref.vbs);
         EXPECT_NEAR(row.ids, ref.id, 2e-4 * ref.id) << bias_of(ref);
+    }
+}
+
+// gm, gds and gmb are the derivatives of that drain current.
+TEST(BSIM4AgainstNgspice, Conductances) {
+    for (const auto& ref : kReference) {
+        const DrainRow row = nmos_at(ref.vgs, ref.vds, ref.vbs);
+        const std::string at = bias_of(ref);
+        EXPECT_NEAR(row.gm, ref.gm, 1e-3 * ref.gm) << at;
+        EXPECT_NEAR(row.gds, ref.gds, 1e-3 * ref.gds) << at;
+        EXPECT_NEAR(row.gmb, ref.gmbs, 1e-3 * ref.gmbs) << at;
+    }
+}
+
+// With the drain below the source the device swaps them, and with a P-channel
+// card it works on the negated voltages. In both cases the stamped gm, gds and
+// gmb are still the derivatives of the stamped drain current with respect to
+// the gate, drain and bulk voltages, as Newton's method and the AC analysis
+// take them.
+TEST(BSIM4Conductances, AreTheDerivativesOfTheStampedCurrent) {
+    const std::string pmos_card =
+        ".model pch pmos level=14 version=4.8.1 toxe=3e-9 vth0=-0.5 u0=0.025 vsat=8e4\n";
+    struct Case {
+        const char* what;
+        std::string instance;
+        std::string card;
+        Real vd, vg, vs, vb;
+    };
+    const Case cases[] = {
+        {"NMOS, drain below source", "M1 d g s b nch L=0.18u W=1u", kCard, 0.2, 1.4, 1.0, -0.3},
+        {"PMOS", "M1 d g s b pch L=0.18u W=1u", pmos_card, 0.4, 0.3, 1.8, 1.8},
+        {"PMOS, drain above source", "M1 d g s b pch L=0.18u W=1u", pmos_card, 1.8, 0.3, 1.2, 1.8},
+    };
+    const Real h = 1e-4;
+    for (const auto& c : cases) {
+        const DrainRow row = drain_row_of_m1(c.instance, c.card, c.vd, c.vg, c.vs, c.vb);
+        auto ids = [&](Real vd, Real vg, Real vb) {
+            return drain_row_of_m1(c.instance, c.card, vd, vg, c.vs, vb).ids;
+        };
+        const Real gm = (ids(c.vd, c.vg + h, c.vb) - ids(c.vd, c.vg - h, c.vb)) / (2 * h);
+        const Real gds = (ids(c.vd + h, c.vg, c.vb) - ids(c.vd - h, c.vg, c.vb)) / (2 * h);
+        const Real gmb = (ids(c.vd, c.vg, c.vb + h) - ids(c.vd, c.vg, c.vb - h)) / (2 * h);
+        ASSERT_GT(std::abs(row.ids), 1e-6) << c.what;
+        EXPECT_NEAR(row.gm, gm, 1e-3 * std::abs(gm)) << c.what;
+        EXPECT_NEAR(row.gds, gds, 1e-3 * std::abs(gds)) << c.what;
+        EXPECT_NEAR(row.gmb, gmb, 1e-3 * std::abs(gmb)) << c.what;
     }
 }
