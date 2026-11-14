@@ -640,7 +640,7 @@ TEST_F(BSIM4ComprehensiveTest, NgspiceComparison) {
 // Test 11: Multi-Bias Point Comprehensive Verification
 // Goal: Verify BSIM4 model accuracy across different operating regions
 // Target: <10% error for most bias conditions (revised from <1%)
-TEST_F(BSIM4ComprehensiveTest, PhaseB6_MultiBiasPointValidation) {
+TEST_F(BSIM4ComprehensiveTest, MultiBiasPointValidation) {
     // Setup BSIM4 parameters matching ngspice QA deck
     BSIM4Params qa_params;
     qa_params.w = 10e-6;     // 10 μm
@@ -886,7 +886,7 @@ TEST_F(BSIM4ComprehensiveTest, PhaseB6_MultiBiasPointValidation) {
 // SKIPPED: tuning achieved ±30% for standard parameters (W=1µm, L=50nm, toxe=3nm)
 //          This test uses advanced process node parameters (toxe=1.25nm) which require
 //          additional model calibration. See test_bsim4_ngspice_compare.cpp for validated tests.
-TEST_F(BSIM4ComprehensiveTest, PhaseB47_VdsatBranchFix) {
+TEST_F(BSIM4ComprehensiveTest, VdsatBranchSelection) {
     // SKIP - Reference Ids=2.1A seems incorrect for W=5µm device
     GTEST_SKIP() << "Reference Ids=2.1A requires verification. "
                  << "Calculated Ids=29mA matches analytical estimate better than 2.1A.";
@@ -1005,7 +1005,7 @@ TEST_F(BSIM4ComprehensiveTest, PhaseB47_VdsatBranchFix) {
 // Background: The T1_lpe term (lateral non-uniform doping effect) adds ~0.58V to Vth
 //             when using default lpe0=1.74e-7. ngspice tests typically use lpe0=0.
 // Expected: Vth error < 5% when lpe0=0 (matching ngspice reference)
-TEST_F(BSIM4ComprehensiveTest, PhaseB6_Vth_With_lpe0_Zero) {
+TEST_F(BSIM4ComprehensiveTest, Vth_With_lpe0_Zero) {
     // parameters of the ngspice reference run below
     BSIM4Params params;
     params.w = 10e-6;     // 10 μm
@@ -1133,7 +1133,7 @@ TEST_F(BSIM4ComprehensiveTest, PhaseB6_Vth_With_lpe0_Zero) {
 // Background: gmb = dIds/dVbs is calculated using the full ngspice chain rule formula
 //             gmb should typically be ~10-15% of gm for body effect
 // Reference: ngspice values obtained via numerical differentiation (central difference)
-TEST_F(BSIM4ComprehensiveTest, Phase30_46_GmbVerification) {
+TEST_F(BSIM4ComprehensiveTest, GmbVerification) {
     // Create BSIM4 parameters matching ngspice test
     BSIM4Params params;
     params.w = 10e-6;     // 10 μm
