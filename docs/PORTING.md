@@ -111,8 +111,6 @@ the values of a sweep are in the raw file.
   no effect and there is no control by the truncation error. ngspice
   chooses its steps, so give kirimaspice a `tstep` small enough for the
   fastest change of the circuit.
-- [ ] **`UIC` with `.IC`.** Without `UIC`, `.IC` is ignored; ngspice uses
-  it to find the operating point.
 - [ ] **The first step.** With the trapezoidal rule, the first step is a
   backward Euler step.
 

@@ -65,8 +65,8 @@ build/kirimaspice examples/rc_discharge.sp --raw-out rc_discharge.raw
 ```
 
 コンデンサは `.IC V(out)=1` により 1 V から始まります。`.TRAN` の行の `UIC` により、過渡解析は動作点では
-なく `.IC` から始まります。`UIC` がないと、プログラムは `.IC` を無視し、コンデンサは 0 V のままです。
-ngspice はどちらの場合も `.IC` を使います（[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#解析)）。
+なく `.IC` から始まります。`UIC` がないと、SPICE と同じく、過渡解析を始める動作点で V(out) を 1 V に固定し、過渡解析ではそれを外す
+ので、結果は同じです（CTest が両方を確かめます）。
 
 1 ms での厳密な値は e⁻¹ = 0.367879 です。`.OPTIONS` の行の `METHOD` を変えると、方法を比べられます。
 

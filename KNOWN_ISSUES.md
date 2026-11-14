@@ -108,10 +108,6 @@ says otherwise.
 - In the library's adaptive time-step path, which the program does not
   use, a fixed `TRAPEZOIDAL` method starts without the backward-Euler step
   that the fixed-step path takes (read in the code, not run).
-- **`.IC` is used only with `UIC`.** Without `UIC` the operating point
-  ignores `.IC` and the transient starts from that operating point: an RC
-  with `.IC V(out)=1` stays at 0 V. ngspice-47 starts the same transient at
-  1 V and gives 0.367876 at 1 ms (measured at commit `d858190`).
 - **`tmax` of `.TRAN` has no effect.** The parser reads it, but the
   program steps by `tstep`: `.TRAN 10u 1m 0 2u` gives 101 points, as
   `.TRAN 10u 1m` does. ngspice-47 limits the step to `tmax` and gives 508

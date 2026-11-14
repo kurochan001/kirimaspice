@@ -204,8 +204,9 @@ node, including `V(0)`. The program steps by `tstep`; `tmax` is read but
 has no effect ([KNOWN_ISSUES](../KNOWN_ISSUES.md#analyses)). With `UIC`,
 the transient starts from the values in `.IC` instead of from an operating
 point; `.IC` must be written with an upper-case `V`, as in
-`.IC V(out)=1`. Without `UIC` the program ignores `.IC`, whereas ngspice
-uses it.
+`.IC V(out)=1`. Without `UIC`, the operating point that starts the
+transient holds the `.IC` nodes at their values, and the transient then
+releases them, as in ngspice.
 
 For the RC example above, `V(out)` is 0.632105 at 1 ms; the exact value is
 1 − e⁻¹ = 0.632121.

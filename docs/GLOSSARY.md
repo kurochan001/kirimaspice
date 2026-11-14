@@ -54,7 +54,7 @@ For practical questions see the [FAQ](FAQ.md).
 | <a id="ac-analysis"></a>AC analysis | The small-signal response over frequency (`.AC`), linearized at the operating point and driven by the AC inputs |
 | temperature sweep | The operating point or transient at each temperature of `.TEMP` |
 | <a id="fourier"></a>Fourier analysis | The harmonics and the THD of a signal over the last period of a transient (`.FOUR`), printed after the transient |
-| <a id="uic"></a>`UIC` | "Use initial conditions": on a `.TRAN` line, start the transient from the `.IC` values instead of from an operating point. Without `UIC`, kirimaspice ignores `.IC` |
+| <a id="uic"></a>`UIC` | "Use initial conditions": on a `.TRAN` line, start the transient from the `.IC` values instead of from an operating point. Without `UIC`, the operating point holds the `.IC` nodes at their values |
 | library-only analysis | Noise, transfer function, pole-zero, distortion, sensitivity, S-parameters, Monte Carlo, worst case and optimization: implemented in the library and its tests, not run by the program ([Architecture](ARCHITECTURE.md#other-analyses-in-the-library)) |
 
 ## Numerical methods

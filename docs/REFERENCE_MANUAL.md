@@ -274,7 +274,7 @@ parser stores it, but the program does not use it (the library can).
 | `.AC` | `.AC DEC\|OCT\|LIN <n> <fstart> <fstop>` | used; `DEC`, `OCT`: `<n>` points per decade or octave, both ends included; `LIN`: `<n>` points in all |
 | `.TEMP` | `.TEMP <t1> [<t2> ...]` (°C) | used for the operating point and transient; a DC sweep and AC use the first value |
 | `.OPTIONS`, `.OPTION` | `.OPTIONS <name>=<value> ...` | used; see [Options](#options) |
-| `.IC` | `.IC V(<node>)=<value> ...` | used with `UIC`; `V` must be upper case |
+| `.IC` | `.IC V(<node>)=<value> ...` | used by a transient: with `UIC` it starts from these values, without `UIC` its operating point holds the nodes at them; `V` must be upper case |
 | `.NODESET` | `.NODESET V(<node>)=<value> ...` | used as the initial guess; `V` must be upper case |
 | `.PARAM` | `.PARAM <name>=<value> ...` | used; the first definition of a name is kept |
 | `.FUNC` | `.FUNC <name>(<a>[,<b>[,<c>]]) {<expr>}` | used in `.PARAM` expressions only; up to three arguments |

@@ -126,6 +126,15 @@ def case_rc_discharge(binary: Path, examples: Path, tmp: Path) -> bool:
         run(binary, deck, "--raw-out", str(raw))
         last = read_raw(raw, "Transient Analysis")[-1]
         results.append(check(f"V(out) at 1 ms, METHOD={method}", last["v(out)"], exact, tol))
+    # Without UIC, .IC holds V(out) at 1 V for the operating point that starts
+    # the transient, as in SPICE, so the discharge is the same.
+    deck = tmp / "rc_discharge_no_uic.sp"
+    deck.write_text(text.replace(" UIC\n", "\n"))
+    raw = tmp / "rc_discharge_no_uic.raw"
+    run(binary, deck, "--raw-out", str(raw))
+    rows = read_raw(raw, "Transient Analysis")
+    results.append(check("V(out) at 0 without UIC", rows[0]["v(out)"], 1.0, 1e-9))
+    results.append(check("V(out) at 1 ms without UIC", rows[-1]["v(out)"], exact, bounds["trap"]))
     return all(results)
 
 

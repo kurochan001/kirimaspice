@@ -1376,8 +1376,17 @@ bool TransientSolver::initialize_dc_mode(TransientResult& result, Real t_start,
         device->reset_state();
     }
 
+    // Without UIC, .IC values hold their nodes during this operating point
+    // and are released for the transient (SPICE's transient operating point)
+    if (!config_.ic.empty()) {
+        spdlog::info("Holding {} node(s) at their .IC values for the operating point",
+                     config_.ic.size());
+        dc_solver_->hold_node_voltages(config_.ic);
+    }
+
     SolverStats dc_stats;
     ConvergenceStatus dc_status = dc_solver_->solve(solution, dc_stats);
+    dc_solver_->hold_node_voltages({});
 
     if (dc_status != ConvergenceStatus::SUCCESS) {
         spdlog::error("Failed to solve DC operating point for initial conditions");

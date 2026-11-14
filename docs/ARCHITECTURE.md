@@ -252,7 +252,9 @@ pseudo-transient continuation as a fallback.
 temperature, finds the starting point, and steps in time.
 
 - **Start.** With `UIC`, `initialize_uic_mode` starts from `.IC`;
-  otherwise the start is an operating point, which ignores `.IC`.
+  otherwise the start is an operating point, solved with the `.IC` nodes
+  held at their values (`DCSolver::hold_node_voltages`, a conductance of
+  10¹⁰ S each), which the transient then releases.
 - **Methods** (`IntegrationMethod`): backward Euler, trapezoidal (the
   default), BDF2 and BDF3 (`gear`), and TR-BDF2, chosen with
   `.OPTIONS METHOD=`. Each device's `stamp_transient` writes the companion

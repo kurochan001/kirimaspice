@@ -593,3 +593,28 @@ TEST(TransientTemperatureSweep, RCCircuit_TemperatureIndependent) {
     EXPECT_NEAR(final_voltages[1], final_voltages[2], 0.01)
         << "Voltage at 27°C and 77°C should be the same";
 }
+
+// .IC without UIC: as in SPICE, the operating point that starts the
+// transient holds the .IC nodes at their values, and the transient then
+// releases them (ngspice-47 starts this RC at 1 V). R = 1 kOhm and
+// C = 1 uF discharge from 1 V as exp(-t/RC). The held node is within
+// 1 mA / 1e10 S of 1 V; at 1 ms the trapezoidal rule with h = RC/100 is
+// within 5e-5 of exp(-1) (its first step is backward Euler).
+TEST(TransientSolver, InitialConditionWithoutUicStartsTheTransient) {
+    CircuitGraph circuit;
+    circuit.add_resistor("R1", "out", "0", 1000.0);
+    circuit.add_capacitor("C1", "out", "0", 1e-6);
+
+    SimulationConfig config;
+    config.ic["out"] = 1.0;
+    config.transient.use_initial_conditions = false;
+
+    TransientSolver solver(circuit, config);
+    TransientResult result = solver.solve(0.0, 1e-3, 1e-5);
+    ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
+
+    const NodeId out = circuit.get_node_id("out");
+    EXPECT_NEAR(result.timepoints.front().node_voltages[out - 1], 1.0, 1e-9);
+    EXPECT_NEAR(result.timepoints.back().time, 1e-3, 1e-15);
+    EXPECT_NEAR(result.timepoints.back().node_voltages[out - 1], std::exp(-1.0), 5e-5);
+}

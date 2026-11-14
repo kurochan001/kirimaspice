@@ -12,8 +12,12 @@
 #include "kirimaspice/solvers/solver_factory.hpp"
 #include "kirimaspice/solvers/thread_local_mna.hpp"
 
+#include <map>
 #include <memory>
 #include <optional>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace kirimaspice::solvers {
 
@@ -62,6 +66,14 @@ public:
     /// @param device_name Name of device (e.g., "V1", "VCVS1")
     /// @return Branch current [A] if device has branch current, std::nullopt otherwise
     std::optional<Real> get_branch_current(const std::string& device_name) const;
+
+    /// Hold node voltages while solving, as SPICE does with .IC for the
+    /// operating point that starts a transient without UIC: each named node
+    /// is tied to its value through kHoldConductance, so that the node is
+    /// within I / kHoldConductance of the value whatever current I the rest
+    /// of the circuit draws. An empty map releases all nodes.
+    void hold_node_voltages(const std::map<std::string, Real>& voltages);
+    static constexpr Real kHoldConductance = 1e10;  ///< [S]
 
 private:
     const circuit::CircuitGraph& circuit_;  ///< Circuit reference
@@ -152,6 +164,7 @@ private:
 
     bool use_initial_guess_override_ = false;
     DenseVector initial_guess_override_;
+    std::vector<std::pair<std::uint32_t, Real>> held_nodes_;  ///< (MNA row, voltage)
 };
 
 } // namespace kirimaspice::solvers

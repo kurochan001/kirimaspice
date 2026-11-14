@@ -74,9 +74,9 @@ build/kirimaspice examples/rc_discharge.sp --raw-out rc_discharge.raw
 
 The capacitor starts at 1 V from `.IC V(out)=1`; `UIC` on the `.TRAN` line
 makes the transient start from `.IC` instead of from an operating point.
-Without `UIC` the program ignores `.IC` and the capacitor stays at 0 V,
-whereas ngspice uses `.IC` in both cases
-([KNOWN_ISSUES](../KNOWN_ISSUES.md#analyses)).
+Without `UIC`, the operating point that starts the transient holds V(out)
+at 1 V and the transient releases it, as in SPICE, so the result is the
+same (CTest checks both).
 
 The exact value at 1 ms is e⁻¹ = 0.367879. Change `METHOD` on the
 `.OPTIONS` line to compare the methods:

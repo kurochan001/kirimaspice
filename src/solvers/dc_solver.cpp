@@ -271,7 +271,30 @@ void DCSolver::build_mna_system(const DenseVector& node_voltages) {
     // Stamp all devices
     stamp_devices(node_voltages);
 
+    // Nodes held at a voltage (hold_node_voltages): a Norton source of
+    // kHoldConductance to ground at the held value
+    for (const auto& [row, voltage] : held_nodes_) {
+        mna_.G.add_entry(row, row, kHoldConductance);
+        mna_.b[row] += kHoldConductance * voltage;
+    }
+
     spdlog::debug("Built MNA system: nnz={}", mna_.G.nnz());
+}
+
+void DCSolver::hold_node_voltages(const std::map<std::string, Real>& voltages) {
+    held_nodes_.clear();
+    for (const auto& [node_name, voltage] : voltages) {
+        if (!circuit_.has_node(node_name)) {
+            spdlog::warn("V({})={} ignored: no such node", node_name, voltage);
+            continue;
+        }
+        const NodeId node_id = circuit_.get_node_id(node_name);
+        if (node_id == NODE_GND) {
+            spdlog::warn("V({})={} ignored: ground is 0 V", node_name, voltage);
+            continue;
+        }
+        held_nodes_.emplace_back(static_cast<std::uint32_t>(node_id - 1), voltage);
+    }
 }
 
 void DCSolver::stamp_devices(const DenseVector& node_voltages) {

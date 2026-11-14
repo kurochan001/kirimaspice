@@ -209,8 +209,9 @@ FinFET は、それぞれの `.cpp` で明示的に実体化します。ライ�
 
 `TransientSolver::solve`（`src/solvers/transient_solver.cpp`）は、温度を設定し、始点を求め、時間を進めます。
 
-- **始点。** `UIC` があれば `initialize_uic_mode` が `.IC` から始めます。なければ始点は動作点で、`.IC` を
-  無視します。
+- **始点。** `UIC` があれば `initialize_uic_mode` が `.IC` から始めます。なければ始点は動作点で、`.IC` の
+  ノードをその値に固定して解き（`DCSolver::hold_node_voltages`。それぞれ 10¹⁰ S のコンダクタンス）、
+  過渡解析ではそれを外します。
 - **方法**（`IntegrationMethod`）。後退オイラー法、台形則（既定）、BDF2 と BDF3（`gear`）、TR-BDF2 で、
   `.OPTIONS METHOD=` で選びます。各デバイスの `stamp_transient` が、その方法のコンパニオンモデルを書きます。
 - **固定刻み。プログラムが使う経路です。** `run_fixed_timestepping` は `tstep` で刻み、`tmax` は使いません。
