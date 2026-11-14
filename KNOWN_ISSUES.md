@@ -116,6 +116,12 @@ says otherwise.
 - **JFET cannot be used from a netlist.** The library has a JFET model
   (`include/kirimaspice/devices/jfet.hpp`), but the parser has no `J`
   element.
+- **The FinFET's current has no channel length.** Its gain factor is
+  β = C<sub>ox</sub>·W<sub>eff</sub>·µ (`beta_` in `src/devices/finfet.cpp`),
+  where a MOSFET's is µ·C<sub>ox</sub>·W/L, so a FinFET with the defaults
+  of `CircuitGraph::add_finfet_n` carries about 3 pA at
+  V<sub>GS</sub> = V<sub>DS</sub> = 0.8 V (read in the code; the current
+  measured at the commit that gave the FinFET its temperature).
 - **BSIM3 and BSIM4 do not keep a DC operating point in a transient.** A
   circuit with only DC sources must stay at its operating point. An NMOS
   with 10 kΩ from 1.8 V to its drain and 10 kΩ from 1 V to its gate
@@ -133,10 +139,6 @@ says otherwise.
 - **`.OPTIONS VOLTAGE_LIMITING=0` has no effect.** It sets
   `config.dc.enable_voltage_limiting`, which nothing reads; the diode and
   the transistors always limit (read in the code, not run).
-- **`.TEMP` and `.OPTIONS TEMP` do not reach the FinFET (read in the
-  code, not run).** `apply_temperature_to_devices`
-  (`src/solvers/temperature_utils.cpp`) sets the temperature of the device
-  types it lists; the FinFET has a temperature but is not among them.
 
 ## Solvers
 

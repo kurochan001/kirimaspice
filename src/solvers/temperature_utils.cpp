@@ -16,6 +16,7 @@
 #include "kirimaspice/devices/gan_hemt.hpp"  // Unified GaN HEMT
 #include "kirimaspice/devices/vdmos.hpp"   // Unified VDMOS
 #include "kirimaspice/devices/igbt.hpp"  // Unified IGBT
+#include "kirimaspice/devices/finfet.hpp"
 
 namespace kirimaspice::solvers {
 
@@ -84,6 +85,12 @@ void apply_temperature_to_devices(const circuit::CircuitGraph& circuit, Real tem
                 break;
             case DeviceType::IGBT_P:
                 if (auto* m = dynamic_cast<devices::IGBT_P*>(device.get())) m->set_temperature(temp_K);
+                break;
+            case DeviceType::FINFET_N:
+                if (auto* m = dynamic_cast<devices::FinFET_N*>(device.get())) m->set_temperature(temp_K);
+                break;
+            case DeviceType::FINFET_P:
+                if (auto* m = dynamic_cast<devices::FinFET_P*>(device.get())) m->set_temperature(temp_K);
                 break;
             default:
                 break; // Devices without temperature support remain unchanged

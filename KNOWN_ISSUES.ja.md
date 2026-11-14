@@ -90,6 +90,10 @@ ngspice について書いていることは、それぞれのマニュアルに
   既定値と合っているかは未確認です。
 - **JFET はネットリストから使えません。** ライブラリには JFET のモデル
   （`include/kirimaspice/devices/jfet.hpp`）がありますが、パーサーに `J` 素子がありません。
+- **FinFET の電流にチャネル長がありません。** 利得係数が β = C<sub>ox</sub>·W<sub>eff</sub>·µ
+  （`src/devices/finfet.cpp` の `beta_`）で、MOSFET の µ·C<sub>ox</sub>·W/L になっていないので、
+  `CircuitGraph::add_finfet_n` の既定値の FinFET は、V<sub>GS</sub> = V<sub>DS</sub> = 0.8 V で約 3 pA しか
+  流しません（コードで読みました。電流は、FinFET に温度を届けたコミットで測りました）。
 - **BSIM3 と BSIM4 は、過渡解析で直流の動作点を保ちません。** 直流の電源だけの回路は、動作点のままで
   なければなりません。1.8 V からドレインへ 10 kΩ、1 V からゲートへ 10 kΩ をつないだ NMOS
   （`L=0.18u W=1u`、`.TRAN 1n 200n`）は、BSIM3（`level=8`）で `V(d)` が 1.7837 V から 1.7996 V へ、
@@ -102,9 +106,6 @@ ngspice について書いていることは、それぞれのマニュアルに
   パラメータが原因かは未確認です。
 - **`.OPTIONS VOLTAGE_LIMITING=0` は効きません。** これは `config.dc.enable_voltage_limiting` を設定しますが、
   どこからも読まれず、ダイオードとトランジスタは常に制限します（コードで読んだだけで、実行していません）。
-- **`.TEMP` と `.OPTIONS TEMP` は FinFET に届きません（コードで読んだだけで、実行していません）。**
-  `apply_temperature_to_devices`（`src/solvers/temperature_utils.cpp`）は、並べたデバイスの種類の温度を
-  設定しますが、温度を持つ FinFET はその中にありません。
 
 ## ソルバー
 
