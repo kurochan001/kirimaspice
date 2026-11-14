@@ -12,7 +12,8 @@ the lossless line, the trapezoidal rule and coupled inductors were checked
 again after the fixes in commits `6a007ab` to `6edd93a`, and the five
 netlist conventions of
 [NETLIST_CONVENTIONS.md](spec/NETLIST_CONVENTIONS.md) after commit
-`282ae9f`.
+`282ae9f`. The section on the Python tools was checked at commit
+`f94ff34`.
 
 For lookup by option, element, directive or output format, use the
 [Reference Manual](REFERENCE_MANUAL.md). For what is known to be wrong or
@@ -26,6 +27,7 @@ where a rule below exists only to avoid one of those problems.
 - [Write a netlist](#write-a-netlist)
 - [Choose the analyses](#choose-the-analyses)
 - [Save the results](#save-the-results)
+- [Use the Python tools](#use-the-python-tools)
 - [Reuse parts of a netlist](#reuse-parts-of-a-netlist)
 - [Help the operating point converge](#help-the-operating-point-converge)
 - [Interpret exit codes and messages](#interpret-exit-codes-and-messages)
@@ -111,6 +113,9 @@ result, filter out the lines that start with `[`.
 `I(VDD)` is negative because the source delivers current to the circuit:
 as in SPICE, the current of a voltage source is positive when it flows
 into its `+` terminal through the source.
+
+More netlists, each with its analytic solution and the result the program
+gives, are in [examples/](../examples/README.md).
 
 ## Write a netlist
 
@@ -237,6 +242,79 @@ For an RC low-pass filter (1 kΩ, 1 µF) driven with `AC 1`, the program gave
 
 The layouts of these files are in the
 [Reference Manual](REFERENCE_MANUAL.md#output-formats).
+
+## Use the Python tools
+
+Three Python 3 scripts in `tools/` run the program for you. They need only
+the standard library; pandas, matplotlib and numpy add features when they
+are installed. Each looks for the program at `build/kirimaspice` and takes
+`--binary <path>` for another place. CTest runs a test of each
+(`python_tools_*`).
+
+### Run a netlist from Python
+
+`tools/kirimaspice_pyapi.py` runs a netlist with `--raw-out` in a temporary
+directory and reads the ASCII raw file:
+
+```python
+from pathlib import Path
+from tools.kirimaspice_pyapi import KirimaspiceSession
+
+session = KirimaspiceSession()   # build/kirimaspice, or KirimaspiceSession(Path(...))
+result = session.run_netlist(Path("examples/rc_step.sp").read_text())
+time, vout = result.series("time"), result.series("v(out)")
+print(vout[time.index(1e-3)])    # 0.6321053213059
+```
+
+- Run it from the top of the source tree, or put the tree on `PYTHONPATH`.
+- Signal names are in lower case: `time`, `v(out)`, `i(v1)`.
+- `run_netlist` raises an exception when the program fails. The program's
+  own output still goes to standard output.
+- Only the first plot of the raw file is read: for a netlist with `.op` and
+  `.tran`, the result holds the operating point and not the transient.
+- `result.to_dataframe()` needs pandas.
+
+From the command line, `python3 tools/kirimaspice_pyapi.py <netlist>`
+prints the names of the signals and the first samples, and `--csv <file>`
+(with pandas) writes all of them to a CSV file.
+
+### Work interactively
+
+`python3 tools/kirimaspice_repl.py [<netlist>]` starts a small shell:
+
+| Command | Does |
+| --- | --- |
+| `load <file>` | choose the netlist |
+| `run [<options>]` | run the program, adding the options |
+| `list` | list the signals of the last run |
+| `plot [--x <name>] <signal>...` | plot with matplotlib; without it, print the first ten points |
+| `expr <name> = <expression>` | define a waveform from others with numpy |
+| `let <name> <value>`, `vars` | set and list variables; `{name}` in a later command is replaced by the value |
+| `shell <command>`, `open` | run a shell command; edit the netlist in `$EDITOR` |
+| `recent`, `help`, `quit` | show the current files; list the commands; leave |
+
+The shell writes the results to `bench_out/repl/session.raw` under the
+current directory and keeps its command history in `~/.kirimaspice_history`.
+
+### Stand in for ngspice
+
+`tools/ngspice_shim.py` accepts the options `-b`, `-r <raw>` and
+`-o <log>` of the ngspice command line and runs each netlist with
+`--raw-out`:
+
+```sh
+python3 tools/ngspice_shim.py -b -r out.raw circuit.cir
+```
+
+- Without `-r`, the raw file takes the netlist's name with `.raw`. With
+  `-r` and several netlists, each gets `<raw stem>_<netlist stem>.raw`.
+- `-o` collects the program's output in a log file; other options are
+  ignored with a message.
+- `KIRIMASPICE_BIN` names the program, as `--binary` does.
+- The netlists are read by kirimaspice, with its limits: for example,
+  analyses inside `.control` are not run as ngspice runs them.
+- The script's help says it is meant for KiCad and Qucs-S. Use with them
+  is not confirmed.
 
 ## Reuse parts of a netlist
 

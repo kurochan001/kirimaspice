@@ -8,7 +8,8 @@
 そのビルドで実行しています。モデルの照合、動作点の raw ファイル、`GND` という名前のノードの出力、
 `B` 電源、`名前={式}` のパラメーター、無損失線路、台形則、結合インダクタは、コミット `6a007ab` から
 `6edd93a` までの修正の後に、[NETLIST_CONVENTIONS.md](spec/NETLIST_CONVENTIONS.ja.md) のネットリストの
-決まりはコミット `282ae9f` の後に、もう一度確かめました。
+決まりはコミット `282ae9f` の後に、もう一度確かめました。Python のツールの節は、コミット `f94ff34` で
+確かめました。
 
 オプション、素子、ディレクティブ、出力形式を引くときは[リファレンスマニュアル](REFERENCE_MANUAL.ja.md)を
 使ってください。間違っていることや足りないことは [KNOWN_ISSUES.md](../KNOWN_ISSUES.ja.md) にあります。
@@ -21,6 +22,7 @@
 - [ネットリストを書く](#ネットリストを書く)
 - [解析を選ぶ](#解析を選ぶ)
 - [結果を保存する](#結果を保存する)
+- [Python のツールを使う](#python-のツールを使う)
 - [ネットリストの部品を使い回す](#ネットリストの部品を使い回す)
 - [動作点を収束させる](#動作点を収束させる)
 - [終了コードとメッセージ](#終了コードとメッセージ)
@@ -97,6 +99,8 @@ I(VDD) = -0.00165 A
 
 電源が回路に電流を供給しているので、`I(VDD)` は負です。SPICE と同じく、電圧源の電流は、`+` 端子から
 電源の中を通る向きを正とします。
+
+ほかのネットリストと、その解析解、プログラムの結果は [examples/](../examples/README.ja.md) にあります。
 
 ## ネットリストを書く
 
@@ -207,6 +211,72 @@ AC 解析の入力になるのは、`AC [<振幅> [<位相>]]` を書いた電�
 - `.TEMP` のもとでの動作点と過渡解析ではファイルを書かず、DC スイープでは SSF を書きません。
 
 これらのファイルの中身の並びは[リファレンスマニュアル](REFERENCE_MANUAL.ja.md#出力形式)にあります。
+
+## Python のツールを使う
+
+`tools/` にある 3 つの Python 3 スクリプトが、プログラムを代わりに動かします。必要なのは標準ライブラリだけで、
+pandas、matplotlib、numpy が入っていると機能が増えます。どれもプログラムを `build/kirimaspice` に探し、
+ほかの場所なら `--binary <パス>` で指定します。CTest がそれぞれのテストを実行します（`python_tools_*`）。
+
+### Python からネットリストを実行する
+
+`tools/kirimaspice_pyapi.py` は、一時ディレクトリでネットリストを `--raw-out` 付きで実行し、ASCII の
+raw ファイルを読みます。
+
+```python
+from pathlib import Path
+from tools.kirimaspice_pyapi import KirimaspiceSession
+
+session = KirimaspiceSession()   # build/kirimaspice。または KirimaspiceSession(Path(...))
+result = session.run_netlist(Path("examples/rc_step.sp").read_text())
+time, vout = result.series("time"), result.series("v(out)")
+print(vout[time.index(1e-3)])    # 0.6321053213059
+```
+
+- ソースの最上位で実行するか、ソースのディレクトリを `PYTHONPATH` に入れてください。
+- 信号の名前は小文字です。`time`、`v(out)`、`i(v1)` のようになります。
+- プログラムが失敗すると、`run_netlist` は例外を投げます。プログラム自身の出力は、そのまま標準出力に出ます。
+- raw ファイルの最初のプロットだけを読みます。`.op` と `.tran` のあるネットリストでは、結果は動作点で、
+  過渡解析ではありません。
+- `result.to_dataframe()` には pandas が要ります。
+
+コマンドラインから `python3 tools/kirimaspice_pyapi.py <ネットリスト>` と実行すると、信号の名前と最初の値を
+表示します。`--csv <ファイル>`（pandas が要ります）を付けると、全部を CSV に書きます。
+
+### 対話的に使う
+
+`python3 tools/kirimaspice_repl.py [<ネットリスト>]` で小さなシェルが始まります。
+
+| コマンド | すること |
+| --- | --- |
+| `load <ファイル>` | ネットリストを選ぶ |
+| `run [<オプション>]` | オプションを足してプログラムを実行する |
+| `list` | 最後の実行の信号を一覧にする |
+| `plot [--x <名前>] <信号>...` | matplotlib で描く。なければ最初の 10 点を表示する |
+| `expr <名前> = <式>` | numpy で、ほかの波形から波形を定義する |
+| `let <名前> <値>`、`vars` | 変数を設定し、一覧にする。あとのコマンドの `{名前}` が値に置き換わる |
+| `shell <コマンド>`、`open` | シェルのコマンドを実行する。`$EDITOR` でネットリストを編集する |
+| `recent`、`help`、`quit` | 今のファイルを表示する。コマンドを一覧にする。終わる |
+
+シェルは結果を、今のディレクトリの下の `bench_out/repl/session.raw` に書き、コマンドの履歴を
+`~/.kirimaspice_history` に残します。
+
+### ngspice の代わりに呼ばれる
+
+`tools/ngspice_shim.py` は、ngspice のコマンドラインのオプション `-b`、`-r <raw>`、`-o <ログ>` を受け付け、
+それぞれのネットリストを `--raw-out` 付きで実行します。
+
+```sh
+python3 tools/ngspice_shim.py -b -r out.raw circuit.cir
+```
+
+- `-r` がないと、raw ファイルはネットリストの名前に `.raw` を付けたものになります。`-r` とネットリストが
+  複数あると、それぞれ `<raw の名前>_<ネットリストの名前>.raw` になります。
+- `-o` はプログラムの出力をログファイルにまとめます。ほかのオプションは、メッセージを出して無視します。
+- `KIRIMASPICE_BIN` は、`--binary` と同じくプログラムを指定します。
+- ネットリストを読むのは kirimaspice なので、その制限があります。たとえば、`.control` の中の解析は
+  ngspice のようには実行されません。
+- スクリプトのヘルプには KiCad と Qucs-S のためとありますが、それらと使えるかは未確認です。
 
 ## ネットリストの部品を使い回す
 
