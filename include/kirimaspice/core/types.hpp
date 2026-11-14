@@ -4,6 +4,7 @@
 // include/kirimaspice/core/types.hpp
 #pragma once
 
+#include <cmath>
 #include <complex>
 #include <cstdint>
 #include <map>
@@ -216,6 +217,19 @@ struct MeasureConfig {
     std::optional<Real> goal; ///< Target goal value
 };
 
+/// Number of points of a linear sweep from start to stop by step, as in a
+/// SPICE .DC or .STEP: both ends are included when stop lies on the grid
+/// start + k*step. The quotient |stop - start| / |step| is rounded down
+/// after allowing 1e-9 of its size for floating-point rounding, so that
+/// 0 to 0.3 by 0.1 (a quotient of 2.9999999999999996) has four points.
+inline std::size_t linear_sweep_point_count(Real start, Real stop, Real step) {
+    if (step == 0.0) {
+        return 1;
+    }
+    const Real quotient = std::abs((stop - start) / step);
+    return static_cast<std::size_t>(std::floor(quotient * (1.0 + 1e-9))) + 1;
+}
+
 /// Parameter sweep type
 enum class StepType {
     LIN,    ///< Linear sweep: .step param R 1k 10k 1k
@@ -260,9 +274,9 @@ struct StepConfig {
 
             // Calculate number of points first, then divide equally
             // This avoids floating-point accumulation errors
-            int num = static_cast<int>(std::abs((stop_value - start_value) / step_value)) + 1;
-            for (int i = 0; i < num; ++i) {
-                Real value = start_value + step_value * i;
+            const auto num = linear_sweep_point_count(start_value, stop_value, step_value);
+            for (std::size_t i = 0; i < num; ++i) {
+                Real value = start_value + step_value * static_cast<Real>(i);
                 // Stop if we've gone past the stop value (due to rounding)
                 if ((step_value > 0 && value > stop_value + 1e-12) ||
                     (step_value < 0 && value < stop_value - 1e-12)) {
@@ -669,8 +683,7 @@ struct DCSweepConfig {
 
     /// Number of points in this sweep
     std::size_t num_points() const {
-        if (step_value == 0.0) return 1;
-        return static_cast<std::size_t>(std::abs((stop_value - start_value) / step_value)) + 1;
+        return linear_sweep_point_count(start_value, stop_value, step_value);
     }
 };
 

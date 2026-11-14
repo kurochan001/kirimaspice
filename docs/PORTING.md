@@ -118,9 +118,6 @@ the values of a sweep are in the raw file.
 
 ### DC sweeps
 
-- [ ] **The end point.** It is lost when (stop − start)/step is just below
-  an integer in floating point: `.DC V1 0 0.7 0.05` ends at 0.65. Adding a
-  little to the stop value, as in `.DC V1 0 0.7001 0.05`, keeps 0.7.
 - [ ] **`.TEMP` with `.DC`.** The sweep runs at the first temperature only.
 
 ## Compare the results

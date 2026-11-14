@@ -550,3 +550,46 @@ TEST_F(DCSweepTest, BranchCurrentExtraction) {
             << "Point " << i << " (V=" << V << "V): branch current mismatch";
     }
 }
+
+// A linear sweep includes its stop value when the stop lies on the grid
+// start + k*step, as a SPICE .DC does (ngspice-47 ends .DC V1 0 0.3 0.1 at
+// 0.3). In floating point 0.3/0.1 is 2.9999999999999996, and truncating it
+// lost the last point.
+TEST(LinearSweepPointCount, IncludesTheStopOnTheGrid) {
+    EXPECT_EQ(linear_sweep_point_count(0.0, 0.3, 0.1), 4u);    // 0, 0.1, 0.2, 0.3
+    EXPECT_EQ(linear_sweep_point_count(0.0, 0.6, 0.1), 7u);
+    EXPECT_EQ(linear_sweep_point_count(0.0, 0.7, 0.05), 15u);
+    EXPECT_EQ(linear_sweep_point_count(1.0, 0.0, 0.1), 11u);   // downwards
+    EXPECT_EQ(linear_sweep_point_count(0.0, 0.25, 0.1), 3u);   // 0.25 is off the grid
+    EXPECT_EQ(linear_sweep_point_count(5.0, 5.0, 1.0), 1u);
+    EXPECT_EQ(linear_sweep_point_count(0.0, 1.0, 0.0), 1u);
+}
+
+TEST_F(DCSweepTest, SweepEndsAtTheStopValue) {
+    CircuitGraph circuit;
+    circuit.add_voltage_source("V1", "in", "0", 0.0);
+    circuit.add_resistor("R1", "in", "0", 1000.0);
+
+    DCSweepConfig sweep_config;
+    sweep_config.source_name = "V1";
+    sweep_config.start_value = 0.0;
+    sweep_config.stop_value = 0.3;
+    sweep_config.step_value = 0.1;
+
+    DCSolver solver(circuit, config);
+    DCSweepResult result;
+    ASSERT_EQ(solver.solve_sweep(sweep_config, result), ConvergenceStatus::SUCCESS);
+    ASSERT_EQ(result.points.size(), 4u);
+    EXPECT_NEAR(result.points.back().sweep_value, 0.3, 1e-15);
+}
+
+TEST(StepConfigPoints, LinearStepIncludesTheStop) {
+    StepConfig step;
+    step.sweep_type = StepType::LIN;
+    step.start_value = 0.0;
+    step.stop_value = 0.3;
+    step.step_value = 0.1;
+    const auto points = step.generate_points();
+    ASSERT_EQ(points.size(), 4u);
+    EXPECT_NEAR(points.back(), 0.3, 1e-15);
+}

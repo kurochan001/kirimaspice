@@ -108,12 +108,6 @@ says otherwise.
 - In the library's adaptive time-step path, which the program does not
   use, a fixed `TRAPEZOIDAL` method starts without the backward-Euler step
   that the fixed-step path takes (read in the code, not run).
-- **A DC sweep can lose its end point.** The number of points is
-  (stop − start)/step truncated, plus one (`DCSweepConfig::num_points` in
-  `include/kirimaspice/core/types.hpp`), so when the quotient falls just
-  below an integer in floating point the last point is dropped:
-  `.DC V1 0 0.3 0.1` gives 0, 0.1 and 0.2, and `.DC V1 0 0.7 0.05` ends at
-  0.65. ngspice-47 ends the first at 0.3 (measured at commit `d858190`).
 - **`.IC` is used only with `UIC`.** Without `UIC` the operating point
   ignores `.IC` and the transient starts from that operating point: an RC
   with `.IC V(out)=1` stays at 0 V. ngspice-47 starts the same transient at
