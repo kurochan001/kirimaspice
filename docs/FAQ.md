@@ -222,6 +222,13 @@ yourself and, where it helps, the result of an open-source simulator with
 its version. If such material is posted, do not quote, summarize or use
 it; ask its author or the maintainers to remove it.
 
+All four [issue forms](../.github/ISSUE_TEMPLATE/) show this policy and
+require a confirmation before posting, and blank issues are disabled. These
+controls do not inspect the content, and they do not cover issues opened
+by a maintainer as a blank issue, through the API or the command line, or
+later comments and attachments. See
+[GitHub's template configuration](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-your-repository).
+
 ### How can I help?
 
 Report a bug with a netlist as small as you can make it, the command, what

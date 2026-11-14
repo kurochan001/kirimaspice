@@ -184,6 +184,11 @@ configure のときに OpenMP が見つかると、AC 解析は周波数の点�
 ソースのシミュレータの結果を添えて、自分の言葉で書いてください。そのようなものが投稿されていたら、引用も要約も
 利用もせず、投稿した人かメンテナーに削除を頼んでください。
 
+4 つの [Issue のフォーム](../.github/ISSUE_TEMPLATE/)は、どれもこの決まりを表示し、投稿の前に確認を求めます。
+空の Issue は作れないようにしてあります。ただし、これらの仕組みは内容を調べるものではなく、メンテナーが空の
+Issue として作ったもの、API やコマンドラインで作ったもの、後からのコメントや添付には効きません
+（[GitHub のテンプレートの設定](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/configuring-issue-templates-for-your-repository)を参照）。
+
 ### どうすれば手伝えますか？
 
 できるだけ小さくしたネットリスト、コマンド、何を期待したかとその理由（モデルの仕様、解析解、版を

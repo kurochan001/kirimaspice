@@ -1,0 +1,52 @@
+# Copyright (c) 2026 The kirimaspice Authors
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+name: "Feature request / 機能の要望"
+description: "Suggest a device model, an analysis or a netlist feature to support / 対応してほしいデバイスモデル・解析・ネットリストの機能の提案"
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not post commercial simulator outputs or diagnostics. / 商用シミュレータの出力・診断は投稿しないでください。**
+
+        Keep them out of the body, comments, attachments, screenshots, waveforms and linked resources,
+        including anonymized excerpts, summaries and results run by others. Do not run a commercial simulator or ask others to run one for this report.
+        Explain expected behaviour in your own words, with the section of the model's specification or an analytic solution and a netlist you wrote yourself.
+        Do not reproduce text of standards, papers or manuals, others' code, or confidential information such as foundry model parameters.
+
+        本文・コメント・添付・画像・波形・リンク先に、匿名化した抜粋・要約や他の人が実行した結果も含めないでください。
+        この報告のために商用シミュレータを実行したり、他の投稿者へ実行を求めたりしないでください。
+        期待する動作は、モデルの仕様の節か解析解と、自分で書いたネットリストで、自分の言葉で説明してください。
+        規格書・論文・マニュアルの本文、他人のコード、ファウンドリのモデルのパラメーターのような機密情報も転載しないでください。
+
+        [Posting policy](https://github.com/kurochan001/kirimaspice/blob/main/docs/FAQ.md#may-i-include-commercial-simulator-output-in-an-issue) · [投稿方針](https://github.com/kurochan001/kirimaspice/blob/main/docs/FAQ.ja.md#%E5%95%86%E7%94%A8%E3%82%B7%E3%83%9F%E3%83%A5%E3%83%AC%E3%83%BC%E3%82%BF%E3%81%AE%E5%87%BA%E5%8A%9B%E3%82%92-issue-%E3%81%AB%E8%BC%89%E3%81%9B%E3%81%A6%E3%82%88%E3%81%84%E3%81%A7%E3%81%99%E3%81%8B)
+  - type: checkboxes
+    id: posting-policy
+    attributes:
+      label: "Before posting / 投稿前の確認"
+      options:
+        - label: "I have excluded commercial simulator outputs and diagnostics and will keep them out of comments and attachments. / 商用シミュレータの出力・診断を含めず、コメント・添付にも持ち込まないことを確認しました。"
+          required: true
+  - type: textarea
+    id: feature
+    attributes:
+      label: "What you would like / 希望する機能"
+      description: "Describe the model, analysis or netlist feature, and cite the specification that defines it by section number (for example a model manual). / モデル・解析・ネットリストの機能を説明し、それを定めている仕様（モデルのマニュアルなど）の節番号を示してください。"
+    validations:
+      required: true
+  - type: textarea
+    id: reason
+    attributes:
+      label: "Why / 理由"
+      description: "Explain the use case, such as the circuit that needs this feature. / その機能が必要な回路などの用途を説明してください。"
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: "Example netlist / ネットリストの例"
+      description: "A minimal netlist written by you, not copied from a standard, another project, a commercial tool or your employer. / 規格・他プロジェクト・商用のツール・勤務先から写したものではなく、自分で書いた最小のネットリストを示してください。"
+      render: text
+    validations:
+      required: false

@@ -1,0 +1,97 @@
+# Copyright (c) 2026 The kirimaspice Authors
+# SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+name: "Specification proposal / 仕様の提案"
+description: "Propose a change or addition to a kirimaspice specification document / kirimaspice の仕様文書の変更・追加の提案"
+labels: ["spec-proposal"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not post commercial simulator outputs or diagnostics. / 商用シミュレータの出力・診断は投稿しないでください。**
+
+        Keep them out of the body, comments, attachments, screenshots, waveforms and linked resources,
+        including anonymized excerpts, summaries and results run by others. Do not run a commercial simulator or ask others to run one for this report.
+        Explain expected behaviour in your own words, with the section of the model's specification or an analytic solution and a netlist you wrote yourself.
+        Do not reproduce text of standards, papers or manuals, others' code, or confidential information such as foundry model parameters.
+
+        本文・コメント・添付・画像・波形・リンク先に、匿名化した抜粋・要約や他の人が実行した結果も含めないでください。
+        この報告のために商用シミュレータを実行したり、他の投稿者へ実行を求めたりしないでください。
+        期待する動作は、モデルの仕様の節か解析解と、自分で書いたネットリストで、自分の言葉で説明してください。
+        規格書・論文・マニュアルの本文、他人のコード、ファウンドリのモデルのパラメーターのような機密情報も転載しないでください。
+
+        [Posting policy](https://github.com/kurochan001/kirimaspice/blob/main/docs/FAQ.md#may-i-include-commercial-simulator-output-in-an-issue) · [投稿方針](https://github.com/kurochan001/kirimaspice/blob/main/docs/FAQ.ja.md#%E5%95%86%E7%94%A8%E3%82%B7%E3%83%9F%E3%83%A5%E3%83%AC%E3%83%BC%E3%82%BF%E3%81%AE%E5%87%BA%E5%8A%9B%E3%82%92-issue-%E3%81%AB%E8%BC%89%E3%81%9B%E3%81%A6%E3%82%88%E3%81%84%E3%81%A7%E3%81%99%E3%81%8B)
+  - type: checkboxes
+    id: posting-policy
+    attributes:
+      label: "Before posting / 投稿前の確認"
+      options:
+        - label: "I have excluded commercial simulator outputs and diagnostics and will keep them out of comments and attachments. / 商用シミュレータの出力・診断を含めず、コメント・添付にも持ち込まないことを確認しました。"
+          required: true
+  - type: markdown
+    attributes:
+      value: |
+        kirimaspice is implemented from its specifications: the model specifications, analytic
+        solutions and the documents under `docs/spec/`. Proposals to those documents are a main
+        way to shape the project. If a proposal is accepted, a maintainer updates the
+        specification, and the implementation follows it.
+
+        Please do not paste text, figures or example code from standards, papers, manuals or other
+        people's code, and do not include confidential information from your employer. Cite section
+        numbers and describe things in your own words.
+
+        kirimaspice はモデルの仕様、解析解、`docs/spec/` の文書に基づいて実装するため、仕様への提案が開発の主な入口です。
+        受け入れた提案は保守者が仕様へ反映し、実装はそれに従います。
+        規格書・論文・マニュアルの本文・図・例や他人のコードを貼らず、勤務先の機密も含めないでください。
+        節番号を示し、自分の言葉で説明してください。
+  - type: input
+    id: document
+    attributes:
+      label: "Document and section / 文書と節"
+      description: |
+        The specification document and the section of it that your proposal concerns. The English
+        text of each specification is the main one (a Japanese version sits beside it); proposals in
+        English or Japanese are welcome.
+        対象となる仕様文書と節を指定してください。各仕様は英語が正本で、日本語版を隣に置いています。
+        英語・日本語のどちらの提案も歓迎します。
+      placeholder: "docs/spec/NETLIST_CONVENTIONS.md, rule 1"
+    validations:
+      required: true
+  - type: input
+    id: model-sections
+    attributes:
+      label: "Related sections of model specifications / 関連するモデルの仕様の節"
+      description: "Section numbers only. Do not paste the text of the specification. / 節番号だけを記載し、仕様の本文は貼らないでください。"
+      placeholder: "BSIM4 manual, section <number>"
+    validations:
+      required: false
+  - type: textarea
+    id: proposal
+    attributes:
+      label: "Proposal / 提案"
+      description: "What should the specification say? Describe the change or addition. / 仕様へ記載すべき変更・追加を説明してください。"
+    validations:
+      required: true
+  - type: textarea
+    id: rationale
+    attributes:
+      label: "Rationale and evidence / 理由と根拠"
+      description: |
+        Why the change is needed: your reading of a model specification in your own words, an
+        analytic solution, or a use case. Any comparison evidence must follow the posting policy and
+        record its tool version; do not include commercial simulator outputs or diagnostics.
+        変更が必要な理由を、モデルの仕様の解釈を自分の言葉で述べる、解析解、用途などで説明してください。
+        比較の証拠は投稿方針に従い、ツールの版を記載し、商用シミュレータの出力・診断は含めないでください。
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: "Example netlist / ネットリストの例"
+      description: |
+        A minimal netlist, if it helps. Only one you wrote yourself: not copied from a standard,
+        other projects, a commercial tool or your employer.
+        必要なら、自分で書いた最小のネットリストを示してください。規格・他プロジェクト・商用のツール・勤務先から写したものは使えません。
+      render: text
+    validations:
+      required: false
