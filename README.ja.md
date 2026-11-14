@@ -13,20 +13,21 @@
 
 kirimaspice は、開発初期のオープンソースの SPICE 回路シミュレータで、SystemVerilog シミュレータ
 [kirimasim](https://github.com/kurochan001/kirimasim) の姉妹プロジェクトです。SPICE のネットリストを読み、
-動作点、DC スイープ、過渡、AC の解析を行い、結果を SPICE3 の raw ファイル、CSV、SSF で書き出します。
-リリースはまだありません。実装は AI が手伝い、仕様、テストの期待値、レビューは
-[AI ポリシー](docs/spec/AI_POLICY.ja.md)のもとで人が承認します。
+動作点、DC スイープ、過渡、AC の解析を行い、結果を SPICE3 の raw ファイル、CSV、SSF、WAV で書き出します。
+リリースはまだありません。コードの大部分は AI のツールが生成しています。仕様、テスト、レビューには、
+[AI ポリシー](docs/spec/AI_POLICY.ja.md)のもとで人が責任を持ちます。
 
 ## 現状
 
-2026-11-14 に、macOS 27.2（arm64）、GCC 16.2.0、CMake 4.4.4、SuiteSparse 7.6.1 で測った結果です。
-Homebrew の clang 23.1.4 と Apple clang 21.0.0 でも同じ結果でした。
+2026-11-15 に、コミット `db0fef6` で、macOS 27.2（arm64）、GCC 16.2.0、CMake 4.4.4、SuiteSparse 7.6.1 で
+測った結果です。Homebrew の clang 23.1.4 と Apple clang 21.0.0 でも、2026-11-14 には同じ結果でした
+（このコミットでは確かめ直していません）。
 
 | CTest のテスト | 件数 |
 | --- | --- |
-| 登録 | 1073 |
-| 合格 | 1042 |
-| スキップ | 23 |
+| 登録 | 1162 |
+| 合格 | 1132 |
+| スキップ | 22 |
 | 失敗（`tests/known_failures.txt` に記載） | 7 |
 | 無効 | 1 |
 
@@ -61,13 +62,15 @@ Ubuntu 24.04（x86-64）の CI では、GCC 13.3.0 と clang 18.1.3 でビルド
 
 パーサーが受け付けるディレクティブ：`.AC`、`.DC`、`.TRAN`、`.OPTIONS`、`.IC`、`.NODESET`、
 `.PRINT`、`.SAVE`、`.GLOBAL`、`.PARAM`、`.FUNC`、`.MODEL`、`.SUBCKT`/`.ENDS`、`.INCLUDE`、
-`.LIB`/`.ENDL`、`.IF`/`.ELSE`/`.ENDIF`、`.STEP`、`.TEMP`、`.SENS`、`.MC`、`.TF`、`.FOUR`、`.PZ`、
-`.DISTO`、`.PORT`、`.WCASE`、`.OPTIMIZE`。
+`.LIB`/`.ENDL`、`.IF`/`.ELIF`/`.ELSE`/`.ENDIF`、`.CONTROL`/`.ENDC`、`.STEP`、`.TEMP`、`.SENS`、`.MC`、
+`.TF`、`.FOUR`、`.PZ`、`.DISTO`、`.PORT`、`.WCASE`、`.OPTIMIZE`。プログラムは `.OP` を、ネットリストの
+ファイルの文字列の検索で見つけます（[リファレンスマニュアル](docs/REFERENCE_MANUAL.ja.md#プログラムが解析を選ぶ仕組み)）。
 
-プログラム `kirimaspice` が実行するのは、動作点と過渡解析（どちらも `.TEMP` の温度ごとにも）、
-DC スイープ（入れ子を含む）、過渡解析の後の `.FOUR` のフーリエ解析、AC 解析です。ライブラリには、
-ノイズ、伝達関数、極零点、ひずみ、感度、S パラメータ、モンテカルロ、ワーストケース、最適化の解析も
-実装されていてテストで使われていますが、プログラムからはまだ実行しません。
+プログラム `kirimaspice` が実行するのは、動作点と過渡解析（どちらも `.TEMP` の温度ごとにも。その場合は
+ファイルを書き出しません）、DC スイープ（入れ子を含む）、過渡解析の後の `.FOUR` のフーリエ解析、
+AC 解析です。ライブラリには、ノイズ、伝達関数、極零点、ひずみ、感度、S パラメータ、モンテカルロ、
+ワーストケース、最適化の解析も実装されていてテストで使われていますが、プログラムからはまだ
+実行しません。
 
 線形ソルバーは SuiteSparse の KLU です。
 
@@ -102,8 +105,8 @@ build/kirimaspice circuit.cir --raw-out circuit.raw
 
 | オプション | 出力 |
 | --- | --- |
-| `--raw-out <ファイル>` | ASCII の SPICE3 raw ファイル（DC と過渡） |
-| `--raw-binary-out <ファイル>` | バイナリの SPICE3 raw ファイル（DC と過渡） |
+| `--raw-out <ファイル>` | ASCII の SPICE3 raw ファイル（動作点、DC スイープ、過渡） |
+| `--raw-binary-out <ファイル>` | バイナリの SPICE3 raw ファイル（動作点、DC スイープ、過渡） |
 | `-o <ファイル>` | SSF（動作点と過渡）。AC 解析の CSV の名前もこれから決まる |
 | `--wav-out <ファイル>` | 過渡解析の結果の WAV 音声 |
 

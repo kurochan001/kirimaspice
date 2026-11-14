@@ -2,7 +2,7 @@
 
 [日本語](PORTING.ja.md) · [Project README](../README.md) · This English text is the main version; the Japanese version follows it, and where they differ, this text holds.
 
-**Updated 2026-11-14** for commit `fb50c51`. This guide is for running with
+**Updated 2026-11-15** for commit `db0fef6`. This guide is for running with
 kirimaspice a netlist written for ngspice. It says what is the same, how
 the commands map, and what to check in the netlist, in the order in which
 it is usually met. Each difference was found by running kirimaspice and
@@ -31,9 +31,10 @@ each checked against ngspice-47
 4. In a nested `.DC`, the first source is the inner loop.
 5. `gnd`, in any case, is ground.
 
-Model names are not case-sensitive, and a `.MODEL` may stand after the
-elements that use it. ngspice-47 loads the ASCII and binary raw files that
-kirimaspice writes ([Reference Manual](REFERENCE_MANUAL.md#output-formats)).
+Model and subcircuit names are not case-sensitive, and a `.MODEL` may stand
+after the diodes, bipolar transistors, MOSFETs and MESFETs that use it.
+ngspice-47 loads the ASCII and binary raw files that kirimaspice writes
+([Reference Manual](REFERENCE_MANUAL.md#output-formats)).
 
 ## Run it
 
@@ -46,7 +47,8 @@ kirimaspice writes ([Reference Manual](REFERENCE_MANUAL.md#output-formats)).
 
 The program runs in batch only. It prints the operating point and the
 transient table, a summary of a DC sweep, and nothing for an AC analysis;
-the values of a sweep are in the raw file.
+the values of a sweep are in the raw file. What each analysis prints and
+writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-analyses).
 
 ## Check the netlist
 
@@ -55,18 +57,33 @@ the values of a sweep are in the raw file.
 - [ ] **Analyses as dot directives.** The program runs `.OP`, `.DC`,
   `.TRAN` and `.AC`, and `.FOUR` after a transient. Analyses inside
   `.control` are not run as in ngspice.
+- [ ] **`.OP` with `.DC`.** A `.DC` sweep replaces the operating point,
+  also when `.OP` is there; ngspice runs both.
 - [ ] **No analysis words in comments.** The program finds `.op`, `.dc`
-  and `.tran` by a text search of every line, so a comment that mentions
-  `.tran` runs a transient, and a `.OPTIONS` line runs an operating point.
-- [ ] **Directives that do nothing here.** `.NOISE` does not exist;
-  `.SENS`, `.TF`, `.PZ`, `.DISTO`, `.STEP`, `.MC`, `.PRINT` and `.SAVE`
-  are read but not used; `.MEASURE` is ignored.
-- [ ] **Nothing after `.END`.** Lines after it are read.
+  and `.tran` by a text search of every line of the netlist file, so a
+  comment that mentions `.tran` with two words after it runs a transient,
+  and a `.OPTIONS` line runs an operating point. Analyses in an included
+  file are not found this way.
+- [ ] **Directives that do nothing here:**
+
+  | Status | Directives |
+  | --- | --- |
+  | run | `.OP`, `.DC`, `.TRAN`, `.AC`, `.FOUR` (first signal only) |
+  | read, not used | `.SENS`, `.TF`, `.PZ`, `.DISTO`, `.STEP`, `.MC`, `.WCASE`, `.OPTIMIZE`, `.PORT`, `.PRINT`, `.SAVE` |
+  | ignored | `.NOISE`, `.MEASURE`, `.TITLE`, `.END` (lines after it are read) |
+
+- [ ] **`.TEMP`.** The operating point and the transient run once per
+  value, but then write no files and the transient prints no table; a DC
+  sweep and AC run at 27 °C. For one temperature, write
+  `.OPTIONS TEMP=<t>` instead.
+- [ ] **A netlist without analyses.** ngspice does nothing; kirimaspice
+  computes an operating point with the default settings, without the
+  netlist's `.OPTIONS`.
 
 ### Names and numbers
 
-- [ ] **The case of node, element and subcircuit names.** They are
-  case-sensitive here (`OUT` and `out` are two nodes); ngspice folds case.
+- [ ] **The case of node and element names.** They are case-sensitive
+  here (`OUT` and `out` are two nodes); ngspice folds case.
 - [ ] **No scale factors inside braces or in `.OPTIONS` values.** Write
   `{0.001}`, not `{1m}`.
 - [ ] **`.IC` and `.NODESET` with an upper-case `V(`.** `v(out)=1` is
@@ -74,17 +91,24 @@ the values of a sweep are in the raw file.
 
 ### Sources
 
-- [ ] **`PULSE` only, after a DC value.** Write `V1 in 0 DC 0 PULSE(...)`.
-  There are no `SIN`, `EXP`, `PWL` or `SFFM` waveforms.
-- [ ] **`B` sources only in DC and transient.** They have no AC model, and
-  their expressions cannot use `I(...)`.
+- [ ] **`PULSE` only, on a voltage source, after a DC value.** Write
+  `V1 in 0 DC 0 PULSE(0 1 ...)`, with spaces between the arguments (or a
+  space after each comma). There are no `SIN`, `EXP`, `PWL` or `SFFM`
+  waveforms: they are dropped without a message, as is `PULSE` on a
+  current source. A `PULSE` source is not an AC input and cannot be swept
+  by `.DC`.
+- [ ] **`B` sources only in DC and transient.** They have no AC model,
+  their expressions cannot use `I(...)` or `.PARAM` names, and `TIME` is
+  0 throughout a transient
+  ([KNOWN_ISSUES](../KNOWN_ISSUES.md#netlist-input)).
 
 ### Subcircuits and parameters
 
 - [ ] **Elements inside `.SUBCKT`.** Only `R`, `C`, `L`, `V` and `I` (DC
-  value), `M` (four terminals, level 1 or BSIM4) and `X` are expanded;
-  others are skipped with a warning. Move diodes, bipolar transistors and
-  controlled sources to the top level.
+  and AC values, no `PULSE`), `M` (four terminals, level 1 or BSIM4) and
+  `X` are expanded; others are skipped with a warning
+  ([Reference Manual](REFERENCE_MANUAL.md#elements)). Move diodes, bipolar
+  transistors and controlled sources to the top level.
 - [ ] **Parameters of a subcircuit.** Write defaults as `NAME=value` after
   the pins; `PARAMS:` is not accepted. As in ngspice, a subcircuit body
   sees the global `.PARAM` values, and a `.PARAM` inside a `.SUBCKT` is
@@ -97,8 +121,18 @@ the values of a sweep are in the raw file.
 ### Models
 
 - [ ] **The parameters the models read.** The diode reads only `IS` and
-  `N`, and the other models read part of their parameters; the rest is
-  ignored without a warning ([KNOWN_ISSUES](../KNOWN_ISSUES.md#netlist-input)).
+  `N`, and the other models read part of their parameters; some levels
+  warn about the rest, others ignore it without a message
+  ([Reference Manual](REFERENCE_MANUAL.md#models)).
+- [ ] **The `LEVEL` of each MOSFET card.** The levels here are 1, 3,
+  8/49 (BSIM3), 9 (BSIM1), 10 (SiC), 11 (GaN HEMT), 12 (FinFET), 14/54
+  (BSIM4), 20 (VDMOS) and 21 (IGBT)
+  ([Reference Manual](REFERENCE_MANUAL.md#models)). Check that each card
+  of the netlist means the same device by its number (not compared with
+  ngspice's list of levels here). Any other `LEVEL` gives level 1 without
+  a message.
+- [ ] **`S` and `Y` parameters on the element line.** `.MODEL` has no
+  SCR or TRIAC type.
 - [ ] **No `J` elements.** The library has a JFET, but the parser has no
   `J` element.
 
@@ -110,10 +144,16 @@ the values of a sweep are in the raw file.
   fastest change of the circuit.
 - [ ] **The first step.** With the trapezoidal rule, the first step is a
   backward Euler step.
+- [ ] **`tstart`.** The simulation starts at `tstart` from the operating
+  point; ngspice simulates from 0 and saves from `tstart`. Leave `tstart`
+  at 0 when the circuit's state at `tstart` matters.
+- [ ] **Options of the time step.** `TRTOL`, `CHGTOL`, the `LTE_*`
+  options, `ERROR_EST` and `MAXORD` have no effect.
 
 ### DC sweeps
 
-- [ ] **`.TEMP` with `.DC`.** The sweep runs at the first temperature only.
+- [ ] **`.TEMP` with `.DC`.** The sweep runs at 27 °C, or at
+  `.OPTIONS TEMP`; use that option for a sweep at another temperature.
 
 ## Compare the results
 

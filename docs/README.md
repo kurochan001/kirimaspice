@@ -2,10 +2,11 @@
 
 [日本語](README.ja.md) · [Project README](../README.md) · This English text is the main version; the Japanese version follows it, and where they differ, this text holds.
 
-**Updated 2026-11-14** for commit `545f2ac`. Choose a document by what you
-want to do. Each document says the commit it was checked against; when a
-document and the program disagree, the program is what runs, and the
-disagreement is a bug in one of them. Save the version line the program
+**Updated 2026-11-15** for commit `db0fef6`. Choose a document by what you
+want to do. The guides and manuals say near their top the commit they were
+checked against, and KNOWN_ISSUES and the examples say the commit of their
+measurements; when a document and the program disagree, the program is
+what runs, and the disagreement is a bug in one of them. Save the version line the program
 logs first (`kirimaspice v0.0.0`) and the commit you built when you report
 a result.
 

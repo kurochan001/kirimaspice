@@ -2,7 +2,7 @@
 
 [日本語](FAQ.ja.md) · [Project README](../README.md) · This English text is the main version; the Japanese version follows it, and where they differ, this text holds.
 
-**Updated 2026-11-14** for commit `715920a`. These answers describe what
+**Updated 2026-11-15** for commit `db0fef6`. These answers describe what
 kirimaspice does today; the [User Manual](USER_MANUAL.md) and the
 [Reference Manual](REFERENCE_MANUAL.md) give the details,
 [KNOWN_ISSUES](../KNOWN_ISSUES.md) the known problems, and the
@@ -59,10 +59,11 @@ It reads SPICE netlists, and where SPICE dialects differ it follows
 [ngspice](GLOSSARY.md#ngspice) for scale factors, AC inputs, the sign of
 source currents, the order of a nested `.DC` and `gnd`
 ([NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.md)); each of these was
-checked by running ngspice-47. Other differences remain: node names are
-case-sensitive, a source needs a DC value before `PULSE`, `PULSE` is the
-only waveform, analyses inside `.control` are not run as ngspice runs them,
-and the parser reads only part of the device parameters. The document and
+checked by running ngspice-47. Other differences remain: node and element
+names are case-sensitive, a source needs a DC value before `PULSE`,
+`PULSE` is the only waveform, analyses inside `.control` are not run as
+ngspice runs them, a `.DC` sweep replaces `.OP`, and the parser reads only
+part of the device parameters. [Moving from ngspice](PORTING.md) and
 [KNOWN_ISSUES](../KNOWN_ISSUES.md) list them.
 
 ### Does it read netlists written for HSPICE or Spectre?
@@ -91,9 +92,9 @@ Only sources written with `AC` are inputs of an AC analysis. Write
 
 ### Why does an element inside my subcircuit disappear?
 
-Inside a subcircuit only `R`, `C`, `L`, `V` and `I` (with a DC value), `M`
-(with four terminals, level 1 or BSIM4) and `X` are expanded; other
-elements are skipped with a warning. Place diodes, bipolar transistors and
+Inside a subcircuit only `R`, `C`, `L`, `V` and `I` (DC and AC values, no
+`PULSE`), `M` (with four terminals, level 1 or BSIM4) and `X` are
+expanded; other elements are skipped with a warning. Place diodes, bipolar transistors and
 controlled sources at the top level for now.
 
 ### Why does `{1m}` give an error?
@@ -104,8 +105,11 @@ number.
 ### Why does `Undefined BJT model` (or MOSFET, diode, MESFET) appear?
 
 No `.MODEL` in the netlist has that name. Model names are not
-case-sensitive and a `.MODEL` may stand anywhere; check the spelling and
-that the file with the model is read with `.INCLUDE` or `.LIB`.
+case-sensitive, and the `.MODEL` may stand before or after these elements;
+check the spelling and that the file with the model is read with
+`.INCLUDE` or `.LIB`. For a
+MOSFET with four terminals, the message names the bulk node instead of the
+model ([User Manual](USER_MANUAL.md#troubleshoot)).
 
 ## Results and accuracy
 
@@ -123,10 +127,19 @@ charge at 1 ms (0.632105 for the exact 0.632121).
 
 The default, `trap`, is second order. On an RC discharge from 1 V
 ([rc_discharge.sp](../examples/rc_discharge.sp): `.IC V(out)=1` and
-`.TRAN 10u 1m UIC`, RC = 1 ms) the value at 1 ms was 0.367895 with `trap`,
-0.367913 with `gear` (BDF2) and 0.369711 with `euler` (backward Euler,
-first order), for the exact 0.367879. Set the method with
-`.OPTIONS METHOD=<name>`.
+`.TRAN 10u 1m UIC`, RC = 1 ms) the value at 1 ms was:
+
+| `METHOD` | Method | Order | V(out) at 1 ms | Error |
+| --- | --- | --- | --- | --- |
+| (exact) | e⁻¹ | | 0.367879 | |
+| `trap` (default) | trapezoidal | 2 | 0.367895 | 1.6·10⁻⁵ |
+| `gear` | BDF2 | 2 | 0.367913 | 3.4·10⁻⁵ |
+| `euler` | backward Euler | 1 | 0.369711 | 1.8·10⁻³ |
+
+Set the method with `.OPTIONS METHOD=<name>`
+([examples](../examples/README.md#rc-discharge-and-the-integration-methods)). The SiC MOSFET, GaN
+HEMT, VDMOS and FinFET integrate their own capacitances by backward Euler
+whatever the method, and the IGBT does so under `trap` ([KNOWN_ISSUES](../KNOWN_ISSUES.md#device-models)).
 
 ### Is the time step adaptive?
 
@@ -173,8 +186,13 @@ their results are not confirmed; see the
 
 ### Why are some comparison tests skipped?
 
-Twenty comparison tests look for reference data in a directory where it is
-not, and one runs ngspice and is skipped when ngspice is not installed
+At commit `db0fef6`, 22 tests are skipped on macOS: twenty comparison
+tests look for reference data in a directory where it is not,
+`BSIM4TemperatureValidationTest.TemperatureSweepValidation` reads a file
+that a script writes to `/tmp`, and
+`BSIM4ComprehensiveTest.VdsatBranchSelection` skips itself because its
+reference value is not verified. `BSIM4ComprehensiveTest.NgspiceComparison`
+is skipped as well when ngspice is not installed
 ([KNOWN_ISSUES](../KNOWN_ISSUES.md#tests)).
 
 ## Platforms and performance

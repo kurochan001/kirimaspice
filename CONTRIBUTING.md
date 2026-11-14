@@ -91,3 +91,12 @@ to add a device model, and [ARCHITECTURE](docs/ARCHITECTURE.md) the code.
   characters.
 - The author email is your GitHub noreply address.
 - Do not add `Signed-off-by`: the project does not use the DCO.
+
+The trailers a commit may carry ([AI_POLICY](docs/spec/AI_POLICY.md#record-of-human-contributions)):
+
+| Trailer | When |
+| --- | --- |
+| `Assisted-by: <tool>:<model and version>` | an AI tool helped with the commit |
+| `Approved-by: <name> <noreply address>` | the commit records a person's approval of a specification or of an expected value |
+| `Reviewed-by: <name> <noreply address>` | a person read the commit, made with AI, before it was pushed |
+| `Co-authored-by`, `Signed-off-by` | never: not for AI tools, and the project does not use the DCO |

@@ -4,7 +4,7 @@
 
 Terms used in the [README](../README.md), the [User Manual](USER_MANUAL.md),
 the [Reference Manual](REFERENCE_MANUAL.md) and the other documents, with
-what they mean in kirimaspice. **Updated 2026-11-14** for commit `715920a`.
+what they mean in kirimaspice. **Updated 2026-11-15** for commit `db0fef6`.
 For practical questions see the [FAQ](FAQ.md).
 
 - [Netlists](#netlists) · [Sources and devices](#sources-and-devices) ·
@@ -17,14 +17,14 @@ For practical questions see the [FAQ](FAQ.md).
 | --- | --- |
 | <a id="netlist"></a>netlist | The text file that describes a circuit and the analyses to run. kirimaspice reads SPICE netlists and follows ngspice where SPICE dialects differ ([NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.md)) |
 | title line | The first non-empty line of a netlist, whatever it contains |
-| element | A line that places a device, named by its first letter: `R1`, `V1`, `M3`, `X2` |
+| element | A line that places a device, named by its first letter: `R1`, `V1`, `M3`, `X2`. Element names are case-sensitive |
 | <a id="directive"></a>directive | A line that starts with `.`: `.MODEL`, `.TRAN`, `.PARAM`. Some are read but not used by the program ([Reference Manual](REFERENCE_MANUAL.md#directives)) |
 | <a id="node"></a>node | A connection point named on element lines. Node names are case-sensitive |
 | <a id="ground"></a>ground | The reference node, 0 V: `0`, or `gnd` in any case. Inside kirimaspice it is node 0, `NODE_GND` |
 | continuation line | A line that starts with `+` and continues the line before it |
-| <a id="model-card"></a>model card | A `.MODEL` line: a named set of device parameters. Its name is not case-sensitive and it may stand anywhere in the netlist |
+| <a id="model-card"></a>model card | A `.MODEL` line: a named set of device parameters. Its name is not case-sensitive, and it may stand after the `D`, `Q`, `M` and `Z` elements that use it |
 | `LEVEL` | The model-card parameter that selects the MOSFET model: 1, 3, BSIM1, BSIM3, BSIM4 and others ([Reference Manual](REFERENCE_MANUAL.md#models)) |
-| <a id="subcircuit"></a>subcircuit | A circuit defined between `.SUBCKT` and `.ENDS` and placed with an `X` element. Its internal nodes and elements get names such as `X1.n1`. Only some elements are expanded inside it ([KNOWN_ISSUES](../KNOWN_ISSUES.md)) |
+| <a id="subcircuit"></a>subcircuit | A circuit defined between `.SUBCKT` and `.ENDS` and placed with an `X` element. Its name is not case-sensitive. Its internal nodes and elements get names such as `X1.n1`. Only some elements are expanded inside it ([Reference Manual](REFERENCE_MANUAL.md#elements)) |
 | <a id="parameter"></a>parameter | A name defined with `.PARAM`, used in `{...}` expressions; `.FUNC` defines a function for `.PARAM` expressions |
 | expression | A value in braces, `{...}`, evaluated with the ExprTk library. Scale factors are not accepted inside it |
 | <a id="scale-factor"></a>scale factor | A suffix that scales a number, in any case: `T`, `G`, `MEG`, `K`, `MIL`, `M` (milli), `U`, `N`, `P`, `F`, `A` (atto). Mega is `MEG` |
@@ -36,7 +36,7 @@ For practical questions see the [FAQ](FAQ.md).
 | independent source | A voltage (`V`) or current (`I`) source whose value does not depend on the circuit. It has a DC value and may have an AC input and, for `V`, a `PULSE` waveform |
 | <a id="ac-input"></a>AC input | A source whose line has `AC [<magnitude> [<phase>]]`; only such sources drive an AC analysis |
 | controlled source | A source whose value depends on a voltage (`E` gives a voltage, `G` a current) or on the current of a voltage source (`H` gives a voltage, `F` a current) |
-| <a id="behavioural-source"></a>behavioural source | A `B` element whose voltage or current is an expression of node voltages and `TIME` |
+| <a id="behavioural-source"></a>behavioural source | A `B` element whose voltage or current is an expression of node voltages and `TIME`. In the program `TIME` is always 0 ([KNOWN_ISSUES](../KNOWN_ISSUES.md#netlist-input)) |
 | <a id="branch-current"></a>branch current | The current of a voltage source, `E`, `H` or voltage-form `B` source, solved as its own unknown. It is positive when it flows into the `+` terminal through the source, so a source delivering current has a negative current |
 | level-1 MOSFET | The square-law MOSFET model: parameters `KP`, `W`, `L`, `VTO` and noise parameters; no bulk effect and no channel-length modulation |
 | BSIM3, BSIM4 | The Berkeley short-channel MOSFET models. The BSIM4 code is based on BSIM4 4.8.3 and keeps its ECL-2.0 notice ([THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md)) |
@@ -52,7 +52,7 @@ For practical questions see the [FAQ](FAQ.md).
 | <a id="dc-sweep"></a>DC sweep | Operating points while a source steps through a range (`.DC`). With two sources, the first is swept for each value of the second |
 | <a id="transient"></a>transient analysis | The solution over time (`.TRAN`), from an operating point or, with `UIC`, from the values of `.IC` |
 | <a id="ac-analysis"></a>AC analysis | The small-signal response over frequency (`.AC`), linearized at the operating point and driven by the AC inputs |
-| temperature sweep | The operating point or transient at each temperature of `.TEMP` |
+| temperature sweep | The operating point or transient at each temperature of `.TEMP`. No files are written then, and a DC sweep and AC analysis take `.OPTIONS TEMP` instead ([Reference Manual](REFERENCE_MANUAL.md#directives)) |
 | <a id="fourier"></a>Fourier analysis | The harmonics and the THD of a signal over the last period of a transient (`.FOUR`), printed after the transient |
 | <a id="uic"></a>`UIC` | "Use initial conditions": on a `.TRAN` line, start the transient from the `.IC` values instead of from an operating point. Without `UIC`, the operating point holds the `.IC` nodes at their values |
 | library-only analysis | Noise, transfer function, pole-zero, distortion, sensitivity, S-parameters, Monte Carlo, worst case and optimization: implemented in the library and its tests, not run by the program ([Architecture](ARCHITECTURE.md#other-analyses-in-the-library)) |
@@ -67,7 +67,7 @@ For practical questions see the [FAQ](FAQ.md).
 | `GMIN` | A small conductance to ground (default 10⁻¹² S) that keeps the system solvable |
 | convergence aids | Gmin stepping, source stepping, dynamic gmin, continuation and pseudo-transient: ways to find an operating point when plain iteration fails, each switched on with `.OPTIONS` |
 | <a id="klu"></a>KLU | The sparse LU solver of SuiteSparse that solves the linear system at each iteration; taken from the system and linked dynamically |
-| <a id="integration-method"></a>integration method | How a transient step turns the derivatives of capacitors and inductors into equations: backward Euler (first order), trapezoidal (`trap`, the default), BDF2 (`gear`), BDF3 (`gear3`) and TR-BDF2. The trapezoidal methods start with a backward-Euler step |
+| <a id="integration-method"></a>integration method | How a transient step turns the derivatives of capacitors and inductors into equations: backward Euler (first order), trapezoidal (`trap`, the default), BDF2 (`gear`), BDF3 (`gear3`) and TR-BDF2. The program takes the first step by backward Euler with every method (the first two with BDF2), and BDF3 then starts with BDF2 steps |
 | companion model | A capacitor or inductor replaced, for one time step, by a conductance and a current source that follow from the integration method |
 | <a id="lte"></a>LTE | Local truncation error: the error one step adds, estimated from the charge of capacitors and the flux of inductors (for coupled inductors, their coupled fluxes) |
 | <a id="time-step"></a>fixed and adaptive time step | The program steps by `tstep`; `tmax` has no effect. The library also has an adaptive path that chooses each step from the LTE; the program does not use it |

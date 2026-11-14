@@ -76,3 +76,12 @@ python3 tools/local_ci.py
 - 1 コミット 1 目的。メッセージは英語で、1 行目は 72 文字以内。
 - 作者のメールアドレスは、GitHub の noreply アドレスにします。
 - `Signed-off-by` は付けません。このプロジェクトは DCO を使いません。
+
+コミットに付けてよいトレーラー（[AI_POLICY](docs/spec/AI_POLICY.ja.md#人の寄与の記録)）：
+
+| トレーラー | 付けるとき |
+| --- | --- |
+| `Assisted-by: <ツール>:<モデルと版>` | AI のツールがコミットを手伝った |
+| `Approved-by: <名前> <noreply アドレス>` | 仕様や期待値についての人の承認を、コミットが記録する |
+| `Reviewed-by: <名前> <noreply アドレス>` | AI と作ったコミットを、push の前に人が読んだ |
+| `Co-authored-by`、`Signed-off-by` | 付けない。AI のツールには使わず、このプロジェクトは DCO を使わない |

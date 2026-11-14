@@ -2,7 +2,7 @@
 
 [English](FAQ.md) · [プロジェクトの README](../README.ja.md) · この文書は英語版を正とします。日本語版はその訳で、両者が食い違う場合は英語版に従います。
 
-**2026-11-14 更新**（コミット `715920a`）。ここでの答えは、今の kirimaspice の振る舞いです。詳しくは
+**2026-11-15 更新**（コミット `db0fef6`）。ここでの答えは、今の kirimaspice の振る舞いです。詳しくは
 [ユーザーマニュアル](USER_MANUAL.ja.md)と[リファレンスマニュアル](REFERENCE_MANUAL.ja.md)に、分かっている
 問題は [KNOWN_ISSUES](../KNOWN_ISSUES.ja.md) に、用語は[用語集](GLOSSARY.ja.md)にあります。
 
@@ -50,9 +50,10 @@
 SPICE のネットリストを読みます。SPICE の方言が違うところのうち、倍率、AC の入力、電源の電流の符号、
 入れ子の `.DC` の順、`gnd` では [ngspice](GLOSSARY.ja.md#ngspice) に合わせています
 （[NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.ja.md)）。どれも ngspice-47 を動かして確かめました。
-ほかの違いは残っています。ノード名は大文字と小文字を区別すること、`PULSE` の前に DC の値が必要なこと、
-波形は `PULSE` だけなこと、`.control` の中の解析は ngspice のようには実行しないこと、パーサーが読む
-デバイスのパラメーターが一部なことです。上の文書と [KNOWN_ISSUES](../KNOWN_ISSUES.ja.md) に並べてあります。
+ほかの違いは残っています。ノード名と素子名は大文字と小文字を区別すること、`PULSE` の前に DC の値が
+必要なこと、波形は `PULSE` だけなこと、`.control` の中の解析は ngspice のようには実行しないこと、
+`.DC` のスイープが `.OP` に代わること、パーサーが読むデバイスのパラメーターが一部なことです。
+[ngspice からの移行](PORTING.ja.md)と [KNOWN_ISSUES](../KNOWN_ISSUES.ja.md) に並べてあります。
 
 ### HSPICE や Spectre 向けに書いたネットリストを読めますか？
 
@@ -77,9 +78,9 @@ AC 解析の入力になるのは、`AC` を書いた電源だけです。回路
 
 ### サブサーキットの中の素子が消えるのはなぜですか？
 
-サブサーキットの中で展開するのは、`R`、`C`、`L`、`V` と `I`（DC の値）、`M`（4 端子、レベル 1 または
-BSIM4）、`X` だけで、ほかの素子は警告を出して飛ばします。今は、ダイオード、バイポーラトランジスタ、
-制御電源はトップレベルに置いてください。
+サブサーキットの中で展開するのは、`R`、`C`、`L`、`V` と `I`（DC と AC の値。`PULSE` はなし）、`M`
+（4 端子、レベル 1 または BSIM4）、`X` だけで、ほかの素子は警告を出して飛ばします。今は、ダイオード、
+バイポーラトランジスタ、制御電源はトップレベルに置いてください。
 
 ### `{1m}` がエラーになるのはなぜですか？
 
@@ -87,8 +88,10 @@ BSIM4）、`X` だけで、ほかの素子は警告を出して飛ばします�
 
 ### `Undefined BJT model`（または MOSFET、diode、MESFET）が出るのはなぜですか？
 
-その名前の `.MODEL` がネットリストにありません。モデル名は大文字と小文字を区別せず、`.MODEL` はどこに
-置いても構いません。綴りと、モデルのあるファイルを `.INCLUDE` や `.LIB` で読んでいるかを確かめてください。
+その名前の `.MODEL` がネットリストにありません。モデル名は大文字と小文字を区別せず、これらの素子の
+`.MODEL` は素子の前にも後ろにも置けます。綴りと、モデルのあるファイルを `.INCLUDE` や `.LIB` で読んでいるかを確かめてください。
+4 端子の MOSFET では、メッセージにはモデルの代わりにバルクのノードの名前が出ます
+（[ユーザーマニュアル](USER_MANUAL.ja.md#困ったとき)）。
 
 ## 結果と精度
 
@@ -103,9 +106,19 @@ RC の充電（厳密な値 0.632121 に対して 0.632105）です。
 ### どの積分法を使えばよいですか？
 
 既定の `trap` は 2 次の方法です。RC = 1 ms の回路を 1 V から放電させると
-（[rc_discharge.sp](../examples/rc_discharge.sp)。`.IC V(out)=1` と `.TRAN 10u 1m UIC`）、1 ms の値は、
-厳密な値 0.367879 に対して、`trap` で 0.367895、`gear`（BDF2）で 0.367913、`euler`（後退オイラー法、
-1 次）で 0.369711 でした。方法は `.OPTIONS METHOD=<名前>` で選びます。
+（[rc_discharge.sp](../examples/rc_discharge.sp)。`.IC V(out)=1` と `.TRAN 10u 1m UIC`）、1 ms の値は
+次のとおりでした。
+
+| `METHOD` | 方法 | 次数 | 1 ms での V(out) | 誤差 |
+| --- | --- | --- | --- | --- |
+| （厳密な値） | e⁻¹ | | 0.367879 | |
+| `trap`（既定） | 台形則 | 2 | 0.367895 | 1.6·10⁻⁵ |
+| `gear` | BDF2 | 2 | 0.367913 | 3.4·10⁻⁵ |
+| `euler` | 後退オイラー法 | 1 | 0.369711 | 1.8·10⁻³ |
+
+方法は `.OPTIONS METHOD=<名前>` で選びます（[例題](../examples/README.ja.md#rc-の放電と積分法)）。
+SiC MOSFET、GaN HEMT、VDMOS、FinFET は、方法にかかわらず自分の容量を後退オイラー法で積分し、IGBT も
+`trap` のもとではそうします（[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#デバイスモデル)）。
 
 ### 時間刻みは可変ですか？
 
@@ -142,8 +155,11 @@ RC の充電（厳密な値 0.632121 に対して 0.632105）です。
 
 ### スキップされる比較のテストがあるのはなぜですか？
 
-比較のテストのうち 20 件は、参照データがない場所を探しています。1 件は ngspice を実行し、ngspice が
-入っていなければスキップされます（[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#テスト)）。
+コミット `db0fef6` の macOS では、22 件のテストがスキップされます。比較のテスト 20 件は参照データが
+ない場所を探し、`BSIM4TemperatureValidationTest.TemperatureSweepValidation` はスクリプトが `/tmp` に
+書き出すファイルを読み、`BSIM4ComprehensiveTest.VdsatBranchSelection` は参照の値が確かめられていない
+ので自分でスキップします。`BSIM4ComprehensiveTest.NgspiceComparison` も、ngspice が入っていなければ
+スキップされます（[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#テスト)）。
 
 ## プラットフォームと性能
 
