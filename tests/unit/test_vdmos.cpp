@@ -415,3 +415,40 @@ TEST(VDMOS_N, ParameterAccess) {
     auto perturbable = device->get_perturbable_parameters();
     EXPECT_GE(perturbable.size(), 3) << "Should have at least VTO, KP, RDS";
 }
+
+// The VDMOS channel (KP/2 Vov^2 (1 + LAMBDA v) in saturation, KP (Vov v -
+// v^2/2)(1 + LAMBDA v) below it) carries the current I in series with RDS at
+// the drain, so I = f(VGS, VDS - I RDS). With the defaults (VTO = 4 V,
+// KP = 20 A/V^2, RDS = 0.1 Ohm, LAMBDA = 0.01) the current of a fully driven
+// device is set by RDS; the reference solves the equation by bisection.
+TEST(VDMOS_N_DC, CurrentSolvesTheSeriesResistance) {
+    auto reference = [](Real vgs, Real vds) {
+        const Real kp = 20.0, vth = 4.0, rds = 0.1, lambda = 0.01, vov = vgs - vth;
+        auto f = [&](Real v) {
+            return v < vov ? kp * (vov * v - 0.5 * v * v) * (1.0 + lambda * v)
+                           : 0.5 * kp * vov * vov * (1.0 + lambda * v);
+        };
+        Real lo = 0.0, hi = f(vds);
+        for (int k = 0; k < 200; ++k) {
+            const Real mid = 0.5 * (lo + hi);
+            (mid - f(vds - mid * rds) > 0.0 ? hi : lo) = mid;
+        }
+        return 0.5 * (lo + hi);
+    };
+    const Real biases[][2] = {{10.0, 5.0}, {4.5, 1.0}, {15.0, 5.0}, {10.0, 0.5}};
+    for (const auto& b : biases) {
+        CircuitGraph circuit;
+        circuit.add_voltage_source("VG", "gate", "0", b[0]);
+        circuit.add_voltage_source("VD", "drain", "0", b[1]);
+        circuit.add_vdmos_n("M1", "drain", "gate", "0");
+        DCSolver solver(circuit);
+        DenseVector solution;
+        SolverStats stats;
+        ASSERT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS);
+        const Real expected = reference(b[0], b[1]);
+        // less the GMIN of 1e-12 S across the channel
+        EXPECT_NEAR(-solver.get_branch_current("VD").value() - 1e-12 * b[1], expected,
+                    1e-9 * expected)
+            << "VGS=" << b[0] << " VDS=" << b[1];
+    }
+}

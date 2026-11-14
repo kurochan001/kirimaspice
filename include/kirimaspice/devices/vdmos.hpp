@@ -192,6 +192,18 @@ private:
     mutable Real vgd_prev_ = 0.0;
     mutable Real vds_prev_ = 0.0;
 
+    // The drain current of the model and its derivatives
+    struct DrainCurrent {
+        Real id = 0.0;   ///< From drain to source for N, from source to drain for P [A]
+        Real gm = 0.0;   ///< d id / d Vgs_eff [S]
+        Real gds = 0.0;  ///< d id / d Vds_eff [S]
+    };
+
+    /// The drain current at the effective voltages (VGS and VDS for N, VSG
+    /// and VSD for P) and the operating temperature. The DC and AC stamps
+    /// and the noise sources take it from here.
+    DrainCurrent drain_current(Real vgs_eff, Real vds_eff) const;
+
     // Constants
     static constexpr Real gmin_default = 1e-12;
     static constexpr Real k_boltzmann = 1.380649e-23;
@@ -274,6 +286,75 @@ private:
 // ============================================================================
 
 template<VDMOSPolarity Pol>
+typename VDMOS<Pol>::DrainCurrent VDMOS<Pol>::drain_current(Real vgs_eff, Real vds_eff) const {
+    // The channel is a square law with channel-length modulation, in series
+    // with RDS at the drain: the current I solves I = f(VGS, VDS - I RDS).
+    const Real vth_raw = compute_temperature_scaled_vto();
+    const Real vth = is_n_channel ? vth_raw : std::abs(vth_raw);
+    const Real kp = compute_temperature_scaled_kp();
+    const Real rds = compute_temperature_scaled_rds();
+
+    DrainCurrent out;
+    if (vgs_eff >= vth) {
+        const Real vov = vgs_eff - vth;
+        // f and its derivatives with respect to VGS and to the channel's own
+        // drain voltage v
+        auto channel = [&](Real v, Real& f, Real& f_g, Real& f_v) {
+            const Real clm = 1.0 + lambda_ * v;
+            if (v < vov) {
+                const Real q = vov * v - 0.5 * v * v;
+                f = kp * q * clm;
+                f_g = kp * v * clm;
+                f_v = kp * (vov - v) * clm + kp * q * lambda_;
+            } else {
+                f = 0.5 * kp * vov * vov * clm;
+                f_g = kp * vov * clm;
+                f_v = 0.5 * kp * vov * vov * lambda_;
+            }
+        };
+        // I - f(VDS - I RDS) grows with I and changes sign between 0 and
+        // f(VDS), the current without RDS: Newton's method, kept inside
+        // that bracket by bisection
+        Real f = 0.0, f_g = 0.0, f_v = 0.0;
+        channel(vds_eff, f, f_g, f_v);
+        Real lo = std::min(0.0, f);
+        Real hi = std::max(0.0, f);
+        Real i = f;
+        for (int iter = 0; iter < 200 && rds > 0.0; ++iter) {
+            channel(vds_eff - i * rds, f, f_g, f_v);
+            const Real residual = i - f;
+            if (residual > 0.0) {
+                hi = i;
+            } else {
+                lo = i;
+            }
+            Real next = i - residual / (1.0 + rds * f_v);
+            if (!(next > lo && next < hi)) {
+                next = 0.5 * (lo + hi);
+            }
+            const bool done = std::abs(next - i) <= 1e-14 * std::max(std::abs(i), 1e-12);
+            i = next;
+            if (done) {
+                break;
+            }
+        }
+        channel(vds_eff - i * rds, f, f_g, f_v);
+        out.id = i;
+        // dI = f_g dVGS + f_v (dVDS - RDS dI)
+        out.gm = f_g / (1.0 + rds * f_v);
+        out.gds = f_v / (1.0 + rds * f_v);
+    }
+
+    // Avalanche above VBD
+    if (vds_eff > vbd_) {
+        const Real e = std::exp(10.0 * (vds_eff - vbd_));
+        out.id += 1e-3 * e;
+        out.gds += 1e-2 * e;
+    }
+    return out;
+}
+
+template<VDMOSPolarity Pol>
 void VDMOS<Pol>::stamp_dc_nonlinear(MNASystem& mna,
                                      const DenseVector& node_voltages) const {
     NodeId nd = nodes_[0], ng = nodes_[1], ns = nodes_[2];
@@ -284,120 +365,26 @@ void VDMOS<Pol>::stamp_dc_nonlinear(MNASystem& mna,
 
     Real vgs_eff, vds_eff;
     compute_effective_voltages(vd, vg, vs, vgs_eff, vds_eff);
-
-    // Temperature-scaled parameters
-    Real vth_raw = compute_temperature_scaled_vto();
-    Real vth = is_n_channel ? vth_raw : std::abs(vth_raw);
-    Real kp_temp = compute_temperature_scaled_kp();
-    Real rds_temp = compute_temperature_scaled_rds();
-
-    // Cutoff region
-    if (vgs_eff < vth) {
-        Real gmin = 1e-12;
-        auto nd_idx = (nd == NODE_GND) ? -1 : static_cast<int>(nd - 1);
-        auto ns_idx = (ns == NODE_GND) ? -1 : static_cast<int>(ns - 1);
-
-        if (nd_idx >= 0) {
-            mna.G.add_entry(nd_idx, nd_idx, gmin);
-            if (ns_idx >= 0) mna.G.add_entry(nd_idx, ns_idx, -gmin);
-        }
-        if (ns_idx >= 0) {
-            mna.G.add_entry(ns_idx, ns_idx, gmin);
-            if (nd_idx >= 0) mna.G.add_entry(ns_idx, nd_idx, -gmin);
-        }
-        return;
-    }
-
-    // Overdrive voltage
-    Real vov = vgs_eff - vth;
-
-    // Drain current computation with RDS self-alignment
-    Real ids = 0.0, gm = 0.0, gds = 0.0;
-    Real vds_internal = vds_eff;
-
-    const int max_iterations = 5;
-    for (int iter = 0; iter < max_iterations; ++iter) {
-        Real ids_old = ids;
-
-        if (vds_internal < vov) {
-            // Linear region
-            Real clm = 1.0 + lambda_ * vds_internal;
-            ids = kp_temp * (vov * vds_internal - 0.5 * vds_internal * vds_internal) * clm;
-            gm = kp_temp * vds_internal * clm;
-            gds = kp_temp * (vov - vds_internal) * clm +
-                  kp_temp * (vov * vds_internal - 0.5 * vds_internal * vds_internal) * lambda_;
-        } else {
-            // Saturation region
-            Real clm = 1.0 + lambda_ * vds_internal;
-            ids = 0.5 * kp_temp * vov * vov * clm;
-            gm = kp_temp * vov * clm;
-            gds = 0.5 * kp_temp * vov * vov * lambda_;
-        }
-
-        gds += 1.0 / rds_temp;
-        vds_internal = vds_eff - ids * rds_temp;
-
-        Real rel_change = std::abs(ids - ids_old) / (std::abs(ids) + 1e-9);
-        if (rel_change < 1e-6) break;
-
-        if (iter > 0) ids = 0.7 * ids + 0.3 * ids_old;
-    }
-
-    // Breakdown voltage check
+    const DrainCurrent dc = drain_current(vgs_eff, vds_eff);
     if (vds_eff > vbd_) {
-        Real delta_v = vds_eff - vbd_;
-        Real breakdown_current = 1e-3 * std::exp(10.0 * delta_v);
-        ids += breakdown_current;
-        gds += 10.0 * 1e-3 * std::exp(10.0 * delta_v);
-
         const char* voltage_name = is_n_channel ? "Vds" : "Vsd";
         spdlog::warn("{} entered breakdown region: {}={:.2f}V > Vbd={:.2f}V",
                      name_, voltage_name, vds_eff, vbd_);
     }
 
-    // Convert for MNA stamping
-    Real id_mna, vgs_mna, vds_mna;
-    if constexpr (is_n_channel) {
-        id_mna = ids;
-        vgs_mna = vgs_eff;
-        vds_mna = vds_eff;
-    } else {
-        // P-channel: convert from Vsg/Vsd convention back to Vgs/Vds
-        id_mna = -ids;  // Negate current for MNA convention
-        vgs_mna = -vgs_eff;
-        vds_mna = -vds_eff;
-    }
+    // The current from drain to source is id for N and -id for P; its
+    // derivatives with respect to Vg, Vd and Vs are gm, gds and -(gm + gds)
+    // for both (device_utils::stamp_vccs_3terminal, stamp_conductance_ds)
+    const Real i_ds = is_n_channel ? dc.id : -dc.id;
+    const Real i_eq = i_ds - dc.gm * (vg - vs) - dc.gds * (vd - vs);
 
-    // Stamp Norton equivalent
     auto nd_idx = (nd == NODE_GND) ? -1 : static_cast<int>(nd - 1);
     auto ng_idx = (ng == NODE_GND) ? -1 : static_cast<int>(ng - 1);
     auto ns_idx = (ns == NODE_GND) ? -1 : static_cast<int>(ns - 1);
-
-    Real i_norton = id_mna - gm * vgs_mna - gds * vds_mna;
-
-    // Conductance matrix
-    if (nd_idx >= 0) {
-        mna.G.add_entry(nd_idx, nd_idx, gds);
-        if (ns_idx >= 0) mna.G.add_entry(nd_idx, ns_idx, -gds);
-    }
-    if (ns_idx >= 0) {
-        mna.G.add_entry(ns_idx, ns_idx, gds);
-        if (nd_idx >= 0) mna.G.add_entry(ns_idx, nd_idx, -gds);
-    }
-
-    // Transconductance terms
-    if (nd_idx >= 0) {
-        if (ng_idx >= 0) mna.G.add_entry(nd_idx, ng_idx, gm);
-        if (ns_idx >= 0) mna.G.add_entry(nd_idx, ns_idx, -gm);
-    }
-    if (ns_idx >= 0) {
-        if (ng_idx >= 0) mna.G.add_entry(ns_idx, ng_idx, -gm);
-        if (ns_idx >= 0) mna.G.add_entry(ns_idx, ns_idx, gm);
-    }
-
-    // Current source
-    if (nd_idx >= 0) mna.b[nd_idx] -= i_norton;
-    if (ns_idx >= 0) mna.b[ns_idx] += i_norton;
+    device_utils::stamp_vccs_3terminal(mna.G, nd_idx, ng_idx, ns_idx, dc.gm, polarity_sign);
+    device_utils::stamp_conductance_ds(mna.G, nd_idx, ns_idx, dc.gds + gmin_default);
+    if (nd_idx >= 0) mna.b[nd_idx] -= i_eq;
+    if (ns_idx >= 0) mna.b[ns_idx] += i_eq;
 }
 
 template<VDMOSPolarity Pol>
@@ -454,62 +441,24 @@ void VDMOS<Pol>::stamp_ac(ComplexMNASystem& sys, Real omega,
 
     Real vgs_eff, vds_eff;
     compute_effective_voltages(vd, vg, vs, vgs_eff, vds_eff);
-
-    // Temperature-scaled parameters
-    Real vth_raw = compute_temperature_scaled_vto();
-    Real vth = is_n_channel ? vth_raw : std::abs(vth_raw);
-    Real kp_temp = compute_temperature_scaled_kp();
-    Real rds_temp = compute_temperature_scaled_rds();
-
-    // Small-signal parameters
-    Real gm = 0.0, gds = 1.0 / rds_temp;  // Minimum gds from RDS
-
-    if (vgs_eff >= vth) {
-        Real vov = vgs_eff - vth;
-        Real vds_internal = vds_eff;
-
-        // Simple iteration for internal Vds
-        for (int iter = 0; iter < 3; ++iter) {
-            Real ids_temp;
-            if (vds_internal < vov) {
-                ids_temp = kp_temp * (vov * vds_internal - 0.5 * vds_internal * vds_internal);
-            } else {
-                ids_temp = 0.5 * kp_temp * vov * vov;
-            }
-            vds_internal = vds_eff - ids_temp * rds_temp;
-        }
-
-        if (vds_internal < vov) {
-            Real clm = 1.0 + lambda_ * vds_internal;
-            gm = kp_temp * vds_internal * clm;
-            gds += kp_temp * (vov - vds_internal) * clm +
-                   kp_temp * (vov * vds_internal - 0.5 * vds_internal * vds_internal) * lambda_;
-        } else {
-            Real clm = 1.0 + lambda_ * vds_internal;
-            gm = kp_temp * vov * clm;
-            gds += 0.5 * kp_temp * vov * vov * lambda_;
-        }
-    }
+    const DrainCurrent dc = drain_current(vgs_eff, vds_eff);
 
     // Capacitances
     Real cgd = compute_cgd(std::abs(vds_eff));
-    Complex jw(0.0, omega);
 
     auto nd_idx = (nd == NODE_GND) ? -1 : static_cast<int>(nd - 1);
     auto ng_idx = (ng == NODE_GND) ? -1 : static_cast<int>(ng - 1);
     auto ns_idx = (ns == NODE_GND) ? -1 : static_cast<int>(ns - 1);
 
-    // Capacitance admittances
     Complex y_cgs(0.0, omega * cgs_);
     Complex y_cgd(0.0, omega * cgd);
     Complex y_cds(0.0, omega * cds_);
 
-    // Stamp gds (output conductance)
-    device_utils::stamp_complex_conductance_ds(sys.Y, nd_idx, ns_idx, Complex(gds, 0.0));
-
-    // Stamp gm (transconductance): id = gm * vgs
+    // The small-signal current from drain to source, as in the DC stamp
+    device_utils::stamp_complex_conductance_ds(sys.Y, nd_idx, ns_idx,
+                                               Complex(dc.gds + gmin_default, 0.0));
     device_utils::stamp_complex_vccs_3terminal(sys.Y, nd_idx, ng_idx, ns_idx,
-                                               Complex(gm, 0.0), polarity_sign);
+                                               Complex(dc.gm, 0.0), polarity_sign);
 
     // Stamp capacitances
     device_utils::stamp_complex_capacitor(sys.Y, ng_idx, ns_idx, y_cgs, polarity_sign);
@@ -532,42 +481,17 @@ std::vector<NoiseSource> VDMOS<Pol>::get_noise_sources(
 
     Real vgs_eff, vds_eff;
     compute_effective_voltages(vd, vg, vs, vgs_eff, vds_eff);
-
-    Real vth = is_n_channel ? compute_temperature_scaled_vto()
-                            : std::abs(compute_temperature_scaled_vto());
-    Real kp_temp = compute_temperature_scaled_kp();
-
-    // Compute gm
-    Real gm = 0.0;
-    if (vgs_eff >= vth) {
-        Real vov = vgs_eff - vth;
-        Real clm = 1.0 + lambda_ * vds_eff;
-        if (vds_eff < vov) {
-            gm = kp_temp * vds_eff * clm;
-        } else {
-            gm = kp_temp * vov * clm;
-        }
-    }
+    const DrainCurrent dc = drain_current(vgs_eff, vds_eff);
 
     // Channel thermal noise
-    Real thermal_psd = device_utils::thermal_noise_psd(temperature_, gm, gamma_);
+    Real thermal_psd = device_utils::thermal_noise_psd(temperature_, dc.gm, gamma_);
     if (thermal_psd > 0.0) {
         sources.push_back({name_ + "_thermal", drain, source, thermal_psd, true});
     }
 
     // Flicker noise
-    Real ids = 0.0;
-    if (vgs_eff >= vth) {
-        Real vov = vgs_eff - vth;
-        if (vds_eff < vov) {
-            ids = kp_temp * (vov * vds_eff - 0.5 * vds_eff * vds_eff);
-        } else {
-            ids = 0.5 * kp_temp * vov * vov;
-        }
-    }
-
-    if (kf_ > 0.0 && ids > 0.0) {
-        Real flicker_psd = kf_ * std::pow(std::abs(ids), af_) / std::pow(frequency, ef_);
+    if (kf_ > 0.0 && dc.id > 0.0) {
+        Real flicker_psd = kf_ * std::pow(std::abs(dc.id), af_) / std::pow(frequency, ef_);
         if (flicker_psd > 0.0) {
             sources.push_back({name_ + "_flicker", drain, source, flicker_psd, true});
         }
@@ -575,6 +499,7 @@ std::vector<NoiseSource> VDMOS<Pol>::get_noise_sources(
 
     return sources;
 }
+
 
 // Type aliases for backward compatibility
 using VDMOS_N = VDMOS<VDMOSPolarity::N>;
