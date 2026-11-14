@@ -30,13 +30,13 @@
 ## ビルド
 
 CMake 3.25 以上、C++23 のコンパイラ、Ninja、Python 3、SuiteSparse の開発用ファイル（KLU 2.3.2 以上。
-SuiteSparse 7.6.1 に含まれる版）が必要です。そのほかの依存は、最初の configure のときに CMake が
-固定した版で取得するので、そのときはネットワークへの接続が要ります。
+SuiteSparse 7.6.1 に含まれる版）、Git が必要です。そのほかの依存は、最初の configure のときに CMake が
+Git で固定した版を取得するので、そのときはネットワークへの接続が要ります。
 
-Ubuntu 24.04 では、CI が入れるパッケージは次のとおりです。
+Ubuntu 24.04 では、CI が入れるパッケージと、CI のランナーには最初から入っている Git を入れます。
 
 ```sh
-sudo apt install build-essential cmake ninja-build python3 libsuitesparse-dev
+sudo apt install build-essential cmake ninja-build python3 libsuitesparse-dev git
 ```
 
 そのうえで、ソースのディレクトリで次を実行します。

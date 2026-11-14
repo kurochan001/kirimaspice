@@ -50,8 +50,8 @@ AI のツールに `Co-authored-by` は使わないでください。提出し�
 
 ## ビルドとテスト
 
-kirimaspice のビルドには、CMake 3.25 以上、C++23 のコンパイラ、Ninja を使います。SuiteSparse（KLU）は
-システムのものを使い、テストには Python 3 が要ります。コマンドは README にあります。push の前に
+kirimaspice のビルドには、CMake 3.25 以上、C++23 のコンパイラ、Ninja、Git（CMake が依存の取得に使います）を
+使います。SuiteSparse（KLU）はシステムのものを使い、テストには Python 3 が要ります。コマンドは README にあります。push の前に
 次を実行してください。
 
 ```sh

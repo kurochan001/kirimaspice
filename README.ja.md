@@ -74,13 +74,13 @@ S パラメータ、モンテカルロ、ワーストケース、最適化の解
 ## ビルド
 
 CMake 3.25 以上、C++23 のコンパイラ、Ninja、Python 3、SuiteSparse の開発用ファイル（KLU 2.3.2 以上。
-SuiteSparse 7.6.1 に含まれる版）が必要です。そのほかの依存は、configure のときに CMake が固定した版で
-取得するので、最初の configure にはネットワークへの接続が要ります。
+SuiteSparse 7.6.1 に含まれる版）、Git が必要です。そのほかの依存は、configure のときに CMake が Git で
+固定した版を取得するので、最初の configure にはネットワークへの接続が要ります。
 
-Ubuntu 24.04 の場合（CI が入れるパッケージと同じです）：
+Ubuntu 24.04 の場合（CI が入れるパッケージと、CI のランナーには最初から入っている Git です）：
 
 ```sh
-sudo apt install build-essential cmake ninja-build python3 libsuitesparse-dev
+sudo apt install build-essential cmake ninja-build python3 libsuitesparse-dev git
 ```
 
 そのうえで、ソースのディレクトリで次を実行します。

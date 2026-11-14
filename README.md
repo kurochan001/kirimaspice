@@ -83,13 +83,15 @@ The linear solver is KLU from SuiteSparse.
 
 You need CMake 3.25 or newer, a C++23 compiler, Ninja, Python 3, and the
 SuiteSparse development files (KLU 2.3.2 or newer, as in SuiteSparse
-7.6.1). The other dependencies are downloaded by CMake at configure time,
-pinned to fixed versions, so the first configure needs network access.
+7.6.1), and Git. The other dependencies are downloaded by CMake with Git at
+configure time, pinned to fixed versions, so the first configure needs
+network access.
 
-On Ubuntu 24.04 (these are the packages CI installs):
+On Ubuntu 24.04 (the packages CI installs, and Git, which its runners
+already have):
 
 ```sh
-sudo apt install build-essential cmake ninja-build python3 libsuitesparse-dev
+sudo apt install build-essential cmake ninja-build python3 libsuitesparse-dev git
 ```
 
 Then, from the source tree:

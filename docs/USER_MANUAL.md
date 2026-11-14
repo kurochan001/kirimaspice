@@ -36,13 +36,15 @@ where a rule below exists only to avoid one of those problems.
 
 You need CMake 3.25 or later, a C++23 compiler, Ninja, Python 3 and the
 development files of SuiteSparse (KLU 2.3.2 or later, the version in
-SuiteSparse 7.6.1). CMake fetches the other dependencies at fixed versions
-during the first configure, so that step needs a network connection.
+SuiteSparse 7.6.1), and Git. CMake fetches the other dependencies with Git
+at fixed versions during the first configure, so that step needs a network
+connection.
 
-On Ubuntu 24.04, these are the packages CI installs:
+On Ubuntu 24.04, these are the packages CI installs, and Git, which its
+runners already have:
 
 ```sh
-sudo apt install build-essential cmake ninja-build python3 libsuitesparse-dev
+sudo apt install build-essential cmake ninja-build python3 libsuitesparse-dev git
 ```
 
 Then, from the source tree:
