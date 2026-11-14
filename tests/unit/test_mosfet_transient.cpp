@@ -198,11 +198,21 @@ TEST(MOSFET_N_Transient, StepResponse) {
     // Check that drain voltage changes after step
     NodeId drain_node = circuit.get_node_id("n_drain");
     size_t drain_idx = static_cast<size_t>(drain_node - 1);  // 0-indexed
-    Real v_drain_initial = result.timepoints[0].node_voltages[drain_idx];
+    // Before the gate step at 1 us the MOSFET is off and the drain has
+    // charged to near VDD through RD. With UIC the capacitances start
+    // uncharged, so the drain starts near 0 V at t = 0 and is high only
+    // later: ngspice-47 gives 0.025 V at t = 0 and 4.97 V at 0.95 us for
+    // this circuit. The drain is checked at 0.95 us, just before the step.
+    Real v_drain_initial = 0.0;
+    for (const auto& tp : result.timepoints) {
+        if (tp.time <= 0.95e-6 + 1e-12) {
+            v_drain_initial = tp.node_voltages[drain_idx];
+        }
+    }
     Real v_drain_final = result.timepoints.back().node_voltages[drain_idx];
 
-    // Initially MOSFET off → drain high, after step MOSFET on → drain low
-    EXPECT_GT(v_drain_initial, 4.0);  // Initially high
+    // MOSFET off before the step → drain high, after step MOSFET on → drain low
+    EXPECT_GT(v_drain_initial, 4.0);  // High before the step
     EXPECT_LT(v_drain_final, 2.0);    // Finally low
 }
 
