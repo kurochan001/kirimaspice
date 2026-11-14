@@ -4,6 +4,8 @@
 // src/devices/mosfet_sic.cpp
 // Unified SiC MOSFET template implementation
 #include "kirimaspice/devices/mosfet_sic.hpp"
+#include <algorithm>
+#include <cctype>
 #include <spdlog/spdlog.h>
 #include <cmath>
 #include <stdexcept>
@@ -655,6 +657,9 @@ std::optional<Real> MOSFET_SiC<P>::get_parameter(const std::string& param_name) 
     } else if (param_name == "VBD" || param_name == "vbd") {
         return vbd_;
     }
+    for (const auto& entry : plain_parameters()) {
+        if (lower_case(param_name) == entry.name) return *entry.target;
+    }
     return std::nullopt;
 }
 
@@ -718,7 +723,35 @@ bool MOSFET_SiC<P>::set_parameter(const std::string& param_name, Real value) {
         vbd_ = value;
         return true;
     }
+    for (const auto& entry : plain_parameters()) {
+        if (lower_case(param_name) == entry.name) {
+            if (entry.positive && value <= 0.0) return false;
+            *entry.target = value;
+            return true;
+        }
+    }
     return false;
+}
+
+template<Polarity P>
+std::string MOSFET_SiC<P>::lower_case(std::string text) {
+    std::transform(text.begin(), text.end(), text.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return text;
+}
+
+template<Polarity P>
+std::vector<typename MOSFET_SiC<P>::PlainParameter> MOSFET_SiC<P>::plain_parameters() const {
+    // The parameters that nothing else is derived from; TNOM in kelvin
+    auto* self = const_cast<MOSFET_SiC*>(this);
+    return {{"nfs", &self->nfs_, false},     {"cgso", &self->cgso_, false},
+            {"cgdo", &self->cgdo_, false},   {"cgbo", &self->cgbo_, false},
+            {"cjo", &self->cjo_, false},     {"pb", &self->pb_, true},
+            {"mj", &self->mj_, true},        {"kf", &self->kf_, false},
+            {"af", &self->af_, true},        {"ef", &self->ef_, true},
+            {"gamma", &self->gamma_, false}, {"kt1", &self->kt1_, false},
+            {"kt2", &self->kt2_, false},     {"ute", &self->ute_, false},
+            {"rdtemp", &self->rdtemp_, false}, {"tnom", &self->tnom_, true}};
 }
 
 template<Polarity P>

@@ -7,8 +7,12 @@
 #include "kirimaspice/devices/device.hpp"
 #include "kirimaspice/core/device_utils.hpp"
 #include <spdlog/spdlog.h>
+#include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <stdexcept>
+#include <string>
+#include <vector>
 
 namespace kirimaspice::devices {
 
@@ -157,6 +161,9 @@ public:
         if (param_name == "cgdmax" || param_name == "CGDMAX") return cgdmax_;
         if (param_name == "cgdmin" || param_name == "CGDMIN") return cgdmin_;
         if (param_name == "cds" || param_name == "CDS") return cds_;
+        for (const auto& entry : plain_parameters()) {
+            if (lower_case(param_name) == entry.name) return *entry.target;
+        }
         return std::nullopt;
     }
 
@@ -170,6 +177,14 @@ public:
         if ((param_name == "cgdmax" || param_name == "CGDMAX") && value >= 0.0) { cgdmax_ = value; return true; }
         if ((param_name == "cgdmin" || param_name == "CGDMIN") && value >= 0.0) { cgdmin_ = value; return true; }
         if ((param_name == "cds" || param_name == "CDS") && value >= 0.0) { cds_ = value; return true; }
+        if (param_name == "rdson" || param_name == "RDSON") return set_parameter("rds", value);
+        for (const auto& entry : plain_parameters()) {
+            if (lower_case(param_name) == entry.name) {
+                if (entry.positive && value <= 0.0) return false;
+                *entry.target = value;
+                return true;
+            }
+        }
         return false;
     }
 
@@ -178,6 +193,26 @@ public:
     }
 
 private:
+    struct PlainParameter {
+        const char* name;
+        Real* target;
+        bool positive;  ///< must be > 0
+    };
+    // The parameters that set_parameter's own cases do not cover; TNOM in kelvin
+    std::vector<PlainParameter> plain_parameters() const {
+        auto* self = const_cast<VDMOS*>(this);
+        return {{"kf", &self->kf_, false},   {"af", &self->af_, true},
+                {"ef", &self->ef_, true},    {"gamma", &self->gamma_, false},
+                {"kt1", &self->kt1_, false}, {"kt2", &self->kt2_, false},
+                {"ute", &self->ute_, false}, {"rtc", &self->rtc_, false},
+                {"tnom", &self->tnom_, true}};
+    }
+    static std::string lower_case(std::string text) {
+        std::transform(text.begin(), text.end(), text.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        return text;
+    }
+
     std::vector<NodeId> nodes_;  // D, G, S
 
     // Parameters

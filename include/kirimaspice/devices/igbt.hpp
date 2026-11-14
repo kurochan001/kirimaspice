@@ -6,6 +6,7 @@
 #include "kirimaspice/devices/device.hpp"
 #include "kirimaspice/core/device_utils.hpp"
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <spdlog/spdlog.h>
 
@@ -577,6 +578,9 @@ public:
         } else if (param_lower == "cce" || param_lower == "cec") {
             return cce_;
         }
+        for (const auto& entry : plain_parameters()) {
+            if (param_lower == entry.name) return *entry.target;
+        }
 
         return std::nullopt;
     }
@@ -626,10 +630,32 @@ public:
             area_ = value;
             return true;
         }
+        for (const auto& entry : plain_parameters()) {
+            if (param_lower == entry.name) {
+                if (entry.positive && value <= 0.0) return false;
+                *entry.target = value;
+                return true;
+            }
+        }
 
         spdlog::warn("IGBT<{}> '{}': Unknown parameter '{}'",
                      is_n_channel ? "N" : "P", name(), param_name);
         return false;
+    }
+
+    struct PlainParameter {
+        const char* name;
+        Real* target;
+        bool positive;  ///< must be > 0
+    };
+    // The parameters that set_parameter's own cases do not cover; TNOM in kelvin
+    std::vector<PlainParameter> plain_parameters() const {
+        auto* self = const_cast<IGBT*>(this);
+        return {{"cge", &self->cge_, false}, {"cce", &self->cce_, false},
+                {"kf", &self->kf_, false},   {"af", &self->af_, true},
+                {"kt1", &self->kt1_, false}, {"kt2", &self->kt2_, false},
+                {"ute", &self->ute_, false}, {"tcv", &self->tcv_, false},
+                {"tnom", &self->tnom_, true}};
     }
 
     std::vector<std::string> get_perturbable_parameters() const override {

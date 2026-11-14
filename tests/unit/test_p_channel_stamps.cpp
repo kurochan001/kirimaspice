@@ -207,3 +207,65 @@ TEST(GaNHemtNetlist, TakesTheDevicesDefaultsAndThenTheNetlists) {
     ASSERT_GT(std::abs(api), 1e-3);
     EXPECT_NEAR(current(*from_netlist.circuit), api, 1e-12 * std::abs(api));
 }
+
+// The same holds for the SiC MOSFET (LEVEL=10), the VDMOS (LEVEL=20) and the
+// IGBT (LEVEL=21): a card without parameters gives the device's defaults of
+// its polarity, and each N-channel device carries the current of the one
+// built through the API.
+TEST(NetlistPowerDevices, TakeTheDevicesDefaults) {
+    struct Case {
+        const char* level;
+        const char* parameter;
+        Real n_default, p_default;
+    };
+    const Case cases[] = {
+        {"10", "vth", 2.5, -2.5}, {"20", "vto", 4.0, -4.0},  {"20", "kp", 20.0, 10.0},
+        {"20", "rds", 0.1, 0.2},  {"20", "kt1", -3e-3, 3e-3}, {"21", "kt1", -2e-3, -2e-3},
+    };
+    for (const auto& c : cases) {
+        parser::NetlistParser parser;
+        auto parsed = parser.parse_string(std::string("power\nM1 d g 0 mn\nM2 d2 g2 0 mp\n") +
+                                          ".model mn nmos level=" + c.level + "\n" +
+                                          ".model mp pmos level=" + c.level + "\n.end\n");
+        ASSERT_NE(parsed.circuit, nullptr);
+        EXPECT_DOUBLE_EQ(parsed.circuit->get_device("M1")->get_parameter(c.parameter).value(),
+                         c.n_default)
+            << "LEVEL=" << c.level << " " << c.parameter;
+        EXPECT_DOUBLE_EQ(parsed.circuit->get_device("M2")->get_parameter(c.parameter).value(),
+                         c.p_default)
+            << "LEVEL=" << c.level << " " << c.parameter;
+    }
+
+    auto current = [](CircuitGraph& c) {
+        SimulationConfig config;
+        DCSolver solver(c, config);
+        DenseVector solution;
+        SolverStats stats;
+        EXPECT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS);
+        return solver.get_branch_current("VD").value();
+    };
+    struct Device {
+        const char* level;
+        Real vd, vg;
+        std::function<void(CircuitGraph&)> add;
+    };
+    const Device devices[] = {
+        {"10", 5.0, 15.0, [](CircuitGraph& c) { c.add_mosfet_sic_n("M1", "d", "g", "0"); }},
+        {"20", 1.0, 4.5, [](CircuitGraph& c) { c.add_vdmos_n("M1", "d", "g", "0"); }},
+        {"21", 5.0, 15.0, [](CircuitGraph& c) { c.add_igbt_n("M1", "d", "g", "0"); }},
+    };
+    for (const auto& d : devices) {
+        parser::NetlistParser parser;
+        auto parsed = parser.parse_string("power\nVD d 0 DC " + std::to_string(d.vd) +
+                                          "\nVG g 0 DC " + std::to_string(d.vg) +
+                                          "\nM1 d g 0 mn\n.model mn nmos level=" + d.level +
+                                          "\n.end\n");
+        CircuitGraph from_api;
+        from_api.add_voltage_source("VD", "d", "0", d.vd);
+        from_api.add_voltage_source("VG", "g", "0", d.vg);
+        d.add(from_api);
+        const Real api = current(from_api);
+        ASSERT_GT(std::abs(api), 1e-6) << "LEVEL=" << d.level;
+        EXPECT_NEAR(current(*parsed.circuit), api, 1e-12 * std::abs(api)) << "LEVEL=" << d.level;
+    }
+}

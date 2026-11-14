@@ -155,6 +155,17 @@ public:
     // Parameter access
     std::optional<Real> get_parameter(const std::string& param_name) const override;
     bool set_parameter(const std::string& param_name, Real value) override;
+
+private:
+    struct PlainParameter {
+        const char* name;
+        Real* target;
+        bool positive;  ///< must be > 0
+    };
+    std::vector<PlainParameter> plain_parameters() const;
+    static std::string lower_case(std::string text);
+
+public:
     std::vector<std::string> get_perturbable_parameters() const override;
 
     // Accessors

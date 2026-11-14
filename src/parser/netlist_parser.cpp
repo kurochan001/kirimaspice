@@ -5014,46 +5014,8 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
     Real mult_q = 1.0;   // BSIM4 variability multiplier for charge
     Real mult_fn = 1.0;  // BSIM4 variability multiplier for flicker noise
 
-    // SiC-specific parameters
-    Real theta = 0.1;    // Mobility modulation [V⁻¹] (SiC: 0.05-0.2)
-    Real rdrift = 10e-3; // Drift region resistance [Ω] (SiC: 1mΩ-100mΩ)
-    Real nfs = 1e11;     // Subthreshold fitting constant [cm⁻²V⁻¹]
-    Real vbd = 1200.0;   // Breakdown voltage [V] (SiC: 600-1700V)
-    Real cgso = 1e-9;    // G-S overlap capacitance per width [F/m]
-    Real cgdo = 1e-9;    // G-D overlap capacitance per width [F/m]
-    Real cgbo = 0.0;     // G-B overlap capacitance per length [F/m]
-    Real cjo = 1e-9;     // Zero-bias junction capacitance [F]
-    Real pb = 0.8;       // Built-in potential [V]
-    Real mj = 0.5;       // Grading coefficient
-    Real kt1 = -5e-3;    // VTO temperature coefficient [V/K]
-    Real kt2 = 0.0;      // VTO second-order temperature coefficient [V/K²]
-    Real ute = -1.5;     // Mobility temperature exponent
-    Real rdtemp = 2.5;   // Drift resistance temperature exponent (SiC: 2-3)
-    Real tnom = 300.15;  // Nominal temperature [K] (27°C)
-
-    // GaN HEMT and FinFET parameters are the device's (set_parameters_by_name)
-
-    // VDMOS-specific parameters
-    Real vto_vdmos = 4.0;    // Threshold voltage [V] (3-5V typical)
-    Real kp_vdmos = 20.0;    // Transconductance parameter [A/V²] (10-50 typical)
-    Real rds_vdmos = 0.1;    // On-resistance [Ω] (10mΩ-1Ω typical)
-    Real vbd_vdmos = 600.0;  // Breakdown voltage [V] (60-600V typical)
-    Real lambda_vdmos = 0.01;// Channel length modulation [1/V]
-    Real cgs_vdmos = 3e-9;   // Gate-source capacitance [F] (1-10nF typical)
-    Real cgdmax = 1e-9;      // Gate-drain max capacitance [F]
-    Real cgdmin = 1e-11;     // Gate-drain min capacitance [F]
-    Real cds_vdmos = 1e-10;  // Drain-source capacitance [F] (100-500pF typical)
-    Real rtc = 2.0;          // RDS temperature coefficient (1.5-2.5)
-
-    // IGBT-specific parameters
-    Real vge_th = 5.0;       // Gate-emitter threshold voltage [V] (4-6V typical)
-    Real kp_igbt = 2.0;      // Transconductance parameter [A/V²] (reduced for numerical stability)
-    Real vce_sat = 2.0;      // Collector-emitter saturation voltage [V] (1.5-3V)
-    Real tau = 1e-6;         // Carrier lifetime / tail current time constant [s] (1-10 μs)
-    Real area = 1.0;         // Device area scaling factor
-    Real cge = 5e-9;         // Gate-emitter capacitance [F] (1-10nF typical)
-    Real cce = 5e-10;        // Collector-emitter capacitance [F] (100-1000pF typical)
-    Real tcv = 1e-3;         // VCE_SAT temperature coefficient [1/K] (+1 mV/K typical)
+    // The SiC MOSFET, GaN HEMT, FinFET, VDMOS and IGBT take their parameters
+    // by name with their own defaults (set_parameters_by_name)
 
     // Check if it's a model reference first (higher priority)
     const ModelDefinition* found_model = state.config->find_model(type_or_model);
@@ -5133,46 +5095,6 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         if (model.params.count("af")) af = model.params.at("af");
         if (model.params.count("ef")) ef = model.params.at("ef");
         if (model.params.count("gamma")) gamma = model.params.at("gamma");
-        // SiC-specific parameters
-        if (model.params.count("theta")) theta = model.params.at("theta");
-        if (model.params.count("rdrift")) rdrift = model.params.at("rdrift");
-        if (model.params.count("nfs")) nfs = model.params.at("nfs");
-        if (model.params.count("vbd")) vbd = model.params.at("vbd");
-        if (model.params.count("cgso")) cgso = model.params.at("cgso");
-        if (model.params.count("cgdo")) cgdo = model.params.at("cgdo");
-        if (model.params.count("cgbo")) cgbo = model.params.at("cgbo");
-        if (model.params.count("cjo")) cjo = model.params.at("cjo");
-        if (model.params.count("pb")) pb = model.params.at("pb");
-        if (model.params.count("mj")) mj = model.params.at("mj");
-        if (model.params.count("kt1")) kt1 = model.params.at("kt1");
-        if (model.params.count("kt2")) kt2 = model.params.at("kt2");
-        if (model.params.count("ute")) ute = model.params.at("ute");
-        if (model.params.count("rdtemp")) rdtemp = model.params.at("rdtemp");
-        if (model.params.count("tnom")) tnom = core::celsius_to_kelvin(model.params.at("tnom"));
-
-        // VDMOS-specific parameters
-        if (model.params.count("vto")) vto_vdmos = model.params.at("vto");
-        if (model.params.count("kp")) kp_vdmos = model.params.at("kp");
-        if (model.params.count("rds")) rds_vdmos = model.params.at("rds");
-        if (model.params.count("rdson")) rds_vdmos = model.params.at("rdson");  // Alias
-        if (model.params.count("vbd")) vbd_vdmos = model.params.at("vbd");
-        if (model.params.count("lambda")) lambda_vdmos = model.params.at("lambda");
-        if (model.params.count("cgs")) cgs_vdmos = model.params.at("cgs");
-        if (model.params.count("cgdmax")) cgdmax = model.params.at("cgdmax");
-        if (model.params.count("cgdmin")) cgdmin = model.params.at("cgdmin");
-        if (model.params.count("cds")) cds_vdmos = model.params.at("cds");
-        if (model.params.count("rtc")) rtc = model.params.at("rtc");
-
-        // IGBT-specific parameters
-        if (model.params.count("vge_th")) vge_th = model.params.at("vge_th");
-        if (model.params.count("vth")) vge_th = model.params.at("vth");  // Alias
-        if (model.params.count("kp")) kp_igbt = model.params.at("kp");
-        if (model.params.count("vce_sat")) vce_sat = model.params.at("vce_sat");
-        if (model.params.count("tau")) tau = model.params.at("tau");
-        if (model.params.count("area")) area = model.params.at("area");
-        if (model.params.count("cge")) cge = model.params.at("cge");
-        if (model.params.count("cce")) cce = model.params.at("cce");
-        if (model.params.count("tcv")) tcv = model.params.at("tcv");
     } else if (type_or_model == "NMOS" || type_or_model == "PMOS") {
         // Direct type specification (no model defined)
         spdlog::info("[Parser] Using direct type specification for '{}'", type_or_model);
@@ -5225,66 +5147,6 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
                 mult_q = value;
             } else if (key == "mult_fn") {
                 mult_fn = value;
-            } else if (key == "theta") {
-                theta = value;
-            } else if (key == "rdrift") {
-                rdrift = value;
-            } else if (key == "nfs") {
-                nfs = value;
-            } else if (key == "vbd") {
-                vbd = value;
-            } else if (key == "cgso") {
-                cgso = value;
-            } else if (key == "cgdo") {
-                cgdo = value;
-            } else if (key == "cgbo") {
-                cgbo = value;
-            } else if (key == "cjo") {
-                cjo = value;
-            } else if (key == "pb") {
-                pb = value;
-            } else if (key == "mj") {
-                mj = value;
-            } else if (key == "kt1") {
-                kt1 = value;
-            } else if (key == "kt2") {
-                kt2 = value;
-            } else if (key == "ute") {
-                ute = value;
-            } else if (key == "rdtemp") {
-                rdtemp = value;
-            } else if (key == "tnom") {
-                tnom = core::celsius_to_kelvin(value);
-            } else if (key == "lambda") {
-                lambda_vdmos = value;
-            } else if (key == "cgs") {
-                cgs_vdmos = value;
-            } else if (key == "cds") {
-                cds_vdmos = value;
-            } else if (key == "vto") {
-                vto_vdmos = value;  // VDMOS threshold voltage
-            } else if (key == "rds" || key == "rdson") {
-                rds_vdmos = value;  // VDMOS on-resistance
-            } else if (key == "cgdmax") {
-                cgdmax = value;  // VDMOS gate-drain max capacitance
-            } else if (key == "cgdmin") {
-                cgdmin = value;  // VDMOS gate-drain min capacitance
-            } else if (key == "rtc") {
-                rtc = value;  // VDMOS RDS temperature coefficient
-            } else if (key == "vge_th") {
-                vge_th = value;  // IGBT gate-emitter threshold voltage
-            } else if (key == "vce_sat") {
-                vce_sat = value;  // IGBT collector-emitter saturation voltage
-            } else if (key == "tau") {
-                tau = value;  // IGBT carrier lifetime / tail current time constant
-            } else if (key == "area") {
-                area = value;  // IGBT device area scaling factor
-            } else if (key == "cge") {
-                cge = value;  // IGBT gate-emitter capacitance
-            } else if (key == "cce") {
-                cce = value;  // IGBT collector-emitter capacitance
-            } else if (key == "tcv") {
-                tcv = value;  // IGBT VCE_SAT temperature coefficient
             }
         }
     }
@@ -5655,32 +5517,20 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         } else {
             state.circuit->add_mosfet_bsim4_p(dev_name, drain, gate, source, bulk, bsim4_params);
         }
-    } else if (mosfet_type == "SIC_N") {
-        // SiC MOSFET N-channel (LEVEL=10)
-        state.circuit->add_mosfet_sic_n(dev_name, drain, gate, source,
-                                         kp, w, l, vth,
-                                         theta, rdrift, nfs, vbd,
-                                         cgso, cgdo, cgbo,
-                                         cjo, pb, mj,
-                                         kf, af, ef, gamma,
-                                         kt1, kt2, ute, rdtemp, tnom);
-        Real beta = kp * w / l;
-        spdlog::debug("Added MOSFET_SiC_N: {} D={} G={} S={} Kp={:.3e}A/V² W={:.3e}m L={:.3e}m "
-                     "Vth={:.3f}V β={:.3e}A/V² Rdrift={:.3e}Ω THETA={:.3e}V⁻¹ Vbd={:.1f}V",
-                     dev_name, drain, gate, source, kp, w, l, vth, beta, rdrift, theta, vbd);
-    } else if (mosfet_type == "SIC_P") {
-        // SiC MOSFET P-channel (LEVEL=10)
-        state.circuit->add_mosfet_sic_p(dev_name, drain, gate, source,
-                                         kp, w, l, vth,
-                                         theta, rdrift, nfs, vbd,
-                                         cgso, cgdo, cgbo,
-                                         cjo, pb, mj,
-                                         kf, af, ef, gamma,
-                                         kt1, kt2, ute, rdtemp, tnom);
-        Real beta = kp * w / l;
-        spdlog::debug("Added MOSFET_SiC_P: {} D={} G={} S={} Kp={:.3e}A/V² W={:.3e}m L={:.3e}m "
-                     "Vth={:.3f}V β={:.3e}A/V² Rdrift={:.3e}Ω THETA={:.3e}V⁻¹ Vbd={:.1f}V",
-                     dev_name, drain, gate, source, kp, w, l, vth, beta, rdrift, theta, vbd);
+    } else if (mosfet_type == "SIC_N" || mosfet_type == "SIC_P") {
+        // SiC MOSFET (LEVEL=10): the device with its own defaults (those of
+        // its polarity), then the card's parameters and the element line's
+        if (mosfet_type == "SIC_N") {
+            state.circuit->add_mosfet_sic_n(dev_name, drain, gate, source);
+        } else {
+            state.circuit->add_mosfet_sic_p(dev_name, drain, gate, source);
+        }
+        auto sic = state.circuit->get_device(dev_name);
+        if (const ModelDefinition* sic_model = state.config->find_model(type_or_model)) {
+            set_parameters_by_name(*sic, sic_model->params, "SiC MOSFET model " + type_or_model);
+        }
+        set_parameters_by_name(*sic, instance_params, "SiC MOSFET " + dev_name);
+        spdlog::debug("Added {}: {} D={} G={} S={}", mosfet_type, dev_name, drain, gate, source);
     } else if (mosfet_type == "GAN_HEMT_N" || mosfet_type == "GAN_HEMT_P") {
         // GaN HEMT (LEVEL=11): the device with its own defaults (those of
         // its polarity), then the card's parameters and the element line's
@@ -5713,48 +5563,35 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         finfet->set_parameter("l", l);
         spdlog::debug("Added {}: {} D={} G={} S={} L={:.3e}m", mosfet_type, dev_name, drain, gate,
                       source, l);
-    } else if (mosfet_type == "VDMOS_N") {
-        // VDMOS N-channel (LEVEL=20)
-        state.circuit->add_vdmos_n(dev_name, drain, gate, source,
-                                    vto_vdmos, kp_vdmos, rds_vdmos, vbd_vdmos, lambda_vdmos,
-                                    cgs_vdmos, cgdmax, cgdmin, cds_vdmos,
-                                    kf, af, ef, gamma,
-                                    kt1, kt2, ute, rtc, tnom);
-        spdlog::debug("Added VDMOS_N: {} D={} G={} S={} VTO={:.3f}V KP={:.3e}A/V² "
-                     "RDS={:.3e}Ω VBD={:.1f}V λ={:.3e}V⁻¹",
-                     dev_name, drain, gate, source, vto_vdmos, kp_vdmos, rds_vdmos, vbd_vdmos, lambda_vdmos);
-    } else if (mosfet_type == "VDMOS_P") {
-        // VDMOS P-channel (LEVEL=20)
-        state.circuit->add_vdmos_p(dev_name, drain, gate, source,
-                                    vto_vdmos, kp_vdmos, rds_vdmos, vbd_vdmos, lambda_vdmos,
-                                    cgs_vdmos, cgdmax, cgdmin, cds_vdmos,
-                                    kf, af, ef, gamma,
-                                    kt1, kt2, ute, rtc, tnom);
-        spdlog::debug("Added VDMOS_P: {} D={} G={} S={} VTO={:.3f}V KP={:.3e}A/V² "
-                     "RDS={:.3e}Ω VBD={:.1f}V λ={:.3e}V⁻¹",
-                     dev_name, drain, gate, source, vto_vdmos, kp_vdmos, rds_vdmos, vbd_vdmos, lambda_vdmos);
-    } else if (mosfet_type == "IGBT_N") {
-        // IGBT N-channel (LEVEL=21)
-        // Note: For IGBT, drain→collector, source→emitter
-        state.circuit->add_igbt_n(dev_name, drain, gate, source,
-                                   vge_th, kp_igbt, vce_sat, tau, area,
-                                   cge, cce,
-                                   kf, af,
-                                   kt1, kt2, ute, tcv, tnom);
-        spdlog::debug("Added IGBT_N: {} C={} G={} E={} VGE_TH={:.3f}V KP={:.3e}A/V² "
-                     "VCE_SAT={:.3f}V TAU={:.3e}s AREA={}",
-                     dev_name, drain, gate, source, vge_th, kp_igbt, vce_sat, tau, area);
-    } else if (mosfet_type == "IGBT_P") {
-        // IGBT P-channel (LEVEL=21)
-        // Note: For IGBT, drain→collector, source→emitter
-        state.circuit->add_igbt_p(dev_name, drain, gate, source,
-                                   vge_th, kp_igbt, vce_sat, tau, area,
-                                   cge, cce,
-                                   kf, af,
-                                   kt1, kt2, ute, tcv, tnom);
-        spdlog::debug("Added IGBT_P: {} C={} G={} E={} VEG_TH={:.3f}V KP={:.3e}A/V² "
-                     "VCE_SAT={:.3f}V TAU={:.3e}s AREA={}",
-                     dev_name, drain, gate, source, vge_th, kp_igbt, vce_sat, tau, area);
+    } else if (mosfet_type == "VDMOS_N" || mosfet_type == "VDMOS_P") {
+        // VDMOS (LEVEL=20): the device with its own defaults (those of its
+        // polarity), then the card's parameters and the element line's
+        if (mosfet_type == "VDMOS_N") {
+            state.circuit->add_vdmos_n(dev_name, drain, gate, source);
+        } else {
+            state.circuit->add_vdmos_p(dev_name, drain, gate, source);
+        }
+        auto vdmos = state.circuit->get_device(dev_name);
+        if (const ModelDefinition* vdmos_model = state.config->find_model(type_or_model)) {
+            set_parameters_by_name(*vdmos, vdmos_model->params, "VDMOS model " + type_or_model);
+        }
+        set_parameters_by_name(*vdmos, instance_params, "VDMOS " + dev_name);
+        spdlog::debug("Added {}: {} D={} G={} S={}", mosfet_type, dev_name, drain, gate, source);
+    } else if (mosfet_type == "IGBT_N" || mosfet_type == "IGBT_P") {
+        // IGBT (LEVEL=21; drain is the collector, source the emitter): the
+        // device with its own defaults, then the card's parameters and the
+        // element line's
+        if (mosfet_type == "IGBT_N") {
+            state.circuit->add_igbt_n(dev_name, drain, gate, source);
+        } else {
+            state.circuit->add_igbt_p(dev_name, drain, gate, source);
+        }
+        auto igbt = state.circuit->get_device(dev_name);
+        if (const ModelDefinition* igbt_model = state.config->find_model(type_or_model)) {
+            set_parameters_by_name(*igbt, igbt_model->params, "IGBT model " + type_or_model);
+        }
+        set_parameters_by_name(*igbt, instance_params, "IGBT " + dev_name);
+        spdlog::debug("Added {}: {} C={} G={} E={}", mosfet_type, dev_name, drain, gate, source);
     } else if (mosfet_type == "NMOS") {
         state.circuit->add_mosfet_n(dev_name, drain, gate, source, kp, w, l, vth, kf, af, ef, gamma);
         Real beta = kp * w / l;
