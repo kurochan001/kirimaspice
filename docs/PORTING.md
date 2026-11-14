@@ -58,8 +58,6 @@ the values of a sweep are in the raw file.
 - [ ] **No analysis words in comments.** The program finds `.op`, `.dc`
   and `.tran` by a text search of every line, so a comment that mentions
   `.tran` runs a transient, and a `.OPTIONS` line runs an operating point.
-- [ ] **`.FOUR` with a lower-case `v(` or `i(`.** `.FOUR 1k V(out)` stops
-  with a parse error.
 - [ ] **Directives that do nothing here.** `.NOISE` does not exist;
   `.SENS`, `.TF`, `.PZ`, `.DISTO`, `.STEP`, `.MC`, `.PRINT` and `.SAVE`
   are read but not used; `.MEASURE` is ignored.

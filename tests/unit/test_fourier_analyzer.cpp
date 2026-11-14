@@ -92,6 +92,21 @@ Vin in 0 DC 1
     EXPECT_EQ(result.config.fourier.signal, "i(Vload)");
 }
 
+// Signal names are not case-sensitive in SPICE: ngspice-47 reads
+// .FOUR 1k V(in) as it reads .FOUR 1k v(in). The program's Fourier
+// analysis already took either case; the parser rejected V( and I(.
+TEST(FourierParser, UpperCaseSignal) {
+    for (const std::string signal : {"V(out)", "I(Vin)"}) {
+        const std::string netlist =
+            "upper case signal\nR1 in out 1k\nC1 out 0 1u\nVin in 0 DC 1\n"
+            ".TRAN 0 5ms\n.FOUR 1kHz " + signal + "\n.END\n";
+        NetlistParser parser;
+        auto result = parser.parse_string(netlist);
+        EXPECT_TRUE(result.config.fourier.enabled) << signal;
+        EXPECT_EQ(result.config.fourier.signal, signal);
+    }
+}
+
 TEST(FourierParser, InvalidSyntax_TooFewArgs) {
     std::string netlist = R"(
 Invalid Syntax

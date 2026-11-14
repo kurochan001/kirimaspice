@@ -256,7 +256,7 @@ MOSFET は、レベル 1 と BSIM4 だけです。
 | `.IF` / `.ELIF` / `.ELSE` / `.ENDIF` | `.IF (<式>)` | 使うが、`.PARAM` の値は見えない。評価できない式ではすべての分岐を残す |
 | `.END` | `.END` | 無視。その後の行も読む |
 | `.PRINT`、`.SAVE` | `.PRINT DC\|TRAN\|AC <信号>`、`.SAVE <信号>` | 読むだけ |
-| `.FOUR` | `.FOUR <周波数> v(<ノード>)\|i(<電源>) ...` | `.TRAN` と一緒に使う。過渡解析の後に高調波と THD を表示する。信号は小文字で書く（[KNOWN_ISSUES.md](../KNOWN_ISSUES.ja.md#ネットリストの入力)） |
+| `.FOUR` | `.FOUR <周波数> v(<ノード>)\|i(<電源>) ...` | `.TRAN` と一緒に使う。過渡解析の後に、最後の 1 周期の高調波と THD を表示する |
 | `.STEP`、`.SENS`、`.MC`、`.TF`、`.PZ`、`.DISTO`、`.PORT`、`.WCASE`、`.OPTIMIZE` | | 読むだけ |
 | `.CONTROL` / `.ENDC` | | パーサーが取り出して実行する。プログラムは、そこから解析を選ばない（[KNOWN_ISSUES.md](../KNOWN_ISSUES.ja.md) を参照） |
 | `.TITLE`、`.MEASURE`、そのほか | | 無視 |

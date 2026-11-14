@@ -71,10 +71,6 @@ document also lists differences not decided there.
 - **`.PRINT`, `.SAVE`, `.STEP`, `.SENS`, `.MC`, `.TF`, `.PZ`, `.DISTO`,
   `.PORT`, `.WCASE` and `.OPTIMIZE` are read, but the program does not use
   them.** `.MEASURE` and `.TITLE` are ignored.
-- **`.FOUR` needs a lower-case `v(` or `i(`.** `.FOUR 1k v(in)` prints the
-  harmonics and the THD after the transient, but `.FOUR 1k V(in)` stops
-  the run with `Invalid .FOUR signal format`; ngspice-47 reads either
-  (measured at commit `ff52eba`).
 - **Lines after `.END` are read.**
 - **Analyses in a `.control` block are not run as in ngspice.** In runs at
   commit `7434904`, `op` inside `.control` did not select the operating

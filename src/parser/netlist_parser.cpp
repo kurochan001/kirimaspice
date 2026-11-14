@@ -3238,10 +3238,11 @@ static void parse_four_directive(const std::vector<std::string>& tokens, ParseSt
     // Parse signal
     std::string signal = tokens[2];
 
-    // Validate signal format (should be v(node) or i(source))
+    // Validate signal format (should be v(node) or i(source), in any case)
     bool valid_signal = false;
     if (signal.size() >= 4) {
-        if ((signal[0] == 'v' || signal[0] == 'i') &&
+        const char kind = static_cast<char>(std::tolower(static_cast<unsigned char>(signal[0])));
+        if ((kind == 'v' || kind == 'i') &&
             signal[1] == '(' &&
             signal.find(')') != std::string::npos) {
             valid_signal = true;
