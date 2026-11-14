@@ -286,7 +286,8 @@ parser stores it, but the program does not use it (the library can).
 | `.IF` / `.ELIF` / `.ELSE` / `.ENDIF` | `.IF (<expr>)` | used, but `.PARAM` values are not visible; an expression that cannot be evaluated keeps all branches |
 | `.END` | `.END` | ignored; lines after it are read |
 | `.PRINT`, `.SAVE` | `.PRINT DC\|TRAN\|AC <signals>`, `.SAVE <signals>` | read only |
-| `.STEP`, `.SENS`, `.MC`, `.TF`, `.FOUR`, `.PZ`, `.DISTO`, `.PORT`, `.WCASE`, `.OPTIMIZE` | | read only |
+| `.FOUR` | `.FOUR <frequency> v(<node>)\|i(<source>) ...` | used with `.TRAN`: prints the harmonics and the THD after the transient; the signal must be in lower case ([KNOWN_ISSUES.md](../KNOWN_ISSUES.md#netlist-input)) |
+| `.STEP`, `.SENS`, `.MC`, `.TF`, `.PZ`, `.DISTO`, `.PORT`, `.WCASE`, `.OPTIMIZE` | | read only |
 | `.CONTROL` / `.ENDC` | | taken out and run by the parser; the program does not take its analyses from it (see [KNOWN_ISSUES.md](../KNOWN_ISSUES.md)) |
 | `.TITLE`, `.MEASURE`, others | | ignored |
 

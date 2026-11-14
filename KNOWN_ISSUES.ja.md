@@ -52,6 +52,9 @@ ngspice について書いていることは、それぞれのマニュアルに
 - **`.IF` は `.PARAM` の値を読めません。** 条件を評価できないと、パーサーは警告を出して、すべての
   分岐を残します。
 - **同じ名前の 2 つ目の `.PARAM` は無視されます。** 警告 `Failed to add ... to symbol table` が出ます。
+- **`.INC` はメッセージなしで無視されます。** 読むのは省略しない `.INCLUDE` だけです。`.inc` で抵抗を
+  取り込むネットリストは `V(out)` = 1 V になりますが、`.include` と、ngspice-47 の `.inc` では 0.5 V です
+  （コミット `ff52eba` で測りました）。
 - **`.IC` と `.NODESET` は大文字の `V(` が必要です。** `v(out)=1` は警告を出して飛ばします。
 - **波形は `PULSE` だけで、DC の値の後にしか書けません。** `V1 in 0 PULSE(...)` は
   `Invalid number format: missing digits` で止まります。
@@ -59,8 +62,11 @@ ngspice について書いていることは、それぞれのマニュアルに
   `NE`、`ISC`、`NC` とノイズのパラメーターだけです。レベル 1 の MOSFET は、式にバルク端子がなく、
   `LAMBDA` もなく、`GAMMA` はノイズの係数です。** `.MODEL` のほかのパラメーターは警告なしに
   無視します。知らない BSIM4 のパラメーター名も同じです。
-- **`.PRINT`、`.SAVE`、`.STEP`、`.SENS`、`.MC`、`.TF`、`.FOUR`、`.PZ`、`.DISTO`、`.PORT`、`.WCASE`、
-  `.OPTIMIZE` は読みますが、プログラムは使いません。** `.MEASURE` と `.TITLE` は無視します。
+- **`.PRINT`、`.SAVE`、`.STEP`、`.SENS`、`.MC`、`.TF`、`.PZ`、`.DISTO`、`.PORT`、`.WCASE`、`.OPTIMIZE` は
+  読みますが、プログラムは使いません。** `.MEASURE` と `.TITLE` は無視します。
+- **`.FOUR` は小文字の `v(` か `i(` でなければなりません。** `.FOUR 1k v(in)` は過渡解析の後に高調波と THD を
+  表示しますが、`.FOUR 1k V(in)` は `Invalid .FOUR signal format` で実行を止めます。ngspice-47 はどちらも
+  読みます（コミット `ff52eba` で測りました）。
 - **`.END` の後の行も読みます。**
 - **`.control` ブロックの中の解析は、ngspice と同じようには実行しません。** コミット `7434904` で動かすと、
   `.control` の中の `op` では動作点が選ばれず（プログラムは既定の動作点に戻り、電流を表示しません）、

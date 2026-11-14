@@ -70,12 +70,13 @@ The parser accepts these directives: `.AC`, `.DC`, `.TRAN`, `.OPTIONS`,
 `.STEP`, `.TEMP`, `.SENS`, `.MC`, `.TF`, `.FOUR`, `.PZ`, `.DISTO`, `.PORT`,
 `.WCASE` and `.OPTIMIZE`.
 
-The program `kirimaspice` runs the operating point and DC sweeps (also
-nested and over temperature), transient analysis and AC analysis. The
-library also implements noise, transfer function, pole-zero, Fourier,
-distortion, sensitivity, S-parameter, Monte Carlo, worst-case and
-optimization analyses, which the tests exercise; the program does not run
-them yet.
+The program `kirimaspice` runs the operating point and the transient
+analysis (each also over the temperatures of `.TEMP`), DC sweeps (also
+nested), the Fourier analysis of `.FOUR` after a transient, and AC
+analysis. The library also implements noise, transfer function,
+pole-zero, distortion, sensitivity, S-parameter, Monte Carlo, worst-case
+and optimization analyses, which the tests exercise; the program does not
+run them yet.
 
 The linear solver is KLU from SuiteSparse.
 
