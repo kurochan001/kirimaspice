@@ -112,23 +112,13 @@ says otherwise.
   of `CircuitGraph::add_finfet_n` carries about 3 pA at
   V<sub>GS</sub> = V<sub>DS</sub> = 0.8 V (read in the code; the current
   measured at the commit that gave the FinFET its temperature).
-- **BSIM3 and BSIM4 do not keep a DC operating point in a transient.** A
-  circuit with only DC sources must stay at its operating point. An NMOS
-  with 10 kΩ from 1.8 V to its drain and 10 kΩ from 1 V to its gate
-  (`L=0.18u W=1u`, `.TRAN 1n 200n`) moves from `V(d)` = 1.7837 V to
-  1.7996 V with BSIM3 (`level=8`) and from 0.3260 V to 0.2987 V with BSIM4
-  (`level=14`), so the transient models of these MOSFETs differ from their
-  DC models (measured at the commit that fixed the history of accepted
-  time points; before it, BSIM3 fell to 0 V).
 - **BSIM4's operating point differs from ngspice-47 for a small model
-  card.** For the BSIM4 circuit above (`toxe=3e-9 vth0=0.5 u0=0.067
-  vsat=8e4` and overlap capacitances), the program gives `V(d)` = 0.3260 V
-  and a DC gate current of 1.7 µA through the 10 kΩ, where ngspice-47
-  gives `V(d)` = 0.6785 V and no gate current. Which default parameters
-  cause it is not confirmed.
-
-## Solvers
-
+  card.** An NMOS with 10 kΩ from 1.8 V to its drain and its gate at 1 V
+  (`L=0.18u W=1u`, `level=14 version=4.8.1 toxe=3e-9 vth0=0.5 u0=0.067
+  vsat=8e4`) gives `V(d)` = 0.2987 V, where ngspice-47 gives 0.6785 V.
+  With `k1=0 k2=0` on the card ngspice-47 gives 0.2980 V, so the
+  difference is that the program takes K1 and K2 as 0 when the card does
+  not give them.
 - KLU is the only working linear solver. The SuperLU_DIST backend is a
   placeholder: asking for it falls back to KLU.
 

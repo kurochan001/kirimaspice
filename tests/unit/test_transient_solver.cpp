@@ -5,6 +5,10 @@
 #include <gtest/gtest.h>
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/solvers/transient_solver.hpp"
+#include "kirimaspice/solvers/dc_solver.hpp"
+#include "kirimaspice/parser/netlist_parser.hpp"
+#include <string>
+#include <vector>
 #include <spdlog/spdlog.h>
 #include <cmath>
 
@@ -617,4 +621,52 @@ TEST(TransientSolver, InitialConditionWithoutUicStartsTheTransient) {
     EXPECT_NEAR(result.timepoints.front().node_voltages[out - 1], 1.0, 1e-9);
     EXPECT_NEAR(result.timepoints.back().time, 1e-3, 1e-15);
     EXPECT_NEAR(result.timepoints.back().node_voltages[out - 1], std::exp(-1.0), 5e-5);
+}
+
+// Without UIC a transient starts from the operating point of the circuit,
+// whatever its devices (SPICE's transient operating point). A circuit with
+// only DC sources then stays at that operating point at every time point,
+// to within the Newton tolerance (RELTOL |V| + VNTOL). The transient used
+// to start such circuits without capacitors or inductors from a backward
+// Euler step out of uncharged device capacitances, so a DC-biased MOSFET
+// moved during the transient (BSIM3 fell from 1.78 V to 0 V before the
+// history fix, and BSIM4 moved by 27 mV), and a lossless line started
+// uncharged.
+TEST(TransientSolver, DcCircuitsStayAtTheirOperatingPoint) {
+    const char* kNmosBias =
+        "VDD vdd 0 DC 1.8\nVG g 0 DC 1.0\nRG g gi 10k\nRD vdd d 10k\n"
+        "M1 d gi 0 0 nch L=0.18u W=1u\n";
+    const std::vector<std::string> netlists = {
+        std::string("BSIM3 at a DC bias\n") + kNmosBias +
+            ".model nch nmos level=8 tox=3e-9 vth0=0.5 u0=0.067 vsat=8e4 "
+            "cgso=2e-10 cgdo=2e-10 cgbo=1e-10\n.end\n",
+        std::string("BSIM4 at a DC bias\n") + kNmosBias +
+            ".model nch nmos level=14 version=4.8.1 toxe=3e-9 vth0=0.5 u0=0.067 "
+            "vsat=8e4 cgso=2e-10 cgdo=2e-10 cgbo=1e-10\n.end\n",
+        "line at a DC bias\nV1 in 0 DC 1\nR1 in a 50\nT1 a 0 b 0 Z0=50 TD=10n\n"
+            "R2 b 0 50\n.end\n",
+    };
+    for (const auto& netlist : netlists) {
+        parser::NetlistParser parser;
+        auto parsed = parser.parse_string(netlist);
+        ASSERT_NE(parsed.circuit, nullptr);
+        CircuitGraph& circuit = *parsed.circuit;
+
+        DCSolver dc(circuit, parsed.config);
+        DenseVector op;
+        SolverStats stats;
+        ASSERT_EQ(dc.solve(op, stats), ConvergenceStatus::SUCCESS) << netlist;
+
+        TransientSolver tran(circuit, parsed.config);
+        TransientResult result = tran.solve(0.0, 50e-9, 1e-9);
+        ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS) << netlist;
+        const Real reltol = parsed.config.transient.reltol;
+        const Real vntol = parsed.config.transient.vntol;
+        for (const auto& tp : result.timepoints) {
+            for (std::size_t n = 0; n < tp.node_voltages.size(); ++n) {
+                EXPECT_NEAR(tp.node_voltages[n], op[n], reltol * std::abs(op[n]) + vntol)
+                    << netlist << "node " << n + 1 << ", t = " << tp.time;
+            }
+        }
+    }
 }

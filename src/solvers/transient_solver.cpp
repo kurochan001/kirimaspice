@@ -1279,10 +1279,11 @@ BDFCoefficients TransientSolver::get_bdf_coefficients(IntegrationMethod method, 
 // ====== Initialization helper methods ======
 
 bool TransientSolver::check_has_dynamic_devices() const {
-    // Check if circuit has dynamic devices (C, L)
+    // A circuit is dynamic when any device stores charge or flux, as each
+    // device declares (Device::is_dynamic): capacitors and inductors, but
+    // also MOSFETs, diodes and transistors with their capacitances.
     for (const auto& device : circuit_.get_devices()) {
-        if (device->type() == DeviceType::CAPACITOR ||
-            device->type() == DeviceType::INDUCTOR) {
+        if (device->is_dynamic()) {
             return true;
         }
     }
