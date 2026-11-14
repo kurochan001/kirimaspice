@@ -625,7 +625,7 @@ BSIM4ThresholdState BSIM4Core::compute_threshold(const BSIM4BiasState& bias,
     // TEMPORARY: Use warning for investigation
     thread_local static int vth_final_count = 0;
     if (vth_final_count < 5) {
-        spdlog::warn("  FINAL Vth = {:+.6e} V (for mobility calc: e_eff = T0/toxe)", th.vth);
+        spdlog::debug("  FINAL Vth = {:+.6e} V (for mobility calc: e_eff = T0/toxe)", th.vth);
         vth_final_count++;
     }
 
@@ -648,20 +648,20 @@ BSIM4ThresholdState BSIM4Core::compute_threshold(const BSIM4BiasState& bias,
     // Debug dVth_dVb breakdown
     thread_local static int dvth_debug_count = 0;
     if (dvth_debug_count < 2) {
-        spdlog::warn("==== dVth_dVb Term Breakdown (call {}) ====", dvth_debug_count);
-        spdlog::warn("  sqrtPhis         = {:.6e}", sqrtPhis);
-        spdlog::warn("  dVbs_eff_dVb     = {:.6e}", bias.dVbs_eff_dVb);
-        spdlog::warn("  dSqrtPhis_dVb    = {:.6e} (-0.5/sqrtPhis * dVbs_eff_dVb)", dSqrtPhis_dVb);
-        spdlog::warn("  Lpe_Vb           = {:.6e}", Lpe_Vb);
-        spdlog::warn("  k1ox             = {:.6e}", params_.k1ox);
-        spdlog::warn("  term1 (k1 body)  = {:.6e} (k1ox * dSqrtPhis_dVb * Lpe_Vb)", term1);
-        spdlog::warn("  term2 (-k2ox)    = {:.6e}", term2);
-        spdlog::warn("  term3 (-dDelt)   = {:.6e}", term3);
-        spdlog::warn("  term4 (k3b)      = {:.6e}", term4);
-        spdlog::warn("  dT1_dVb (kt2)    = {:.6e}", dT1_dVb);
-        spdlog::warn("  term5 (-etab)    = {:.6e}", term5);
-        spdlog::warn("  dVth_dVb (total) = {:.6e}", th.dVth_dVb);
-        spdlog::warn("  Expected (physics): ≈ -0.23 for k1=0.53, sqrtPhis≈1.15");
+        spdlog::debug("==== dVth_dVb Term Breakdown (call {}) ====", dvth_debug_count);
+        spdlog::debug("  sqrtPhis         = {:.6e}", sqrtPhis);
+        spdlog::debug("  dVbs_eff_dVb     = {:.6e}", bias.dVbs_eff_dVb);
+        spdlog::debug("  dSqrtPhis_dVb    = {:.6e} (-0.5/sqrtPhis * dVbs_eff_dVb)", dSqrtPhis_dVb);
+        spdlog::debug("  Lpe_Vb           = {:.6e}", Lpe_Vb);
+        spdlog::debug("  k1ox             = {:.6e}", params_.k1ox);
+        spdlog::debug("  term1 (k1 body)  = {:.6e} (k1ox * dSqrtPhis_dVb * Lpe_Vb)", term1);
+        spdlog::debug("  term2 (-k2ox)    = {:.6e}", term2);
+        spdlog::debug("  term3 (-dDelt)   = {:.6e}", term3);
+        spdlog::debug("  term4 (k3b)      = {:.6e}", term4);
+        spdlog::debug("  dT1_dVb (kt2)    = {:.6e}", dT1_dVb);
+        spdlog::debug("  term5 (-etab)    = {:.6e}", term5);
+        spdlog::debug("  dVth_dVb (total) = {:.6e}", th.dVth_dVb);
+        spdlog::debug("  Expected (physics): ≈ -0.23 for k1=0.53, sqrtPhis≈1.15");
         dvth_debug_count++;
     }
 
@@ -870,14 +870,14 @@ BSIM4ThresholdState BSIM4Core::compute_threshold(const BSIM4BiasState& bias,
     // DEBUG: Print Abulk value with ngspice-compatible AGS formula
     thread_local static int abulk_call_count = 0;
     if (abulk_call_count < 5) {  // Print first 5 calls to see convergence
-        spdlog::warn("BSIM4 Abulk [call {}] ngspice AGS formula:", abulk_call_count);
-        spdlog::warn("  vgs={:.4f}V, vth={:.4f}V, vgsteff_for_ags={:.4f}V",
+        spdlog::debug("BSIM4 Abulk [call {}] ngspice AGS formula:", abulk_call_count);
+        spdlog::debug("  vgs={:.4f}V, vth={:.4f}V, vgsteff_for_ags={:.4f}V",
                      bias.vgs, th.vth, vgsteff_for_ags);
-        spdlog::warn("  T1_body={:.4e}, T2_geom={:.4e}, T5_geom={:.4f}",
+        spdlog::debug("  T1_body={:.4e}, T2_geom={:.4e}, T5_geom={:.4f}",
                      T1_body, T2_geom, T5_geom);
-        spdlog::warn("  Abulk0 (1+T1*T2)={:.4f}, dAbulk_dVg={:.4e}",
+        spdlog::debug("  Abulk0 (1+T1*T2)={:.4f}, dAbulk_dVg={:.4e}",
                      1.0 + T1_body * T2_geom, dAbulk_dVg);
-        spdlog::warn("  Abulk = {:.4f} + ({:.4e})*{:.4f} = {:.4f}",
+        spdlog::debug("  Abulk = {:.4f} + ({:.4e})*{:.4f} = {:.4f}",
                      1.0 + T1_body * T2_geom, dAbulk_dVg, vgsteff_for_ags, Abulk);
         abulk_call_count++;
     }
@@ -1134,17 +1134,17 @@ BSIM4ThresholdState BSIM4Core::compute_threshold(const BSIM4BiasState& bias,
     // DEBUG: PvagTerm calculation (first 2 calls)
     thread_local static int pvag_count = 0;
     if (pvag_count < 2) {
-        spdlog::warn("=== PvagTerm Calculation (call {}) ===", pvag_count);
-        spdlog::warn("  pvag     = {:.6e}", params_.pvag);
-        spdlog::warn("  EsatL    = {:.6e} V", EsatL);
-        spdlog::warn("  vgsteff  = {:.6e} V", vgsteff);
+        spdlog::debug("=== PvagTerm Calculation (call {}) ===", pvag_count);
+        spdlog::debug("  pvag     = {:.6e}", params_.pvag);
+        spdlog::debug("  EsatL    = {:.6e} V", EsatL);
+        spdlog::debug("  vgsteff  = {:.6e} V", vgsteff);
         if (EsatL > 1e-10) {
             const Real T8_pvag_dbg = params_.pvag / EsatL;
             const Real T9_pvag_dbg = T8_pvag_dbg * vgsteff;
-            spdlog::warn("  T8_pvag  = {:.6e} (pvag/EsatL)", T8_pvag_dbg);
-            spdlog::warn("  T9_pvag  = {:.6e} (T8×vgsteff)", T9_pvag_dbg);
+            spdlog::debug("  T8_pvag  = {:.6e} (pvag/EsatL)", T8_pvag_dbg);
+            spdlog::debug("  T9_pvag  = {:.6e} (T8×vgsteff)", T9_pvag_dbg);
         }
-        spdlog::warn("  PvagTerm = {:.6f}", PvagTerm);
+        spdlog::debug("  PvagTerm = {:.6f}", PvagTerm);
         pvag_count++;
     }
 
@@ -1184,19 +1184,19 @@ BSIM4ThresholdState BSIM4Core::compute_threshold(const BSIM4BiasState& bias,
     // DEBUG: thetaRout calculation (first 2 calls)
     thread_local static int theta_count = 0;
     if (theta_count < 2) {
-        spdlog::warn("=== thetaRout Calculation (call {}) ===", theta_count);
-        spdlog::warn("  drout     = {:.6e}", params_.drout);
-        spdlog::warn("  leff      = {:.6e} m", leff);
-        spdlog::warn("  toxe      = {:.6e} m", params_.toxe);
-        spdlog::warn("  epsrsub   = {:.6e}", params_.epsrsub);
-        spdlog::warn("  epsrox    = {:.6e}", params_.epsrox);
-        spdlog::warn("  Xdep0     = {:.6e} m", Xdep0);
-        spdlog::warn("  tmp_dibl  = {:.6e} m", tmp_dibl);
-        spdlog::warn("  T0_t5     = {:.6e} (drout×leff/tmp)", T0_t5);
-        spdlog::warn("  T5        = {:.6e}", T5);
-        spdlog::warn("  pdiblc1   = {:.6e}", params_.pdiblc1);
-        spdlog::warn("  pdiblc2   = {:.6e}", params_.pdiblc2);
-        spdlog::warn("  thetaRout = {:.6e}", thetaRout);
+        spdlog::debug("=== thetaRout Calculation (call {}) ===", theta_count);
+        spdlog::debug("  drout     = {:.6e}", params_.drout);
+        spdlog::debug("  leff      = {:.6e} m", leff);
+        spdlog::debug("  toxe      = {:.6e} m", params_.toxe);
+        spdlog::debug("  epsrsub   = {:.6e}", params_.epsrsub);
+        spdlog::debug("  epsrox    = {:.6e}", params_.epsrox);
+        spdlog::debug("  Xdep0     = {:.6e} m", Xdep0);
+        spdlog::debug("  tmp_dibl  = {:.6e} m", tmp_dibl);
+        spdlog::debug("  T0_t5     = {:.6e} (drout×leff/tmp)", T0_t5);
+        spdlog::debug("  T5        = {:.6e}", T5);
+        spdlog::debug("  pdiblc1   = {:.6e}", params_.pdiblc1);
+        spdlog::debug("  pdiblc2   = {:.6e}", params_.pdiblc2);
+        spdlog::debug("  thetaRout = {:.6e}", thetaRout);
         theta_count++;
     }
 
@@ -1225,18 +1225,18 @@ BSIM4ThresholdState BSIM4Core::compute_threshold(const BSIM4BiasState& bias,
         // DEBUG: VADIBL calculation details (first 2 calls)
         thread_local static int vadibl_calc_count = 0;
         if (vadibl_calc_count < 2) {
-            spdlog::warn("=== VADIBL Calculation (call {}) ===", vadibl_calc_count);
-            spdlog::warn("  vgsteff    = {:.6e} V", vgsteff);
-            spdlog::warn("  Vtm        = {:.6e} V", Vtm);
-            spdlog::warn("  Vgst2Vtm   = {:.6e} V (vgsteff + 2×Vtm)", Vgst2Vtm);
-            spdlog::warn("  Abulk      = {:.6e}", Abulk);
-            spdlog::warn("  vdsat      = {:.6e} V", th.vdsat);
-            spdlog::warn("  T0_va      = {:.6e} (Vgst2Vtm × Abulk × vdsat)", T0_va);
-            spdlog::warn("  T1_va      = {:.6e} (Vgst2Vtm + Abulk × vdsat)", T1_va);
-            spdlog::warn("  Numerator  = {:.6e} (Vgst2Vtm - T0_va/T1_va)", Vgst2Vtm - T0_va / T1_va);
-            spdlog::warn("  thetaRout  = {:.6e} (pdiblc1={:.4f}, pdiblc2={:.4f})", thetaRout, params_.pdiblc1, params_.pdiblc2);
-            spdlog::warn("  vadibl_factor = {:.6f}", vadibl_factor);
-            spdlog::warn("  VADIBL(raw)= {:.6e} V", VADIBL);
+            spdlog::debug("=== VADIBL Calculation (call {}) ===", vadibl_calc_count);
+            spdlog::debug("  vgsteff    = {:.6e} V", vgsteff);
+            spdlog::debug("  Vtm        = {:.6e} V", Vtm);
+            spdlog::debug("  Vgst2Vtm   = {:.6e} V (vgsteff + 2×Vtm)", Vgst2Vtm);
+            spdlog::debug("  Abulk      = {:.6e}", Abulk);
+            spdlog::debug("  vdsat      = {:.6e} V", th.vdsat);
+            spdlog::debug("  T0_va      = {:.6e} (Vgst2Vtm × Abulk × vdsat)", T0_va);
+            spdlog::debug("  T1_va      = {:.6e} (Vgst2Vtm + Abulk × vdsat)", T1_va);
+            spdlog::debug("  Numerator  = {:.6e} (Vgst2Vtm - T0_va/T1_va)", Vgst2Vtm - T0_va / T1_va);
+            spdlog::debug("  thetaRout  = {:.6e} (pdiblc1={:.4f}, pdiblc2={:.4f})", thetaRout, params_.pdiblc1, params_.pdiblc2);
+            spdlog::debug("  vadibl_factor = {:.6f}", vadibl_factor);
+            spdlog::debug("  VADIBL(raw)= {:.6e} V", VADIBL);
             vadibl_calc_count++;
         }
     } else {
@@ -1425,33 +1425,33 @@ Real BSIM4Core::compute_vgsteff_smoothed(
         // DEBUG: T9 calculation
         thread_local static int t9_debug_count = 0;
         if (t9_debug_count < 2) {
-            spdlog::warn("==== T9 (quantum) Debug (call {}) ====", t9_debug_count);
-            spdlog::warn("  T1_offset = {:.6e} (voffcbn - (1-mstar)*Vgst)", T1_offset);
-            spdlog::warn("  T2_offset = {:.6e} (T1_offset / n*Vtm)", T2_offset);
-            spdlog::warn("  ExpVgst_offset = {:.6e} (exp(T2_offset))", ExpVgst_offset);
-            spdlog::warn("  T3 = {:.6e} (coxe/cdep0, coxe={:.6e}, cdep0={:.6e})", T3, coxe, cdep0);
-            spdlog::warn("  mstar-1 = {:.6e}", mstar - 1.0);
-            spdlog::warn("  Vtm = {:.6e}", Vtm);
-            spdlog::warn("  dT9_dVg (before *= dVgs_eff_dVg) = {:.6e}", dT9_dVg);
-            spdlog::warn("  dVgs_eff_dVg = {:.6e}", dVgs_eff_dVg);
-            spdlog::warn("  dT9_dVg (after *= dVgs_eff_dVg) = {:.6e}", dT9_dVg * dVgs_eff_dVg);
+            spdlog::debug("==== T9 (quantum) Debug (call {}) ====", t9_debug_count);
+            spdlog::debug("  T1_offset = {:.6e} (voffcbn - (1-mstar)*Vgst)", T1_offset);
+            spdlog::debug("  T2_offset = {:.6e} (T1_offset / n*Vtm)", T2_offset);
+            spdlog::debug("  ExpVgst_offset = {:.6e} (exp(T2_offset))", ExpVgst_offset);
+            spdlog::debug("  T3 = {:.6e} (coxe/cdep0, coxe={:.6e}, cdep0={:.6e})", T3, coxe, cdep0);
+            spdlog::debug("  mstar-1 = {:.6e}", mstar - 1.0);
+            spdlog::debug("  Vtm = {:.6e}", Vtm);
+            spdlog::debug("  dT9_dVg (before *= dVgs_eff_dVg) = {:.6e}", dT9_dVg);
+            spdlog::debug("  dVgs_eff_dVg = {:.6e}", dVgs_eff_dVg);
+            spdlog::debug("  dT9_dVg (after *= dVgs_eff_dVg) = {:.6e}", dT9_dVg * dVgs_eff_dVg);
             t9_debug_count++;
         }
 
         // Debug dT9_dVb individual terms
         thread_local static int dt9_debug_count = 0;
         if (dt9_debug_count < 2) {
-            spdlog::warn("==== dT9_dVb Term Breakdown (call {}) ====", dt9_debug_count);
-            spdlog::warn("  T4             = {:.6e}", T4);
-            spdlog::warn("  T5             = {:.6e}", T5);
-            spdlog::warn("  dn_dVb         = {:.6e}", dn_dVb);
-            spdlog::warn("  dT9_dVg        = {:.6e} (before *= dVgs_eff_dVg)", dT9_dVg);
-            spdlog::warn("  dVth_dVb       = {:.6e}", dVth_dVb);
-            spdlog::warn("  Term1: T4*dn_dVb            = {:.6e}", T4 * dn_dVb);
-            spdlog::warn("  Term2: -dT9_dVg*dVth_dVb    = {:.6e}", -dT9_dVg * dVth_dVb);
-            spdlog::warn("  Term3: -T5*dn_dVb           = {:.6e}", -T5 * dn_dVb);
-            spdlog::warn("  dT9_dVb (sum of terms)      = {:.6e}", T4 * dn_dVb - dT9_dVg * dVth_dVb - T5 * dn_dVb);
-            spdlog::warn("  Expected (for ngspice):     ≈ +1.5 (positive!)");
+            spdlog::debug("==== dT9_dVb Term Breakdown (call {}) ====", dt9_debug_count);
+            spdlog::debug("  T4             = {:.6e}", T4);
+            spdlog::debug("  T5             = {:.6e}", T5);
+            spdlog::debug("  dn_dVb         = {:.6e}", dn_dVb);
+            spdlog::debug("  dT9_dVg        = {:.6e} (before *= dVgs_eff_dVg)", dT9_dVg);
+            spdlog::debug("  dVth_dVb       = {:.6e}", dVth_dVb);
+            spdlog::debug("  Term1: T4*dn_dVb            = {:.6e}", T4 * dn_dVb);
+            spdlog::debug("  Term2: -dT9_dVg*dVth_dVb    = {:.6e}", -dT9_dVg * dVth_dVb);
+            spdlog::debug("  Term3: -T5*dn_dVb           = {:.6e}", -T5 * dn_dVb);
+            spdlog::debug("  dT9_dVb (sum of terms)      = {:.6e}", T4 * dn_dVb - dT9_dVg * dVth_dVb - T5 * dn_dVb);
+            spdlog::debug("  Expected (for ngspice):     ≈ +1.5 (positive!)");
             dt9_debug_count++;
         }
 
@@ -1477,37 +1477,37 @@ Real BSIM4Core::compute_vgsteff_smoothed(
     // Debug logging (+ derivative debugging)
     thread_local static int vgsteff_debug_count = 0;
     if (vgsteff_debug_count < 2) {
-        spdlog::warn("==== Vgsteff Derivative Debug (call {}) ====", vgsteff_debug_count);
-        spdlog::warn("  Inputs:");
-        spdlog::warn("    Vgst (raw)     = {:.6e} V", Vgst);
-        spdlog::warn("    n              = {:.6e}", n);
-        spdlog::warn("    Vtm            = {:.6e} V", Vtm);
-        spdlog::warn("    dVgs_eff_dVg   = {:.6e}", dVgs_eff_dVg);
-        spdlog::warn("  Region: T2 = {:.6e} ({})", T2,
+        spdlog::debug("==== Vgsteff Derivative Debug (call {}) ====", vgsteff_debug_count);
+        spdlog::debug("  Inputs:");
+        spdlog::debug("    Vgst (raw)     = {:.6e} V", Vgst);
+        spdlog::debug("    n              = {:.6e}", n);
+        spdlog::debug("    Vtm            = {:.6e} V", Vtm);
+        spdlog::debug("    dVgs_eff_dVg   = {:.6e}", dVgs_eff_dVg);
+        spdlog::debug("  Region: T2 = {:.6e} ({})", T2,
                      (T2 > EXP_THRESHOLD) ? "Strong inversion" :
                      (T2 < -EXP_THRESHOLD) ? "Deep cutoff" : "Subthreshold");
-        spdlog::warn("  Numerator/Denominator:");
-        spdlog::warn("    T10            = {:.6e}", T10);
-        spdlog::warn("    T9             = {:.6e}", T9);
-        spdlog::warn("    dT10_dVg       = {:.6e}", dT10_dVg);
-        spdlog::warn("    dT9_dVg        = {:.6e}", dT9_dVg);
-        spdlog::warn("  Quotient rule: (T9*dT10 - T10*dT9) / T9^2:");
-        spdlog::warn("    T9*dT10_dVg    = {:.6e}", T9 * dT10_dVg);
-        spdlog::warn("    T10*dT9_dVg    = {:.6e}", T10 * dT9_dVg);
-        spdlog::warn("    Numerator      = {:.6e}", T9 * dT10_dVg - T10 * dT9_dVg);
-        spdlog::warn("    T9^2           = {:.6e}", T11);
-        spdlog::warn("  dVgsteff_dVb calculation:");
-        spdlog::warn("    dT10_dVb       = {:.6e}", dT10_dVb);
-        spdlog::warn("    dT9_dVb        = {:.6e}", dT9_dVb);
-        spdlog::warn("    dVth_dVb       = {:.6e} (for ref)", dVth_dVb);
-        spdlog::warn("    dn_dVb         = {:.6e} (for ref)", dn_dVb);
-        spdlog::warn("    T9*dT10_dVb    = {:.6e}", T9 * dT10_dVb);
-        spdlog::warn("    T10*dT9_dVb    = {:.6e}", T10 * dT9_dVb);
-        spdlog::warn("    dVgsteff_dVb   = {:.6e}", dVgsteff_dVb);
-        spdlog::warn("    ngspice ref: gmb/gm ≈ 0.165, so dVgsteff_dVb ≈ 0.165");
-        spdlog::warn("  Output:");
-        spdlog::warn("    Vgsteff        = {:.6e} V", Vgsteff);
-        spdlog::warn("    dVgsteff_dVg   = {:.6e}", dVgsteff_dVg);
+        spdlog::debug("  Numerator/Denominator:");
+        spdlog::debug("    T10            = {:.6e}", T10);
+        spdlog::debug("    T9             = {:.6e}", T9);
+        spdlog::debug("    dT10_dVg       = {:.6e}", dT10_dVg);
+        spdlog::debug("    dT9_dVg        = {:.6e}", dT9_dVg);
+        spdlog::debug("  Quotient rule: (T9*dT10 - T10*dT9) / T9^2:");
+        spdlog::debug("    T9*dT10_dVg    = {:.6e}", T9 * dT10_dVg);
+        spdlog::debug("    T10*dT9_dVg    = {:.6e}", T10 * dT9_dVg);
+        spdlog::debug("    Numerator      = {:.6e}", T9 * dT10_dVg - T10 * dT9_dVg);
+        spdlog::debug("    T9^2           = {:.6e}", T11);
+        spdlog::debug("  dVgsteff_dVb calculation:");
+        spdlog::debug("    dT10_dVb       = {:.6e}", dT10_dVb);
+        spdlog::debug("    dT9_dVb        = {:.6e}", dT9_dVb);
+        spdlog::debug("    dVth_dVb       = {:.6e} (for ref)", dVth_dVb);
+        spdlog::debug("    dn_dVb         = {:.6e} (for ref)", dn_dVb);
+        spdlog::debug("    T9*dT10_dVb    = {:.6e}", T9 * dT10_dVb);
+        spdlog::debug("    T10*dT9_dVb    = {:.6e}", T10 * dT9_dVb);
+        spdlog::debug("    dVgsteff_dVb   = {:.6e}", dVgsteff_dVb);
+        spdlog::debug("    ngspice ref: gmb/gm ≈ 0.165, so dVgsteff_dVb ≈ 0.165");
+        spdlog::debug("  Output:");
+        spdlog::debug("    Vgsteff        = {:.6e} V", Vgsteff);
+        spdlog::debug("    dVgsteff_dVg   = {:.6e}", dVgsteff_dVg);
         vgsteff_debug_count++;
     }
     spdlog::debug("==== Vgsteff Smoothing Function ====");
@@ -2893,27 +2893,27 @@ Real BSIM4Core::compute_mobility(Real vgt_eff, Real vth, Real vbs_eff, Real temp
     // ===================================================================
     thread_local static int mobility_debug_count = 0;
     if (mobility_debug_count < 10) {  // Increased limit for better diagnosis
-        spdlog::info("=== μeff Diagnostic [call {}] ===", mobility_debug_count);
-        spdlog::info("  Input parameters:");
-        spdlog::info("    vgt_eff (Vgsteff) = {:+.6e} V", vgt_eff);
-        spdlog::info("    vth (bias-dep)    = {:+.6e} V", vth);
-        spdlog::info("    vbs_eff           = {:+.6e} V", vbs_eff);
-        spdlog::info("    temperature       = {:+.6f} K", temperature);
-        spdlog::info("  Model parameters:");
-        spdlog::info("    u0 (base mob.)    = {:+.6e} m²/V-s", params_.u0);
-        spdlog::info("    ute               = {:+.6f}", params_.ute);
-        spdlog::info("    ua                = {:+.6e}", params_.ua);
-        spdlog::info("    ub                = {:+.6e}", params_.ub);
-        spdlog::info("    uc                = {:+.6e}", params_.uc);
-        spdlog::info("    ua1               = {:+.6e}", params_.ua1);
-        spdlog::info("    ub1               = {:+.6e}", params_.ub1);
-        spdlog::info("    uc1               = {:+.6e}", params_.uc1);
-        spdlog::info("    toxe              = {:+.6e} m", toxe);
-        spdlog::info("    mobmod            = {}", params_.mobmod);
-        spdlog::info("  Eeff calculation (ngspice b4ld.c mobmod={}):", params_.mobmod);
-        spdlog::info("    T0 = vgt_eff + 2*vth = {:+.6e} V", T0);
-        spdlog::info("    e_eff_divisor     = {:.1f}", e_eff_divisor);
-        spdlog::info("    Eeff = T0/(div*toxe)= {:+.6e} V/m", e_eff);
+        spdlog::debug("=== μeff Diagnostic [call {}] ===", mobility_debug_count);
+        spdlog::debug("  Input parameters:");
+        spdlog::debug("    vgt_eff (Vgsteff) = {:+.6e} V", vgt_eff);
+        spdlog::debug("    vth (bias-dep)    = {:+.6e} V", vth);
+        spdlog::debug("    vbs_eff           = {:+.6e} V", vbs_eff);
+        spdlog::debug("    temperature       = {:+.6f} K", temperature);
+        spdlog::debug("  Model parameters:");
+        spdlog::debug("    u0 (base mob.)    = {:+.6e} m²/V-s", params_.u0);
+        spdlog::debug("    ute               = {:+.6f}", params_.ute);
+        spdlog::debug("    ua                = {:+.6e}", params_.ua);
+        spdlog::debug("    ub                = {:+.6e}", params_.ub);
+        spdlog::debug("    uc                = {:+.6e}", params_.uc);
+        spdlog::debug("    ua1               = {:+.6e}", params_.ua1);
+        spdlog::debug("    ub1               = {:+.6e}", params_.ub1);
+        spdlog::debug("    uc1               = {:+.6e}", params_.uc1);
+        spdlog::debug("    toxe              = {:+.6e} m", toxe);
+        spdlog::debug("    mobmod            = {}", params_.mobmod);
+        spdlog::debug("  Eeff calculation (ngspice b4ld.c mobmod={}):", params_.mobmod);
+        spdlog::debug("    T0 = vgt_eff + 2*vth = {:+.6e} V", T0);
+        spdlog::debug("    e_eff_divisor     = {:.1f}", e_eff_divisor);
+        spdlog::debug("    Eeff = T0/(div*toxe)= {:+.6e} V/m", e_eff);
         mobility_debug_count++;
     }
 
@@ -2930,19 +2930,19 @@ Real BSIM4Core::compute_mobility(Real vgt_eff, Real vth, Real vbs_eff, Real temp
     // Final μeff diagnostic output
     // ===================================================================
     if (mobility_debug_count <= 10) {
-        spdlog::info("  Mobility degradation calculation:");
-        spdlog::info("    temp_ratio        = {:.6f} (T/Tnom)", temp_ratio);
-        spdlog::info("    mu_temp = u0*(T/Tnom)^ute = {:+.6e} m²/V-s", mu_temp);
-        spdlog::info("    ua(T) = ua + ua1*(T/Tnom-1) = {:+.6e}", ua);
-        spdlog::info("    ub(T) = ub + ub1*(T/Tnom-1) = {:+.6e}", ub);
-        spdlog::info("    uc(T) = uc + uc1*(T/Tnom-1) = {:+.6e}", uc);
-        spdlog::info("    T2 = ua(T) + uc(T)*Vbseff = {:+.6e}", T2);
-        spdlog::info("    T2*Eeff           = {:+.6e}", T2 * e_eff);
-        spdlog::info("    ub(T)*Eeff²       = {:+.6e}", ub * e_eff * e_eff);
-        spdlog::info("    denom = 1 + T2*Eeff + ub*Eeff² = {:+.6e}", denom);
-        spdlog::info("  Result:");
-        spdlog::info("    μeff = mu_temp/denom = {:+.6e} m²/V-s", mu_eff);
-        spdlog::info("    degradation factor = 1/denom = {:.4f} ({:.1f}% of mu_temp)",
+        spdlog::debug("  Mobility degradation calculation:");
+        spdlog::debug("    temp_ratio        = {:.6f} (T/Tnom)", temp_ratio);
+        spdlog::debug("    mu_temp = u0*(T/Tnom)^ute = {:+.6e} m²/V-s", mu_temp);
+        spdlog::debug("    ua(T) = ua + ua1*(T/Tnom-1) = {:+.6e}", ua);
+        spdlog::debug("    ub(T) = ub + ub1*(T/Tnom-1) = {:+.6e}", ub);
+        spdlog::debug("    uc(T) = uc + uc1*(T/Tnom-1) = {:+.6e}", uc);
+        spdlog::debug("    T2 = ua(T) + uc(T)*Vbseff = {:+.6e}", T2);
+        spdlog::debug("    T2*Eeff           = {:+.6e}", T2 * e_eff);
+        spdlog::debug("    ub(T)*Eeff²       = {:+.6e}", ub * e_eff * e_eff);
+        spdlog::debug("    denom = 1 + T2*Eeff + ub*Eeff² = {:+.6e}", denom);
+        spdlog::debug("  Result:");
+        spdlog::debug("    μeff = mu_temp/denom = {:+.6e} m²/V-s", mu_eff);
+        spdlog::debug("    degradation factor = 1/denom = {:.4f} ({:.1f}% of mu_temp)",
                      1.0 / denom, 100.0 / denom);
     }
 

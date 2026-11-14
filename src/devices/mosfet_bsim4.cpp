@@ -164,12 +164,12 @@ void MOSFET_BSIM4<P>::stamp_dc_nonlinear(MNASystem& mna, const DenseVector& node
     // DEBUG: Log BSIM4 operating point values
     thread_local static int log_count = 0;
     if (log_count < 20) {
-        spdlog::info("{} eval [call {}]:", polarity_name(), log_count);
-        spdlog::info("  Terminal voltages: vgs={:.6f}, vds={:.6f}, vbs={:.6f}", vgs, vds, vbs);
-        spdlog::info("  Node voltages: vd={:.6f}, vg={:.6f}, vs={:.6f}, vb={:.6f}", vd, vg, vs, vb);
-        spdlog::info("  DC current: ids={:.6e} A", ids);
-        spdlog::info("  Transconductances: gm={:.6e} S, gds={:.6e} S, gmb={:.6e} S", gm, gds, gmb);
-        spdlog::info("  Equivalent current: id_eq={:.6e} A", id_eq);
+        spdlog::debug("{} eval [call {}]:", polarity_name(), log_count);
+        spdlog::debug("  Terminal voltages: vgs={:.6f}, vds={:.6f}, vbs={:.6f}", vgs, vds, vbs);
+        spdlog::debug("  Node voltages: vd={:.6f}, vg={:.6f}, vs={:.6f}, vb={:.6f}", vd, vg, vs, vb);
+        spdlog::debug("  DC current: ids={:.6e} A", ids);
+        spdlog::debug("  Transconductances: gm={:.6e} S, gds={:.6e} S, gmb={:.6e} S", gm, gds, gmb);
+        spdlog::debug("  Equivalent current: id_eq={:.6e} A", id_eq);
         log_count++;
     }
 

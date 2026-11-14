@@ -43,7 +43,7 @@ void BSIM4Params::compute_derived_params(Real temp) {
     // From ngspice b4ld.c: if (model->BSIM4toxm <= 0.0) model->BSIM4toxm = model->BSIM4toxe;
     if (toxm <= 0.0) {
         toxm = toxe;
-        spdlog::info("BSIM4: toxm not specified, using toxm = toxe = {:.6e} m", toxm);
+        spdlog::debug("BSIM4: toxm not specified, using toxm = toxe = {:.6e} m", toxm);
     }
 
     // ngspice compatibility: if toxp is not specified (<=0), use toxe
@@ -51,18 +51,18 @@ void BSIM4Params::compute_derived_params(Real temp) {
     // This is critical for Coxeff quantum correction (Tcen calculation uses toxp)
     if (toxp <= 0.0) {
         toxp = toxe;
-        spdlog::info("BSIM4: toxp not specified, using toxp = toxe = {:.6e} m", toxp);
+        spdlog::debug("BSIM4: toxp not specified, using toxp = toxe = {:.6e} m", toxp);
     }
 
     // DEBUG: Print input parameters
-    spdlog::info("BSIM4Params::compute_derived_params:");
-    spdlog::info("  ndep = {:.6e} cm⁻³", ndep);
-    spdlog::info("  toxe = {:.6e} m", toxe);
-    spdlog::info("  toxm = {:.6e} m", toxm);
-    spdlog::info("  toxp = {:.6e} m", toxp);
-    spdlog::info("  xj   = {:.6e} m", xj);
-    spdlog::info("  T    = {:.3f} K", T);
-    spdlog::info("  Vt   = {:.6e} V", Vt);
+    spdlog::debug("BSIM4Params::compute_derived_params:");
+    spdlog::debug("  ndep = {:.6e} cm⁻³", ndep);
+    spdlog::debug("  toxe = {:.6e} m", toxe);
+    spdlog::debug("  toxm = {:.6e} m", toxm);
+    spdlog::debug("  toxp = {:.6e} m", toxp);
+    spdlog::debug("  xj   = {:.6e} m", xj);
+    spdlog::debug("  T    = {:.3f} K", T);
+    spdlog::debug("  Vt   = {:.6e} V", Vt);
 
     // =========================================================================
     // Poly Depletion Correction (phin)
@@ -73,7 +73,7 @@ void BSIM4Params::compute_derived_params(Real temp) {
     // NOTE: Previous incorrect implementation computed phin from ngate, causing
     // phi to be wrong (~0.2V instead of ~0.82V) which cascaded to incorrect
     // Xdep0, lt1, Theta0, and Delt_vth values.
-    spdlog::info("BSIM4: phin = {:.6e} V (model parameter, default=0)", phin);
+    spdlog::debug("BSIM4: phin = {:.6e} V (model parameter, default=0)", phin);
 
     // Calculate surface potential phi
     // BSIM4.8.3 formula (from ngspice b4temp.c line 1300-1301):
@@ -85,8 +85,8 @@ void BSIM4Params::compute_derived_params(Real temp) {
     if (ndep > 0.0) {
         phi = Vtm0 * std::log(ndep / ni) + phin + 0.4;
         sqrtPhi = std::sqrt(std::max(phi, 0.01));  // Guard against negative/zero phi
-        spdlog::info("  phi = Vtm0*ln(ndep/ni)+phin+0.4 = {:.6e} V (phin={:.3e})", phi, phin);
-        spdlog::info("  sqrtPhi = {:.6e}", sqrtPhi);
+        spdlog::debug("  phi = Vtm0*ln(ndep/ni)+phin+0.4 = {:.6e} V (phin={:.3e})", phi, phin);
+        spdlog::debug("  sqrtPhi = {:.6e}", sqrtPhi);
     } else {
         spdlog::warn("BSIM4: ndep <= 0, using default phi = 0.7V");
         phi = 0.7;
@@ -103,13 +103,13 @@ void BSIM4Params::compute_derived_params(Real temp) {
         const Real ratio = term1 / term2;
         const Real sqrt_ratio = std::sqrt(ratio);
         Xdep0 = sqrt_ratio * sqrtPhi;
-        spdlog::info("  Xdep0 calculation:");
-        spdlog::info("    ndep_m3 = {:.6e} m⁻³", ndep_m3);
-        spdlog::info("    2*epsSi = {:.6e}", term1);
-        spdlog::info("    q*ndep_m3 = {:.6e}", term2);
-        spdlog::info("    ratio = {:.6e}", ratio);
-        spdlog::info("    sqrt(ratio) = {:.6e}", sqrt_ratio);
-        spdlog::info("    Xdep0 = sqrt(ratio)*sqrtPhi = {:.6e} m", Xdep0);
+        spdlog::debug("  Xdep0 calculation:");
+        spdlog::debug("    ndep_m3 = {:.6e} m⁻³", ndep_m3);
+        spdlog::debug("    2*epsSi = {:.6e}", term1);
+        spdlog::debug("    q*ndep_m3 = {:.6e}", term2);
+        spdlog::debug("    ratio = {:.6e}", ratio);
+        spdlog::debug("    sqrt(ratio) = {:.6e}", sqrt_ratio);
+        spdlog::debug("    Xdep0 = sqrt(ratio)*sqrtPhi = {:.6e} m", Xdep0);
     } else {
         Xdep0 = 1e-7;  // Default fallback
         spdlog::warn("BSIM4: Using default Xdep0 = 1e-7 m");
@@ -167,13 +167,13 @@ void BSIM4Params::compute_derived_params(Real temp) {
     // Calculate k1ox (oxide-thickness corrected body-effect coefficient)
     // From ngspice b4temp.c line 1516-1517:
     //   pParam->BSIM4k1ox = pParam->BSIM4k1 * toxe / model->BSIM4toxm;
-    spdlog::info("BSIM4: k1ox calculation inputs:");
-    spdlog::info("  k1   = {:.6e}", k1);
-    spdlog::info("  toxe = {:.6e} m", toxe);
-    spdlog::info("  toxm = {:.6e} m", toxm);
+    spdlog::debug("BSIM4: k1ox calculation inputs:");
+    spdlog::debug("  k1   = {:.6e}", k1);
+    spdlog::debug("  toxe = {:.6e} m", toxe);
+    spdlog::debug("  toxm = {:.6e} m", toxm);
     if (toxm > 0.0) {
         k1ox = k1 * toxe / toxm;
-        spdlog::info("BSIM4: k1ox = k1 * toxe / toxm = {:.6e} * {:.6e} / {:.6e} = {:.6e}",
+        spdlog::debug("BSIM4: k1ox = k1 * toxe / toxm = {:.6e} * {:.6e} / {:.6e} = {:.6e}",
                       k1, toxe, toxm, k1ox);
     } else {
         k1ox = k1;  // Fallback if toxm is zero
@@ -183,13 +183,13 @@ void BSIM4Params::compute_derived_params(Real temp) {
     // Calculate k2ox (oxide-thickness corrected k2 coefficient)
     // From ngspice b4temp.c: similar to k1ox calculation
     //   pParam->BSIM4k2ox = pParam->BSIM4k2 * toxe / model->BSIM4toxm;
-    spdlog::info("BSIM4: k2ox calculation inputs:");
-    spdlog::info("  k2   = {:.6e}", k2);
-    spdlog::info("  toxe = {:.6e} m", toxe);
-    spdlog::info("  toxm = {:.6e} m", toxm);
+    spdlog::debug("BSIM4: k2ox calculation inputs:");
+    spdlog::debug("  k2   = {:.6e}", k2);
+    spdlog::debug("  toxe = {:.6e} m", toxe);
+    spdlog::debug("  toxm = {:.6e} m", toxm);
     if (toxm > 0.0) {
         k2ox = k2 * toxe / toxm;
-        spdlog::info("BSIM4: k2ox = k2 * toxe / toxm = {:.6e} * {:.6e} / {:.6e} = {:.6e}",
+        spdlog::debug("BSIM4: k2ox = k2 * toxe / toxm = {:.6e} * {:.6e} / {:.6e} = {:.6e}",
                       k2, toxe, toxm, k2ox);
     } else {
         k2ox = k2;  // Fallback if toxm is zero
@@ -234,12 +234,12 @@ void BSIM4Params::compute_derived_params(Real temp) {
     // CRITICAL FIX: Use Vtm0 (nominal temp) not Vt (operating temp)
     if (ndep > 0.0 && nsd > 0.0) {
         vbi = Vtm0 * std::log(nsd * ndep / (ni * ni));
-        spdlog::info("BSIM4: vbi = Vtm0 * log(nsd * ndep / (ni * ni))");
-        spdlog::info("  Vtm0 = {:.6e} V", Vtm0);
-        spdlog::info("  nsd  = {:.6e} cm⁻³", nsd);
-        spdlog::info("  ndep = {:.6e} cm⁻³", ndep);
-        spdlog::info("  ni   = {:.6e} cm⁻³", ni);
-        spdlog::info("  vbi  = {:.6e} V", vbi);
+        spdlog::debug("BSIM4: vbi = Vtm0 * log(nsd * ndep / (ni * ni))");
+        spdlog::debug("  Vtm0 = {:.6e} V", Vtm0);
+        spdlog::debug("  nsd  = {:.6e} cm⁻³", nsd);
+        spdlog::debug("  ndep = {:.6e} cm⁻³", ndep);
+        spdlog::debug("  ni   = {:.6e} cm⁻³", ni);
+        spdlog::debug("  vbi  = {:.6e} V", vbi);
     } else {
         vbi = 0.7;  // Default value
         spdlog::warn("BSIM4: Cannot calculate vbi (ndep or nsd <= 0), using default vbi = {:.3f}V", vbi);
