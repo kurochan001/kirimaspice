@@ -92,6 +92,16 @@ says otherwise.
 - In the library's adaptive time-step path, which the program does not
   use, a fixed `TRAPEZOIDAL` method starts without the backward-Euler step
   that the fixed-step path takes (read in the code, not run).
+- **A DC sweep can lose its end point.** The number of points is
+  (stop − start)/step truncated, plus one (`DCSweepConfig::num_points` in
+  `include/kirimaspice/core/types.hpp`), so when the quotient falls just
+  below an integer in floating point the last point is dropped:
+  `.DC V1 0 0.3 0.1` gives 0, 0.1 and 0.2, and `.DC V1 0 0.7 0.05` ends at
+  0.65. ngspice-47 ends the first at 0.3 (measured at commit `d858190`).
+- **`.IC` is used only with `UIC`.** Without `UIC` the operating point
+  ignores `.IC` and the transient starts from that operating point: an RC
+  with `.IC V(out)=1` stays at 0 V. ngspice-47 starts the same transient at
+  1 V and gives 0.367876 at 1 ms (measured at commit `d858190`).
 
 ## Device models
 
@@ -108,6 +118,19 @@ says otherwise.
 - **JFET cannot be used from a netlist.** The library has a JFET model
   (`include/kirimaspice/devices/jfet.hpp`), but the parser has no `J`
   element.
+- **Diode and NPN currents are too small above about 0.73 V.**
+  `core::limit_pn_junction` (`include/kirimaspice/core/device_utils.hpp`)
+  is meant to limit how far a junction voltage moves between Newton
+  iterations, but it compresses the voltage itself above
+  V<sub>crit</sub> = nV<sub>T</sub>·ln(nV<sub>T</sub>/(√2·IS)), so the
+  converged solution follows another curve. The diode
+  (`src/devices/diode.cpp`) and the NPN transistor
+  (`src/devices/bjt_npn.cpp`) use it; the PNP transistor does not. With
+  `IS=1e-14` and `N=1` (V<sub>crit</sub> ≈ 0.73 V), a source across a
+  diode gives −3.22×10⁻² A at 0.75 V and −6.76×10⁻² A at 0.8 V, where the
+  Shockley equation and ngspice-47 give −3.919×10⁻² A and −0.2708 A; up to
+  0.7 V the program agrees with the equation to 10⁻¹² (measured at commit
+  `d858190`; the NPN is read in the code, not run).
 
 ## Solvers
 
