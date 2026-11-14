@@ -444,11 +444,11 @@ ConvergenceStatus DCSolver::solve_standard(DenseVector& solution, SolverStats& s
 
             // If refactorize fails due to sparsity pattern change, fall back to full analysis
             if (!factorize_ok) {
-                spdlog::info("Refactorize failed ({}), falling back to analyze_and_factorize",
+                spdlog::debug("Refactorize failed ({}), falling back to analyze_and_factorize",
                             lin_solver_->last_error());
                 factorize_ok = lin_solver_->analyze_and_factorize(mna_.G);
                 if (factorize_ok) {
-                    spdlog::info("Fallback to analyze_and_factorize successful");
+                    spdlog::debug("Fallback to analyze_and_factorize successful");
                 } else {
                     spdlog::error("Fallback to analyze_and_factorize also failed: {}",
                                  lin_solver_->last_error());

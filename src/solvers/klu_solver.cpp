@@ -255,7 +255,7 @@ bool KLUSolver::refactorize(const SparseMatrix& matrix) {
 
         // Large change: advise caller to rebuild separately
         last_error_ = "Sparsity pattern changed significantly (>20%)";
-        spdlog::warn("KLU refactorize: {}, change ratio = {:.2f}%",
+        spdlog::debug("KLU refactorize: {}, change ratio = {:.2f}%",
                      last_error_, change_ratio * 100.0);
         return false;
     }

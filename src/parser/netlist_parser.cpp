@@ -4912,9 +4912,9 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
     // DEBUG: Entry point detection
     thread_local static int mosfet_parse_count = 0;
     if (mosfet_parse_count < 3) {
-        spdlog::info("=== MOSFET parser ENTRY [call {}] ===", mosfet_parse_count);
-        spdlog::info("  Line: {}", line);
-        spdlog::info("  Tokens: [{}]", fmt::join(tokens, ", "));
+        spdlog::debug("=== MOSFET parser ENTRY [call {}] ===", mosfet_parse_count);
+        spdlog::debug("  Line: {}", line);
+        spdlog::debug("  Tokens: [{}]", fmt::join(tokens, ", "));
         mosfet_parse_count++;
     }
 
@@ -4949,10 +4949,10 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         // DEBUG: Log 4-terminal detection
         thread_local static int debug_count = 0;
         if (debug_count < 3) {
-            spdlog::info("MOSFET parser debug [call {}]: tokens[0]={}, tokens[4]={}, tokens[5]={}",
+            spdlog::debug("MOSFET parser debug [call {}]: tokens[0]={}, tokens[4]={}, tokens[5]={}",
                         debug_count, tokens[0], tokens[4], tokens[5]);
-            spdlog::info("  candidate_model_5 (uppercase) = {}", candidate_model_5);
-            spdlog::info("  starts_with_nmos = {}, starts_with_pmos = {}, in_models = {}",
+            spdlog::debug("  candidate_model_5 (uppercase) = {}", candidate_model_5);
+            spdlog::debug("  starts_with_nmos = {}, starts_with_pmos = {}, in_models = {}",
                         starts_with_nmos, starts_with_pmos, in_models);
             debug_count++;
         }
@@ -4964,11 +4964,11 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
             param_start_idx = 6;
 
             if (debug_count <= 3) {
-                spdlog::info("  → Detected as 4-terminal: bulk={}", bulk);
+                spdlog::debug("  → Detected as 4-terminal: bulk={}", bulk);
             }
         } else {
             if (debug_count <= 3) {
-                spdlog::info("  → Detected as 3-terminal (fallback): bulk will be tied to source");
+                spdlog::debug("  → Detected as 3-terminal (fallback): bulk will be tied to source");
             }
         }
     }
@@ -5058,7 +5058,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
 
     if (found_model != nullptr) {
         // Model reference found
-        spdlog::info("[Parser] Found model definition for '{}'", type_or_model);
+        spdlog::debug("[Parser] Found model definition for '{}'", type_or_model);
 
         const ModelDefinition& model = *found_model;
 
@@ -5110,14 +5110,14 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         }
 
         // Apply model parameters
-        spdlog::info("[Parser] Applying model '{}' parameters (device_type={})", type_or_model, static_cast<int>(model.device_type));
-        spdlog::info("[Parser] Model has {} parameters", model.params.size());
+        spdlog::debug("[Parser] Applying model '{}' parameters (device_type={})", type_or_model, static_cast<int>(model.device_type));
+        spdlog::debug("[Parser] Model has {} parameters", model.params.size());
 
         if (model.params.count("kp")) {
             kp = model.params.at("kp");
-            spdlog::info("[Parser] Found KP in model: {:.3e}", kp);
+            spdlog::debug("[Parser] Found KP in model: {:.3e}", kp);
         } else {
-            spdlog::warn("[Parser] KP not found in model, using default: {:.3e}", kp);
+            spdlog::debug("[Parser] KP not found in model, using default: {:.3e}", kp);
         }
 
         if (model.params.count("w")) w = model.params.at("w");
@@ -5125,7 +5125,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         if (model.params.count("vth")) vth = model.params.at("vth");
         if (model.params.count("vto")) {
             vth = model.params.at("vto");
-            spdlog::info("[Parser] Found VTO in model: {:.3f}", vth);
+            spdlog::debug("[Parser] Found VTO in model: {:.3f}", vth);
         }
         if (model.params.count("kf")) kf = model.params.at("kf");
         if (model.params.count("af")) af = model.params.at("af");
