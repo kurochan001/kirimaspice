@@ -7,6 +7,7 @@
 #include "kirimaspice/util/units.hpp"
 #include <algorithm>
 #include <cctype>
+#include <charconv>
 #include <stdexcept>
 #include <regex>
 #include <sstream>
@@ -286,16 +287,11 @@ std::vector<std::string> SubcircuitDefinition::substitute_parameters(
             try {
                 Real result = evaluate(expression);
 
-                // Convert result to string
-                // Use scientific notation for very large/small values
-                std::ostringstream oss;
-                if (std::abs(result) < 1e-3 || std::abs(result) > 1e6) {
-                    oss << std::scientific << result;
-                } else {
-                    oss << result;
-                }
-
-                replaced_line += oss.str();
+                // Write the value in its shortest form that reads back as the
+                // same double, so that no digits are lost (std::to_chars)
+                char buffer[64];
+                const auto written = std::to_chars(buffer, buffer + sizeof(buffer), result);
+                replaced_line.append(buffer, written.ptr);
 
             } catch (const std::exception& e) {
                 throw std::runtime_error(fmt::format(

@@ -790,3 +790,30 @@ X2 in S RX=3k
 )";
     EXPECT_NEAR(source_current(netlist, "V1"), -(1.0 / 2e3 + 1.0 / 6e3), 1e-12);
 }
+
+// A substituted value keeps all its digits: {RX} with RX=1234.5678 is a
+// resistor of 1234.5678 Ohm, not of a value rounded to six digits (1234.57).
+// The same holds for small and large values written with exponents.
+TEST_F(SubcircuitExpansionTest, SubstitutedValuesKeepTheirDigits) {
+    std::string netlist = R"(digits of a parameter
+.SUBCKT S a RX=1234.5678 RS=1.2345678e-4 RL=9.87654321e7
+R1 a 0 {RX}
+R2 a 0 {RS}
+R3 a 0 {RL}
+.ENDS S
+X1 in S
+V1 in 0 1
+.END
+)";
+    auto result = parser.parse_string(netlist);
+    ASSERT_NE(result.circuit, nullptr);
+    result.circuit->expand_subcircuit_instance("X1");
+    auto resistance = [&](const std::string& device) {
+        auto r = dynamic_cast<const devices::Resistor*>(result.circuit->get_device(device).get());
+        EXPECT_NE(r, nullptr) << device;
+        return r ? r->resistance() : 0.0;
+    };
+    EXPECT_DOUBLE_EQ(resistance("X1.R1"), 1234.5678);
+    EXPECT_DOUBLE_EQ(resistance("X1.R2"), 1.2345678e-4);
+    EXPECT_DOUBLE_EQ(resistance("X1.R3"), 9.87654321e7);
+}
