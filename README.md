@@ -2,7 +2,7 @@
 
 [日本語](README.ja.md)
 
-[User manual](docs/USER_MANUAL.md) · [Reference manual](docs/REFERENCE_MANUAL.md) · [Glossary](docs/GLOSSARY.md) · [FAQ](docs/FAQ.md) · [Known issues](KNOWN_ISSUES.md) · [Contributing](CONTRIBUTING.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
+[Documentation guide](docs/README.md) · [User manual](docs/USER_MANUAL.md) · [Reference manual](docs/REFERENCE_MANUAL.md) · [Examples](examples/README.md) · [Glossary](docs/GLOSSARY.md) · [FAQ](docs/FAQ.md) · [Known issues](KNOWN_ISSUES.md) · [Contributing](CONTRIBUTING.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
 
 [![CI](https://github.com/kurochan001/kirimaspice/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kurochan001/kirimaspice/actions/workflows/ci.yml?query=branch%3Amain)
 [![Nightly](https://github.com/kurochan001/kirimaspice/actions/workflows/nightly.yml/badge.svg?branch=main)](https://github.com/kurochan001/kirimaspice/actions/workflows/nightly.yml?query=branch%3Amain)
@@ -126,11 +126,18 @@ where.
 
 ## Documents
 
-- [User Manual](docs/USER_MANUAL.md): building, writing a netlist, running and reading the results
+The [documentation guide](docs/README.md) helps choose a document by what
+you want to do.
+
+- [User Manual](docs/USER_MANUAL.md): building, writing a netlist, running and reading the results, the Python tools
 - [Reference Manual](docs/REFERENCE_MANUAL.md): options, elements, directives and output formats
+- [Examples](examples/README.md): small netlists with analytic solutions, checked by CTest
+- [Moving from ngspice](docs/PORTING.md): what is the same, and a checklist for a netlist
 - [Glossary](docs/GLOSSARY.md): the terms the documents use
 - [FAQ](docs/FAQ.md): common questions, from running a netlist to contributing
 - [KNOWN_ISSUES.md](KNOWN_ISSUES.md): known problems
+- [Architecture](docs/ARCHITECTURE.md): the parts of the library and the path of a netlist through them
+- [Development](docs/DEVELOPMENT.md): building for development, the tests, the checks before a push, CI
 - [CONTRIBUTING.md](CONTRIBUTING.md): what is accepted, and how to change the code
 - [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md): rules for coding agents (and people)
 - [SECURITY.md](SECURITY.md): reporting a vulnerability

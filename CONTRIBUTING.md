@@ -72,6 +72,8 @@ python3 tools/local_ci.py
 It configures, builds and tests in `build/`, compares the failures with
 `tests/known_failures.txt`, and runs `tools/check_banned.py` and
 `tools/check_spdx.py`. Attach its summary when you report a change.
+[DEVELOPMENT](docs/DEVELOPMENT.md) describes the tests, CI and the steps
+to add a device model, and [ARCHITECTURE](docs/ARCHITECTURE.md) the code.
 
 ## Code
 

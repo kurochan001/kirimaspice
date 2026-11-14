@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-[ユーザーマニュアル](docs/USER_MANUAL.ja.md) · [リファレンスマニュアル](docs/REFERENCE_MANUAL.ja.md) · [用語集](docs/GLOSSARY.ja.md) · [FAQ](docs/FAQ.ja.md) · [既知の問題](KNOWN_ISSUES.ja.md) · [貢献の仕方](CONTRIBUTING.ja.md) · [第三者の著作物に関する表示](THIRD_PARTY_NOTICES.ja.md)
+[文書の案内](docs/README.ja.md) · [ユーザーマニュアル](docs/USER_MANUAL.ja.md) · [リファレンスマニュアル](docs/REFERENCE_MANUAL.ja.md) · [例題](examples/README.ja.md) · [用語集](docs/GLOSSARY.ja.md) · [FAQ](docs/FAQ.ja.md) · [既知の問題](KNOWN_ISSUES.ja.md) · [貢献の仕方](CONTRIBUTING.ja.md) · [第三者の著作物に関する表示](THIRD_PARTY_NOTICES.ja.md)
 
 [![CI](https://github.com/kurochan001/kirimaspice/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kurochan001/kirimaspice/actions/workflows/ci.yml?query=branch%3Amain)
 [![Nightly](https://github.com/kurochan001/kirimaspice/actions/workflows/nightly.yml/badge.svg?branch=main)](https://github.com/kurochan001/kirimaspice/actions/workflows/nightly.yml?query=branch%3Amain)
@@ -112,11 +112,17 @@ build/kirimaspice circuit.cir --raw-out circuit.raw
 
 ## 文書
 
-- [ユーザーマニュアル](docs/USER_MANUAL.ja.md)：ビルド、ネットリストの書き方、実行、結果の読み方
+[文書の案内](docs/README.ja.md)で、したいことから文書を選べます。
+
+- [ユーザーマニュアル](docs/USER_MANUAL.ja.md)：ビルド、ネットリストの書き方、実行、結果の読み方、Python のツール
 - [リファレンスマニュアル](docs/REFERENCE_MANUAL.ja.md)：オプション、素子、ディレクティブ、出力形式
+- [例題](examples/README.ja.md)：解析解のある小さなネットリスト。CTest が確かめる
+- [ngspice からの移行](docs/PORTING.ja.md)：同じ点と、ネットリストの確認項目
 - [用語集](docs/GLOSSARY.ja.md)：文書で使う用語
 - [FAQ](docs/FAQ.ja.md)：ネットリストの実行から貢献まで、よくある質問
 - [KNOWN_ISSUES.md](KNOWN_ISSUES.ja.md)：分かっている問題
+- [設計](docs/ARCHITECTURE.ja.md)：ライブラリの部品と、ネットリストがそれらを通る道筋
+- [開発](docs/DEVELOPMENT.ja.md)：開発用のビルド、テスト、push の前の確認、CI
 - [CONTRIBUTING.md](CONTRIBUTING.ja.md)：受け付けるものと、コードの変え方
 - [CLAUDE.md](CLAUDE.ja.md) と [AGENTS.md](AGENTS.ja.md)：コーディングエージェント（と人）の規則
 - [SECURITY.md](SECURITY.ja.md)：脆弱性の報告

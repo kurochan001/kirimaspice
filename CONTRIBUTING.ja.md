@@ -60,7 +60,8 @@ python3 tools/local_ci.py
 
 `build/` で configure、ビルド、テストを行い、失敗を `tests/known_failures.txt` と比べ、
 `tools/check_banned.py` と `tools/check_spdx.py` を実行します。変更を報告するときは、その要約を
-付けてください。
+付けてください。テスト、CI、デバイスモデルの足し方は [DEVELOPMENT](docs/DEVELOPMENT.ja.md) に、コードの
+説明は [ARCHITECTURE](docs/ARCHITECTURE.ja.md) にあります。
 
 ## コード
 
