@@ -114,9 +114,11 @@ typename FinFET<P>::DrainCurrent FinFET<P>::drain_current(Real v_gs_eff, Real v_
 
     DrainCurrent out;
     if (v_gs_eff < vth_eff) {
-        // Below the threshold: beta Vt^2 exp((VGS - Vth_eff) / (n Vt)) (1 - exp(-VDS / Vt))
+        // Below the threshold: beta Vt^2 exp((VGS - Vth_eff) / (n Vt)) (1 - exp(-VDS / Vt)),
+        // where the subthreshold swing SS = n Vt ln(10) is the gate voltage per
+        // decade of current
         const Real vt = k_boltzmann * temperature_ / q_electron;
-        const Real n = 1.0 + (ss_ * std::log(10.0)) / vt;
+        const Real n = ss_ / (vt * std::log(10.0));
         const Real channel = beta * vt * vt * std::exp((v_gs_eff - vth_eff) / (n * vt));
         const Real drain_factor = 1.0 - std::exp(-v_ds_eff / vt);
         out.id = channel * drain_factor;

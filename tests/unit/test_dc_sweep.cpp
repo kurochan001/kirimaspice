@@ -712,3 +712,26 @@ TEST(FinFETGateCapacitance, ChargesThroughTheGateResistor) {
     }
     EXPECT_NEAR(result.timepoints.back().node_voltages[g - 1], 1.0, 1e-3);
 }
+
+// Below the threshold the FinFET's current grows by a decade per SS of gate
+// voltage (the subthreshold swing, SS = n Vt ln 10): for SS = 70 mV/dec the
+// current at VGS = 0.35 V is 10^(0.1 / 0.07) times that at 0.25 V (both below
+// Vth - DIBL VDS = 0.36 V).
+TEST(FinFETSubthreshold, CurrentGrowsOneDecadePerSwing) {
+    auto drain_current = [](Real vgs) {
+        CircuitGraph circuit;
+        circuit.add_voltage_source("VD", "d", "0", 0.8);
+        circuit.add_voltage_source("VG", "g", "0", vgs);
+        circuit.add_finfet_n("M1", "d", "g", "0", 1, 30e-9, 7e-9, 0.4, 300e-4, 1e5, 70e-3, 0.05,
+                             1e-9, 1e-15, 1e-16, 0.0, 1.0, -1e-3, 300.15, 1e-6);
+        SimulationConfig config;
+        DCSolver solver(circuit, config);
+        DenseVector solution;
+        SolverStats stats;
+        EXPECT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS);
+        // less the GMIN of 1e-12 S across the channel
+        return -solver.get_branch_current("VD").value() - 1e-12 * 0.8;
+    };
+    const Real decades = std::log10(drain_current(0.35) / drain_current(0.25));
+    EXPECT_NEAR(decades, 0.1 / 70e-3, 1e-6);
+}
