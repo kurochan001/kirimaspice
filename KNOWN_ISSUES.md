@@ -136,9 +136,6 @@ says otherwise.
   and a DC gate current of 1.7 µA through the 10 kΩ, where ngspice-47
   gives `V(d)` = 0.6785 V and no gate current. Which default parameters
   cause it is not confirmed.
-- **`.OPTIONS VOLTAGE_LIMITING=0` has no effect.** It sets
-  `config.dc.enable_voltage_limiting`, which nothing reads; the diode and
-  the transistors always limit (read in the code, not run).
 
 ## Solvers
 

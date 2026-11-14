@@ -105,6 +105,7 @@ TransientResult TransientSolver::solve(Real t_start, Real t_stop, Real timestep)
     if (config_.temperature_explicitly_set) {
         apply_temperature_to_devices(circuit_, config_.temperature);
     }
+    apply_voltage_limiting_option(circuit_, config_);
 
     // Step 1: Initialize simulation (DC operating point / UIC mode / Pure DC)
     auto result = initialize_simulation(t_start, timestep);

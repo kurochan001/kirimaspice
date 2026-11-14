@@ -628,6 +628,7 @@ ConvergenceStatus DCSolver::solve(DenseVector& solution, SolverStats& stats) {
     if (config_.temperature_explicitly_set) {
         apply_temperature_to_devices(circuit_, config_.temperature);
     }
+    apply_voltage_limiting_option(circuit_, config_);
 
     // Check if source stepping is enabled
     if (config_.dc.enable_source_stepping) {
@@ -1195,6 +1196,7 @@ ConvergenceStatus DCSolver::solve_sweep(const DCSweepConfig& config, DCSweepResu
     if (config_.temperature_explicitly_set) {
         apply_temperature_to_devices(circuit_, config_.temperature);
     }
+    apply_voltage_limiting_option(circuit_, config_);
 
     // Check if this is a nested (2D) sweep
     if (config.nested_sweep) {

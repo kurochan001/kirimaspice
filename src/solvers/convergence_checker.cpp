@@ -28,6 +28,16 @@ bool any_device_limited(const circuit::CircuitGraph& circuit) {
     return false;
 }
 
+void apply_voltage_limiting_option(const circuit::CircuitGraph& circuit,
+                                   const SimulationConfig& config) {
+    if (config.dc.enable_voltage_limiting) {
+        return;
+    }
+    for (const auto& device : circuit.get_devices()) {
+        device->set_voltage_limiting(false);
+    }
+}
+
 ConvergenceChecker::ConvergenceChecker(std::uint32_t num_nodes)
     : num_nodes_(num_nodes) {}
 

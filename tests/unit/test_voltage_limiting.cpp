@@ -8,6 +8,7 @@
 #include "kirimaspice/parser/netlist_parser.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
 #include "kirimaspice/core/device_utils.hpp"
+#include "kirimaspice/devices/diode.hpp"
 #include <spdlog/spdlog.h>
 #include <cmath>
 
@@ -261,6 +262,34 @@ TEST_F(VoltageLimitingTest, NpnCurrentsAboveVcritFollowEbersMoll) {
     const Real ic = shockley(0.8);
     EXPECT_NEAR(solver.get_branch_current("VC").value(), -ic, 1e-6 * ic);
     EXPECT_NEAR(solver.get_branch_current("VB").value(), -ic / 100.0, 1e-6 * ic / 100.0);
+}
+
+// .OPTIONS VOLTAGE_LIMITING=0 turns the junction limiting off (Reference
+// Manual, Options); without the option it stays on. Either way the diode
+// behind 10 Ohm reaches the solution of V + 10 I(V) = 5.
+TEST_F(VoltageLimitingTest, OptionTurnsLimitingOff) {
+    for (const bool option_off : {false, true}) {
+        std::string netlist =
+            "limiting option\nV1 in 0 DC 5\nR1 in a 10\nD1 a 0 DM\n"
+            ".MODEL DM D(IS=1e-14 N=1)\n";
+        if (option_off) {
+            netlist += ".OPTIONS VOLTAGE_LIMITING=0\n";
+        }
+        netlist += ".end\n";
+        parser::NetlistParser parser;
+        auto result = parser.parse_string(netlist);
+        ASSERT_TRUE(result.circuit);
+        solvers::DCSolver solver(*result.circuit, result.config);
+        DenseVector solution;
+        SolverStats stats;
+        ASSERT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS);
+
+        auto* diode = dynamic_cast<devices::Diode*>(result.circuit->get_device("D1").get());
+        ASSERT_NE(diode, nullptr);
+        EXPECT_EQ(diode->voltage_limiting_enabled(), !option_off);
+        const NodeId a = result.circuit->get_node_id("a");
+        EXPECT_NEAR(solution[a - 1], 0.8112793029, result.config.dc.vntol);
+    }
 }
 
 int main(int argc, char** argv) {

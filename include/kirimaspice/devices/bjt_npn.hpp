@@ -117,7 +117,7 @@ public:
     Real get_tnom() const { return tnom_; }
 
     /// Enable/disable voltage limiting
-    void set_voltage_limiting(bool enable) { enable_voltage_limiting_ = enable; }
+    void set_voltage_limiting(bool enable) override { enable_voltage_limiting_ = enable; }
     bool voltage_limiting_enabled() const { return enable_voltage_limiting_; }
     bool limited_in_last_stamp() const override { return limited_in_last_stamp_; }
 

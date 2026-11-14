@@ -31,6 +31,12 @@ namespace kirimaspice::solvers {
 /// is not accepted as converged, whatever its change from the last iterate.
 bool any_device_limited(const circuit::CircuitGraph& circuit);
 
+/// .OPTIONS VOLTAGE_LIMITING=0 turns junction limiting off in every device
+/// (Device::set_voltage_limiting). With the default of 1 the devices keep
+/// their own setting, which is on unless the library turned it off.
+void apply_voltage_limiting_option(const circuit::CircuitGraph& circuit,
+                                   const SimulationConfig& config);
+
 /**
  * @brief Configuration for convergence checking
  *

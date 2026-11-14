@@ -89,6 +89,11 @@ public:
     /// non-convergence flag); see core::limit_junction_step.
     virtual bool limited_in_last_stamp() const { return false; }
 
+    /// Turn the junction voltage limiting of a device on or off; devices
+    /// without junctions ignore it (.OPTIONS VOLTAGE_LIMITING,
+    /// apply_voltage_limiting_option).
+    virtual void set_voltage_limiting(bool enable) { (void)enable; }
+
     /// State save/restore (for dynamic elements)
     virtual void save_state() {}
     virtual void restore_state() {}
