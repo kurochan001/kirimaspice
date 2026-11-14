@@ -823,6 +823,22 @@ BSIM4ThresholdState BSIM4Core::compute_threshold(const BSIM4BiasState& bias,
     th.abulk0 = Abulk0;
     th.dAbulk_dVg = dAbulk_dVg;
 
+    // Body-bias factor 1 / (1 + KETA Vbseff) of Abulk (BSIM4 manual,
+    // eq. 5.1; the BSIM4 4.8.3 code, with its smooth form below
+    // KETA Vbseff = -0.9)
+    const Real T2_keta = params_.keta * bias.vbs_eff;
+    Real keta_factor;
+    Real dketa_dVbseff;
+    if (T2_keta >= -0.9) {
+        keta_factor = 1.0 / (1.0 + T2_keta);
+        dketa_dVbseff = -params_.keta * keta_factor * keta_factor;
+    } else {
+        const Real T1_keta = 1.0 / (0.8 + T2_keta);
+        keta_factor = (17.0 + 20.0 * T2_keta) * T1_keta;
+        dketa_dVbseff = -params_.keta * T1_keta * T1_keta;
+    }
+    th.keta_factor = keta_factor;
+
     // Initial Abulk estimate using vgsteff_for_ags (for compatibility/debugging)
     Real Abulk = Abulk0 + dAbulk_dVg * vgsteff_for_ags;
 
@@ -833,7 +849,7 @@ BSIM4ThresholdState BSIM4Core::compute_threshold(const BSIM4BiasState& bias,
     }
 
     Abulk = std::clamp(Abulk, 0.1, 10.0);
-    th.abulk = Abulk;
+    th.abulk = Abulk * keta_factor;
 
     // Calculate dAbulk_dVb for gmb calculation
     // With AGS: Abulk = Abulk0 + dAbulk_dVg * Vgsteff
@@ -851,7 +867,10 @@ BSIM4ThresholdState BSIM4Core::compute_threshold(const BSIM4BiasState& bias,
     // AGS contribution to dAbulk_dVb: dAbulk_dVg * dVgsteff_dVb
     // dVgsteff_dVb ≈ -dVth_dVb
     const Real dVgsteff_dVb = -th.dVth_dVb;
-    th.dAbulk_dVb = dAbulk0_dVb + dAbulk_dVg * dVgsteff_dVb;
+    th.dAbulk_dVb = (dAbulk0_dVb + dAbulk_dVg * dVgsteff_dVb) * keta_factor
+                    + Abulk * dketa_dVbseff * bias.dVbs_eff_dVb;
+    // Vdsat below takes Abulk with the KETA factor, as in b4ld.c
+    Abulk *= keta_factor;
 
     // DEBUG: Print Abulk value with ngspice-compatible AGS formula
     thread_local static int abulk_call_count = 0;
@@ -1709,6 +1728,7 @@ Real BSIM4Core::compute_cdrain(const BSIM4BiasState& bias, const BSIM4ThresholdS
         abulk = (0.2 - abulk) * T10_clip;
     }
     abulk = std::clamp(abulk, 0.1, 10.0);
+    abulk *= th.keta_factor;  // 1 / (1 + KETA Vbseff), see compute_threshold
 
     // Store other threshold state variables
     const Real vdsat = th.vdsat;

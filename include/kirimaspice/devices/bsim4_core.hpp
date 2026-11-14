@@ -74,6 +74,7 @@ struct BSIM4ThresholdState {
     // Store Abulk0 and dAbulk_dVg for deferred Abulk calculation
     Real abulk0 = 1.0;       ///< Base Abulk (at Vgsteff=0)
     Real dAbulk_dVg = 0.0;   ///< AGS sensitivity: dAbulk/dVgsteff
+    Real keta_factor = 1.0;  ///< 1 / (1 + KETA Vbseff), the body-bias factor of Abulk
     Real n = 1.0;
     Real dn_dVd = 0.0;  ///< VDS derivative of n factor (CDSCD*Vds dependence)
     Real dn_dVb = 0.0;  ///< VBS derivative of n factor (CDSCB dependence)

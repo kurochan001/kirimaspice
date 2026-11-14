@@ -47,6 +47,11 @@ const Reference kReference[] = {
     {1.0, 1.0, 0.0, 0.00012292, 0.000533238, 2.96913e-05, 6.59131e-05},
     {1.8, 0.3, 0.0, 0.000388301, 0.000328869, 0.00081393, 5.3649e-05},
     {1.8, 1.8, 0.0, 0.000696688, 0.00074506, 7.45275e-05, 8.64832e-05},
+    {0.6, 1.0, -1.0, 1.79532e-08, 6.22826e-07, 1.23007e-08, 3.76343e-08},
+    {1.0, 0.3, -1.0, 5.81894e-05, 0.00036773, 5.22846e-05, 2.18678e-05},
+    {1.8, 0.05, -1.0, 8.01833e-05, 6.15796e-05, 0.00149815, 6.41768e-06},
+    {1.8, 1.8, -1.0, 0.000637051, 0.000741189, 7.13974e-05, 4.02567e-05},
+    {1.0, 1.0, -0.5, 9.67119e-05, 0.000510096, 2.52199e-05, 4.16814e-05},
 };
 
 // What M1 stamps in the row of its drain: gm, gds and gmb are the entries in
@@ -110,7 +115,7 @@ DrainRow nmos_at(Real vgs, Real vds, Real vbs) {
 
 }  // namespace
 
-// The drain current over the inversion regions.
+// The drain current over the inversion regions, with and without body bias.
 TEST(BSIM4AgainstNgspice, DrainCurrent) {
     for (const auto& ref : kReference) {
         const DrainRow row = nmos_at(ref.vgs, ref.vds, ref.vbs);
