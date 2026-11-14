@@ -23,7 +23,7 @@ status.
 | `analysis` | Monte Carlo, worst case, optimization (NLopt), BSIM4 parameter extraction |
 | `measure` | `.measure` |
 | `output` | SPICE3 raw (ASCII and binary), SSF, CSV, Touchstone, WAV |
-| `core`, `util`, `utils` | Types, matrices, constants, helpers |
+| `core`, `util`, `utils` | Types, matrices, constants, helpers (`util` and `utils` are headers only, under `include/kirimaspice/`) |
 
 - Keep the library and the program apart: `src/main.cpp` reads the command
   line and calls the library, and holds no simulation logic.

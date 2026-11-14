@@ -21,7 +21,7 @@ kirimaspice は、C++23 で書かれたオープンソースの SPICE 回路シ�
 | `analysis` | モンテカルロ、ワーストケース、最適化（NLopt）、BSIM4 のパラメータ抽出 |
 | `measure` | `.measure` |
 | `output` | SPICE3 の raw（ASCII とバイナリ）、SSF、CSV、Touchstone、WAV |
-| `core`、`util`、`utils` | 型、行列、定数、補助 |
+| `core`、`util`、`utils` | 型、行列、定数、補助（`util` と `utils` はヘッダーだけで、`include/kirimaspice/` にあります） |
 
 - ライブラリとプログラムを分けたままにします。`src/main.cpp` はコマンドラインを読んで
   ライブラリを呼ぶだけで、シミュレーションの処理を持ちません。
