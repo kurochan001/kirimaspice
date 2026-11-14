@@ -139,9 +139,8 @@ struct BSIM4Params {
 
     Real u0 = 670.0;        ///< Low-field mobility at tnom [cm²/Vs]
     Real ua = 1.0e-9;       ///< First-order mobility degradation coefficient [m/V]
-    // Fix: Changed from 1.0e-19 to match industry process models (0.18µm process: 2.546e-21)
-    // Previous value was 10,000× too large, causing excessive mobility degradation
-    Real ub = 2.5e-21;      ///< Second-order mobility degradation coefficient [(m/V)²]
+    // BSIM4 manual, appendix A, and the BSIM4 4.8.3 code (b4set.c): 1.0e-19
+    Real ub = 1.0e-19;      ///< Second-order mobility degradation coefficient [(m/V)²]
     // Fix: Changed from 0.0 to match industry process models (0.18µm process: -1e-10)
     Real uc = -4.65e-11;    ///< Body-effect coefficient of mobility degradation [V⁻¹]
     Real ud = 0.0;          ///< Vds dependence of mobility degradation

@@ -1328,6 +1328,13 @@ TEST(BSIM4DerivedParameters, LitlFollowsTheManual) {
     EXPECT_NEAR(p.litl, std::sqrt(1.5 * 1.5e-7 * 3e-9), 1e-16);
 }
 
+// A card without UB gets 1.0e-19 (m/V)^2 (BSIM4 manual, appendix A, and the
+// BSIM4 4.8.3 code).
+TEST(BSIM4DerivedParameters, UbDefaultsToTheManualValue) {
+    const BSIM4Params p = bsim4_params_from_model({{"toxe", 3e-9}, {"vth0", 0.5}}, "nch");
+    EXPECT_DOUBLE_EQ(p.ub, 1.0e-19);
+}
+
 // When the card gives only one of K1 and K2, the other takes its default
 // (K1 = 0.53, K2 = -0.0186), as in the BSIM4 4.8.3 code.
 TEST(BSIM4BodyEffectCoefficients, DefaultWhenOnlyOneIsGiven) {
