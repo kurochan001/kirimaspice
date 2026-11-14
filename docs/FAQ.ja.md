@@ -2,7 +2,7 @@
 
 [English](FAQ.md) · [プロジェクトの README](../README.ja.md) · この文書は英語版を正とします。日本語版はその訳で、両者が食い違う場合は英語版に従います。
 
-**2026-11-14 更新**（コミット `35eb58a`）。ここでの答えは、今の kirimaspice の振る舞いです。詳しくは
+**2026-11-14 更新**（コミット `715920a`）。ここでの答えは、今の kirimaspice の振る舞いです。詳しくは
 [ユーザーマニュアル](USER_MANUAL.ja.md)と[リファレンスマニュアル](REFERENCE_MANUAL.ja.md)に、分かっている
 問題は [KNOWN_ISSUES](../KNOWN_ISSUES.ja.md) に、用語は[用語集](GLOSSARY.ja.md)にあります。
 

@@ -4,7 +4,7 @@
 
 Terms used in the [README](../README.md), the [User Manual](USER_MANUAL.md),
 the [Reference Manual](REFERENCE_MANUAL.md) and the other documents, with
-what they mean in kirimaspice. **Updated 2026-11-14** for commit `35eb58a`.
+what they mean in kirimaspice. **Updated 2026-11-14** for commit `715920a`.
 For practical questions see the [FAQ](FAQ.md).
 
 - [Netlists](#netlists) · [Sources and devices](#sources-and-devices) ·
@@ -53,13 +53,16 @@ For practical questions see the [FAQ](FAQ.md).
 | <a id="transient"></a>transient analysis | The solution over time (`.TRAN`), from an operating point or, with `UIC`, from the values of `.IC` |
 | <a id="ac-analysis"></a>AC analysis | The small-signal response over frequency (`.AC`), linearized at the operating point and driven by the AC inputs |
 | temperature sweep | The operating point or transient at each temperature of `.TEMP` |
-| library-only analysis | Noise, transfer function, pole-zero, Fourier, distortion, sensitivity, S-parameters, Monte Carlo, worst case and optimization: implemented in the library and its tests, not run by the program |
+| <a id="fourier"></a>Fourier analysis | The harmonics and the THD of a signal over the last period of a transient (`.FOUR`), printed after the transient |
+| <a id="uic"></a>`UIC` | "Use initial conditions": on a `.TRAN` line, start the transient from the `.IC` values instead of from an operating point. Without `UIC`, kirimaspice ignores `.IC` |
+| library-only analysis | Noise, transfer function, pole-zero, distortion, sensitivity, S-parameters, Monte Carlo, worst case and optimization: implemented in the library and its tests, not run by the program ([Architecture](ARCHITECTURE.md#other-analyses-in-the-library)) |
 
 ## Numerical methods
 
 | Term | Meaning |
 | --- | --- |
 | <a id="mna"></a>MNA | Modified nodal analysis: the system of equations with one unknown per node and one per [branch current](#branch-current) |
+| <a id="stamp"></a>stamp | What a device writes into the MNA equations for the present solution: conductances into the matrix and currents into the right-hand side. Each analysis has its stamp method (`stamp_dc_nonlinear`, `stamp_transient`, `stamp_ac`), and all of them evaluate the same model code ([Architecture](ARCHITECTURE.md#devices)) |
 | Newton-Raphson iteration | Solving a nonlinear circuit by repeatedly linearizing it at the latest guess; `RELTOL`, `ABSTOL` and `VNTOL` decide when it has converged, and `ITL1` and `ITL4` limit it |
 | `GMIN` | A small conductance to ground (default 10⁻¹² S) that keeps the system solvable |
 | convergence aids | Gmin stepping, source stepping, dynamic gmin, continuation and pseudo-transient: ways to find an operating point when plain iteration fails, each switched on with `.OPTIONS` |

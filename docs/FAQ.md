@@ -2,7 +2,7 @@
 
 [日本語](FAQ.ja.md) · [Project README](../README.md) · This English text is the main version; the Japanese version follows it, and where they differ, this text holds.
 
-**Updated 2026-11-14** for commit `35eb58a`. These answers describe what
+**Updated 2026-11-14** for commit `715920a`. These answers describe what
 kirimaspice does today; the [User Manual](USER_MANUAL.md) and the
 [Reference Manual](REFERENCE_MANUAL.md) give the details,
 [KNOWN_ISSUES](../KNOWN_ISSUES.md) the known problems, and the
