@@ -78,7 +78,7 @@ static void print_usage(std::ostream& os, const char* program) {
     os << "  -h, --help                  Show this help message and exit\n";
     os << "  -o <file>                   Write SSF/CSV outputs to <file> base name\n";
     os << "  --raw-out <file>            Write Nutmeg ASCII .raw output (DC/TRAN)\n";
-    os << "  --raw-binary-out <file>     Write Raw Binary .raw output (DC/TRAN, LTspice compatible)\n";
+    os << "  --raw-binary-out <file>     Write SPICE3 binary .raw output (DC/TRAN)\n";
     os << "  --wav-out <file>            Write WAV audio output (TRAN only, default: 44.1kHz 16-bit)\n";
     os << "  --wav-sample-rate <Hz>      Set WAV sample rate in Hz (default: 44100)\n";
     os << "  --wav-bits <N>              Set WAV bit depth: 8, 16, 24, or 32 (default: 16)\n";

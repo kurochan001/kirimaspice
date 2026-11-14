@@ -3913,7 +3913,7 @@ static void parse_model_directive(const std::vector<std::string>& tokens, ParseS
                                 model_name, level);
                 }
             } else if (level == 14 || level == 54) {
-                // BSIM4.8 model (ngspice uses LEVEL=14, HSPICE uses LEVEL=54)
+                // BSIM4 model: LEVEL 14 (as in ngspice) or 54, another number in use for it
                 if (device_type == DeviceType::MOSFET_N) {
                     device_type = DeviceType::MOSFET_BSIM4_N;
                     spdlog::info("Detected BSIM4 N-channel MOSFET model: {} (LEVEL={})",

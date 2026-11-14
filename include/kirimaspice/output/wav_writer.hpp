@@ -16,8 +16,7 @@ namespace kirimaspice::output {
 /**
  * @brief WAV (RIFF WAVE) format writer for audio circuit simulation
  *
- * Writes transient analysis results as WAV audio files compatible with
- * LTspice .wave command format.
+ * Writes transient analysis results as PCM WAV audio files.
  *
  * Format specification:
  * - Standard RIFF WAVE PCM format

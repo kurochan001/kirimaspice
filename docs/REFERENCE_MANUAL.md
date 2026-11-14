@@ -380,8 +380,11 @@ line with the point index.
 
 The same header, with the names in upper case (`V(<node>)`, `I(<source>)`),
 then `Binary:` and the values as 8-byte IEEE doubles in the byte order of
-the machine (little-endian on x86-64 and arm64), point after point. The
-`--help` text calls it LTspice compatible; that is not confirmed.
+the machine (little-endian on x86-64 and arm64), point after point.
+
+ngspice-47 loads both raw files: on 2026-11-14 its `load` command read a
+transient plot of 502 points written by kirimaspice, ASCII and binary,
+with the same values. Other plots and other readers are not confirmed.
 
 ### SSF (`-o`)
 

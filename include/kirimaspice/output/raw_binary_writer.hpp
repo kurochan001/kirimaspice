@@ -14,13 +14,13 @@
 namespace kirimaspice::output {
 
 /**
- * @brief SPICE3 RAW Binary format writer (LTspice/QSPICE compatible)
+ * @brief SPICE3 RAW Binary format writer
  *
  * Format specification:
  * - ASCII header section (Title, Date, Plotname, Flags, Variables)
  * - Binary data section (8-byte double precision floats)
- * - Little-endian byte order
- * - Compatible with LTspice, QSPICE, and ngspice
+ * - Byte order of the host (little-endian on x86-64 and arm64)
+ * - ngspice-47 loads a transient plot written by it (checked 2026-11-14)
  */
 class RawBinaryWriter {
 public:

@@ -346,7 +346,6 @@ TransientSolver::solve_timestep_adaptive(DenseVector& solution,
 
         if (use_predictor_corrector && !use_embedded && !pc_warmup_active) {
             // Pure Predictor-Corrector difference-based LTE estimation
-            // This is the Spectre/HSPICE DVDT approach
 
             // For P-C method, we need at least 2 solutions in history for good prediction
             const bool has_history = !solution_history_.empty();
@@ -952,7 +951,6 @@ Real TransientSolver::estimate_lte_predictor_corrector(const DenseVector& predic
                                                         const DenseVector& corrected) const {
     // Predictor-Corrector difference-based LTE estimation
     // LTE ≈ |x_corrected - x_predicted|
-    // This is the method used by Spectre and HSPICE DVDT mode
     //
     // Theoretical basis: The difference between predictor and corrector
     // is proportional to the local truncation error of the integration method

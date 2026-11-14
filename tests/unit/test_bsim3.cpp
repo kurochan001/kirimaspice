@@ -233,7 +233,7 @@ M1 vdd gate 0 BSIM3N W=10u L=1u
 .END
 )";
 
-    // LEVEL=49 (HSPICE compatible)
+    // LEVEL=49, another number in use for BSIM3
     std::string netlist_level49 = R"(
 * BSIM3 with LEVEL=49
 .MODEL BSIM3N_49 NMOS LEVEL=49 VTH0=0.7
