@@ -83,12 +83,6 @@ document also lists differences not decided there.
 Measured with the program built from commit `91af284`, unless an entry
 says otherwise.
 
-- **A lossless line (`T`) is an open circuit in the operating point.** In
-  DC a lossless line connects its ports (equal voltages, equal and opposite
-  currents), but its DC stamp is empty: 1 V through 50 Ω into
-  `T1 a 0 b 0 Z0=50 TD=10n` loaded with 50 Ω gives `V(a)` = 1 V and `V(b)` =
-  0 V, where both are 0.5 V. A transient that starts from such an operating
-  point starts from that state (measured at commit `5e3008d`).
 - In the library's adaptive time-step path, which the program does not
   use, a fixed `TRAPEZOIDAL` method starts without the backward-Euler step
   that the fixed-step path takes (read in the code, not run).

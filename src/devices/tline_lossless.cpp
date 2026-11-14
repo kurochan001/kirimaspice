@@ -28,10 +28,32 @@ TLineLossless::TLineLossless(DeviceId id, const std::string& name,
 
 void TLineLossless::stamp_dc_linear(MNASystem& mna,
                                     const DenseVector& node_voltages) const {
-    // DC analysis: Transmission line acts as open circuit
-    // (infinite delay → no DC coupling between ports)
-    // No stamp needed
-    (void)mna; (void)node_voltages;  // Suppress unused warnings
+    (void)node_voltages;
+    // In DC the line is in steady state: the delayed values of the
+    // characteristic equations (see stamp_transient) equal the present ones,
+    // which gives V_A = V_B and I_A = -I_B. With u = V_A - V_B, the stamp is
+    // I_A = kDcCoupling * u and I_B = -I_A: the matrix kDcCoupling * c c^T,
+    // c = (+1 at ap, -1 at an, -1 at bp, +1 at bn). Exactly I_A = -I_B, and
+    // V_A - V_B = I_A / kDcCoupling.
+    last_stamp_was_dc_ = true;
+
+    const int idx[4] = {
+        (nodes_[0] == NODE_GND) ? -1 : static_cast<int>(nodes_[0] - 1),
+        (nodes_[1] == NODE_GND) ? -1 : static_cast<int>(nodes_[1] - 1),
+        (nodes_[2] == NODE_GND) ? -1 : static_cast<int>(nodes_[2] - 1),
+        (nodes_[3] == NODE_GND) ? -1 : static_cast<int>(nodes_[3] - 1),
+    };
+    const Real c[4] = {1.0, -1.0, -1.0, 1.0};
+    for (int i = 0; i < 4; ++i) {
+        if (idx[i] < 0) {
+            continue;
+        }
+        for (int j = 0; j < 4; ++j) {
+            if (idx[j] >= 0) {
+                mna.G.add_entry(idx[i], idx[j], kDcCoupling * c[i] * c[j]);
+            }
+        }
+    }
 }
 
 void TLineLossless::stamp_transient(MNASystem& mna,
@@ -44,6 +66,7 @@ void TLineLossless::stamp_transient(MNASystem& mna,
 
     // Cache timestep for later use in accept_solution
     last_timestep_ = timestep;
+    last_stamp_was_dc_ = false;
 
     // Get delayed signals: V_A((t+dt)-TD), V_B((t+dt)-TD), I_A((t+dt)-TD), I_B((t+dt)-TD)
     // stamp_transient builds equations for the NEXT time point (t+dt)
@@ -208,11 +231,15 @@ void TLineLossless::reset_state() {
     initial.i_b = 0.0;
     history_.push_back(initial);
     current_time_ = 0.0;
+    last_stamp_was_dc_ = false;
 }
 
 void TLineLossless::accept_solution(const DenseVector& node_voltages) {
-    // Update current time (increment by last timestep)
-    current_time_ += last_timestep_;
+    // Update current time (increment by last timestep); an accepted operating
+    // point is at the present time
+    if (!last_stamp_was_dc_) {
+        current_time_ += last_timestep_;
+    }
 
     const NodeId ap = nodes_[0];
     const NodeId an = nodes_[1];
@@ -227,6 +254,16 @@ void TLineLossless::accept_solution(const DenseVector& node_voltages) {
 
     Real v_a = v_ap - v_an;
     Real v_b = v_bp - v_bn;
+
+    // An accepted operating point: the line has been in this steady state
+    // for all t <= 0, so its history is that one point (see stamp_dc_linear)
+    if (last_stamp_was_dc_) {
+        last_stamp_was_dc_ = false;
+        const Real i_a_dc = kDcCoupling * (v_a - v_b);
+        history_.clear();
+        history_.push_back(HistoryPoint{current_time_, v_a, v_b, i_a_dc, -i_a_dc});
+        return;
+    }
 
     // Port currents from the characteristic equations (see stamp_transient)
     Real v_a_delayed, v_b_delayed, i_a_delayed, i_b_delayed;

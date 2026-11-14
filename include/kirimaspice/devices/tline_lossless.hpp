@@ -126,6 +126,8 @@ private:
     // Current time (updated in accept_solution)
     mutable Real current_time_ = 0.0;
     mutable Real last_timestep_ = 0.0;  // Cached from stamp_transient
+    mutable bool last_stamp_was_dc_ = false;  // The last stamp was the DC one
+    static constexpr Real kDcCoupling = 1e6;  // [S] DC coupling of the ports, as an inductor in DC
 
     // Saved state (for timestep rejection)
     std::deque<HistoryPoint> history_saved_;

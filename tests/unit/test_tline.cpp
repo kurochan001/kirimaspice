@@ -6,6 +6,7 @@
 #include "kirimaspice/parser/netlist_parser.hpp"
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/devices/tline_lossless.hpp"
+#include "kirimaspice/solvers/dc_solver.hpp"
 #include "kirimaspice/solvers/transient_solver.hpp"
 #include <cmath>
 
@@ -413,4 +414,31 @@ TEST(TLineDevice, OpenEndReflectsTheWave) {
     EXPECT_NEAR(step_response(load, "3", 8e-9), 1.0, 1e-6);
     EXPECT_NEAR(step_response(load, "2", 8e-9), 0.5, 1e-6);
     EXPECT_NEAR(step_response(load, "2", 15e-9), 1.0, 1e-6);
+}
+
+// In DC a lossless line is in steady state, and its characteristic
+// equations with the delayed values equal to the present ones give
+// V_A = V_B and I_A = -I_B: 1 V through 50 Ohm into a line loaded with
+// 50 Ohm puts 0.5 V at both ends (each within I / 1e6 S, the DC coupling).
+namespace {
+const char* kLineInDc = R"(line in DC
+V1 in 0 DC 1
+R1 in a 50
+T1 a 0 b 0 Z0=50 TD=10n
+R2 b 0 50
+.TRAN 0.1n 50n
+.END
+)";
+}  // namespace
+
+TEST(TLineDevice, OperatingPointConnectsThePorts) {
+    parser::NetlistParser parser;
+    auto result = parser.parse_string(kLineInDc);
+    ASSERT_NE(result.circuit, nullptr);
+    solvers::DCSolver dc(*result.circuit, result.config);
+    DenseVector op;
+    SolverStats stats;
+    ASSERT_EQ(dc.solve(op, stats), ConvergenceStatus::SUCCESS);
+    EXPECT_NEAR(op[result.circuit->get_node_id("a") - 1], 0.5, 1e-7);
+    EXPECT_NEAR(op[result.circuit->get_node_id("b") - 1], 0.5, 1e-7);
 }
