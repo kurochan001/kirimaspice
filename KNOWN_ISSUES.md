@@ -138,19 +138,6 @@ says otherwise.
 - **JFET cannot be used from a netlist.** The library has a JFET model
   (`include/kirimaspice/devices/jfet.hpp`), but the parser has no `J`
   element.
-- **Diode and NPN currents are too small above about 0.73 V.**
-  `core::limit_pn_junction` (`include/kirimaspice/core/device_utils.hpp`)
-  is meant to limit how far a junction voltage moves between Newton
-  iterations, but it compresses the voltage itself above
-  V<sub>crit</sub> = nV<sub>T</sub>·ln(nV<sub>T</sub>/(√2·IS)), so the
-  converged solution follows another curve. The diode
-  (`src/devices/diode.cpp`) and the NPN transistor
-  (`src/devices/bjt_npn.cpp`) use it; the PNP transistor does not. With
-  `IS=1e-14` and `N=1` (V<sub>crit</sub> ≈ 0.73 V), a source across a
-  diode gives −3.22×10⁻² A at 0.75 V and −6.76×10⁻² A at 0.8 V, where the
-  Shockley equation and ngspice-47 give −3.919×10⁻² A and −0.2708 A; up to
-  0.7 V the program agrees with the equation to 10⁻¹² (measured at commit
-  `d858190`; the NPN is read in the code, not run).
 - **`.OPTIONS VOLTAGE_LIMITING=0` has no effect.** It sets
   `config.dc.enable_voltage_limiting`, which nothing reads; the diode and
   the transistors always limit (read in the code, not run).

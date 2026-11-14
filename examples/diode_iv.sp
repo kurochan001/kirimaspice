@@ -4,5 +4,5 @@
 V1 a 0 DC 0
 D1 a 0 DMOD
 .MODEL DMOD D(IS=1e-14 N=1)
-.DC V1 0 0.7 0.05
+.DC V1 0 0.8 0.05
 .end

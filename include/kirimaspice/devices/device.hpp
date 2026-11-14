@@ -83,6 +83,12 @@ public:
         // Default: no gmin (linear devices don't need it)
     }
 
+    /// True when the last nonlinear stamp limited a junction voltage, so that
+    /// the stamp was not taken at the present iterate. The solvers do not
+    /// accept convergence after such an iteration (as SPICE does with its
+    /// non-convergence flag); see core::limit_junction_step.
+    virtual bool limited_in_last_stamp() const { return false; }
+
     /// State save/restore (for dynamic elements)
     virtual void save_state() {}
     virtual void restore_state() {}

@@ -20,7 +20,16 @@
 #include <cstdint>
 #include <optional>
 
+namespace kirimaspice::circuit {
+class CircuitGraph;
+}
+
 namespace kirimaspice::solvers {
+
+/// True when a device limited a junction voltage in its last stamp
+/// (Device::limited_in_last_stamp). An iterate that a limited stamp produced
+/// is not accepted as converged, whatever its change from the last iterate.
+bool any_device_limited(const circuit::CircuitGraph& circuit);
 
 /**
  * @brief Configuration for convergence checking

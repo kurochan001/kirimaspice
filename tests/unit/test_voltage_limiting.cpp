@@ -196,6 +196,122 @@ D1 2 0 DIODE
     }
 }
 
+// ----------------------------------------------------------------------------
+// Junction step limiting (core::limit_junction_step). The rule is that of
+// SPICE2's junction limiting: above Vcrit, a step of more than 2·nV_T from
+// the last evaluated voltage vold becomes vold + nV_T·ln(1 + Δ/nV_T); from
+// zero or reverse bias it starts at nV_T·ln(vnew/nV_T). A converged iterate
+// (vnew = vold) is never changed, so the solution is that of the device
+// equation.
+// ----------------------------------------------------------------------------
+
+namespace {
+constexpr Real kNvt = 1.380649e-23 * 300.15 / 1.602176634e-19;  // kT/q at 27 °C
+constexpr Real kIs = 1e-14;
+
+Real shockley(Real v) { return kIs * (std::exp(v / kNvt) - 1.0); }
+}  // namespace
+
+TEST_F(VoltageLimitingTest, StepBelowVcritIsNotLimited) {
+    const Real vcrit = core::compute_vcrit(kNvt, kIs);
+    EXPECT_DOUBLE_EQ(core::limit_junction_step(vcrit - 0.01, 0.0, kNvt, vcrit), vcrit - 0.01);
+}
+
+TEST_F(VoltageLimitingTest, SmallStepAboveVcritIsNotLimited) {
+    const Real vcrit = core::compute_vcrit(kNvt, kIs);
+    const Real vold = 0.8;
+    const Real vnew = vold + 1.9 * kNvt;  // within 2·nV_T
+    EXPECT_DOUBLE_EQ(core::limit_junction_step(vnew, vold, kNvt, vcrit), vnew);
+}
+
+TEST_F(VoltageLimitingTest, LargeStepAboveVcritIsLogarithmic) {
+    const Real vcrit = core::compute_vcrit(kNvt, kIs);
+    const Real vold = 0.6;
+    const Real vnew = 1.0;
+    EXPECT_NEAR(core::limit_junction_step(vnew, vold, kNvt, vcrit),
+                vold + kNvt * std::log(1.0 + (vnew - vold) / kNvt), 1e-15);
+}
+
+TEST_F(VoltageLimitingTest, StepFromZeroStartsAtTheKnee) {
+    const Real vcrit = core::compute_vcrit(kNvt, kIs);
+    EXPECT_NEAR(core::limit_junction_step(5.0, 0.0, kNvt, vcrit),
+                kNvt * std::log(5.0 / kNvt), 1e-15);
+}
+
+TEST_F(VoltageLimitingTest, ConvergedIterateIsNotChanged) {
+    const Real vcrit = core::compute_vcrit(kNvt, kIs);
+    EXPECT_DOUBLE_EQ(core::limit_junction_step(0.9, 0.9, kNvt, vcrit), 0.9);
+}
+
+// A source across a diode fixes its voltage, so the source current is the
+// Shockley current. Above Vcrit (0.73 V here) the result must still be the
+// equation's, as ngspice-47 gives (-0.2708 A at 0.8 V).
+TEST_F(VoltageLimitingTest, DiodeCurrentAboveVcritFollowsShockley) {
+    for (const Real v : {0.75, 0.8, 0.9}) {
+        const std::string netlist =
+            "diode above Vcrit\nV1 a 0 DC " + std::to_string(v) +
+            "\nD1 a 0 DM\n.MODEL DM D(IS=1e-14 N=1)\n.end\n";
+        parser::NetlistParser parser;
+        auto result = parser.parse_string(netlist);
+        ASSERT_TRUE(result.circuit);
+        solvers::DCSolver solver(*result.circuit, result.config);
+        DenseVector solution;
+        SolverStats stats;
+        ASSERT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS) << "V = " << v;
+        const Real expected = -shockley(v);
+        EXPECT_NEAR(solver.get_branch_current("V1").value(), expected, 1e-6 * std::abs(expected))
+            << "V = " << v;
+    }
+}
+
+// 5 V through 10 Ohm into the diode: V + 10·I(V) = 5 with I the Shockley
+// current. The exact solution, found here by bisection on the equation, is
+// V = 0.811279 V, I = 0.418872 A; the Newton iteration has to cross Vcrit.
+TEST_F(VoltageLimitingTest, DiodeWithSeriesResistorAboveVcrit) {
+    const std::string netlist =
+        "diode and resistor\nV1 in 0 DC 5\nR1 in a 10\nD1 a 0 DM\n"
+        ".MODEL DM D(IS=1e-14 N=1)\n.end\n";
+    parser::NetlistParser parser;
+    auto result = parser.parse_string(netlist);
+    ASSERT_TRUE(result.circuit);
+    solvers::DCSolver solver(*result.circuit, result.config);
+    DenseVector solution;
+    SolverStats stats;
+    ASSERT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS);
+
+    Real lo = 0.0, hi = 5.0;
+    for (int i = 0; i < 200; ++i) {
+        const Real mid = 0.5 * (lo + hi);
+        (mid + 10.0 * shockley(mid) - 5.0 < 0.0 ? lo : hi) = mid;
+    }
+    // Newton stops when the change of each node is within VNTOL (1 uV by
+    // default), so the node voltage is as exact as that and the current as
+    // VNTOL / 10 Ohm.
+    const Real vntol = result.config.dc.vntol;
+    const NodeId a = result.circuit->get_node_id("a");
+    EXPECT_NEAR(solution[a - 1], lo, vntol);
+    EXPECT_NEAR(solver.get_branch_current("V1").value(), -(5.0 - lo) / 10.0, vntol / 10.0);
+}
+
+// NPN with V_BE = 0.8 V and V_CE = 5 V: the base-collector junction is
+// reverse biased by 4.2 V, so I_C = IS·(exp(V_BE/V_T) - 1) and
+// I_B = I_C / BF to within 1e-15 relative (Ebers-Moll, no Early effect).
+TEST_F(VoltageLimitingTest, NpnCurrentsAboveVcritFollowEbersMoll) {
+    const std::string netlist =
+        "npn above Vcrit\nVB b 0 DC 0.8\nVC c 0 DC 5\nQ1 c b 0 QM\n"
+        ".MODEL QM NPN(IS=1e-14 BF=100)\n.end\n";
+    parser::NetlistParser parser;
+    auto result = parser.parse_string(netlist);
+    ASSERT_TRUE(result.circuit);
+    solvers::DCSolver solver(*result.circuit, result.config);
+    DenseVector solution;
+    SolverStats stats;
+    ASSERT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS);
+    const Real ic = shockley(0.8);
+    EXPECT_NEAR(solver.get_branch_current("VC").value(), -ic, 1e-6 * ic);
+    EXPECT_NEAR(solver.get_branch_current("VB").value(), -ic / 100.0, 1e-6 * ic / 100.0);
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

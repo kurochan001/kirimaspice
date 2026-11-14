@@ -50,16 +50,10 @@ The program prints only a summary of a sweep; the values are in the raw
 file. With `IS=1e-14` and `N=1` at 27 °C the current follows
 I = IS·(exp(V/V<sub>T</sub>) − 1), V<sub>T</sub> = kT/q = 25.865 mV, and
 `i(V1)` is −I. The program agrees with this to better than one part in a
-million at every point of the sweep, for example −1.18719×10⁻⁴ A at 0.6 V.
-
-Two known issues show in this example
-([KNOWN_ISSUES](../KNOWN_ISSUES.md#analyses)):
-
-- The sweep `0 0.7 0.05` ends at 0.65 V: the end point is lost when
-  (stop − start)/step is not exactly an integer in floating point.
-- The example stops at 0.7 V because above about 0.73 V the diode current
-  is too small: at 0.8 V the program gives −6.76×10⁻² A where the equation,
-  and ngspice-47, give −0.2708 A.
+million at every point of the sweep, for example −1.18719×10⁻⁴ A at 0.6 V
+and −0.270827 A at 0.8 V, which ngspice-47 gives too. Above about 0.73 V
+the Newton iteration limits how far the junction voltage moves per step,
+as SPICE does; the converged result is still that of the equation.
 
 ## RC step response
 

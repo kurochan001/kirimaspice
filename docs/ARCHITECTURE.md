@@ -237,8 +237,10 @@ pseudo-transient continuation as a fallback.
 - **Limiting.** For the first ten iterations of a nonlinear circuit with
   more than four unknowns, the whole Newton step is scaled to at most 5 V
   (unless dynamic gmin is on). The diode and the NPN transistor also limit
-  their junction voltages, which changes their curves above about 0.73 V
-  ([KNOWN_ISSUES](../KNOWN_ISSUES.md#device-models)).
+  how far a junction voltage moves from one iteration to the next
+  (`core::limit_junction_step`, as SPICE does), and an iterate that a
+  limited stamp produced is not accepted as converged
+  (`any_device_limited`).
 - **DC sweep.** A nested `.DC` has the first source as the inner loop
   ([NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.md), rule 4). The points
   are solved one after another; each starts from the initial guess, not

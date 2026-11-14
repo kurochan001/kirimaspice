@@ -102,8 +102,6 @@ the values of a sweep are in the raw file.
 - [ ] **The parameters the models read.** The diode reads only `IS` and
   `N`, and the other models read part of their parameters; the rest is
   ignored without a warning ([KNOWN_ISSUES](../KNOWN_ISSUES.md#netlist-input)).
-- [ ] **Diodes and NPN transistors above about 0.73 V.** Their currents
-  are too small there ([KNOWN_ISSUES](../KNOWN_ISSUES.md#device-models)).
 - [ ] **No `J` elements.** The library has a JFET, but the parser has no
   `J` element.
 

@@ -639,34 +639,34 @@ void BJT_NPN::stamp_dc_nonlinear(MNASystem& mna,
     Real vbe = vb - ve;
     Real vbc = vb - vc;
 
-    // Apply voltage limiting
+    // Limit the step of each junction voltage from its last evaluation
+    // (core::limit_junction_step); at convergence the limited voltages equal
+    // the junction voltages, so the solution follows the Ebers-Moll equations.
     Real nf_vt = nf_ * vt_;
     Real nr_vt = nr_ * vt_;
-    Real vbe_limited = core::limit_pn_junction(vbe, nf_vt, is_, enable_voltage_limiting_);
-    Real vbc_limited = core::limit_pn_junction(vbc, nr_vt, isc_, enable_voltage_limiting_);
-    Real dvbe_factor = core::limit_pn_junction_derivative(vbe, nf_vt, is_, enable_voltage_limiting_);
-    Real dvbc_factor = core::limit_pn_junction_derivative(vbc, nr_vt, isc_, enable_voltage_limiting_);
+    Real vbe_limited = vbe;
+    Real vbc_limited = vbc;
+    if (enable_voltage_limiting_) {
+        vbe_limited = core::limit_junction_step(vbe, vbe_last_eval_, nf_vt,
+                                                core::compute_vcrit(nf_vt, is_));
+        vbc_limited = core::limit_junction_step(vbc, vbc_last_eval_, nr_vt,
+                                                core::compute_vcrit(nr_vt, isc_));
+    }
+    vbe_last_eval_ = vbe_limited;
+    vbc_last_eval_ = vbc_limited;
+    limited_in_last_stamp_ = (vbe_limited != vbe) || (vbc_limited != vbc);
 
-    // Calculate currents using limited voltages
+    // Currents and conductances at the voltages where the junctions are evaluated
     Real ib = get_base_current(vbe_limited, vbc_limited);
     Real ic = get_collector_current(vbe_limited, vbc_limited);
+    Real g_be = get_base_conductance_vbe(vbe_limited, vbc_limited);       // dIb/dVbe
+    Real g_bc = get_base_conductance_vbc(vbe_limited, vbc_limited);       // dIb/dVbc
+    Real g_ce = get_collector_conductance_vbe(vbe_limited, vbc_limited);  // dIc/dVbe
+    Real g_cc = get_collector_conductance_vbc(vbe_limited, vbc_limited);  // dIc/dVbc
 
-    // Calculate conductances (partial derivatives) using limited voltages
-    Real g_be_base = get_base_conductance_vbe(vbe_limited, vbc_limited);       // dIb/dVbe_lim
-    Real g_bc_base = get_base_conductance_vbc(vbe_limited, vbc_limited);       // dIb/dVbc_lim
-    Real g_ce_base = get_collector_conductance_vbe(vbe_limited, vbc_limited);  // dIc/dVbe_lim
-    Real g_cc_base = get_collector_conductance_vbc(vbe_limited, vbc_limited);  // dIc/dVbc_lim
-
-    // Apply chain rule: g_final = g_base * dV_limited/dV_original
-    Real g_be = g_be_base * dvbe_factor;
-    Real g_bc = g_bc_base * dvbc_factor;
-    Real g_ce = g_ce_base * dvbe_factor;
-    Real g_cc = g_cc_base * dvbc_factor;
-
-    // Equivalent current sources (for Newton-Raphson)
-    // Use original (non-limited) voltages for equivalent current calculation
-    Real ib_eq = ib - g_be * vbe - g_bc * vbc;
-    Real ic_eq = ic - g_ce * vbe - g_cc * vbc;
+    // Equivalent current sources: the linearization at the evaluated voltages
+    Real ib_eq = ib - g_be * vbe_limited - g_bc * vbc_limited;
+    Real ic_eq = ic - g_ce * vbe_limited - g_cc * vbc_limited;
 
     // Convert to MNA indices
     auto nc_idx = (nc == NODE_GND) ? -1 : static_cast<int>(nc - 1);

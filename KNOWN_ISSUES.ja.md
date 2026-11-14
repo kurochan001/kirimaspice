@@ -107,15 +107,6 @@ ngspice について書いていることは、それぞれのマニュアルに
   既定値と合っているかは未確認です。
 - **JFET はネットリストから使えません。** ライブラリには JFET のモデル
   （`include/kirimaspice/devices/jfet.hpp`）がありますが、パーサーに `J` 素子がありません。
-- **ダイオードと NPN の電流は、約 0.73 V より上で小さすぎます。**
-  `core::limit_pn_junction`（`include/kirimaspice/core/device_utils.hpp`）は、Newton 法の反復の間に
-  接合電圧が動く幅を制限するためのものですが、V<sub>crit</sub> = nV<sub>T</sub>·ln(nV<sub>T</sub>/(√2·IS))
-  より上で電圧そのものを圧縮するので、収束した解が別の曲線に乗ります。ダイオード
-  （`src/devices/diode.cpp`）と NPN トランジスタ（`src/devices/bjt_npn.cpp`）が使い、PNP トランジスタは
-  使いません。`IS=1e-14`、`N=1`（V<sub>crit</sub> ≈ 0.73 V）のダイオードに電源をつなぐと、0.75 V で
-  −3.22×10⁻² A、0.8 V で −6.76×10⁻² A になります。Shockley の式と ngspice-47 では −3.919×10⁻² A と
-  −0.2708 A です。0.7 V までは式と 10⁻¹² まで一致します（コミット `d858190` で測りました。NPN はコードで
-  読んだだけで、実行していません）。
 - **`.OPTIONS VOLTAGE_LIMITING=0` は効きません。** これは `config.dc.enable_voltage_limiting` を設定しますが、
   どこからも読まれず、ダイオードとトランジスタは常に制限します（コードで読んだだけで、実行していません）。
 - **一部のデバイスは、ほかのノードの電圧を履歴に残します（コードで読んだだけで、実行していません）。**

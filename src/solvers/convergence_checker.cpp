@@ -10,6 +10,7 @@
  */
 
 #include "kirimaspice/solvers/convergence_checker.hpp"
+#include "kirimaspice/circuit/circuit_graph.hpp"
 
 #include <spdlog/spdlog.h>
 
@@ -17,6 +18,15 @@
 #include <cmath>
 
 namespace kirimaspice::solvers {
+
+bool any_device_limited(const circuit::CircuitGraph& circuit) {
+    for (const auto& device : circuit.get_devices()) {
+        if (device->limited_in_last_stamp()) {
+            return true;
+        }
+    }
+    return false;
+}
 
 ConvergenceChecker::ConvergenceChecker(std::uint32_t num_nodes)
     : num_nodes_(num_nodes) {}

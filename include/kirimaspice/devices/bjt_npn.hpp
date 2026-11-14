@@ -119,6 +119,7 @@ public:
     /// Enable/disable voltage limiting
     void set_voltage_limiting(bool enable) { enable_voltage_limiting_ = enable; }
     bool voltage_limiting_enabled() const { return enable_voltage_limiting_; }
+    bool limited_in_last_stamp() const override { return limited_in_last_stamp_; }
 
     /// Get operating point currents (for debugging/validation)
     Real get_base_current(Real vbe, Real vbc) const;
@@ -235,6 +236,9 @@ private:
 
     // Voltage limiting
     mutable bool enable_voltage_limiting_ = true;  ///< Enable PN junction voltage limiting
+    mutable Real vbe_last_eval_ = 0.0;  ///< V_BE of the last Newton evaluation
+    mutable Real vbc_last_eval_ = 0.0;  ///< V_BC of the last Newton evaluation
+    mutable bool limited_in_last_stamp_ = false;  ///< The last stamp limited a junction voltage
 
     // State variables for transient analysis - B-E junction
     mutable Real vbe_prev_;   // V_BE(t) - voltage at previous timestep

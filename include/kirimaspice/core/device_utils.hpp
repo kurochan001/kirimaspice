@@ -130,6 +130,33 @@ inline Real compute_vcrit(Real vt, Real is) {
     return vt * std::log(vt / (sqrt2 * is));
 }
 
+/// Limit the step of a p-n junction voltage between two Newton iterations.
+///
+/// The exponential of a junction makes a full Newton step from a small
+/// voltage overshoot by far. SPICE therefore limits how far the junction
+/// voltage moves from the voltage at which the junction was last
+/// evaluated: above Vcrit, a step larger than 2·nV_T becomes logarithmic.
+/// The limit depends on the previous iterate, not on the voltage alone, so
+/// at a converged solution (vnew = vold) it returns vnew and the solution
+/// is that of the device equation.
+///
+/// @param vnew  junction voltage of the present iterate [V]
+/// @param vold  junction voltage at which the junction was last evaluated [V]
+/// @param nvt   emission coefficient times thermal voltage, n·V_T [V]
+/// @param vcrit critical voltage, compute_vcrit(nvt, is) [V]
+/// @return the junction voltage at which to evaluate the device this iteration
+inline Real limit_junction_step(Real vnew, Real vold, Real nvt, Real vcrit) {
+    if (vnew <= vcrit || std::abs(vnew - vold) <= 2.0 * nvt) {
+        return vnew;
+    }
+    if (vold > 0.0) {
+        const Real arg = 1.0 + (vnew - vold) / nvt;
+        return (arg > 0.0) ? vold + nvt * std::log(arg) : vcrit;
+    }
+    // From zero or reverse bias: start near the knee of the exponential.
+    return (vnew > nvt) ? nvt * std::log(vnew / nvt) : vnew;
+}
+
 /// Limit PN junction voltage using logarithmic compression
 /// Prevents extreme junction voltages during Newton-Raphson iteration
 /// This improves convergence for difficult circuits without affecting final solution

@@ -131,11 +131,11 @@ void Diode::stamp_dc_nonlinear(MNASystem& mna,
     // g_eq = dI/dV = (Is/(N*Vt)) * exp(V/(N*Vt))
     // I_eq = I(V) - g_eq * V
     //
-    // With voltage limiting:
-    // V_limited = limit_pn_junction(V, Vt, Is)
-    // I(V_limited) = Is * (exp(V_limited/(N*Vt)) - 1)
-    // g_eq = (dI/dV_limited) * (dV_limited/dV)
-    //      = [(Is/(N*Vt)) * exp(V_limited/(N*Vt))] * [derivative_factor]
+    // With voltage limiting, the junction is evaluated at V_lim, the voltage
+    // of this iterate with its step from the last evaluation limited
+    // (core::limit_junction_step), and linearized there:
+    // I_eq = I(V_lim) - g(V_lim) * V_lim
+    // At convergence V_lim = V, so the solution follows I(V).
     //
     // MNA stamp (same pattern as resistor + current source):
     // G matrix: stamp g_eq
@@ -150,16 +150,20 @@ void Diode::stamp_dc_nonlinear(MNASystem& mna,
     Real v_cathode = core::safe_get_node_voltage(node_voltages, cathode_node);
     Real voltage = v_anode - v_cathode;
 
-    // Apply voltage limiting
+    // Limit the step of the junction voltage from its last evaluation
     Real n_vt = n_ * vt_;
-    Real voltage_limited = core::limit_pn_junction(voltage, n_vt, is_, enable_voltage_limiting_);
-    Real derivative_factor = core::limit_pn_junction_derivative(voltage, n_vt, is_, enable_voltage_limiting_);
+    Real voltage_limited = voltage;
+    if (enable_voltage_limiting_) {
+        voltage_limited = core::limit_junction_step(voltage, v_last_eval_, n_vt,
+                                                    core::compute_vcrit(n_vt, is_));
+    }
+    v_last_eval_ = voltage_limited;
+    limited_in_last_stamp_ = (voltage_limited != voltage);
 
-    // Calculate I and g_eq using limited voltage
+    // Linearize the junction at the voltage where it is evaluated
     Real current = get_current(voltage_limited);
-    Real g_eq_base = get_conductance(voltage_limited);
-    Real g_eq = g_eq_base * derivative_factor;  // Apply chain rule
-    Real i_eq = current - g_eq * voltage;
+    Real g_eq = get_conductance(voltage_limited);
+    Real i_eq = current - g_eq * voltage_limited;
 
     spdlog::trace("{} stamp_nonlinear: V={:.6f}V, V_lim={:.6f}V, I={:.6e}A, g_eq={:.6e}S, I_eq={:.6e}A",
                  name_, voltage, voltage_limited, current, g_eq, i_eq);

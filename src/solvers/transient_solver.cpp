@@ -815,6 +815,11 @@ bool TransientSolver::check_convergence(const DenseVector& x_new,
     conv_config.vntol = tran_config.vntol;
     conv_config.check_residual = false;  // Transient mode: no residual check
 
+    // An iterate from a stamp with a limited junction is not a solution yet
+    if (any_device_limited(circuit_)) {
+        return false;
+    }
+
     // Create checker with current num_nodes
     ConvergenceChecker checker(mna_.num_nodes);
 

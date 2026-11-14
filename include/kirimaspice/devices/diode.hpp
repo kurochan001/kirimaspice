@@ -81,6 +81,7 @@ public:
     /// Enable/disable voltage limiting
     void set_voltage_limiting(bool enable) { enable_voltage_limiting_ = enable; }
     bool voltage_limiting_enabled() const { return enable_voltage_limiting_; }
+    bool limited_in_last_stamp() const override { return limited_in_last_stamp_; }
 
     /// Get current I-V operating point (for debugging/validation)
     Real get_current(Real voltage) const;
@@ -162,6 +163,8 @@ private:
 
     // Voltage limiting
     mutable bool enable_voltage_limiting_ = true;  ///< Enable PN junction voltage limiting
+    mutable Real v_last_eval_ = 0.0;  ///< Junction voltage of the last Newton evaluation
+    mutable bool limited_in_last_stamp_ = false;  ///< The last stamp limited the junction voltage
 };
 
 } // namespace kirimaspice::devices

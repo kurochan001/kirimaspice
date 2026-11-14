@@ -335,6 +335,11 @@ bool DCSolver::check_convergence(const DenseVector& x_new,
     conv_config.stability_threshold = dc_config.vntol * 1e-3;  // Very tight threshold
     conv_config.branch_tol_multiplier = 1e3;
 
+    // An iterate from a stamp with a limited junction is not a solution yet
+    if (any_device_limited(circuit_)) {
+        return false;
+    }
+
     // Create checker with current num_nodes
     ConvergenceChecker checker(mna_.num_nodes);
 
