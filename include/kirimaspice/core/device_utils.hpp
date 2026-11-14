@@ -545,8 +545,9 @@ inline void stamp_conductance_ds(Matrix& G, int nd_idx, int ns_idx, Real gds) {
     }
 }
 
-/// Stamp capacitor companion model for transient analysis
-/// For Backward Euler: I = g×V + Ieq where g = C/dt, Ieq = g×V_prev
+/// Stamp capacitor companion model for transient analysis: the current
+/// I = g×V + Ieq from n1 to n2. For backward Euler g = C/dt and
+/// Ieq = -g×V_prev, so that I = C/dt (V - V_prev).
 template<typename MNA>
 inline void stamp_capacitor_companion(MNA& mna, int n1_idx, int n2_idx,
                                       Real g_cap, Real ieq, Real /*polarity*/) {

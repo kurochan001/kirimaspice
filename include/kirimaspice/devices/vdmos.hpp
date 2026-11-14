@@ -423,66 +423,24 @@ void VDMOS<Pol>::stamp_transient(MNASystem& mna, const DenseVector& node_voltage
     Real vds_eff = is_n_channel ? vds : -vds;
     Real cgd = compute_cgd(std::abs(vds_eff));
 
-    // Determine integration coefficient based on method
-    Real alpha = 1.0;  // Default: Backward Euler
-    if (method == IntegrationMethod::TRAPEZOIDAL) {
-        alpha = 2.0;
-    } else if (method == IntegrationMethod::GEAR2 && bdf_coef) {
-        alpha = bdf_coef->alpha0;
-    } else if (method == IntegrationMethod::GEAR3 && bdf_coef) {
-        alpha = bdf_coef->alpha0;
-    } else if (method == IntegrationMethod::TR_BDF2 && tr_bdf2_coef) {
-        alpha = tr_bdf2_coef->alpha0;
-    }
-
-    Real geq_cgs = alpha * cgs_ / timestep;
-    Real geq_cgd = alpha * cgd / timestep;
-    Real geq_cds = alpha * cds_ / timestep;
-
-    // Historical current terms
-    Real ieq_cgs = cgs_ * (vgs - vgs_prev_) / timestep;
-    Real ieq_cgd = cgd * (vgd - vgd_prev_) / timestep;
-    Real ieq_cds = cds_ * (vds - vds_prev_) / timestep;
-
+    // The capacitances by backward Euler, whatever the method: the current
+    // C / dt (V - V_prev), with V_prev accepted at the last time point
+    // (update_operating_point)
+    (void)method;
+    (void)bdf_coef;
+    (void)tr_bdf2_coef;
     auto nd_idx = (nd == NODE_GND) ? -1 : static_cast<int>(nd - 1);
     auto ng_idx = (ng == NODE_GND) ? -1 : static_cast<int>(ng - 1);
     auto ns_idx = (ns == NODE_GND) ? -1 : static_cast<int>(ns - 1);
-
-    // Stamp Cgs
-    if (ng_idx >= 0) {
-        mna.G.add_entry(ng_idx, ng_idx, geq_cgs);
-        if (ns_idx >= 0) mna.G.add_entry(ng_idx, ns_idx, -geq_cgs);
-    }
-    if (ns_idx >= 0) {
-        mna.G.add_entry(ns_idx, ns_idx, geq_cgs);
-        if (ng_idx >= 0) mna.G.add_entry(ns_idx, ng_idx, -geq_cgs);
-    }
-    if (ng_idx >= 0) mna.b[ng_idx] -= ieq_cgs;
-    if (ns_idx >= 0) mna.b[ns_idx] += ieq_cgs;
-
-    // Stamp Cgd (Miller capacitance)
-    if (ng_idx >= 0) {
-        mna.G.add_entry(ng_idx, ng_idx, geq_cgd);
-        if (nd_idx >= 0) mna.G.add_entry(ng_idx, nd_idx, -geq_cgd);
-    }
-    if (nd_idx >= 0) {
-        mna.G.add_entry(nd_idx, nd_idx, geq_cgd);
-        if (ng_idx >= 0) mna.G.add_entry(nd_idx, ng_idx, -geq_cgd);
-    }
-    if (ng_idx >= 0) mna.b[ng_idx] -= ieq_cgd;
-    if (nd_idx >= 0) mna.b[nd_idx] += ieq_cgd;
-
-    // Stamp Cds
-    if (nd_idx >= 0) {
-        mna.G.add_entry(nd_idx, nd_idx, geq_cds);
-        if (ns_idx >= 0) mna.G.add_entry(nd_idx, ns_idx, -geq_cds);
-    }
-    if (ns_idx >= 0) {
-        mna.G.add_entry(ns_idx, ns_idx, geq_cds);
-        if (nd_idx >= 0) mna.G.add_entry(ns_idx, nd_idx, -geq_cds);
-    }
-    if (nd_idx >= 0) mna.b[nd_idx] -= ieq_cds;
-    if (ns_idx >= 0) mna.b[ns_idx] += ieq_cds;
+    auto companion = [&](Real c, int n1, int n2, Real v_prev) {
+        const Real g = c / timestep;
+        device_utils::stamp_capacitor_companion(mna, n1, n2, g, -g * v_prev, 1.0);
+    };
+    companion(cgs_, ng_idx, ns_idx, vgs_prev_);
+    companion(cgd, ng_idx, nd_idx, vgd_prev_);
+    companion(cds_, nd_idx, ns_idx, vds_prev_);
+    (void)vgs;
+    (void)vgd;
 }
 
 template<VDMOSPolarity Pol>

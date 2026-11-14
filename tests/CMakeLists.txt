@@ -1153,6 +1153,11 @@ add_executable(test_p_channel_stamps unit/test_p_channel_stamps.cpp)
 target_link_libraries(test_p_channel_stamps PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_p_channel_stamps)
 
+# Gate capacitances of the three-terminal FETs in a transient
+add_executable(test_gate_capacitances unit/test_gate_capacitances.cpp)
+target_link_libraries(test_gate_capacitances PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_gate_capacitances)
+
 # BSIM4 high VDS Vth tests
 add_executable(test_bsim4_high_vds_vth unit/test_bsim4_high_vds_vth.cpp)
 target_link_libraries(test_bsim4_high_vds_vth PRIVATE kirimaspice_lib GTest::gtest_main)

@@ -116,7 +116,17 @@ public:
         const DenseVector& dc_solution, Real frequency) const override;
 
     [[nodiscard]] Real get_physical_lte(Real /*chgtol*/, const DenseVector& /*node_voltages*/) const override { return 0.0; }
-    void accept_solution(const DenseVector& /*solution*/) override {}
+    // The voltages of the capacitances at the accepted time point (node k at
+    // element k, ground at element 0)
+    void accept_solution(const DenseVector& solution) override {
+        const NodeId drain = nodes_[0], gate = nodes_[1], source = nodes_[2];
+        const Real vd = (drain == NODE_GND) ? 0.0 : solution[drain];
+        const Real vg = (gate == NODE_GND) ? 0.0 : solution[gate];
+        const Real vs = (source == NODE_GND) ? 0.0 : solution[source];
+        vgs_prev_ = vg - vs;
+        vgd_prev_ = vg - vd;
+        vds_prev_ = vd - vs;
+    }
 
     // Temperature methods
     void set_temperature(Real temp_K) { temperature_ = temp_K; }
@@ -319,26 +329,22 @@ void GaN_HEMT<Pol>::stamp_transient(MNASystem& mna,
 
     Real dt = timestep;
 
-    // Cgs capacitance
-    if (cgs_ > 0.0) {
-        Real g_cgs = cgs_ / dt;
-        Real ieq_gs = g_cgs * (vgs - vgs_prev_);
-        device_utils::stamp_capacitor_companion(mna, ng_idx, ns_idx, g_cgs, ieq_gs, polarity_sign);
-    }
-
-    // Cgd capacitance (Miller)
-    if (cgd_ > 0.0) {
-        Real g_cgd = cgd_ / dt;
-        Real ieq_gd = g_cgd * (vgd - vgd_prev_);
-        device_utils::stamp_capacitor_companion(mna, ng_idx, nd_idx, g_cgd, ieq_gd, 1.0);  // Always G-D
-    }
-
-    // Cds capacitance
-    if (cds_ > 0.0) {
-        Real g_cds = cds_ / dt;
-        Real ieq_ds = g_cds * (vds - vds_prev_);
-        device_utils::stamp_capacitor_companion(mna, nd_idx, ns_idx, g_cds, ieq_ds, polarity_sign);
-    }
+    // The capacitances by backward Euler: the current C / dt (V - V_prev)
+    // from the first node to the second, with V_prev accepted at the last
+    // time point (accept_solution)
+    (void)vgs;
+    (void)vgd;
+    (void)vds;
+    auto companion = [&](Real c, int n1, int n2, Real v_prev) {
+        if (c <= 0.0) {
+            return;
+        }
+        const Real g = c / dt;
+        device_utils::stamp_capacitor_companion(mna, n1, n2, g, -g * v_prev, 1.0);
+    };
+    companion(cgs_, ng_idx, ns_idx, vgs_prev_);
+    companion(cgd_, ng_idx, nd_idx, vgd_prev_);
+    companion(cds_, nd_idx, ns_idx, vds_prev_);
 }
 
 template<GaNPolarity Pol>
