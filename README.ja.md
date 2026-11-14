@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-[ユーザーマニュアル](docs/USER_MANUAL.ja.md) · [リファレンスマニュアル](docs/REFERENCE_MANUAL.ja.md) · [既知の問題](KNOWN_ISSUES.ja.md) · [貢献の仕方](CONTRIBUTING.ja.md) · [第三者の著作物に関する表示](THIRD_PARTY_NOTICES.ja.md)
+[ユーザーマニュアル](docs/USER_MANUAL.ja.md) · [リファレンスマニュアル](docs/REFERENCE_MANUAL.ja.md) · [用語集](docs/GLOSSARY.ja.md) · [FAQ](docs/FAQ.ja.md) · [既知の問題](KNOWN_ISSUES.ja.md) · [貢献の仕方](CONTRIBUTING.ja.md) · [第三者の著作物に関する表示](THIRD_PARTY_NOTICES.ja.md)
 
 [![CI](https://github.com/kurochan001/kirimaspice/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kurochan001/kirimaspice/actions/workflows/ci.yml?query=branch%3Amain)
 [![Nightly](https://github.com/kurochan001/kirimaspice/actions/workflows/nightly.yml/badge.svg?branch=main)](https://github.com/kurochan001/kirimaspice/actions/workflows/nightly.yml?query=branch%3Amain)
@@ -114,6 +114,8 @@ build/kirimaspice circuit.cir --raw-out circuit.raw
 
 - [ユーザーマニュアル](docs/USER_MANUAL.ja.md)：ビルド、ネットリストの書き方、実行、結果の読み方
 - [リファレンスマニュアル](docs/REFERENCE_MANUAL.ja.md)：オプション、素子、ディレクティブ、出力形式
+- [用語集](docs/GLOSSARY.ja.md)：文書で使う用語
+- [FAQ](docs/FAQ.ja.md)：ネットリストの実行から貢献まで、よくある質問
 - [KNOWN_ISSUES.md](KNOWN_ISSUES.ja.md)：分かっている問題
 - [CONTRIBUTING.md](CONTRIBUTING.ja.md)：受け付けるものと、コードの変え方
 - [CLAUDE.md](CLAUDE.ja.md) と [AGENTS.md](AGENTS.ja.md)：コーディングエージェント（と人）の規則

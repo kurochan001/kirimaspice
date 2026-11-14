@@ -2,7 +2,7 @@
 
 [日本語](README.ja.md)
 
-[User manual](docs/USER_MANUAL.md) · [Reference manual](docs/REFERENCE_MANUAL.md) · [Known issues](KNOWN_ISSUES.md) · [Contributing](CONTRIBUTING.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
+[User manual](docs/USER_MANUAL.md) · [Reference manual](docs/REFERENCE_MANUAL.md) · [Glossary](docs/GLOSSARY.md) · [FAQ](docs/FAQ.md) · [Known issues](KNOWN_ISSUES.md) · [Contributing](CONTRIBUTING.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
 
 [![CI](https://github.com/kurochan001/kirimaspice/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kurochan001/kirimaspice/actions/workflows/ci.yml?query=branch%3Amain)
 [![Nightly](https://github.com/kurochan001/kirimaspice/actions/workflows/nightly.yml/badge.svg?branch=main)](https://github.com/kurochan001/kirimaspice/actions/workflows/nightly.yml?query=branch%3Amain)
@@ -125,6 +125,8 @@ where.
 
 - [User Manual](docs/USER_MANUAL.md): building, writing a netlist, running and reading the results
 - [Reference Manual](docs/REFERENCE_MANUAL.md): options, elements, directives and output formats
+- [Glossary](docs/GLOSSARY.md): the terms the documents use
+- [FAQ](docs/FAQ.md): common questions, from running a netlist to contributing
 - [KNOWN_ISSUES.md](KNOWN_ISSUES.md): known problems
 - [CONTRIBUTING.md](CONTRIBUTING.md): what is accepted, and how to change the code
 - [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md): rules for coding agents (and people)
