@@ -1311,6 +1311,23 @@ TEST(BSIM4BodyEffectCoefficients, ValuesSetInCodeAreUsed) {
     EXPECT_DOUBLE_EQ(p.k2, 0.02);
 }
 
+// litl, the characteristic length of channel-length modulation and of the
+// substrate current, is sqrt(epsSi TOXE XJ / EPSROX) (BSIM4 manual, eq. 5.40),
+// which the BSIM4 4.8.3 code writes sqrt(3 * 3.9 / EPSROX * XJ * TOXE). It
+// grows with TOXE and XJ and shrinks with EPSROX.
+TEST(BSIM4DerivedParameters, LitlFollowsTheManual) {
+    BSIM4Params p;
+    p.toxe = 3e-9;
+    p.xj = 1.5e-7;
+    p.epsrox = 3.9;
+    p.compute_derived_params(p.tnom);
+    EXPECT_NEAR(p.litl, std::sqrt(3.0 * 1.5e-7 * 3e-9), 1e-16);
+
+    p.epsrox = 7.8;
+    p.compute_derived_params(p.tnom);
+    EXPECT_NEAR(p.litl, std::sqrt(1.5 * 1.5e-7 * 3e-9), 1e-16);
+}
+
 // When the card gives only one of K1 and K2, the other takes its default
 // (K1 = 0.53, K2 = -0.0186), as in the BSIM4 4.8.3 code.
 TEST(BSIM4BodyEffectCoefficients, DefaultWhenOnlyOneIsGiven) {

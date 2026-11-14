@@ -126,6 +126,12 @@ void BSIM4Params::compute_derived_params(Real temp) {
         spdlog::warn("BSIM4: toxe <= 0, using default factor1 = 1.0");
     }
 
+    // litl, the characteristic length of channel-length modulation and of
+    // the substrate current (BSIM4 manual, eq. 5.40):
+    // sqrt(epsSi TOXE XJ / EPSROX), with epsSi/3.9 written as 3, as in the
+    // BSIM4 4.8.3 code: sqrt(3 * 3.9 / EPSROX * XJ * TOXE)
+    litl = std::sqrt(3.0 * 3.9 / std::max(epsrox, 1e-12) * xj * toxe);
+
     // K1 and K2 (BSIM4 manual, section 2.2, eqs. 2.13-2.17, and appendix
     // A.18, Notes 1, 3 and 5): when the card gives neither, they follow from
     // the doping. gamma1 and gamma2 are the body-effect coefficients for NDEP

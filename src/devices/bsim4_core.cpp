@@ -1679,7 +1679,7 @@ std::pair<Real, Real> BSIM4Core::compute_vdseff(Real vdsat, Real vds, Real delta
 Real BSIM4Core::compute_vascbe(Real vds, Real Vdseff, Real leff) const {
     // Calculate litl = characteristic length (used in VASCBE calculation)
     // Formula: litl = sqrt(3 * eps_ox / eps_rox * xj * toxe)
-    const Real litl_vascbe = std::sqrt(3.0 * 3.9 / params_.epsrox * params_.xj * params_.toxe);
+    const Real litl_vascbe = params_.litl;  // BSIM4Params::compute_derived_params
 
     Real VASCBE;
     const Real diffVds_vascbe = vds - Vdseff;  // For VASCBE calculation only
@@ -2112,14 +2112,8 @@ Real BSIM4Core::compute_cdrain(const BSIM4BiasState& bias, const BSIM4ThresholdS
             // ===================================================================
             Real Cclm_calc = 1e6;  // Default: effectively infinite (CLM disabled)
             if (params_.pclm > 1e-10 && diffVds > 1e-10) {
-                // Calculate litl = characteristic length
-                // Reference: ngspice b4temp.c line 1347
-                // Formula: litl = sqrt(3.0 * epsrox / eps_si * xj * toxe)
-                // where eps_si = 11.7 (silicon relative permittivity)
-                // BUGFIX: Previous code had 3.9/epsrox which gave sqrt(3*xj*tox)
-                //         Correct formula uses epsrox/eps_si = 3.9/11.7 ≈ 0.333
-                constexpr Real eps_si = 11.7;  // Silicon relative permittivity
-                const Real litl = std::sqrt(3.0 * params_.epsrox / eps_si * params_.xj * params_.toxe);
+                // litl, the characteristic length (BSIM4Params::compute_derived_params)
+                const Real litl = params_.litl;
 
                 // Calculate thermal voltage Vt = k×T/q
                 // Reference: ngspice b4ld.c line 1611

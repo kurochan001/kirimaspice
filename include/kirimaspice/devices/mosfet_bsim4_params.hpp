@@ -90,6 +90,7 @@ struct BSIM4Params {
         Real bdos = 1.0;        ///< Gate density of states coefficient B
     Real vbsc = 0.0;        ///< Body-source critical voltage (BSIM4 internally derived)
     Real Xdep0 = 1e-7;      ///< Zero-bias depletion depth [m]
+    Real litl = 0.0;        ///< Characteristic length of CLM and SCBE [m] (derived)
     Real sqrtPhi = 1.0;     ///< Convenience value sqrt(phi)
     Real factor1 = 1.0;     ///< Derived helper for short-channel effects
     Real k1ox = 0.0;        ///< Oxide-thickness corrected body-effect coefficient (derived from k1)
