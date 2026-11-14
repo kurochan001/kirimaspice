@@ -46,6 +46,39 @@ MOSFET_Level3<P>::MOSFET_Level3(DeviceId id, const std::string& name,
         fs_ = 0.0;
     }
 
+    // PHI, GAMMA and VTO that the card does not give follow from NSUB (and
+    // TPG, NSS): PHI = 2 Vt ln(NSUB / ni) with ni = 1.45e10 cm^-3, GAMMA =
+    // sqrt(2 q epsSi NSUB) / Cox, VTO = VFB + TYPE (GAMMA sqrt(PHI) + PHI)
+    // with VFB = PHIms - q NSS / Cox
+    constexpr Real type = (P == Polarity::N) ? 1.0 : -1.0;
+    const Real vt_nom = k_boltzmann * params_.tnom / q_electron;
+    const Real nsub_si = params_.nsub * 1e6;
+    phi_ = params_.phi;
+    if (!params_.phi_given && nsub_si > 1.45e16) {
+        phi_ = std::max(0.1, 2.0 * vt_nom * std::log(nsub_si / 1.45e16));
+    }
+    gamma_ = params_.gamma;
+    if (!params_.gamma_given && nsub_si > 0.0) {
+        gamma_ = std::sqrt(2.0 * eps_si * q_electron * nsub_si) / cox_;
+    }
+    xd_ = (nsub_si > 0.0) ? std::sqrt(2.0 * eps_si / (q_electron * nsub_si)) : 0.0;
+    Real vto = params_.vto;
+    if (!params_.vto_given && nsub_si > 0.0) {
+        const Real tnom = params_.tnom;
+        const Real egfet = 1.16 - 7.02e-4 * tnom * tnom / (tnom + 1108.0);
+        // the gate's work function: 3.2 V for aluminium (TPG = 0), and for
+        // silicon 3.25 V plus Eg when its type is the substrate's opposite
+        const Real wkfng = (params_.tpg == 0.0)
+                               ? 3.2
+                               : 3.25 + 0.5 * egfet * (1.0 - type * params_.tpg);
+        const Real phims = wkfng - (3.25 + 0.5 * egfet + type * 0.5 * phi_);
+        const Real vfb = phims - q_electron * params_.nss * 1e4 / cox_;
+        vto = vfb + type * (gamma_ * std::sqrt(phi_) + phi_);
+    }
+    vbi_ = type * vto - gamma_ * std::sqrt(phi_);
+    sigma_ = params_.eta * 8.15e-22 / (cox_ * leff * leff * leff);
+    narrow_factor_ = params_.delta * 0.5 * 3.14159265358979323846 * eps_si / cox_;
+
     spdlog::debug("Created MOSFET_Level3 {} ({}-channel) (D={}, G={}, S={}, B={}, "
                  "W={:.3e}m, L={:.3e}m, Leff={:.3e}m, Weff={:.3e}m, "
                  "Cox={:.3e}F/m^2, β={:.3e}A/V^2)",
@@ -60,177 +93,167 @@ Real MOSFET_Level3<P>::process_transconductance() const {
     return (params_.kp > 0.0) ? params_.kp : params_.uo * 1e-4 * cox_;
 }
 
+// The SPICE level 3 MOSFET, written from its published equations (A.
+// Vladimirescu and S. Liu, "The Simulation of MOS Integrated Circuits Using
+// SPICE2", UCB/ERL M80/7, 1980) in the N-channel form; a P-channel device
+// takes VSG, VSD and VSB and TYPE VTO.
+
+template<Polarity P>
+void MOSFET_Level3<P>::body_potential(Real vbs, Real& sqphbs, Real& phibs) const {
+    if (vbs <= 0.0) {
+        phibs = phi_ - vbs;
+        sqphbs = std::sqrt(phibs);
+    } else {
+        // forward bias: sqrt(PHI) / (1 + VBS / (2 PHI)), which keeps PHI - VBS positive
+        sqphbs = std::sqrt(phi_) / (1.0 + vbs / (phi_ + phi_));
+        phibs = sqphbs * sqphbs;
+    }
+}
+
+template<Polarity P>
+Real MOSFET_Level3<P>::short_channel_factor(Real sqphbs) const {
+    // Fs = 1 - XJ / Leff ((LD + Wc) / XJ sqrt(1 - (Wp / (XJ + Wp))^2) - LD / XJ),
+    // with Wp = Xd sqrt(PHI - VBS) and Wc / XJ a quadratic in Wp / XJ
+    if (params_.xj <= 0.0 || xd_ <= 0.0) {
+        return 1.0;
+    }
+    const Real wponxj = xd_ * sqphbs / params_.xj;
+    const Real djonxj = params_.ld / params_.xj;
+    const Real wconxj = 0.0631353 + 0.8013292 * wponxj - 0.01110777 * wponxj * wponxj;
+    const Real argc = wponxj / (1.0 + wponxj);
+    return 1.0 - params_.xj / params_.get_leff() *
+                     ((wconxj + djonxj) * std::sqrt(1.0 - argc * argc) - djonxj);
+}
+
+template<Polarity P>
+typename MOSFET_Level3<P>::Point MOSFET_Level3<P>::evaluate_forward(Real vgs, Real vds,
+                                                                     Real vbs) const {
+    Point out;
+    const Real leff = params_.get_leff();
+    const Real weff = params_.get_weff();
+    const Real vt = k_boltzmann * params_.tnom / q_electron;
+
+    // Threshold: Vbi - SIGMA VDS + GAMMA Fs sqrt(PHI - VBS) + Fn (PHI - VBS)
+    Real sqphbs = 0.0, phibs = 0.0;
+    body_potential(vbs, sqphbs, phibs);
+    const Real gammas = gamma_ * short_channel_factor(sqphbs);
+    const Real fnarrow = narrow_factor_ / weff;
+    const Real fbody = 0.25 * gammas / sqphbs + fnarrow;  // Fb
+    out.vth = vbi_ - sigma_ * vds + gammas * sqphbs + fnarrow * phibs;
+
+    // Weak inversion (NFS > 0): below von = Vth + n Vt the current falls as
+    // exp((VGS - von) / (n Vt)), n = 1 + q NFS / Cox + Cd / Cox
+    Real vgsx = vgs;
+    Real xn = 1.0;
+    out.von = out.vth;
+    if (params_.nfs > 0.0) {
+        xn = 1.0 + q_electron * params_.nfs * 1e4 / cox_ +
+             (gammas * sqphbs + fnarrow * phibs) / (phibs + phibs);
+        out.von = out.vth + vt * xn;
+        vgsx = std::max(vgs, out.von);
+    } else if (vgs <= out.vth) {
+        return out;
+    }
+
+    // Mobility THETA degrades, and the saturation voltage, with VMAX
+    const Real vov = vgsx - out.vth;
+    const Real fgate = 1.0 / (1.0 + params_.theta * vov);
+    const Real us = params_.uo * 1e-4 * fgate;
+    const Real vsat = vov / (1.0 + fbody);
+    Real vdsc = 0.0;
+    if (params_.vmax > 0.0) {
+        vdsc = leff * params_.vmax / us;
+        out.vdsat = vsat + vdsc - std::sqrt(vsat * vsat + vdsc * vdsc);
+    } else {
+        out.vdsat = vsat;
+    }
+
+    // Current at min(VDS, Vdsat): beta (Vov - (1 + Fb) VDS / 2) VDS, divided
+    // by 1 + VDS / Vdsc with VMAX
+    const Real vdsx = std::min(vds, out.vdsat);
+    const Real fdrain = (params_.vmax > 0.0) ? 1.0 / (1.0 + vdsx / vdsc) : 1.0;
+    const Real beta = process_transconductance() * weff / leff * fgate;
+    Real ids = beta * fdrain * (vov - 0.5 * (1.0 + fbody) * vdsx) * vdsx;
+
+    // Channel-length modulation above Vdsat: Ids / (1 - dL / Leff), with
+    // dL = Xd sqrt(KAPPA (VDS - Vdsat)), or with VMAX
+    // dL = sqrt((Ep Xd^2 / 2)^2 + KAPPA Xd^2 (VDS - Vdsat)) - Ep Xd^2 / 2,
+    // Ep = Idsat / (Gdsat Leff); dL above Leff / 2 is limited to
+    // Leff - Leff^2 / (4 dL)
+    if (vds > out.vdsat && params_.kappa > 0.0 && xd_ > 0.0) {
+        const Real alpha = xd_ * xd_;
+        Real delxl = 0.0;
+        if (params_.vmax > 0.0) {
+            const Real gdsat = std::max(ids * (1.0 - fdrain) / vdsc, 1e-12);
+            const Real emax = ids / (leff * gdsat);
+            const Real a = 0.5 * emax * alpha;
+            delxl = std::sqrt(a * a + params_.kappa * alpha * (vds - out.vdsat)) - a;
+        } else {
+            delxl = std::sqrt(params_.kappa * (vds - out.vdsat) * alpha);
+        }
+        if (delxl > 0.5 * leff) {
+            delxl = leff - leff * leff / (4.0 * delxl);
+        }
+        ids /= (1.0 - delxl / leff);
+    }
+
+    if (params_.nfs > 0.0 && vgs < out.von) {
+        ids *= std::exp((vgs - out.von) / (vt * xn));
+    }
+    out.ids = ids;
+    return out;
+}
+
 template<Polarity P>
 Real MOSFET_Level3<P>::get_threshold_voltage(Real v_bs_eff) const {
-    // Threshold voltage with body effect:
-    // For N-channel: Vth(Vbs) = Vto + γ × (sqrt(φ - Vbs) - sqrt(φ))
-    // For P-channel: |Vth|(Vsb) = |Vto| + γ × (sqrt(φ - Vsb) - sqrt(φ))
-
-    Real gamma = params_.gamma;
-    Real phi = params_.phi;
-
-    // If gamma not specified, calculate from fs
-    if (gamma == 0.0 && fs_ > 0.0) {
-        gamma = fs_;
-    }
-
-    // v_bs_eff is VBS for N and VSB for P (compute_effective_voltages), so
-    // that the P-channel device is the mirror of the N-channel one: a
-    // reverse body bias (VBS < 0 for N, VSB < 0 for P) raises |Vth| in both
-    Real sqrt_phi = std::sqrt(std::max(phi, 1e-6));
-    Real sqrt_phi_vbs = std::sqrt(std::max(phi - v_bs_eff, 1e-6));
-
-    Real vth = get_effective_threshold() + gamma * (sqrt_phi_vbs - sqrt_phi);
-
-    // Narrow-width effect correction (delta parameter)
-    if (params_.delta > 0.0) {
-        Real weff = params_.get_weff();
-        vth += params_.delta * std::sqrt(std::max(phi - v_bs_eff, 0.0)) / weff;
-    }
-
-    return vth;
-}
-
-template<Polarity P>
-Real MOSFET_Level3<P>::get_effective_mobility(Real v_gs_eff, Real v_ds_eff, Real v_bs_eff) const {
-    // Effective mobility with degradation:
-    // μeff = μo / (1 + θ × (Vgs_eff - Vth))
-
-    (void)v_ds_eff;  // Unused for now
-    Real vth = get_threshold_voltage(v_bs_eff);
-    Real vov = v_gs_eff - vth;  // Overdrive voltage
-
-    if (vov <= 0.0) {
-        return params_.uo * 1e-4;  // Below threshold, use nominal mobility
-    }
-
-    Real mu_eff = (params_.uo * 1e-4) / (1.0 + params_.theta * vov);
-    return mu_eff;
-}
-
-template<Polarity P>
-Real MOSFET_Level3<P>::get_vdsat(Real v_gs_eff, Real v_bs_eff) const {
-    // Saturation voltage with velocity saturation
-
-    Real vth = get_threshold_voltage(v_bs_eff);
-    Real vov = v_gs_eff - vth;
-
-    if (vov <= 0.0) {
-        return 0.0;  // Below threshold
-    }
-
-    Real leff = params_.get_leff();
-    Real vdsat = vov;
-
-    // Short-channel effect (kappa parameter)
-    if (params_.kappa > 0.0 && leff > 0.0) {
-        vdsat = vov / (1.0 + params_.kappa * vov / leff);
-    }
-
-    // Velocity saturation (vmax parameter)
-    if (params_.vmax > 0.0) {
-        Real mu_eff = get_effective_mobility(v_gs_eff, vdsat, v_bs_eff);
-        Real vdsat_vel = params_.vmax * leff / mu_eff;
-        vdsat = std::min(vdsat, vdsat_vel);
-    }
-
-    return vdsat;
-}
-
-template<Polarity P>
-Real MOSFET_Level3<P>::get_channel_length_modulation(Real v_ds_eff, Real vdsat) const {
-    // Channel length modulation:
-    // f_CLM = 1 + λ × (Vds - Vdsat)
-
-    if (params_.lambda > 0.0) {
-        return 1.0 + params_.lambda * (v_ds_eff - vdsat);
-    } else if (params_.eta > 0.0) {
-        return 1.0 + params_.eta * (v_ds_eff - vdsat);
-    }
-
-    return 1.0;
+    Real sqphbs = 0.0, phibs = 0.0;
+    body_potential(v_bs_eff, sqphbs, phibs);
+    const Real gammas = gamma_ * short_channel_factor(sqphbs);
+    return vbi_ + gammas * sqphbs + narrow_factor_ / params_.get_weff() * phibs;
 }
 
 template<Polarity P>
 typename MOSFET_Level3<P>::Region MOSFET_Level3<P>::get_region(Real v_gs_eff, Real v_ds_eff, Real v_bs_eff) const {
-    Real vth = get_threshold_voltage(v_bs_eff);
-
-    if (v_gs_eff < vth) {
+    if (v_ds_eff < 0.0) {
+        return get_region(v_gs_eff - v_ds_eff, -v_ds_eff, v_bs_eff - v_ds_eff);
+    }
+    const Point point = evaluate_forward(v_gs_eff, v_ds_eff, v_bs_eff);
+    if (v_gs_eff < point.vth) {
         return Region::CUTOFF;
     }
-
-    Real vdsat = get_vdsat(v_gs_eff, v_bs_eff);
-
-    if (v_ds_eff < vdsat) {
-        return Region::LINEAR;
-    } else {
-        return Region::SATURATION;
-    }
+    return (v_ds_eff < point.vdsat) ? Region::LINEAR : Region::SATURATION;
 }
 
 template<Polarity P>
 Real MOSFET_Level3<P>::get_drain_current(Real v_gs_eff, Real v_ds_eff, Real v_bs_eff) const {
-    // MOSFET Level 3 drain current model (returns |Ids|)
-
-    Real vth = get_threshold_voltage(v_bs_eff);
-
-    if (v_gs_eff < vth) {
-        return 0.0;  // Cutoff
+    if (v_ds_eff >= 0.0) {
+        return evaluate_forward(v_gs_eff, v_ds_eff, v_bs_eff).ids;
     }
-
-    Real vov = v_gs_eff - vth;
-    Real vdsat = get_vdsat(v_gs_eff, v_bs_eff);
-
-    // Update beta with mobility degradation
-    Real mu_eff = get_effective_mobility(v_gs_eff, v_ds_eff, v_bs_eff);
-    Real leff = params_.get_leff();
-    Real weff = params_.get_weff();
-    // THETA degrades KP (or UO Cox) by mu_eff / UO
-    Real beta_eff = process_transconductance() * (mu_eff / (params_.uo * 1e-4)) * (weff / leff);
-
-    Real ids = 0.0;
-
-    if (v_ds_eff < vdsat) {
-        // Linear region
-        ids = beta_eff * (vov * v_ds_eff - 0.5 * v_ds_eff * v_ds_eff);
-    } else {
-        // Saturation region
-        ids = 0.5 * beta_eff * vdsat * vdsat;
-        Real f_clm = get_channel_length_modulation(v_ds_eff, vdsat);
-        ids *= f_clm;
-    }
-
-    return ids;  // Always positive
+    // Drain and source swap roles: the device sees VGD, VSD and VBD
+    return -evaluate_forward(v_gs_eff - v_ds_eff, -v_ds_eff, v_bs_eff - v_ds_eff).ids;
 }
+
+// gm, gds and gmb are central differences of get_drain_current
 
 template<Polarity P>
 Real MOSFET_Level3<P>::get_transconductance(Real v_gs_eff, Real v_ds_eff, Real v_bs_eff) const {
-    // Transconductance: gm = dIds/dVgs_eff
     constexpr Real h = 1e-6;
-    Real ids_plus = get_drain_current(v_gs_eff + h, v_ds_eff, v_bs_eff);
-    Real ids = get_drain_current(v_gs_eff, v_ds_eff, v_bs_eff);
-    Real gm = (ids_plus - ids) / h;
-    return std::max(gm, 0.0);
+    return (get_drain_current(v_gs_eff + h, v_ds_eff, v_bs_eff) -
+            get_drain_current(v_gs_eff - h, v_ds_eff, v_bs_eff)) / (2.0 * h);
 }
 
 template<Polarity P>
 Real MOSFET_Level3<P>::get_output_conductance(Real v_gs_eff, Real v_ds_eff, Real v_bs_eff) const {
-    // Output conductance: gds = dIds/dVds_eff
     constexpr Real h = 1e-6;
-    Real ids_plus = get_drain_current(v_gs_eff, v_ds_eff + h, v_bs_eff);
-    Real ids = get_drain_current(v_gs_eff, v_ds_eff, v_bs_eff);
-    Real gds = (ids_plus - ids) / h;
-    return std::max(gds, 0.0);
+    return (get_drain_current(v_gs_eff, v_ds_eff + h, v_bs_eff) -
+            get_drain_current(v_gs_eff, v_ds_eff - h, v_bs_eff)) / (2.0 * h);
 }
 
 template<Polarity P>
 Real MOSFET_Level3<P>::get_bulk_transconductance(Real v_gs_eff, Real v_ds_eff, Real v_bs_eff) const {
-    // Bulk transconductance: gmb = dIds/dVbs_eff
     constexpr Real h = 1e-6;
-    Real ids_plus = get_drain_current(v_gs_eff, v_ds_eff, v_bs_eff + h);
-    Real ids = get_drain_current(v_gs_eff, v_ds_eff, v_bs_eff);
-    Real gmb = (ids_plus - ids) / h;
-    return gmb;  // Can be negative
+    return (get_drain_current(v_gs_eff, v_ds_eff, v_bs_eff + h) -
+            get_drain_current(v_gs_eff, v_ds_eff, v_bs_eff - h)) / (2.0 * h);
 }
 
 template<Polarity P>

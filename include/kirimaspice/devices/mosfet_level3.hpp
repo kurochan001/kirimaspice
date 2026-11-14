@@ -118,22 +118,15 @@ public:
     NodeId source() const { return nodes_[2]; }
     NodeId bulk() const { return nodes_[3]; }
 
-    /// Get threshold voltage with body effect
+    /// Threshold with body effect at VDS = 0 (ETA lowers it as VDS rises)
     Real get_threshold_voltage(Real v_bs_eff) const;
 
-    /// Get effective mobility with degradation
-    Real get_effective_mobility(Real v_gs_eff, Real v_ds_eff, Real v_bs_eff) const;
-
-    /// Get saturation voltage
-    Real get_vdsat(Real v_gs_eff, Real v_bs_eff) const;
-
-    /// Get channel length modulation factor
-    Real get_channel_length_modulation(Real v_ds_eff, Real vdsat) const;
-
-    /// Get operating region
+    /// Operating region (for VDS < 0, of the device with drain and source swapped)
     Region get_region(Real v_gs_eff, Real v_ds_eff, Real v_bs_eff) const;
 
-    /// Get drain current (always positive, represents |Id|)
+    /// Drain current at the effective voltages (VGS, VDS, VBS for N; VSG,
+    /// VSD, VSB for P): positive from drain to source for N (source to drain
+    /// for P), negative for VDS < 0, where drain and source swap roles
     Real get_drain_current(Real v_gs_eff, Real v_ds_eff, Real v_bs_eff) const;
 
     /// Get transconductance gm = dIds/dVgs
@@ -194,6 +187,21 @@ private:
     /// KP, or UO Cox when the card gives no KP [A/V^2]
     Real process_transconductance() const;
 
+    /// The SPICE level 3 equations at VDS >= 0
+    struct Point {
+        Real ids = 0.0;    ///< drain current [A]
+        Real vth = 0.0;    ///< threshold [V]
+        Real von = 0.0;    ///< onset of strong inversion (Vth without NFS) [V]
+        Real vdsat = 0.0;  ///< saturation voltage [V]
+    };
+    Point evaluate_forward(Real vgs, Real vds, Real vbs) const;
+
+    /// sqrt(PHI - VBS) and PHI - VBS, continued smoothly for VBS > 0
+    void body_potential(Real vbs, Real& sqphbs, Real& phibs) const;
+
+    /// The short-channel factor Fs of the depletion charge (1 without XJ)
+    Real short_channel_factor(Real sqphbs) const;
+
     std::vector<NodeId> nodes_;  ///< [Drain, Gate, Source, Bulk]
     MOSFETLevel3Params params_;  ///< Model parameters
 
@@ -201,6 +209,12 @@ private:
     Real cox_;    ///< Oxide capacitance per unit area [F/m²]
     Real beta_;   ///< Transconductance parameter [A/V²]
     Real fs_;     ///< Surface state factor
+    Real phi_ = 0.6;            ///< PHI, given or from NSUB [V]
+    Real gamma_ = 0.0;          ///< GAMMA, given or from NSUB [V^0.5]
+    Real xd_ = 0.0;             ///< sqrt(2 epsSi / (q NSUB)), 0 without NSUB [m/V^0.5]
+    Real vbi_ = 0.0;            ///< TYPE VTO - GAMMA sqrt(PHI) [V]
+    Real sigma_ = 0.0;          ///< static feedback, ETA 8.15e-22 / (Cox Leff^3) [V/V]
+    Real narrow_factor_ = 0.0;  ///< DELTA pi epsSi / (2 Cox) [m]
 
     // State variables (for BDF integration)
     // Named generically: v1 = Vgs(N)/Vsg(P), v2 = Vgd(N)/Vsd(P), etc.

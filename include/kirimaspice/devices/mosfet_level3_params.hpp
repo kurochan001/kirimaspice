@@ -16,12 +16,19 @@ struct MOSFETLevel3Params {
     Real tox = 1e-7;       ///< Oxide thickness [m] (100nm default)
     Real nsub = 0.0;       ///< Substrate doping [cm^-3]
     Real nss = 0.0;        ///< Surface state density [cm^-2]
-    Real tpg = 1.0;        ///< Gate material type (+1: opposite to substrate, -1: same as substrate)
+    Real tpg = 1.0;        ///< Gate material type (+1: opposite to substrate, -1: same as substrate, 0: Al)
+    Real xj = 0.0;         ///< Metallurgical junction depth [m]; 0 leaves out the short-channel factor
+    Real nfs = 0.0;        ///< Fast surface state density [cm^-2]; 0 leaves out weak inversion
 
     // Threshold voltage parameters
     Real vto = 0.0;        ///< Zero-bias threshold voltage [V]
     Real phi = 0.6;        ///< Surface inversion potential [V]
     Real gamma = 0.0;      ///< Body effect parameter [V^0.5]
+    // Whether VTO, PHI and GAMMA were given: a card without them takes them
+    // from NSUB (and TPG, NSS). Values set in code count as given.
+    bool vto_given = true;
+    bool phi_given = true;
+    bool gamma_given = true;
 
     // Mobility parameters
     Real uo = 600.0;       ///< Low-field mobility [cm^2/V-s] (600 for N, 250 for P)
@@ -30,12 +37,13 @@ struct MOSFETLevel3Params {
     Real vmax = 0.0;       ///< Maximum drift velocity [m/s] (0 = infinite)
 
     // Short-channel effect parameters
-    Real eta = 0.0;        ///< Static feedback parameter [dimensionless]
-    Real kappa = 0.2;      ///< Saturation field factor [dimensionless]
+    Real eta = 0.0;        ///< Static feedback on the threshold [dimensionless]
+    Real kappa = 0.2;      ///< Saturation field factor of channel-length modulation
     Real delta = 0.0;      ///< Width effect on threshold [dimensionless]
 
-    // Channel length modulation
-    Real lambda = 0.0;     ///< Channel length modulation [1/V] (Level 1 style, deprecated)
+    // Not a level 3 parameter (SPICE's level 3 has KAPPA instead); kept for
+    // code that sets it, and not used
+    Real lambda = 0.0;
 
     // Parasitic resistances
     Real rd = 0.0;         ///< Drain ohmic resistance [Ω]

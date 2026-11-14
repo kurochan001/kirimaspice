@@ -5157,6 +5157,10 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         const ModelDefinition& model = *found_model;
 
         devices::MOSFETLevel3Params level3_params;
+        // VTO, PHI and GAMMA that the card does not give follow from NSUB
+        level3_params.vto_given = model.params.count("vto") > 0 || model.params.count("vth0") > 0;
+        level3_params.phi_given = model.params.count("phi") > 0;
+        level3_params.gamma_given = model.params.count("gamma") > 0;
 
         // Copy all model parameters to MOSFETLevel3Params
         for (const auto& [key, value] : model.params) {
@@ -5165,6 +5169,8 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
             else if (key == "nsub") level3_params.nsub = value;
             else if (key == "nss") level3_params.nss = value;
             else if (key == "tpg") level3_params.tpg = static_cast<int>(value);
+            else if (key == "xj") level3_params.xj = value;
+            else if (key == "nfs") level3_params.nfs = value;
             // Threshold voltage
             else if (key == "vto" || key == "vth0") level3_params.vto = value;
             else if (key == "phi") level3_params.phi = value;

@@ -1163,6 +1163,11 @@ add_executable(test_netlist_temperatures unit/test_netlist_temperatures.cpp)
 target_link_libraries(test_netlist_temperatures PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_netlist_temperatures)
 
+# The level 3 MOSFET against its published equations and ngspice-47
+add_executable(test_mosfet_level3_reference unit/test_mosfet_level3_reference.cpp)
+target_link_libraries(test_mosfet_level3_reference PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_mosfet_level3_reference)
+
 # BSIM4 high VDS Vth tests
 add_executable(test_bsim4_high_vds_vth unit/test_bsim4_high_vds_vth.cpp)
 target_link_libraries(test_bsim4_high_vds_vth PRIVATE kirimaspice_lib GTest::gtest_main)
