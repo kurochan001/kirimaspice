@@ -65,6 +65,13 @@ only waveform, analyses inside `.control` are not run as ngspice runs them,
 and the parser reads only part of the device parameters. The document and
 [KNOWN_ISSUES](../KNOWN_ISSUES.md) list them.
 
+### Does it read netlists written for HSPICE or Spectre?
+
+Not confirmed. Where SPICE dialects differ, kirimaspice follows ngspice
+([NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.md)). No commercial
+simulator has been used to check compatibility, and none will be (see
+[the answer on commercial simulators](#do-you-check-against-commercial-simulators)).
+
 ### Why is `1M` one milliohm?
 
 As in SPICE, `M` is milli whatever its case; mega is `MEG`. In the same
@@ -125,12 +132,41 @@ Not in the program: it steps by `tstep`, at most `tmax`. The library has an
 adaptive path that chooses each step from the [LTE](GLOSSARY.md#lte); the
 program does not use it yet.
 
-### Do you compare against commercial simulators?
+### Do you check against commercial simulators?
 
-No. Commercial simulators are not run for this project, and their output,
-logs and waveforms are not accepted in issues or in the repository
-([CONTRIBUTING](../CONTRIBUTING.md)). References come from analytic
-solutions and from open-source simulators with a recorded version.
+No. The project does not hold licenses for commercial SPICE simulators
+such as HSPICE (Synopsys) or Spectre (Cadence). kirimaspice has not been
+verified with them, and they will not be run or compared for this project.
+Their output, logs, waveforms and diagnostics are also kept out of test
+expectations and of decisions on the implementation; keeping such results
+private does not by itself make their use permitted. Expected values come
+from model specifications, analytic solutions and open-source simulators
+run with a recorded version, such as ngspice.
+
+Two public examples of the terms that govern such tools, read on
+2026-11-14 without logging in:
+
+- The [Synopsys Cloud Service Agreement 2024](https://www.synopsys.com/cloud/service-agreement.html):
+  sections 9.3.2, 9.3.5 and 9.3.7 prohibit reverse engineering a product
+  or deriving the algorithms or ideas embodied in it, using a product or
+  its output to develop or enhance a product that competes with Synopsys,
+  and benchmarking a product or disclosing benchmark results.
+- Cadence's [click-through terms for its Design Materials & Cloud Platform](https://www5.cadence.com/rs/070-BII-206/images/SOFTWARE%20LICENSE%20AGREEMENT_FNL.pdf)
+  (dated 2020-07-29 in the document): use is for evaluation and
+  demonstration only, and not for benchmarking design tools; reverse
+  engineering the encrypted portions is prohibited; and benchmarking or
+  competitive analysis derived from the materials is Cadence's
+  confidential information.
+
+Reading public contract text is separate from holding a product license.
+These examples do not mean that the project has entered into these
+agreements or that they apply to it, and the license terms of HSPICE and
+Spectre themselves were not found in public (not confirmed). Terms vary by
+product, contract and jurisdiction, and we do not claim that every ordinary
+use is prohibited. Not using commercial simulators is this project's
+operating policy. Compatibility with commercial simulators and matching
+their results are not confirmed; see the
+[posting policy](#may-i-include-commercial-simulator-output-in-an-issue).
 
 ### Why are some comparison tests skipped?
 
@@ -170,6 +206,21 @@ expected values and what is published, and approve them; the rules are in
 
 Not yet. For now the project accepts issues and specification proposals
 only ([CONTRIBUTING](../CONTRIBUTING.md)).
+
+### May I include commercial simulator output in an issue?
+
+No. Keep it out of issue bodies, comments and attachments: output, logs,
+screenshots, waveforms and diagnostics, including anonymized excerpts,
+summaries and results run by someone else. The same holds for netlists,
+models and documents distributed with a commercial tool or under a
+non-disclosure agreement, such as foundry model parameters. Do not run a
+commercial simulator for a report, and do not ask another contributor to.
+
+Describe the expected behaviour in your own words, with the section of the
+model's specification or an analytic solution, a minimal netlist you wrote
+yourself and, where it helps, the result of an open-source simulator with
+its version. If such material is posted, do not quote, summarize or use
+it; ask its author or the maintainers to remove it.
 
 ### How can I help?
 
