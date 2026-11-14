@@ -59,6 +59,10 @@ MOSFET_BSIM4<P>::MOSFET_BSIM4(DeviceId id, const std::string& name,
       drain_(drain), gate_(gate), source_(source), bulk_(bulk),
       params_(params),
       core_(params_, P == Polarity::P) {
+    // The derived parameters (Xdep0, factor1, ...) are computed here, as the
+    // core computes its own, so that the device does not depend on whether
+    // its caller computed them (subcircuit expansion did not)
+    params_.compute_derived_params(params_.tnom);
 
     // Calculate instance-specific theta0vb0
     // This MUST be done per-instance because it depends on leff.

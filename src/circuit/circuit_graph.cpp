@@ -2331,76 +2331,8 @@ void CircuitGraph::expand_subcircuit_instance(const std::string& instance_name) 
                         const auto& model_def = *config_->find_model(model);
                         const auto& params = model_def.params;
 
-                        devices::BSIM4Params bsim4_params;
-
-                        // Copy all model parameters to BSIM4Params
-                        // (Following the same pattern as in netlist_parser.cpp)
-                        for (const auto& [key, value] : params) {
-                            // Process Parameters
-                            if (key == "version") bsim4_params.version = value;
-                            else if (key == "toxe") bsim4_params.toxe = value;
-                            else if (key == "toxp") bsim4_params.toxp = value;
-                            else if (key == "toxm") bsim4_params.toxm = value;
-                            else if (key == "tox") bsim4_params.toxe = value;  // Alias
-                            else if (key == "vth0") bsim4_params.vth0 = value;
-                            else if (key == "k1") bsim4_params.k1 = value;
-                            else if (key == "k2") bsim4_params.k2 = value;
-                            else if (key == "k3") bsim4_params.k3 = value;
-                            else if (key == "u0") bsim4_params.u0 = value;
-                            else if (key == "ua") bsim4_params.ua = value;
-                            else if (key == "ub") bsim4_params.ub = value;
-                            else if (key == "uc") bsim4_params.uc = value;
-                            else if (key == "vsat") bsim4_params.vsat = value;
-                            else if (key == "a0") bsim4_params.a0 = value;
-                            else if (key == "ags") bsim4_params.ags = value;
-                            else if (key == "keta") bsim4_params.keta = value;
-                            else if (key == "rdsw") bsim4_params.rdsw = value;
-                            else if (key == "voff") bsim4_params.voff = value;
-                            else if (key == "nfactor") bsim4_params.nfactor = value;
-                            else if (key == "eta0") bsim4_params.eta0 = value;
-                            else if (key == "dsub") bsim4_params.dsub = value;
-                            else if (key == "pclm") bsim4_params.pclm = value;
-                            else if (key == "pdiblc1") bsim4_params.pdiblc1 = value;
-                            else if (key == "pdiblc2") bsim4_params.pdiblc2 = value;
-                            else if (key == "drout") bsim4_params.drout = value;
-                            else if (key == "delta") bsim4_params.delta = value;
-                            else if (key == "mobmod") bsim4_params.mobmod = static_cast<int>(value);
-                            else if (key == "kt1") bsim4_params.kt1 = value;
-                            else if (key == "kt2") bsim4_params.kt2 = value;
-                            else if (key == "ute") bsim4_params.ute = value;
-                            else if (key == "capmod") bsim4_params.capmod = static_cast<int>(value);
-                            else if (key == "cgdo") bsim4_params.cgdo = value;
-                            else if (key == "cgso") bsim4_params.cgso = value;
-                            else if (key == "cgbo") bsim4_params.cgbo = value;
-
-                            // Junction capacitances (BSIM4 has separate source/drain params)
-                            else if (key == "cj") {
-                                bsim4_params.cjs = value;
-                                bsim4_params.cjd = value;
-                            }
-                            else if (key == "pb") {
-                                bsim4_params.pbs = value;
-                                bsim4_params.pbd = value;
-                            }
-                            else if (key == "mj") {
-                                bsim4_params.mjs = value;
-                                bsim4_params.mjd = value;
-                            }
-                            else if (key == "cjsw") {
-                                bsim4_params.cjsws = value;
-                                bsim4_params.cjswd = value;
-                            }
-                            else if (key == "pbsw") {
-                                bsim4_params.pbsws = value;
-                                bsim4_params.pbswd = value;
-                            }
-                            else if (key == "mjsw") {
-                                bsim4_params.mjsws = value;
-                                bsim4_params.mjswd = value;
-                            }
-                            else if (key == "tnom") bsim4_params.tnom = value + 273.15;  // Celsius to Kelvin
-                            // Add more parameters as needed...
-                        }
+                        devices::BSIM4Params bsim4_params =
+                            devices::bsim4_params_from_model(params, model);
 
                         // Override with instance parameters (W, L from tokens)
                         bsim4_params.w = width;

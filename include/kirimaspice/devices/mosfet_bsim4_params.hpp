@@ -25,6 +25,9 @@
 
 #include "kirimaspice/core/types.hpp"
 
+#include <map>
+#include <string>
+
 namespace kirimaspice::devices {
 
 /// BSIM4.8.3 model parameters
@@ -67,6 +70,14 @@ struct BSIM4Params {
     Real gamma2 = 0.0;      ///< Body-effect coefficient in bulk [V^0.5]
     Real vbx = 0.0;         ///< Vbs at which gamma changes from gamma1 to gamma2 [V]
     Real vbm = -3.0;        ///< Maximum Vbs [V]
+    // Whether these were given on the .MODEL card: when neither K1 nor K2
+    // is, they are computed from GAMMA1, GAMMA2, VBX and VBM (BSIM4 manual,
+    // section 2.2 and appendix A.18, Notes 1, 3 and 5)
+    bool k1_given = false;
+    bool k2_given = false;
+    bool gamma1_given = false;
+    bool gamma2_given = false;
+    bool vbx_given = false;
     Real xt = 1.55e-7;      ///< Doping depth [m]
     Real eot = 0.0;         ///< Equivalent oxide thickness [m]
     Real vddeot = 0.0;      ///< Supply voltage for eot extraction [V]
@@ -514,5 +525,13 @@ struct BSIM4Params {
         return true;
     }
 };
+
+/// BSIM4 parameters from the parameters of a .MODEL card (names in lower
+/// case), with the checks of the version and the ranges. The parser and
+/// subcircuit expansion both use it, so a model means the same at the top
+/// level and inside a subcircuit; the instance values (W, L, M) are set by
+/// the caller.
+BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_params,
+                                    const std::string& model_name);
 
 } // namespace kirimaspice::devices

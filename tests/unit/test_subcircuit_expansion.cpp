@@ -817,3 +817,20 @@ V1 in 0 1
     EXPECT_DOUBLE_EQ(resistance("X1.R2"), 1.2345678e-4);
     EXPECT_DOUBLE_EQ(resistance("X1.R3"), 9.87654321e7);
 }
+
+// A BSIM4 model means the same inside a subcircuit as at the top level: both
+// fill the device's parameters from the card through bsim4_params_from_model.
+// Subcircuit expansion used to copy only 42 of the parameters, so NDEP, here
+// given, was ignored inside the subcircuit.
+TEST_F(SubcircuitExpansionTest, Bsim4CardMeansTheSameInsideASubcircuit) {
+    const std::string card =
+        ".model nch nmos level=14 version=4.8.1 toxe=3e-9 vth0=0.5 u0=0.067 vsat=8e4 "
+        "ndep=3e17 k1=0.5 k2=0\n";
+    const std::string top = "top level\nVDD vdd 0 DC 1.8\nVG g 0 DC 1.0\nRD vdd d 10k\n"
+                            "M1 d g 0 0 nch L=0.18u W=1u\n" + card + ".END\n";
+    const std::string sub = "inside a subcircuit\nVDD vdd 0 DC 1.8\nVG g 0 DC 1.0\nRD vdd d 10k\n"
+                            ".SUBCKT AMP d g\nM1 d g 0 0 nch L=0.18u W=1u\n.ENDS AMP\n"
+                            "X1 d g AMP\n" + card + ".END\n";
+    const Real i_top = source_current(top, "VDD");
+    EXPECT_NEAR(source_current(sub, "VDD"), i_top, 1e-9 * std::abs(i_top));
+}

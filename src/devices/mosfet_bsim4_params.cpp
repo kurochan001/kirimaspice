@@ -265,4 +265,215 @@ void BSIM4Params::compute_derived_params(Real temp) {
                   phi, sqrtPhi, Xdep0, factor1, k1ox, vbi);
 }
 
+
+BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_params,
+                                    const std::string& model_name) {
+    BSIM4Params bsim4_params;
+
+    // Which of the parameters that change the computation of others were
+    // given on the card (BSIM4 manual, appendix A.18: K1 and K2 from
+    // GAMMA1, GAMMA2, VBX and VBM when neither K1 nor K2 is given)
+    bsim4_params.k1_given = model_params.count("k1") > 0;
+    bsim4_params.k2_given = model_params.count("k2") > 0;
+    bsim4_params.gamma1_given = model_params.count("gamma1") > 0;
+    bsim4_params.gamma2_given = model_params.count("gamma2") > 0;
+    bsim4_params.vbx_given = model_params.count("vbx") > 0;
+
+    for (const auto& [key, value] : model_params) {
+        // Process Parameters
+        if (key == "version") bsim4_params.version = value;
+        else if (key == "tox") bsim4_params.toxe = value;  // TOX is alias for TOXE in BSIM4
+        else if (key == "toxe") bsim4_params.toxe = value;
+        else if (key == "toxp") bsim4_params.toxp = value;
+        else if (key == "toxm") bsim4_params.toxm = value;
+        else if (key == "dtox") bsim4_params.dtox = value;
+        else if (key == "toxref") bsim4_params.toxref = value;
+        else if (key == "ntox") bsim4_params.ntox = value;
+        else if (key == "epsrox") bsim4_params.epsrox = value;
+        else if (key == "eot") bsim4_params.eot = value;
+        else if (key == "vddeot") bsim4_params.vddeot = value;
+        else if (key == "tempeot") bsim4_params.tempeot = value;
+        else if (key == "leffeot") bsim4_params.leffeot = value;
+        else if (key == "weffeot") bsim4_params.weffeot = value;
+        else if (key == "phieot") bsim4_params.phieot = value;
+        else if (key == "ados") bsim4_params.ados = value;
+        else if (key == "bdos") bsim4_params.bdos = value;
+        else if (key == "cdsc") bsim4_params.cdsc = value;
+        else if (key == "cdscb") bsim4_params.cdscb = value;
+        else if (key == "cdscd") bsim4_params.cdscd = value;
+        else if (key == "cit") bsim4_params.cit = value;
+        else if (key == "nfactor") bsim4_params.nfactor = value;
+        else if (key == "xj") bsim4_params.xj = value;
+        else if (key == "vsat") bsim4_params.vsat = value;
+        else if (key == "at") bsim4_params.at = value;
+        else if (key == "a0") bsim4_params.a0 = value;
+        else if (key == "ags") bsim4_params.ags = value;
+        else if (key == "a1") bsim4_params.a1 = value;
+        else if (key == "a2") bsim4_params.a2 = value;
+        else if (key == "keta") bsim4_params.keta = value;
+        else if (key == "nsub") bsim4_params.nsub = value;
+        else if (key == "ndep") bsim4_params.ndep = value;
+        else if (key == "nch") bsim4_params.ndep = value;  // NCH is alias for NDEP in BSIM4
+        else if (key == "nsd") bsim4_params.nsd = value;
+        else if (key == "ngate") bsim4_params.ngate = value;
+        else if (key == "phi") bsim4_params.phi = value;
+        else if (key == "phin") bsim4_params.phin = value;
+        else if (key == "gamma1") bsim4_params.gamma1 = value;
+        else if (key == "gamma2") bsim4_params.gamma2 = value;
+        else if (key == "vbx") bsim4_params.vbx = value;
+        else if (key == "vbm") bsim4_params.vbm = value;
+        else if (key == "xt") bsim4_params.xt = value;
+        // Threshold Voltage Parameters
+        else if (key == "vth0") bsim4_params.vth0 = value;
+        else if (key == "vto") bsim4_params.vth0 = value;  // Alias
+        else if (key == "k1") bsim4_params.k1 = value;
+        else if (key == "k2") bsim4_params.k2 = value;
+        else if (key == "k3") bsim4_params.k3 = value;
+        else if (key == "k3b") bsim4_params.k3b = value;
+        else if (key == "w0") bsim4_params.w0 = value;
+        else if (key == "dvt0") bsim4_params.dvt0 = value;
+        else if (key == "dvt1") bsim4_params.dvt1 = value;
+        else if (key == "dvt2") bsim4_params.dvt2 = value;
+        else if (key == "dvt0w") bsim4_params.dvt0w = value;
+        else if (key == "dvt1w") bsim4_params.dvt1w = value;
+        else if (key == "dvt2w") bsim4_params.dvt2w = value;
+        else if (key == "drout") bsim4_params.drout = value;
+        else if (key == "dsub") bsim4_params.dsub = value;
+        else if (key == "lpe0") bsim4_params.lpe0 = value;
+        else if (key == "lpeb") bsim4_params.lpeb = value;
+        else if (key == "kt1") bsim4_params.kt1 = value;
+        else if (key == "kt1l") bsim4_params.kt1l = value;
+        else if (key == "kt2") bsim4_params.kt2 = value;
+        // Mobility Parameters
+        else if (key == "u0") bsim4_params.u0 = value;
+        else if (key == "ua") bsim4_params.ua = value;
+        else if (key == "ub") bsim4_params.ub = value;
+        else if (key == "uc") bsim4_params.uc = value;
+        else if (key == "ud") bsim4_params.ud = value;
+        else if (key == "up") bsim4_params.up = value;
+        else if (key == "lp") bsim4_params.lp = value;
+        else if (key == "eu") bsim4_params.eu = value;
+        else if (key == "voff") bsim4_params.voff = value;
+        else if (key == "delta") bsim4_params.delta = value;
+        else if (key == "rdsw") bsim4_params.rdsw = value;
+        else if (key == "rsw") bsim4_params.rsw = value;
+        else if (key == "rdw") bsim4_params.rdw = value;
+        else if (key == "prwg") bsim4_params.prwg = value;
+        else if (key == "prwb") bsim4_params.prwb = value;
+        else if (key == "prt") bsim4_params.prt = value;
+        else if (key == "eta0") bsim4_params.eta0 = value;
+        else if (key == "etab") bsim4_params.etab = value;
+        // Channel Length Modulation & DIBL
+        else if (key == "pclm") bsim4_params.pclm = value;
+        else if (key == "pdiblc1") bsim4_params.pdiblc1 = value;
+        else if (key == "pdiblc2") bsim4_params.pdiblc2 = value;
+        else if (key == "pdiblcb") bsim4_params.pdiblcb = value;
+        else if (key == "pscbe1") bsim4_params.pscbe1 = value;
+        else if (key == "pscbe2") bsim4_params.pscbe2 = value;
+        else if (key == "pvag") bsim4_params.pvag = value;
+        else if (key == "wr") bsim4_params.wr = value;
+        else if (key == "dwg") bsim4_params.dwg = value;
+        else if (key == "dwb") bsim4_params.dwb = value;
+        else if (key == "b0") bsim4_params.b0 = value;
+        else if (key == "b1") bsim4_params.b1 = value;
+        else if (key == "alpha0") bsim4_params.alpha0 = value;
+        else if (key == "alpha1") bsim4_params.alpha1 = value;
+        else if (key == "beta0") bsim4_params.beta0 = value;
+        // Temperature Parameters
+        else if (key == "tnom") bsim4_params.tnom = value + 273.15;  // Celsius to Kelvin
+        else if (key == "kt1") bsim4_params.kt1 = value;
+        else if (key == "kt1l") bsim4_params.kt1l = value;
+        else if (key == "kt2") bsim4_params.kt2 = value;
+        else if (key == "ute") bsim4_params.ute = value;
+        else if (key == "ua1") bsim4_params.ua1 = value;
+        else if (key == "ub1") bsim4_params.ub1 = value;
+        else if (key == "uc1") bsim4_params.uc1 = value;
+        // Gate Overlap Capacitance
+        else if (key == "cgso") bsim4_params.cgso = value;
+        else if (key == "cgdo") bsim4_params.cgdo = value;
+        else if (key == "cgbo") bsim4_params.cgbo = value;
+        // Geometry Scaling
+        else if (key == "lint") bsim4_params.lint = value;
+        else if (key == "wint") bsim4_params.wint = value;
+        else if (key == "xl") bsim4_params.xl = value;
+        else if (key == "xw") bsim4_params.xw = value;
+        // Instance parameters (will be overridden by M-line parameters)
+        else if (key == "w") bsim4_params.w = value;
+        else if (key == "l") bsim4_params.l = value;
+        else if (key == "nf") bsim4_params.nf = value;
+        else if (key == "m") bsim4_params.m = value;
+        else if (key == "mult_i") bsim4_params.mult_i = value;
+        else if (key == "mult_q") bsim4_params.mult_q = value;
+        else if (key == "mult_fn") bsim4_params.mult_fn = value;
+        else if (key == "as") bsim4_params.as = value;
+        else if (key == "ad") bsim4_params.ad = value;
+        else if (key == "ps") bsim4_params.ps = value;
+        else if (key == "pd") bsim4_params.pd = value;
+        else if (key == "nrd") bsim4_params.nrd = static_cast<int>(value);
+        else if (key == "nrs") bsim4_params.nrs = static_cast<int>(value);
+        // Level parameter (already processed)
+        else if (key == "level") {
+            // Already handled, skip
+        }
+        // Model selection flags
+        else if (key == "mobmod") bsim4_params.mobmod = static_cast<int>(value);
+        else if (key == "capmod") bsim4_params.capmod = static_cast<int>(value);
+        else if (key == "gidlmod") bsim4_params.gidlmod = static_cast<int>(value);
+        else if (key == "gidlclamp") bsim4_params.gidlclamp = value;
+        else if (key == "idovvds" || key == "idovvdsc") bsim4_params.idovvdsc = value;
+        else if (key == "igbmod") bsim4_params.igbmod = static_cast<int>(value);
+        else if (key == "igcmod") bsim4_params.igcmod = static_cast<int>(value);
+        // Note: Additional BSIM4 parameters (200+ more) will be added.4+
+        // For now, warn about unrecognized parameters
+        else {
+            spdlog::debug("BSIM4 parameter '{}' recognized but not yet implemented", key);
+        }
+    }
+
+    // Override with instance parameters (W, L from tokens)
+
+    const Real target_bsim4_version = 4.83;
+    if (bsim4_params.version <= 0.0) {
+        spdlog::warn("BSIM4 model {} declared non-positive version {:.3f}; defaulting to {:.2f}",
+                     model_name, bsim4_params.version, target_bsim4_version);
+        bsim4_params.version = target_bsim4_version;
+    } else if (std::abs(bsim4_params.version - target_bsim4_version) > 1e-3) {
+        spdlog::warn("BSIM4 model {} targets version {:.3f}; KirimaSpice currently follows {:.2f}. Results may differ.",
+                     model_name, bsim4_params.version, target_bsim4_version);
+    }
+
+    if (bsim4_params.u0 > 1.0) {
+        Real original_u0 = bsim4_params.u0;
+        bsim4_params.u0 *= 1e-4;
+        spdlog::warn("BSIM4 model {}: u0={} interpreted as cm^2/Vs. Converted to {:.3e} m^2/Vs (×1e-4).",
+                     model_name, original_u0, bsim4_params.u0);
+    }
+
+    auto ensure_positive = [&](const char* param, Real min_value, Real& target) {
+        if (target <= min_value) {
+            spdlog::warn("BSIM4 model {}: {}={} is <= {}. Clamping to {}.",
+                         model_name, param, target, min_value, min_value);
+            target = min_value;
+        }
+    };
+    ensure_positive("phi", 1e-3, bsim4_params.phi);
+    ensure_positive("phieot", 1e-3, bsim4_params.phieot);
+    ensure_positive("tempeot", 1.0, bsim4_params.tempeot);
+
+    if (bsim4_params.gidlclamp >= 0.0) {
+        spdlog::warn("BSIM4 model {}: gidlclamp={} must be negative. Resetting to -1e-5.",
+                     model_name, bsim4_params.gidlclamp);
+        bsim4_params.gidlclamp = -1e-5;
+    }
+    if (bsim4_params.idovvdsc <= 0.0) {
+        spdlog::warn("BSIM4 model {}: idovvdsc={} must be positive. Resetting to 1e-9.",
+                     model_name, bsim4_params.idovvdsc);
+        bsim4_params.idovvdsc = 1e-9;
+    }
+
+    // Compute BSIM4 derived parameters before creating device
+
+    return bsim4_params;
+}
+
 } // namespace kirimaspice::devices
