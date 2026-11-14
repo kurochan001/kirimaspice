@@ -254,13 +254,14 @@ TEST(MOSFET_Level3_N, DrainCurrent_MobilityDegradation) {
 TEST(MOSFET_Level3_N, DrainCurrent_ChannelLengthModulation) {
     auto params = create_standard_params();
     params.theta = 0.0;   // No mobility degradation
-    params.vmax = 1e10;   // No velocity saturation
+    params.vmax = 0.0;    // No velocity saturation
 
-    // Compare with and without CLM
-    params.lambda = 0.0;
+    // Compare with and without CLM: level 3 takes it from KAPPA with NSUB
+    // (LAMBDA is not a level 3 parameter)
+    params.kappa = 0.0;
     MOSFET_Level3_N mosfet_no_clm(1, "M1", 1, 2, 0, 0, params);
 
-    params.lambda = 0.02;  // With CLM (lambda in 1/V)
+    params.kappa = 0.2;  // With CLM
     MOSFET_Level3_N mosfet_with_clm(2, "M2", 1, 2, 0, 0, params);
 
     Real vgs = 2.0;
@@ -294,7 +295,7 @@ TEST(MOSFET_Level3_N, Transconductance_Saturation) {
 
 TEST(MOSFET_Level3_N, OutputConductance_Saturation) {
     auto params = create_standard_params();
-    params.lambda = 0.02;  // Enable CLM (lambda in 1/V)
+    params.kappa = 0.2;  // Enable CLM (level 3 takes it from KAPPA with NSUB)
     MOSFET_Level3_N mosfet(1, "M1", 1, 2, 0, 0, params);
 
     Real vgs = 2.0;
