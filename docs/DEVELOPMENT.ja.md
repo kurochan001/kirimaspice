@@ -2,7 +2,7 @@
 
 [English](DEVELOPMENT.md) · [プロジェクトの README](../README.ja.md) · この文書は英語版を正とします。日本語版はその訳で、両者が食い違う場合は英語版に従います。
 
-**2026-11-14 更新**、コミット `f94ff34` に合わせています。この手引きは、kirimaspice を変える人のための
+**2026-11-15 更新**、コミット `db0fef6` に合わせています。この手引きは、kirimaspice を変える人のための
 ものです。開発用のビルド、テストの構成と実行、push の前に確かめること、プロジェクトの決まりの中で
 デバイスモデルを足したり不具合を直したりする方法を書きます。受け付ける貢献は
 [CONTRIBUTING](../CONTRIBUTING.ja.md) に、人にもエージェントにも等しく適用される決まりは
@@ -57,8 +57,9 @@ ctest --test-dir build --output-on-failure
 | `tests/debug/`、`tests/debug_*.cpp` | デバッグ用のプログラム | しない |
 
 GoogleTest のプログラムは `gtest_discover_tests` で登録するので、CTest はテストケースを 1 つずつ
-`Suite.Name` として並べます。コマンドラインのテスト（`cli_*`）と例題（`example_*`）は `add_test` で
-登録します。コミット `f94ff34` では、macOS で CTest のテストは 1103 個です。
+`Suite.Name` として並べます。コマンドラインのテスト（`cli_*`）、例題（`example_*`）、Python のツール
+（`python_tools_*`）、`bsim4_dc_smoke`、`MutualInductanceFixTest` は `add_test` で登録し、それぞれが CTest の
+1 つのテストです。コミット `db0fef6` では、macOS で CTest のテストは 1162 個です。
 
 ### テストの一部を実行する
 
@@ -109,7 +110,9 @@ noreply でないコミットの作者です。出てはいけない名前は、
 
 デバイスの式は 1 か所にだけ書きます。どの解析（動作点、DC スイープ、AC、過渡、ノイズ）も、同じモデルの
 コードを通してデバイスを評価するので、1 つの解析のために式の写しを足さないでください。まだそうなって
-いないのは BSIM4 のノイズ源だけです（[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#デバイスモデル)）。
+いない箇所（BSIM4 のノイズ源と、SiC MOSFET、GaN HEMT、IGBT の AC とノイズの書き込み）は、
+[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#デバイスモデル) に書いてあります。新しいコードで、そのような箇所を
+増やしてはいけません。
 
 手順です。クラスとファイルは [ARCHITECTURE](ARCHITECTURE.ja.md#デバイス) で説明しています。
 
@@ -120,10 +123,24 @@ noreply でないコミットの作者です。出てはいけない名前は、
 3. テストを書きます。期待値は、モデルの仕様か解析解、または版を記録した ngspice の実行から決めます。
 4. [リファレンスマニュアル](REFERENCE_MANUAL.ja.md#素子)に素子を書きます。
 
+新しいデバイスが関わる場所です。
+
+| 場所 | 足すもの |
+| --- | --- |
+| `include/kirimaspice/core/types.hpp` | 極性ごとの `DeviceType` の値 |
+| `include/kirimaspice/devices/`、`src/devices/` | クラス。ヘッダーだけでないテンプレートなら、`.cpp` のファイルでの明示的な実体化 |
+| `CMakeLists.txt` | `kirimaspice_lib` のソースへの `.cpp` のファイル（ソースはグロブで集めず、列挙しています） |
+| `src/parser/netlist_parser.cpp` | 素子、または `.MODEL` カードの `LEVEL` と、そのパラメータ |
+| `CircuitGraph::expand_subcircuit_instance`（`src/circuit/circuit_graph.cpp`） | `.SUBCKT` の中で使えるようにするなら、その中の素子 |
+| `apply_temperature_to_devices`（`src/solvers/temperature_utils.cpp`） | 温度に依存するなら、デバイスの `set_temperature` の呼び出し |
+| `tests/unit/`、`tests/CMakeLists.txt` | テストとその登録 |
+| `tools/check_spdx.py` の `ECL_FILES`、[THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.ja.md) | BSIM のモデルのコードに基づくコードのときだけ |
+| [リファレンスマニュアル](REFERENCE_MANUAL.ja.md#素子)（英語版と日本語版） | 素子、そのパラメータ、その既定値 |
+
 BSIM のモデルのコードに基づくコードは、その告知（ECL-2.0）を残し、`tools/check_spdx.py` の `ECL_FILES` の
 SPDX の式を付け、[THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.ja.md) に載せます。GPL や LGPL の
 ソースコードは読まず、移植もしません。ngspice のファイルは、読む前にそれぞれのライセンスを確かめます
-（[CLAUDE.md](../CLAUDE.ja.md)）。
+（[CLAUDE.md](../CLAUDE.ja.md#gpl-や-lgpl-のコード)）。
 
 ## 不具合を直す
 
@@ -173,8 +190,9 @@ cmake --build build-bench --target bench_device_stamping
 
 - プログラムは `info` のレベルでログを出します（`src/main.cpp`）。レベルを変えるオプションはありません。
   コードの中の `debug` と `trace` のメッセージを出すには、`main.cpp` を変える必要があります。
-- `KIRIMASPICE_DEBUG_DUMP=1` は、DC の反復ごとの MNA の行列を、今のディレクトリの `debug_coo.txt` などの
-  ファイルに書きます。`KIRIMASPICE_BSIM1_DEBUG` は BSIM1 のデバッグログを出します
-  （[リファレンスマニュアル](REFERENCE_MANUAL.ja.md#環境変数)）。
-- `--raw-out` は、DC スイープと過渡解析の、すべてのノードの電圧と電源の電流を書きます。
+- `KIRIMASPICE_DEBUG_DUMP` は、どんな値でも設定すると、DC の解を求めるたびに、Newton 法の 2 回目の反復の
+  MNA の系を、今のディレクトリの `debug_coo.txt`、`debug_csc.txt`、`debug_b.txt`、`debug_x.txt` に書きます。
+  `KIRIMASPICE_BSIM1_DEBUG` は BSIM1 のデバッグログを出します。値が空でないときは、その名前のデバイスに
+  ついてだけ出します（[リファレンスマニュアル](REFERENCE_MANUAL.ja.md#環境変数)）。
+- `--raw-out` は、動作点、DC スイープ、過渡解析の、すべてのノードの電圧と枝の電流を書きます。
   [Python のツール](USER_MANUAL.ja.md#python-のツールを使う)で読めます。

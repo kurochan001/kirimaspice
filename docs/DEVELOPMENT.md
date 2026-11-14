@@ -2,7 +2,7 @@
 
 [日本語](DEVELOPMENT.ja.md) · [Project README](../README.md) · This English text is the main version; the Japanese version follows it, and where they differ, this text holds.
 
-**Updated 2026-11-14** for commit `f94ff34`. This guide is for people who
+**Updated 2026-11-15** for commit `db0fef6`. This guide is for people who
 change kirimaspice: how to build it for development, how the tests are laid
 out and run, what to check before a push, and how to add a device model or
 fix a bug within the project's rules. [CONTRIBUTING](../CONTRIBUTING.md)
@@ -63,9 +63,11 @@ ctest --test-dir build --output-on-failure
 | `tests/debug/`, `tests/debug_*.cpp` | debugging programs | no |
 
 GoogleTest programs are registered with `gtest_discover_tests`, so CTest
-lists each test case as `Suite.Name`. Command-line tests (`cli_*`) and the
-examples (`example_*`) are registered with `add_test`. At commit `f94ff34`
-CTest has 1103 tests on macOS.
+lists each test case as `Suite.Name`. The command-line tests (`cli_*`),
+the examples (`example_*`), the Python tools (`python_tools_*`),
+`bsim4_dc_smoke` and `MutualInductanceFixTest` are registered with
+`add_test`, one CTest test each. At commit `db0fef6` CTest has 1162 tests
+on macOS.
 
 ### Run a part of the tests
 
@@ -123,9 +125,10 @@ it. The private patterns of the history scan come from the
 
 A device's equations are written once. Every analysis (operating point, DC
 sweep, AC, transient, noise) evaluates a device through the same model
-code, so do not add a second copy of a formula for one analysis. BSIM4's
-noise sources are the one place where this is not yet so
-([KNOWN_ISSUES](../KNOWN_ISSUES.md#device-models)).
+code, so do not add a second copy of a formula for one analysis. Where
+this is not yet so (BSIM4's noise sources, and the AC and noise stamps of
+the SiC MOSFET, the GaN HEMT and the IGBT), [KNOWN_ISSUES](../KNOWN_ISSUES.md#device-models)
+says so; new code must not add more such cases.
 
 The steps, with the classes and files described in
 [ARCHITECTURE](ARCHITECTURE.md#devices):
@@ -140,6 +143,20 @@ The steps, with the classes and files described in
    or an analytic solution, or from an ngspice run with its version
    recorded.
 4. Document the element in the [Reference Manual](REFERENCE_MANUAL.md#elements).
+
+The places a new device touches:
+
+| Place | What to add |
+| --- | --- |
+| `include/kirimaspice/core/types.hpp` | a value of `DeviceType` for each polarity |
+| `include/kirimaspice/devices/`, `src/devices/` | the class; an explicit instantiation in the `.cpp` file for a template that is not header-only |
+| `CMakeLists.txt` | the `.cpp` file in the sources of `kirimaspice_lib` (they are listed, not globbed) |
+| `src/parser/netlist_parser.cpp` | the element or the `LEVEL` of a `.MODEL` card, and its parameters |
+| `CircuitGraph::expand_subcircuit_instance` (`src/circuit/circuit_graph.cpp`) | the element inside a `.SUBCKT`, if it should work there |
+| `apply_temperature_to_devices` (`src/solvers/temperature_utils.cpp`) | a call of the device's `set_temperature`, if it depends on temperature |
+| `tests/unit/`, `tests/CMakeLists.txt` | the tests and their registration |
+| `ECL_FILES` in `tools/check_spdx.py`, [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md) | only for code based on BSIM model code |
+| [Reference Manual](REFERENCE_MANUAL.md#elements) and its Japanese version | the element, its parameters and their defaults |
 
 Code based on BSIM model code keeps its notice (ECL-2.0), carries the
 SPDX expression of `ECL_FILES` in `tools/check_spdx.py`, and is listed in
@@ -207,10 +224,12 @@ them, CI does not build them, and no results are published.
 - The program logs at the `info` level (`src/main.cpp`); there is no
   option to change the level. The `debug` and `trace` messages in the code
   need a change to `main.cpp` to appear.
-- `KIRIMASPICE_DEBUG_DUMP=1` writes the MNA matrix of each DC iteration to
-  files such as `debug_coo.txt` in the current directory, and
-  `KIRIMASPICE_BSIM1_DEBUG` turns on BSIM1 debug logs
+- `KIRIMASPICE_DEBUG_DUMP`, set to any value, writes the MNA system of
+  the second Newton iteration of each DC solve to `debug_coo.txt`,
+  `debug_csc.txt`, `debug_b.txt` and `debug_x.txt` in the current
+  directory. `KIRIMASPICE_BSIM1_DEBUG` turns on BSIM1 debug logs, for the
+  device of that name only when its value is not empty
   ([Reference Manual](REFERENCE_MANUAL.md#environment-variables)).
-- `--raw-out` writes every node voltage and source current of a DC sweep
-  or transient; [Python tools](USER_MANUAL.md#use-the-python-tools) read
-  it.
+- `--raw-out` writes every node voltage and branch current of the
+  operating point, a DC sweep or a transient;
+  [Python tools](USER_MANUAL.md#use-the-python-tools) read it.
