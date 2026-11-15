@@ -172,8 +172,7 @@ void CircuitGraph::add_resistor(const std::string& name,
     auto resistor = std::make_shared<devices::Resistor>(id, name, np_id, nn_id, resistance);
 
     // Add to device list
-    devices_.push_back(resistor);
-    device_map_[name] = resistor;
+    register_device(name, resistor);
 
     // Add edge to graph
     auto [edge, success] = boost::add_edge(np_id, nn_id, graph_);
@@ -194,8 +193,7 @@ void CircuitGraph::add_capacitor(const std::string& name,
     DeviceId id = next_device_id_++;
     auto capacitor = std::make_shared<devices::Capacitor>(id, name, np_id, nn_id, capacitance);
 
-    devices_.push_back(capacitor);
-    device_map_[name] = capacitor;
+    register_device(name, capacitor);
 
     auto [edge, success] = boost::add_edge(np_id, nn_id, graph_);
     if (success) {
@@ -215,8 +213,7 @@ void CircuitGraph::add_inductor(const std::string& name,
     DeviceId id = next_device_id_++;
     auto inductor = std::make_shared<devices::Inductor>(id, name, np_id, nn_id, inductance);
 
-    devices_.push_back(inductor);
-    device_map_[name] = inductor;
+    register_device(name, inductor);
 
     auto [edge, success] = boost::add_edge(np_id, nn_id, graph_);
     if (success) {
@@ -244,8 +241,7 @@ void CircuitGraph::add_voltage_source(const std::string& name,
     vsource->set_branch_id(branch_id);
     voltage_sources_.push_back(vsource);
 
-    devices_.push_back(vsource);
-    device_map_[name] = vsource;
+    register_device(name, vsource);
 
     auto [edge, success] = boost::add_edge(np_id, nn_id, graph_);
     if (success) {
@@ -268,8 +264,7 @@ void CircuitGraph::add_current_source(const std::string& name,
     auto isource = std::make_shared<devices::CurrentSource>(id, name, np_id, nn_id, dc_value,
                                                             ac_magnitude, ac_phase);
 
-    devices_.push_back(isource);
-    device_map_[name] = isource;
+    register_device(name, isource);
 
     auto [edge, success] = boost::add_edge(np_id, nn_id, graph_);
     if (success) {
@@ -428,8 +423,7 @@ void CircuitGraph::add_behavioral_source(const std::string& name,
         voltage_sources_.push_back(bsource);
     }
 
-    devices_.push_back(bsource);
-    device_map_[name] = bsource;
+    register_device(name, bsource);
 
     auto [edge, success] = boost::add_edge(np_id, nn_id, graph_);
     if (success) {
@@ -510,8 +504,7 @@ void CircuitGraph::add_diode(const std::string& name,
     DeviceId id = next_device_id_++;
     auto diode = std::make_shared<devices::Diode>(id, name, anode_id, cathode_id, is, n);
 
-    devices_.push_back(diode);
-    device_map_[name] = diode;
+    register_device(name, diode);
 
     auto [edge, success] = boost::add_edge(anode_id, cathode_id, graph_);
     if (success) {
@@ -552,8 +545,7 @@ void CircuitGraph::add_bjt_npn(const std::string& name,
                                                     0.0, 0.0,         // tf, tr
                                                     kf, af, ff);      // Noise parameters
 
-    devices_.push_back(bjt);
-    device_map_[name] = bjt;
+    register_device(name, bjt);
 
     // Add edges: C-B and B-E (BJT is a 3-terminal device)
     auto [edge_cb, success_cb] = boost::add_edge(collector_id, base_id, graph_);
@@ -601,8 +593,7 @@ void CircuitGraph::add_bjt_pnp(const std::string& name,
                                                     0.0, 0.0,         // tf, tr
                                                     kf, af, ff);      // Noise parameters
 
-    devices_.push_back(bjt);
-    device_map_[name] = bjt;
+    register_device(name, bjt);
 
     // Add edges: C-B and B-E (BJT is a 3-terminal device)
     auto [edge_cb, success_cb] = boost::add_edge(collector_id, base_id, graph_);
@@ -649,8 +640,7 @@ void CircuitGraph::add_mosfet_n(const std::string& name,
                                                         kf, af, ef, gamma, // Noise parameters
                                                         kt1, kt2, ute, tnom); // Temperature parameters
 
-    devices_.push_back(mosfet);
-    device_map_[name] = mosfet;
+    register_device(name, mosfet);
 
     // Add edges: D-G and G-S (MOSFET is a 3-terminal device)
     auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
@@ -698,8 +688,7 @@ void CircuitGraph::add_mosfet_p(const std::string& name,
                                                         kf, af, ef, gamma, // Noise parameters
                                                         kt1, kt2, ute, tnom); // Temperature parameters
 
-    devices_.push_back(mosfet);
-    device_map_[name] = mosfet;
+    register_device(name, mosfet);
 
     // Add edges: D-G and G-S (MOSFET is a 3-terminal device)
     auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
@@ -735,8 +724,7 @@ void CircuitGraph::add_mosfet_level3_n(const std::string& name,
     DeviceId id = next_device_id_++;
     auto mosfet = std::make_shared<devices::MOSFET_Level3_N>(id, name, drain_id, gate_id, source_id, bulk_id, params);
 
-    devices_.push_back(mosfet);
-    device_map_[name] = mosfet;
+    register_device(name, mosfet);
 
     // Add edges: D-G and G-S
     auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
@@ -767,8 +755,7 @@ void CircuitGraph::add_mosfet_level3_p(const std::string& name,
     DeviceId id = next_device_id_++;
     auto mosfet = std::make_shared<devices::MOSFET_Level3_P>(id, name, drain_id, gate_id, source_id, bulk_id, params);
 
-    devices_.push_back(mosfet);
-    device_map_[name] = mosfet;
+    register_device(name, mosfet);
 
     // Add edges: D-G and G-S
     auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
@@ -803,8 +790,7 @@ void CircuitGraph::add_mosfet_bsim3_n(const std::string& name,
     DeviceId id = next_device_id_++;
     auto mosfet = std::make_shared<devices::MOSFET_BSIM3_N>(id, name, drain_id, gate_id, source_id, bulk_id, params);
 
-    devices_.push_back(mosfet);
-    device_map_[name] = mosfet;
+    register_device(name, mosfet);
 
     // Add edges: D-G and G-S (simplified)
     auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
@@ -835,8 +821,7 @@ void CircuitGraph::add_mosfet_bsim3_p(const std::string& name,
     DeviceId id = next_device_id_++;
     auto mosfet = std::make_shared<devices::MOSFET_BSIM3_P>(id, name, drain_id, gate_id, source_id, bulk_id, params);
 
-    devices_.push_back(mosfet);
-    device_map_[name] = mosfet;
+    register_device(name, mosfet);
 
     // Add edges: D-G and G-S (simplified)
     auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
@@ -867,8 +852,7 @@ void CircuitGraph::add_mosfet_bsim1_n(const std::string& name,
     DeviceId id = next_device_id_++;
     auto mosfet = std::make_shared<devices::MOSFET_BSIM1_N>(id, name, drain_id, gate_id, source_id, bulk_id, params);
 
-    devices_.push_back(mosfet);
-    device_map_[name] = mosfet;
+    register_device(name, mosfet);
 
     // Add edges: D-G and G-S
     auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
@@ -899,8 +883,7 @@ void CircuitGraph::add_mosfet_bsim1_p(const std::string& name,
     DeviceId id = next_device_id_++;
     auto mosfet = std::make_shared<devices::MOSFET_BSIM1_P>(id, name, drain_id, gate_id, source_id, bulk_id, params);
 
-    devices_.push_back(mosfet);
-    device_map_[name] = mosfet;
+    register_device(name, mosfet);
 
     // Add edges: D-G and G-S
     auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
@@ -931,8 +914,7 @@ void CircuitGraph::add_mosfet_bsim4_n(const std::string& name,
     DeviceId id = next_device_id_++;
     auto mosfet = std::make_shared<devices::MOSFET_BSIM4_N>(id, name, drain_id, gate_id, source_id, bulk_id, params);
 
-    devices_.push_back(mosfet);
-    device_map_[name] = mosfet;
+    register_device(name, mosfet);
 
     // Add edges: D-G and G-S
     auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
@@ -963,8 +945,7 @@ void CircuitGraph::add_mosfet_bsim4_p(const std::string& name,
     DeviceId id = next_device_id_++;
     auto mosfet = std::make_shared<devices::MOSFET_BSIM4_P>(id, name, drain_id, gate_id, source_id, bulk_id, params);
 
-    devices_.push_back(mosfet);
-    device_map_[name] = mosfet;
+    register_device(name, mosfet);
 
     // Add edges: D-G and G-S
     auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
@@ -1009,8 +990,7 @@ void CircuitGraph::add_mosfet_sic_n(const std::string& name,
         kf, af, ef, gamma,
         kt1, kt2, ute, rdtemp, tnom);
 
-    devices_.push_back(mosfet);
-    device_map_[name] = mosfet;
+    register_device(name, mosfet);
 
     // Add edges: D-G and G-S
     auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
@@ -1052,8 +1032,7 @@ void CircuitGraph::add_mosfet_sic_p(const std::string& name,
         kf, af, ef, gamma,
         kt1, kt2, ute, rdtemp, tnom);
 
-    devices_.push_back(mosfet);
-    device_map_[name] = mosfet;
+    register_device(name, mosfet);
 
     // Add edges: D-G and G-S
     auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
@@ -1097,8 +1076,7 @@ void CircuitGraph::add_gan_hemt_n(const std::string& name,
         kf, af, ef,
         kt1, kt2, ute, tnom);
 
-    devices_.push_back(hemt);
-    device_map_[name] = hemt;
+    register_device(name, hemt);
 
     // Add edges: D-G and G-S
     auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
@@ -1138,8 +1116,7 @@ void CircuitGraph::add_gan_hemt_p(const std::string& name,
         kf, af, ef,
         kt1, kt2, ute, tnom);
 
-    devices_.push_back(hemt);
-    device_map_[name] = hemt;
+    register_device(name, hemt);
 
     // Add edges: D-G and G-S
     auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
@@ -1175,8 +1152,7 @@ void CircuitGraph::add_finfet_n(const std::string& name,
         nfin, hfin, tfin, vth, u0, vsat, ss, dibl, tox,
         cgs, cgd, kf, af, kt1, tnom, l);
 
-    devices_.push_back(finfet);
-    device_map_[name] = finfet;
+    register_device(name, finfet);
 
     // Add edges: D-G and G-S
     auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
@@ -1212,8 +1188,7 @@ void CircuitGraph::add_finfet_p(const std::string& name,
         nfin, hfin, tfin, vth, u0, vsat, ss, dibl, tox,
         cgs, cgd, kf, af, kt1, tnom, l);
 
-    devices_.push_back(finfet);
-    device_map_[name] = finfet;
+    register_device(name, finfet);
 
     // Add edges: D-G and G-S
     auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
@@ -1251,8 +1226,7 @@ void CircuitGraph::add_vdmos_n(const std::string& name,
         kf, af, ef, gamma,
         kt1, kt2, ute, rtc, tnom);
 
-    devices_.push_back(vdmos);
-    device_map_[name] = vdmos;
+    register_device(name, vdmos);
 
     // Add edges: D-G and G-S
     auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
@@ -1290,8 +1264,7 @@ void CircuitGraph::add_vdmos_p(const std::string& name,
         kf, af, ef, gamma,
         kt1, kt2, ute, rtc, tnom);
 
-    devices_.push_back(vdmos);
-    device_map_[name] = vdmos;
+    register_device(name, vdmos);
 
     // Add edges: D-G and G-S
     auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
@@ -1329,8 +1302,7 @@ void CircuitGraph::add_igbt_n(const std::string& name,
         kf, af,
         kt1, kt2, ute, tcv, tnom);
 
-    devices_.push_back(igbt);
-    device_map_[name] = igbt;
+    register_device(name, igbt);
 
     // Add edges: C-G and G-E
     auto [edge_cg, success_cg] = boost::add_edge(collector_id, gate_id, graph_);
@@ -1368,8 +1340,7 @@ void CircuitGraph::add_igbt_p(const std::string& name,
         kf, af,
         kt1, kt2, ute, tcv, tnom);
 
-    devices_.push_back(igbt);
-    device_map_[name] = igbt;
+    register_device(name, igbt);
 
     // Add edges: C-G and G-E
     auto [edge_cg, success_cg] = boost::add_edge(collector_id, gate_id, graph_);
@@ -1406,8 +1377,7 @@ void CircuitGraph::add_scr_n(const std::string& name,
         id, name, anode_id, cathode_id, gate_id,
         vbf, igt, ih, il, vgt, ron, vtm, dv_dt, tnom);
 
-    devices_.push_back(scr);
-    device_map_[name] = scr;
+    register_device(name, scr);
 
     // Add edges: A-K (main power path) and G-K (gate control)
     auto [edge_ak, success_ak] = boost::add_edge(anode_id, cathode_id, graph_);
@@ -1440,8 +1410,7 @@ void CircuitGraph::add_scr_p(const std::string& name,
         id, name, cathode_id, anode_id, gate_id,
         vbf, igt, ih, il, vgt, ron, vtm, dv_dt, tnom);
 
-    devices_.push_back(scr);
-    device_map_[name] = scr;
+    register_device(name, scr);
 
     // Add edges: K-A (main power path, reverse polarity) and G-A (gate control)
     auto [edge_ka, success_ka] = boost::add_edge(cathode_id, anode_id, graph_);
@@ -1478,8 +1447,7 @@ void CircuitGraph::add_triac(const std::string& name,
         id, name, mt2_id, mt1_id, gate_id,
         vbo, igt, ih, vgt, ron, vtm, dv_dt, tnom);
 
-    devices_.push_back(triac);
-    device_map_[name] = triac;
+    register_device(name, triac);
 
     // Add edges: MT2-MT1 (main power path, bidirectional) and G-MT1 (gate control)
     auto [edge_mt, success_mt] = boost::add_edge(mt2_id, mt1_id, graph_);
@@ -1527,8 +1495,7 @@ void CircuitGraph::add_mesfet_n(const std::string& name,
         cgs, cgd, cds, kf, af, ef, tnom);
 
     // Add to devices list
-    devices_.push_back(mesfet);
-    device_map_[name] = mesfet;
+    register_device(name, mesfet);
 
     // Add graph edges: D-G and G-S
     auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
@@ -1574,8 +1541,7 @@ void CircuitGraph::add_mesfet_p(const std::string& name,
         cgs, cgd, cds, kf, af, ef, tnom);
 
     // Add to devices list
-    devices_.push_back(mesfet);
-    device_map_[name] = mesfet;
+    register_device(name, mesfet);
 
     // Add graph edges: D-G and G-S
     auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
@@ -1618,8 +1584,7 @@ void CircuitGraph::add_vcvs(const std::string& name,
     vcvs->set_branch_id(branch_id);
     voltage_sources_.push_back(vcvs);
 
-    devices_.push_back(vcvs);
-    device_map_[name] = vcvs;
+    register_device(name, vcvs);
 
     // Add edges: output side (np-nn) and control side (ncp-ncn)
     auto [edge_out, success_out] = boost::add_edge(np_id, nn_id, graph_);
@@ -1647,8 +1612,7 @@ void CircuitGraph::add_cccs(const std::string& name,
     DeviceId id = next_device_id_++;
     auto cccs = std::make_shared<devices::CCCS>(id, name, np_id, nn_id, control_vsource_name, gain);
 
-    devices_.push_back(cccs);
-    device_map_[name] = cccs;
+    register_device(name, cccs);
 
     // Add edge: output side (np-nn)
     auto [edge, success] = boost::add_edge(np_id, nn_id, graph_);
@@ -1677,8 +1641,7 @@ void CircuitGraph::add_vccs(const std::string& name,
     DeviceId id = next_device_id_++;
     auto vccs = std::make_shared<devices::VCCS>(id, name, np_id, nn_id, ncp_id, ncn_id, transconductance);
 
-    devices_.push_back(vccs);
-    device_map_[name] = vccs;
+    register_device(name, vccs);
 
     // Add edges: output side (np-nn) and control side (ncp-ncn)
     auto [edge_out, success_out] = boost::add_edge(np_id, nn_id, graph_);
@@ -1711,8 +1674,7 @@ void CircuitGraph::add_ccvs(const std::string& name,
     ccvs->set_branch_id(branch_id);
     voltage_sources_.push_back(ccvs);
 
-    devices_.push_back(ccvs);
-    device_map_[name] = ccvs;
+    register_device(name, ccvs);
 
     // Add edge: output side (np-nn)
     auto [edge, success] = boost::add_edge(np_id, nn_id, graph_);
@@ -1739,8 +1701,7 @@ void CircuitGraph::add_mutual_inductance(const std::string& name,
     auto mutual = std::make_shared<devices::MutualInductance>(
         id, name, inductor1_name, inductor2_name, coupling_coefficient);
 
-    devices_.push_back(mutual);
-    device_map_[name] = mutual;
+    register_device(name, mutual);
 
     spdlog::debug("Added MutualInductance: {} (L1={}, L2={}, k={})",
                   name, inductor1_name, inductor2_name, coupling_coefficient);
@@ -1766,8 +1727,7 @@ void CircuitGraph::add_tline_lossless(const std::string& name,
     auto tline = std::make_shared<devices::TLineLossless>(
         id, name, ap_id, an_id, bp_id, bn_id, z0, td);
 
-    devices_.push_back(tline);
-    device_map_[name] = tline;
+    register_device(name, tline);
 
     spdlog::debug("Added TLineLossless: {} (A={},{}, B={},{}, Z0={} Ω, TD={} s)",
                   name, ap, an, bp, bn, z0, td);
@@ -1791,8 +1751,7 @@ void CircuitGraph::add_tline_lossy(const std::string& name,
     auto tline = std::make_shared<devices::TLineLossy>(
         id, name, ap_id, an_id, bp_id, bn_id, r_per_m, l_per_m, c_per_m, g_per_m, td);
 
-    devices_.push_back(tline);
-    device_map_[name] = tline;
+    register_device(name, tline);
 
     spdlog::debug("Added TLineLossy: {} (A={},{}, B={},{}, R={} Ω/m, L={} H/m, C={} F/m, G={} S/m, TD={} s)",
                   name, ap, an, bp, bn, r_per_m, l_per_m, c_per_m, g_per_m, td);
@@ -1860,6 +1819,15 @@ void CircuitGraph::add_tline_lumped(const std::string& name,
 
     spdlog::debug("Added T-line lumped model: {} ({} sections, Z0={} Ω, TD={} s)",
                   name, num_sections, z0, td);
+}
+
+void CircuitGraph::register_device(const std::string& name,
+                                   const std::shared_ptr<devices::Device>& device) {
+    if (device_map_.contains(name)) {
+        throw std::runtime_error(fmt::format("Element '{}' is already defined", name));
+    }
+    devices_.push_back(device);
+    device_map_.emplace(name, device);
 }
 
 std::uint32_t CircuitGraph::num_devices() const {

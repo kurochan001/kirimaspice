@@ -256,3 +256,11 @@ TEST(NetlistLines, BehavioralExpressionWithBlanks) {
         EXPECT_NEAR(x[parsed.circuit->get_node_id("o") - 1], 2.0, 1e-9) << b;
     }
 }
+
+// An element name is used once (CircuitGraph::register_device); ngspice-47
+// stops with "device already exists"
+TEST(NetlistLines, ElementNameUsedTwice) {
+    parser::NetlistParser parser;
+    EXPECT_THROW(parser.parse_string("t\nV1 in 0 1\nR1 in 0 1k\nR1 in 0 1k\n.op\n.end\n"),
+                 parser::ParseError);
+}

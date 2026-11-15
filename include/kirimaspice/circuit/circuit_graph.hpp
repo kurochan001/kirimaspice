@@ -1171,6 +1171,11 @@ public:
     void expand_all_subcircuits();
 
 private:
+    /// Every device enters the circuit here. Its name must not be in use, as
+    /// in ngspice ("device already exists").
+    /// @throws std::runtime_error if another device has the name
+    void register_device(const std::string& name, const std::shared_ptr<devices::Device>& device);
+
     Graph graph_;                                           ///< Boost.Graph instance
     std::unordered_map<std::string, NodeId> node_map_;     ///< Node name → ID mapping
     std::vector<std::string> node_names_;                  ///< NodeId → name mapping

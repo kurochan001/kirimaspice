@@ -92,6 +92,16 @@ void SubcircuitRegistry::add_instance(const SubcircuitInstance& instance) {
             instance.instance_name, instance.subcircuit_type, instance.instance_line));
     }
 
+    // An instance name, as an element name, is used once (CircuitGraph::
+    // register_device); a second X1 would otherwise not be expanded
+    for (const auto& other : instances_) {
+        if (other.instance_name == instance.instance_name) {
+            throw std::runtime_error(fmt::format(
+                "Element '{}' is already defined (line {})", instance.instance_name,
+                instance.instance_line));
+        }
+    }
+
     instances_.push_back(instance);
 }
 

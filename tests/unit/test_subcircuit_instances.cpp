@@ -167,3 +167,12 @@ TEST(SubcircuitInstances, AssignmentsWithBlanks) {
     EXPECT_DOUBLE_EQ(m->channel_width(), 100e-6);
     EXPECT_DOUBLE_EQ(m->channel_length(), 1e-6);
 }
+
+// ... and so is an instance name (SubcircuitRegistry::add_instance); the
+// second X1 was not expanded. ngspice-47 stops with "device already exists".
+TEST(SubcircuitInstances, InstanceNameUsedTwice) {
+    const std::string message = parse_error(
+        "t\n.subckt load a b\nR1 a b 1k\n.ends load\nV1 in 0 1\nV2 in2 0 1\n"
+        "X1 in 0 load\nX1 in2 0 load\n.op\n.end\n");
+    EXPECT_NE(message.find("already defined"), std::string::npos) << message;
+}
