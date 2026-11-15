@@ -213,6 +213,11 @@ void SSFWriter::init_dc_metadata(const std::vector<std::string>& node_names,
 
     for (size_t i = 0; i < node_names.size(); ++i) {
         const auto& node_name = node_names[i];
+        // Ground is not an unknown: the solution, and so the data blocks,
+        // hold the other nodes only
+        if (node_name == NODE_GND_NAME) {
+            continue;
+        }
         std::string signal_name = "v(" + node_name + ")";
 
         // Check if signal should be saved
@@ -327,6 +332,11 @@ void SSFWriter::init_transient_metadata(const solvers::TransientResult& result,
 
     for (size_t i = 0; i < node_names.size(); ++i) {
         const auto& node_name = node_names[i];
+        // Ground is not an unknown: the solution, and so the data blocks,
+        // hold the other nodes only
+        if (node_name == NODE_GND_NAME) {
+            continue;
+        }
         std::string signal_name = "v(" + node_name + ")";
 
         // Check if signal should be saved

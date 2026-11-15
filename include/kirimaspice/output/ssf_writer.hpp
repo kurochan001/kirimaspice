@@ -4,6 +4,8 @@
 // include/kirimaspice/output/ssf_writer.hpp
 #pragma once
 
+#include <cmath>
+
 #include "kirimaspice/core/types.hpp"
 #include "kirimaspice/solvers/transient_solver.hpp"
 
@@ -83,7 +85,8 @@ struct R0Quantizer {
 
     /// Quantize real value to integer
     std::int64_t quantize(double value) const {
-        return static_cast<std::int64_t>((value - offset) / scale);
+        // To the nearest step: truncation would bias every value toward 0
+        return static_cast<std::int64_t>(std::llround((value - offset) / scale));
     }
 
     /// Dequantize integer to real value

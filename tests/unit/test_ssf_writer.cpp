@@ -13,6 +13,10 @@
 #include <fstream>
 #include <filesystem>
 #include <cstring>
+#include <iterator>
+#include <map>
+#include <unistd.h>
+#include <zstd.h>
 
 using namespace kirimaspice;
 using namespace kirimaspice::output;
@@ -311,4 +315,101 @@ TEST(SSFWriter, FileOverwrite) {
 
     // Cleanup
     std::filesystem::remove(test_file);
+}
+
+namespace {
+
+// A minimal reader of what SSFWriter writes: the metadata's signal names
+// and the values of each data block (zigzag varints of 1e-6 steps, after a
+// 4-byte size, compressed with zstd when the header says so)
+struct DecodedSsf {
+    std::vector<std::string> signals;
+    std::vector<std::vector<double>> blocks;
+};
+
+std::uint64_t read_varint(const std::vector<unsigned char>& b, std::size_t& i) {
+    std::uint64_t r = 0;
+    int shift = 0;
+    while (true) {
+        const unsigned char c = b.at(i++);
+        r |= static_cast<std::uint64_t>(c & 0x7f) << shift;
+        shift += 7;
+        if (!(c & 0x80)) return r;
+    }
+}
+
+DecodedSsf decode_ssf(const std::string& path) {
+    std::ifstream in(path, std::ios::binary);
+    std::vector<unsigned char> d((std::istreambuf_iterator<char>(in)), {});
+    auto u64 = [&](std::size_t at) {
+        std::uint64_t v;
+        std::memcpy(&v, &d.at(at), 8);
+        return v;
+    };
+    const std::uint64_t mo = u64(8), ms = u64(16), lo = u64(56), ls = u64(64);
+    const unsigned char compression = d.at(88);
+
+    DecodedSsf out;
+    std::vector<unsigned char> meta(d.begin() + mo, d.begin() + mo + ms);
+    std::size_t i = 0;
+    const std::uint64_t n = read_varint(meta, i);
+    std::map<std::string, std::string> md;
+    auto read_string = [&]() {
+        const std::uint64_t len = read_varint(meta, i);
+        std::string s(meta.begin() + i, meta.begin() + i + len);
+        i += len;
+        return s;
+    };
+    for (std::uint64_t k = 0; k < n; ++k) {
+        std::string key = read_string();
+        md[key] = read_string();
+    }
+    for (int j = 1; md.count("signal." + std::to_string(j) + ".name"); ++j) {
+        out.signals.push_back(md["signal." + std::to_string(j) + ".name"]);
+    }
+    for (std::uint64_t e = 0; e < ls / 28; ++e) {
+        const std::uint64_t off = u64(lo + 28 * e + 8), size = u64(lo + 28 * e + 16);
+        std::uint32_t raw_size;
+        std::memcpy(&raw_size, &d.at(off), 4);
+        std::vector<unsigned char> raw(raw_size);
+        if (compression == 3) {
+            ZSTD_decompress(raw.data(), raw.size(), &d.at(off + 4), size - 4);
+        } else {
+            raw.assign(d.begin() + off + 4, d.begin() + off + size);
+        }
+        std::vector<double> values;
+        std::size_t p = 0;
+        while (p < raw.size()) {
+            const std::uint64_t z = read_varint(raw, p);
+            const std::int64_t q = static_cast<std::int64_t>(z >> 1) ^ -static_cast<std::int64_t>(z & 1);
+            values.push_back(static_cast<double>(q) * 1e-6);
+        }
+        out.blocks.push_back(values);
+    }
+    return out;
+}
+
+}  // namespace
+
+// The signals of an SSF file are the unknowns of the solution: the node
+// names the program passes start with ground ("0"), which is not one, so
+// it is left out and each value lands on its own signal. Values are rounded
+// to the nearest 1e-6 step (-1.2345e-3 A is stored as -1.235e-3 A).
+TEST(SSFWriter, SignalsMatchTheValuesOfEachBlock) {
+    const std::string path = (std::filesystem::temp_directory_path() /
+                              ("ssf_signals_" + std::to_string(::getpid()) + ".ssf"))
+                                 .string();
+    {
+        SSFWriter writer(path);
+        writer.write_dc_analysis(DenseVector{2.0, 1.0}, {"0", "in", "mid"}, DenseVector{-1.2345e-3},
+                                 {"V1"});
+    }
+    const DecodedSsf ssf = decode_ssf(path);
+    std::filesystem::remove(path);
+    ASSERT_EQ(ssf.signals, (std::vector<std::string>{"v(in)", "v(mid)", "i(V1)"}));
+    ASSERT_EQ(ssf.blocks.size(), 1u);
+    ASSERT_EQ(ssf.blocks[0].size(), 3u);
+    EXPECT_NEAR(ssf.blocks[0][0], 2.0, 1e-12);
+    EXPECT_NEAR(ssf.blocks[0][1], 1.0, 1e-12);
+    EXPECT_NEAR(ssf.blocks[0][2], -1.235e-3, 1e-12);
 }
