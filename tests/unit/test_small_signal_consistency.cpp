@@ -316,3 +316,20 @@ TEST(SmallSignalConsistency, Bsim3PMirrorsN) {
         EXPECT_NEAR(vd_p, -vd_n, 1e-9);
     }
 }
+
+// Level 1: a P device with a positive VTO is a depletion device and conducts
+// at Vsg = 0 (MOSFET_Level1::get_effective_threshold); ngspice-47 draws
+// 125 uA from VS: KP/2 W/L (0 + 0.5)^2
+TEST(SmallSignalConsistency, Level1DepletionPmos) {
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "t\n.model pch pmos (vto=0.5 kp=1e-4)\nVS s 0 2\nVG g 0 2\nM1 0 g s s pch W=10u L=1u\n"
+        ".op\n.end\n");
+    ASSERT_NE(parsed.circuit, nullptr);
+    DCSolver solver(*parsed.circuit, parsed.config);
+    DenseVector x;
+    SolverStats stats;
+    ASSERT_EQ(solver.solve(x, stats), ConvergenceStatus::SUCCESS);
+    // VS is the first voltage source, so its branch is the first one
+    EXPECT_NEAR(x[parsed.circuit->num_nodes() - 1], -1.25e-4, 1e-10);
+}

@@ -145,10 +145,13 @@ public:
     std::vector<std::string> get_perturbable_parameters() const override;
 
 protected:
-    /// Get effective threshold voltage (|Vth| for P-channel)
+    /// The threshold in the device's own terms, -Vth for P-channel: the card
+    /// gives VTO with the device's sign, -0.7 V for an enhancement P device
+    /// and +0.5 V for a depletion one, which then conducts at Vsg = 0, as
+    /// in ngspice-47
     Real get_effective_threshold() const {
         if constexpr (Traits::use_abs_threshold) {
-            return std::abs(vth_);
+            return -vth_;
         } else {
             return vth_;
         }

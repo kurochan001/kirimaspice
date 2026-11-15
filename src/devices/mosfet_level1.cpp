@@ -52,13 +52,6 @@ MOSFET_Level1<P>::MOSFET_Level1(DeviceId id, const std::string& name,
         throw std::runtime_error("MOSFET overlap capacitance must be non-negative: " + name);
     }
 
-    // P-channel specific validation: Vth must be negative for PMOS
-    if constexpr (P == Polarity::P) {
-        if (vth >= 0.0) {
-            throw std::runtime_error("PMOS threshold voltage must be negative: " + name);
-        }
-    }
-
     spdlog::debug("Created MOSFET_{} {} (D={}, G={}, S={}, Kp={:.6e}A/V², W={:.6e}m, L={:.6e}m, Vth={:.3f}V, β={:.6e}A/V²)",
                   Traits::type_string, name, drain, gate, source, kp_, w_, l_, vth_, beta_);
 }
