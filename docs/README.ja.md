@@ -14,6 +14,7 @@
 | オプション、素子、ディレクティブ、出力ファイルの意味は？ | [リファレンスマニュアル](REFERENCE_MANUAL.ja.md) | [用語集](GLOSSARY.ja.md) |
 | ngspice 用のネットリストがある。何を変える？ | [ngspice からの移行](PORTING.ja.md) | [NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.ja.md) |
 | この結果は正しい？ 間違っていると分かっていることは？ | [KNOWN_ISSUES](../KNOWN_ISSUES.ja.md) | [FAQ](FAQ.ja.md#結果と精度) |
+| 過渡解析の設定を選び、波形の精度を確かめるには？ | [過渡解析](TRANSIENT_ANALYSIS.ja.md)（草案） | |
 | Python から動かすには？ | [ユーザーマニュアル：Python のツール](USER_MANUAL.ja.md#python-のツールを使う) | |
 | コードはどう組み立てられている？ | [設計](ARCHITECTURE.ja.md) | |
 | コードを変え、テストし、push するには？ | [開発](DEVELOPMENT.ja.md) | [CONTRIBUTING](../CONTRIBUTING.ja.md)、[CLAUDE.md](../CLAUDE.ja.md) |
