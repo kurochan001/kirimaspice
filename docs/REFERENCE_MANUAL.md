@@ -109,6 +109,9 @@ does not converge.
 - A line whose first non-blank character is `*` is a comment. `;` starts a
   comment that runs to the end of the line. There is no other comment
   character.
+- A line that starts with `+` continues the line before it. Comment lines
+  and empty lines between the two do not end that line, and a `;` comment
+  on it ends at the end of its own line.
 - A line that starts with `.` is a directive; any other line is an element,
   identified by its first letter in either case.
 - Lines after `.END` are read like any other. Unknown directives are

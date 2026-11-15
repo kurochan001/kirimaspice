@@ -119,10 +119,14 @@ surprise someone who has used another SPICE simulator; the
 [Reference Manual](REFERENCE_MANUAL.md#netlist-syntax) has the full list.
 
 - **The first non-empty line is the title**, whatever it contains. Empty
-  lines are dropped before the title is chosen. `.title` is ignored.
+  lines are dropped before the title is chosen, where ngspice takes an
+  empty first line as the title ([Known issues](../KNOWN_ISSUES.md#netlist-input)).
+  `.title` is ignored.
 - **Comments:** a line whose first non-blank character is `*`, and anything
   after `;` on a line.
-- **Continuation:** a line that starts with `+` continues the previous one.
+- **Continuation:** a line that starts with `+` continues the line before
+  it. Comment lines and empty lines between the two do not end that line,
+  and a `;` comment on it ends at the end of its own line.
 - **Ground is `0`,** and a node named `gnd` in any case is ground too.
 - **Node names are case-sensitive;** model names, keywords such as `DC`,
   `AC`, `PULSE` and directive names are not.

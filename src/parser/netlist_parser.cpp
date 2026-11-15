@@ -131,8 +131,35 @@ std::string preprocess_continuations(const std::string& content) {
     std::ostringstream output;
     std::string line;
     std::string accumulated_line;
+    // Comment lines and lines of blanks met while a line is being continued:
+    // they do not end it, and are written after it
+    std::vector<std::string> held_lines;
+    bool first_line = true;
+
+    auto flush = [&]() {
+        if (!accumulated_line.empty()) {
+            output << accumulated_line << '\n';
+            accumulated_line.clear();
+        }
+        for (const auto& held : held_lines) {
+            output << held << '\n';
+        }
+        held_lines.clear();
+    };
 
     while (std::getline(input, line)) {
+        // The first line that is not empty is the title, whatever it holds,
+        // ';' included (leading empty lines are skipped; ngspice takes an
+        // empty first line as the title, KNOWN_ISSUES). A '+' line after it
+        // continues the title, so it is not an element, as in ngspice-47.
+        if (first_line) {
+            if (!line.empty()) {
+                first_line = false;
+                accumulated_line = line;
+            }
+            continue;
+        }
+
         // Remove inline comments (after ';')
         size_t comment_pos = line.find(';');
         std::string line_no_comment = (comment_pos != std::string::npos)
@@ -163,26 +190,24 @@ std::string preprocess_continuations(const std::string& content) {
                 // Continuation without previous line - treat as regular line (parser will warn)
                 accumulated_line = continuation;
             }
-        } else {
-            // Not a continuation line
-            // Output the accumulated line first (if any)
-            if (!accumulated_line.empty()) {
-                output << accumulated_line << '\n';
-                accumulated_line.clear();
+        } else if (!accumulated_line.empty() && (trimmed.empty() || trimmed[0] == '*')) {
+            // A comment line or a line of blanks inside a continued line
+            if (!line.empty()) {
+                held_lines.push_back(line);
             }
+        } else {
+            // Not a continuation line: write the accumulated one first
+            flush();
 
-            // Start accumulating this line
-            if (!line.empty()) {  // Preserve original line (with comments)
-                accumulated_line = line;
+            // Start accumulating this line, without its ';' comment, so that
+            // a continuation does not end up inside the comment
+            if (!line.empty()) {
+                accumulated_line = (trimmed.empty() || trimmed[0] == '*') ? line : line_no_comment;
             }
         }
     }
 
-    // Output any remaining accumulated line
-    if (!accumulated_line.empty()) {
-        output << accumulated_line << '\n';
-    }
-
+    flush();
     return output.str();
 }
 

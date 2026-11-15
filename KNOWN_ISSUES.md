@@ -93,6 +93,13 @@ document also lists differences not decided there.
   `.PORT`, `.WCASE` and `.OPTIMIZE` are read, but the program does not use
   them.** `.NOISE`, `.MEASURE` and `.TITLE` are ignored.
 - **Lines after `.END` are read.**
+- **Empty lines before the title are skipped: the first line that is not
+  empty is the title.** ngspice-47 takes the first line as the title even
+  when it is empty, so a netlist that starts with an empty line loses its
+  first element here. Checked on 2026-11-15 by running both on the same
+  netlist: with `V1 a 0 1` on the second line, ngspice-47 printed
+  `i(v1) = -1.00000e-03` and this program had no `V1`. Many tests write
+  their netlists starting with an empty line.
 - **Analyses in a `.control` block are not run as in ngspice.** In runs at
   commit `7434904`, `op` inside `.control` did not select the operating
   point (the program fell back to its default, which prints no currents),
