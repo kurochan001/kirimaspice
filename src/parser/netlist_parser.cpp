@@ -5522,6 +5522,10 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         bsim4_params.mult_i = mult_i;
         bsim4_params.mult_q = mult_q;
         bsim4_params.mult_fn = mult_fn;
+        // NF, M, AS, AD, PS, PD, NRD and NRS of the element line
+        for (const auto& [key, value] : instance_params) {
+            devices::set_bsim4_instance_parameter(bsim4_params, key, value);
+        }
 
         bsim4_params.compute_derived_params(bsim4_params.tnom);
 

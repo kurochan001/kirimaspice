@@ -305,7 +305,7 @@ For `NMOS` and `PMOS`, `LEVEL` selects the device:
 | 3 | SPICE's level 3 | warning | `W`, `L` | no |
 | 9 | BSIM1 | warning | `W`, `L` | no |
 | 8, 49 | BSIM3 | warning | `W`, `L` | no |
-| 14, 54 | BSIM4 (a model card with a `VERSION` other than 4.83 gives a warning) | ignored without a message | `W`, `L`, `MULT_I`, `MULT_Q`, `MULT_FN` | yes, four terminals |
+| 14, 54 | BSIM4 (a model card with a `VERSION` other than 4.83 gives a warning) | ignored without a message | `W` (the width of all `NF` fingers), `L`, `NF`, `M`, `AS`, `AD`, `PS`, `PD`, `NRD`, `NRS`, `MULT_I`, `MULT_Q`, `MULT_FN` | yes, four terminals, `W` and `L` only |
 | 10 | SiC MOSFET | warning | all, by name | no |
 | 11 | GaN HEMT | warning | all, by name | no |
 | 12 | FinFET | warning | `L` only (others ignored without a message) | no |

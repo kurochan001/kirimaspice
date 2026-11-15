@@ -23,6 +23,8 @@
 // Reference: BSIM4.8.3 User's Manual (UC Berkeley, 2025)
 #pragma once
 
+#include <algorithm>
+
 #include "kirimaspice/core/types.hpp"
 
 #include <map>
@@ -505,9 +507,11 @@ struct BSIM4Params {
         return l - 2.0 * lint;
     }
 
-    /// Calculate effective channel width [m]
+    /// Effective channel width of one finger [m]: W is the width of all NF
+    /// fingers together (BSIM4 manual, geometry), and the current of one
+    /// finger is multiplied by NF (BSIM4Core::evaluate)
     Real get_weff() const {
-        return w - 2.0 * wint;
+        return w / std::max(nf, 1.0) - 2.0 * wint;
     }
 
     /// Initialize derived parameters from basic parameters
@@ -537,5 +541,11 @@ struct BSIM4Params {
 /// the caller.
 BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_params,
                                     const std::string& model_name);
+
+/// Set an instance parameter (W, L, NF, M, AS, AD, PS, PD, NRD, NRS and the
+/// MULT_ factors; the name in lower case) and say whether the name is one.
+/// The card reader and the element line both set them here, the element line
+/// last.
+bool set_bsim4_instance_parameter(BSIM4Params& params, const std::string& key, Real value);
 
 } // namespace kirimaspice::devices

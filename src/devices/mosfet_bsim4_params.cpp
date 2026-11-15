@@ -317,6 +317,24 @@ void BSIM4Params::compute_derived_params(Real temp) {
 }
 
 
+bool set_bsim4_instance_parameter(BSIM4Params& p, const std::string& key, Real value) {
+    if (key == "w") p.w = value;
+    else if (key == "l") p.l = value;
+    else if (key == "nf") p.nf = value;
+    else if (key == "m") p.m = value;
+    else if (key == "mult_i") p.mult_i = value;
+    else if (key == "mult_q") p.mult_q = value;
+    else if (key == "mult_fn") p.mult_fn = value;
+    else if (key == "as") p.as = value;
+    else if (key == "ad") p.ad = value;
+    else if (key == "ps") p.ps = value;
+    else if (key == "pd") p.pd = value;
+    else if (key == "nrd") p.nrd = static_cast<int>(value);
+    else if (key == "nrs") p.nrs = static_cast<int>(value);
+    else return false;
+    return true;
+}
+
 BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_params,
                                     const std::string& model_name) {
     BSIM4Params bsim4_params;
@@ -450,20 +468,8 @@ BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_par
         else if (key == "wint") bsim4_params.wint = value;
         else if (key == "xl") bsim4_params.xl = value;
         else if (key == "xw") bsim4_params.xw = value;
-        // Instance parameters (will be overridden by M-line parameters)
-        else if (key == "w") bsim4_params.w = value;
-        else if (key == "l") bsim4_params.l = value;
-        else if (key == "nf") bsim4_params.nf = value;
-        else if (key == "m") bsim4_params.m = value;
-        else if (key == "mult_i") bsim4_params.mult_i = value;
-        else if (key == "mult_q") bsim4_params.mult_q = value;
-        else if (key == "mult_fn") bsim4_params.mult_fn = value;
-        else if (key == "as") bsim4_params.as = value;
-        else if (key == "ad") bsim4_params.ad = value;
-        else if (key == "ps") bsim4_params.ps = value;
-        else if (key == "pd") bsim4_params.pd = value;
-        else if (key == "nrd") bsim4_params.nrd = static_cast<int>(value);
-        else if (key == "nrs") bsim4_params.nrs = static_cast<int>(value);
+        // Instance parameters on the card; the element line overrides them
+        else if (set_bsim4_instance_parameter(bsim4_params, key, value)) {}
         // Level parameter (already processed)
         else if (key == "level") {
             // Already handled, skip

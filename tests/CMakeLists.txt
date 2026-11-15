@@ -1159,6 +1159,10 @@ add_executable(test_subcircuit_instances unit/test_subcircuit_instances.cpp)
 target_link_libraries(test_subcircuit_instances PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_subcircuit_instances PROPERTIES TIMEOUT 1200)
 
+add_executable(test_bsim4_fingers unit/test_bsim4_fingers.cpp)
+target_link_libraries(test_bsim4_fingers PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_bsim4_fingers PROPERTIES TIMEOUT 1200)
+
 add_executable(test_source_waveforms unit/test_source_waveforms.cpp)
 target_link_libraries(test_source_waveforms PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_source_waveforms PROPERTIES TIMEOUT 1200)

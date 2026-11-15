@@ -185,9 +185,9 @@ BSIM4Capacitances BSIM4Core::compute_capacitances(Real vg, Real vd, Real vs, Rea
     // Reuse bias handling (polarity and drain/source swap)
     const BSIM4BiasState bias = compute_bias(vg, vd, vs, vb, temperature);
 
-    // Effective dimensions
-    Real weff = params_.w - params_.wint;
-    Real leff = params_.l - params_.lint;
+    // Effective dimensions, as the current takes them: NF fingers of Weff
+    Real weff = std::max(params_.nf, 1.0) * params_.get_weff();
+    Real leff = params_.get_leff();
     if (weff <= 0.0) weff = params_.w;
     if (leff <= 0.0) leff = params_.l;
 
