@@ -98,13 +98,11 @@ TEST(BJT_NPN_EarlyEffect, WithEarlyEffect_IncreasingCollectorCurrent) {
     Real ic2 = bjt.get_collector_current(vbe, vbc2);
 
     // With Early effect: Ic increases with Vce
-    // Gummel-Poon formula: Ic = Is * exp(...) / qb, where qb = 1 + Vbc/VAF
-    // Expected ratio: Ic2/Ic1 = qb1/qb2
+    // SPICE's Gummel-Poon: Ic = Is (exp(...) - 1) / qb with qb = q1 =
+    // 1 / (1 - Vbc/VAF) without IKF, so Ic2/Ic1 = (1 - vbc2/VAF) / (1 - vbc1/VAF).
+    // ngspice-47 gives 5.95386e-3 / 5.72705e-3 = 1.039604 for VAF = 100 V.
     Real vaf = bjt.forward_early_voltage();
-    Real qb1 = 1.0 + vbc1 / vaf;  // 1 - 0.01 = 0.99
-    Real qb2 = 1.0 + vbc2 / vaf;  // 1 - 0.05 = 0.95
-
-    Real expected_ratio = qb1 / qb2;  // 0.99 / 0.95 = 1.042105...
+    Real expected_ratio = (1.0 - vbc2 / vaf) / (1.0 - vbc1 / vaf);  // 1.05 / 1.01
     Real actual_ratio = ic2 / ic1;
 
     EXPECT_NEAR(actual_ratio, expected_ratio, 0.001);  // Within 0.1%

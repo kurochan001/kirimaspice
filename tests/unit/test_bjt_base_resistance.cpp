@@ -148,27 +148,20 @@ TEST(BJT_NPN_BaseResistance, CurrentDependent_DecreasesAtHighCurrent) {
     EXPECT_GT(ratio, 1.5);  // At least 50% reduction at high current
 }
 
-TEST(BJT_NPN_BaseResistance, VeryHighCurrent_ApproachesZero) {
+TEST(BJT_NPN_BaseResistance, VeryHighCurrent_ApproachesRbm) {
     auto bjt = create_bjt_npn_with_rb();
 
-    // Very high current: Vbe = 0.9V → Ib >> IRB
-    // At Vbe = 0.9V: Ib = (Is/βF) × exp(Vbe/Vt) ≈ 1e-16 × exp(34.8) ≈ 1.3A
-    // This is >> IRB = 1mA, so current_factor = 1/(1+(Ib/IRB)²) → 0
-    //
-    // Gummel-Poon model: R_b = (RBM + (RB - RBM) × q_b) × current_factor
-    // At very high currents (Ib >> IRB): current_factor → 0, so R_b → 0
-    //
-    // This is physically correct: base resistance collapses at very high currents
-    // due to conductivity modulation and current crowding effects.
+    // Very high current: Vbe = 0.9V, Ib >> IRB = 1mA. SPICE's Gummel-Poon base
+    // resistance with IRB is RBM + 3 (RB - RBM) (tan z - z) / (z tan^2 z), z
+    // growing toward pi/2 with Ib, so R_b falls toward RBM = 10 Ohm, not to 0
+    // (current crowding leaves the minimum resistance RBM).
 
     Real vbe_very_high = 0.9;
     Real vbc = -2.0;
     Real rb = bjt.get_base_resistance(vbe_very_high, vbc);
 
-    // At very high currents: R_b → 0 (not RBM!)
-    EXPECT_LT(rb, 1.0);   // Should be very small
-    EXPECT_GT(rb, 0.0);   // But still positive
-    EXPECT_LT(rb, 0.01);  // Less than 0.01Ω at very high currents
+    EXPECT_GT(rb, 10.0);                // above RBM
+    EXPECT_LT(rb, 10.0 + 0.1 * 90.0);  // within a tenth of RB - RBM of it
 }
 
 TEST(BJT_NPN_BaseResistance, HalfValueCurrent_ApproximatelyHalfway) {
@@ -264,7 +257,7 @@ TEST(BJT_NPN_BaseResistance, WithEarlyEffect_QbModulation) {
                 -1.0, 1.0, 1.0,  // isc, beta_r, nr
                 100.0, 0.0,      // vaf=100V, var=0 (Early effect)
                 0.0, 0.0,        // ikf=0, ikr=0
-                100.0, 10.0, 1e-3, // rb, rbm, irb
+                100.0, 10.0, 0.0,  // rb, rbm, irb = 0: R_b follows qb
                 0.0, 1.5, 0.0, 2.0,  // ise=0, ne=1.5, isc_leak=0, nc=2.0 (no leakage)
                 0.0, 0.75, 0.33,
                 0.0, 0.75, 0.33,
@@ -272,19 +265,18 @@ TEST(BJT_NPN_BaseResistance, WithEarlyEffect_QbModulation) {
                 0.0, 1.0, 1.0);
 
     Real vbe = 0.7;
-    Real vbc_low = -1.0;  // Low Vce → higher qb
-    Real vbc_high = -5.0; // High Vce → lower qb
+    Real vbc_low = -1.0;  // Low Vce: qb = 1 / (1 + 1/100)
+    Real vbc_high = -5.0; // High Vce: qb = 1 / (1 + 5/100)
 
     Real rb_low_vce = bjt.get_base_resistance(vbe, vbc_low);
     Real rb_high_vce = bjt.get_base_resistance(vbe, vbc_high);
 
-    // With Early effect: higher Vce → lower qb → lower effective RB
-    // R_b = (RBM + (RB - RBM) × q_b) × current_factor
-    EXPECT_GT(rb_low_vce, rb_high_vce);  // Low Vce → higher qb → higher R_b
-
-    // Both should be positive and within bounds
-    EXPECT_GT(rb_low_vce, 0.0);
-    EXPECT_GT(rb_high_vce, 0.0);
+    // SPICE's Gummel-Poon without IRB: R_b = RBM + (RB - RBM) / qb, and
+    // qb = 1 / (1 - Vbc/VAF) without IKF, so a higher Vce gives a smaller qb
+    // and a larger R_b (with IRB, R_b depends on Ib alone)
+    EXPECT_NEAR(rb_low_vce, 10.0 + 90.0 * 1.01, 1e-6);
+    EXPECT_NEAR(rb_high_vce, 10.0 + 90.0 * 1.05, 1e-6);
+    EXPECT_LT(rb_low_vce, rb_high_vce);
 }
 
 TEST(BJT_NPN_BaseResistance, WithHighCurrentEffect_QbModulation) {
