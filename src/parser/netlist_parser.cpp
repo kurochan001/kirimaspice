@@ -6253,6 +6253,13 @@ public:
         // Parse the elements whose model is defined further down the netlist
         // (UnresolvedModel). They are top-level lines, so an unclosed .SUBCKT
         // must not take them.
+        // A .SUBCKT must end with .ENDS, as ngspice requires ("Mismatch of
+        // .subckt ... .ends"); otherwise every later line would be its body
+        if (state.inside_subcircuit && state.current_subcircuit) {
+            throw ParseError(fmt::format(".SUBCKT {} has no .ENDS",
+                                         state.current_subcircuit->name),
+                             state.current_subcircuit->definition_line);
+        }
         state.resolving_deferred = true;
         const bool was_inside_subcircuit = state.inside_subcircuit;
         state.inside_subcircuit = false;

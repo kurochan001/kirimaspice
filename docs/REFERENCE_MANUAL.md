@@ -391,7 +391,7 @@ parser stores it, but the program does not use it (the library can).
 | `.PARAM` | `.PARAM <name>=<value> ...` | used; the first definition of a name is kept |
 | `.FUNC` | `.FUNC <name>(<a>[,<b>[,<c>]]) {<expr>}` | used in `.PARAM` expressions only; up to three arguments |
 | `.MODEL` | see [Models](#models) | used |
-| `.SUBCKT` / `.ENDS` | `.SUBCKT <name> <pins...> [NAME=<default> ...]` | used; no nesting of definitions; no `PARAMS:` |
+| `.SUBCKT` / `.ENDS` | `.SUBCKT <name> <pins...> [NAME=<default> ...]` | used; no nesting of definitions; no `PARAMS:`; a `.SUBCKT` without `.ENDS` is an error |
 | `.GLOBAL` | `.GLOBAL <node> ...` | used in subcircuit expansion |
 | `.INCLUDE`, `.INC` | `.INCLUDE <file>` | used; relative to the netlist's directory |
 | `.LIB` / `.ENDL` | `.LIB <file> [<section>]` | used; without a section, the whole file |

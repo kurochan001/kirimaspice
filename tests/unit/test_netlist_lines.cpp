@@ -110,3 +110,12 @@ TEST(NetlistLines, ElseInsideABranchTaken) {
     ASSERT_NE(parsed.circuit, nullptr);
     EXPECT_EQ(device_names(parsed), (std::vector<std::string>{"R1", "R3", "V1"}));
 }
+
+// A .SUBCKT ends with .ENDS; without it the lines after it are not its body
+// but an error (NetlistParser::Impl::parse)
+TEST(NetlistLines, SubcircuitWithoutEnds) {
+    parser::NetlistParser parser;
+    EXPECT_THROW(parser.parse_string("t\nV1 in 0 1\nR0 in 0 1k\n.subckt load a b\nR1 a b 1k\n"
+                                     "R2 in 0 1\nX1 in 0 load\n.op\n.end\n"),
+                 parser::ParseError);
+}
