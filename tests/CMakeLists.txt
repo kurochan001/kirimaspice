@@ -11,6 +11,12 @@ add_executable(test_analysis_edge_cases unit/test_analysis_edge_cases.cpp)
 target_link_libraries(test_analysis_edge_cases PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_analysis_edge_cases PROPERTIES TIMEOUT 1200)
 
+add_test(NAME python_tools_edge_cases
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/scripts/test_tool_edge_cases.py
+        --binary $<TARGET_FILE:kirimaspice>
+)
+set_tests_properties(python_tools_edge_cases PROPERTIES WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
+
 # Python integration tests (REPL + PyAPI)
 add_test(NAME python_tools_pyapi
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/scripts/test_pyapi.py

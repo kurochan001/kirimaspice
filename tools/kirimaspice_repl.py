@@ -12,7 +12,6 @@ import shlex
 import subprocess
 import sys
 import tempfile
-from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -49,62 +48,10 @@ def save_history() -> None:
         pass
 
 
-def parse_ascii_raw(path: Path) -> List[Dict[str, float]]:
-    """Parse NGspice ASCII RAW file into list of dicts."""
-    text = path.read_text().splitlines()
-    names: List[str] = []
-    values: List[float] = []
-    nvars = None
-    npts = 1
-    in_vars = False
-    in_values = False
-    for line in text:
-        stripped = line.strip()
-        lower = line.lower()
-        if lower.startswith("no. variables"):
-            nvars = int(line.split(":")[1])
-        elif lower.startswith("no. points"):
-            npts = int(line.split(":")[1])
-        elif line.startswith("Variables:"):
-            in_vars = True
-            continue
-        elif line.startswith("Values:"):
-            in_vars = False
-            in_values = True
-            continue
-        if in_vars:
-            if not stripped:
-                continue
-            parts = stripped.split()
-            if len(parts) >= 2:
-                names.append(parts[1].lower())
-        elif in_values:
-            if not stripped:
-                continue
-            parts = stripped.replace("\t", " ").split()
-            if not parts:
-                continue
-            token = parts[-1]
-            if "," in token:
-                token = token.split(",")[0]
-            try:
-                values.append(float(token))
-            except ValueError:
-                continue
-            if nvars and npts and len(values) >= nvars * npts:
-                break
-    if not names:
-        raise ValueError("RAW file contains no variable metadata (Variables section missing).")
-    step = len(names)
-    if len(values) % step != 0:
-        raise ValueError("RAW value count does not match variable list length.")
-    rows: List[Dict[str, float]] = []
-    for idx in range(0, len(values), step):
-        point: Dict[str, float] = OrderedDict()
-        for offset, name in enumerate(names):
-            point[name] = values[idx + offset]
-        rows.append(point)
-    return rows
+if __package__:
+    from .kirimaspice_pyapi import parse_ascii_raw
+else:
+    from kirimaspice_pyapi import parse_ascii_raw
 
 
 @dataclass
@@ -136,13 +83,32 @@ class KirimaspiceRepl:
         if not self.state.netlist:
             print("[warn] load a netlist first with: load <path>")
             return
+        self.state.last_results = None
+        self.state.derived.clear()
         cmd = [str(self.binary), str(self.state.netlist)]
-        extra = self.substitute(extra)
-        raw_specified = any(tok.startswith("--raw-out") for tok in shlex.split(extra))
-        if not raw_specified:
-            cmd.extend(["--raw-out", str(self.state.raw_path)])
-        if extra:
-            cmd.extend(shlex.split(extra))
+        try:
+            args = shlex.split(self.substitute(extra))
+            raw = self.state.raw_path
+            raw_specified = False
+            for index, token in enumerate(args):
+                if token == "--raw-out":
+                    if index + 1 == len(args) or args[index + 1].startswith("--"):
+                        raise ValueError("--raw-out requires a path")
+                    raw = Path(args[index + 1])
+                    raw_specified = True
+                elif token.startswith("--raw-out="):
+                    value = token.split("=", 1)[1]
+                    if not value:
+                        raise ValueError("--raw-out requires a path")
+                    raw = Path(value)
+                    raw_specified = True
+            if not raw_specified:
+                cmd.extend(["--raw-out", str(raw)])
+            cmd.extend(args)
+            previous_stat = raw.stat() if raw.exists() else None
+        except (ValueError, OSError) as exc:
+            print(f"[error] {exc}")
+            return
         print(f"[info] running: {' '.join(cmd)}")
         try:
             completed = subprocess.run(cmd, text=True)
@@ -152,11 +118,17 @@ class KirimaspiceRepl:
         except FileNotFoundError:
             print(f"[error] simulator binary not found: {self.binary}")
             return
-        raw = self.state.raw_path
         if not raw.exists():
             print(f"[warn] RAW file not found at {raw}; cannot plot.")
             return
         try:
+            if previous_stat is not None:
+                updated = raw.stat()
+                if (updated.st_ino, updated.st_size, updated.st_mtime_ns, updated.st_ctime_ns) == (
+                        previous_stat.st_ino, previous_stat.st_size,
+                        previous_stat.st_mtime_ns, previous_stat.st_ctime_ns):
+                    print(f"[warn] RAW file was not updated at {raw}; cannot plot.")
+                    return
             data = parse_ascii_raw(raw)
             self.state.last_results = data
             self.state.derived.clear()
@@ -196,6 +168,8 @@ class KirimaspiceRepl:
             print(f"[error] netlist not found: {path}")
             return
         self.state.netlist = path
+        self.state.last_results = None
+        self.state.derived.clear()
         print(f"[info] netlist set to {path}")
 
     def cmd_run(self, arg: str) -> None:

@@ -44,7 +44,7 @@ def parse_ascii_raw(path: Path) -> List[Dict[str, float]]:
     names: List[str] = []
     values: List[float] = []
     nvars = None
-    npts = 1
+    npts = None
     in_vars = False
     in_values = False
     for line in text:
@@ -75,15 +75,19 @@ def parse_ascii_raw(path: Path) -> List[Dict[str, float]]:
                 continue
             token = parts[-1]
             if "," in token:
-                token = token.split(",")[0]
+                raise ValueError("Complex RAW values are not supported by the real-valued API")
             try:
                 values.append(float(token))
-            except ValueError:
-                continue
+            except ValueError as exc:
+                raise ValueError("RAW file contains an invalid sample") from exc
             if nvars and npts and len(values) >= nvars * npts:
                 break
     if not names:
         raise ValueError("RAW file contains no variable metadata")
+    if nvars != len(names) or npts is None or npts < 0:
+        raise ValueError("RAW header counts do not match variable metadata")
+    if len(values) != nvars * npts:
+        raise ValueError("RAW value count does not match declared point count")
     step = len(names)
     rows: List[Dict[str, float]] = []
     for idx in range(0, len(values), step):
