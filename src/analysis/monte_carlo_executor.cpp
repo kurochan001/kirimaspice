@@ -8,6 +8,7 @@
 #include "kirimaspice/parser/netlist_parser.hpp"
 #include <spdlog/spdlog.h>
 #include <algorithm>
+#include <exception>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -62,8 +63,7 @@ Real MonteCarloExecutor::extract_output_value(
 ) {
     // Check if node exists
     if (!circuit.has_node(output_node)) {
-        spdlog::error("Output node '{}' not found in circuit", output_node);
-        return 0.0;
+        throw std::invalid_argument("Output node not found: " + output_node);
     }
 
     // Find node ID by name (throws if not found, but we already checked)
@@ -80,9 +80,7 @@ Real MonteCarloExecutor::extract_output_value(
         return solution[node_id - 1];
     }
 
-    spdlog::error("Node ID {} out of range (solution size: {})",
-                 node_id, solution.size());
-    return 0.0;
+    throw std::runtime_error("Output node is missing from the solution: " + output_node);
 }
 
 MonteCarloResult MonteCarloExecutor::execute_dc_monte_carlo(
@@ -135,7 +133,8 @@ MonteCarloResult MonteCarloExecutor::execute_dc_monte_carlo_custom(
     // Pre-allocate results for thread-safe direct indexing
     std::vector<Real> all_values_vec(result.num_runs, std::numeric_limits<Real>::quiet_NaN());
     std::vector<std::map<std::string, Real>> parameter_samples_vec(result.num_runs);
-    std::vector<bool> converged_flags(result.num_runs, false);
+    std::vector<unsigned char> converged_flags(result.num_runs, 0);
+    std::vector<std::exception_ptr> errors(result.num_runs);
 
     const auto base_seed = rng_->get_seed();
 
@@ -144,72 +143,68 @@ MonteCarloResult MonteCarloExecutor::execute_dc_monte_carlo_custom(
     #pragma omp parallel for schedule(dynamic)
 #endif
     for (std::uint32_t run = 0; run < result.num_runs; ++run) {
-        spdlog::debug("Monte Carlo run {}/{}", run + 1, result.num_runs);
+        try {
+            spdlog::debug("Monte Carlo run {}/{}", run + 1, result.num_runs);
 
-        // Thread-local RNG (deterministic seed = base_seed + run)
+            // Thread-local RNG (deterministic seed = base_seed + run)
 #ifdef _OPENMP
-        RandomNumberGenerator thread_rng(base_seed + run);
+            RandomNumberGenerator thread_rng(base_seed + run);
 #else
-        RandomNumberGenerator& thread_rng = *rng_;
+            RandomNumberGenerator& thread_rng = *rng_;
 #endif
 
-        // Sample parameter values from distributions (thread-local RNG)
-        std::map<std::string, Real> sampled_params;
-        for (const auto& variation : base_config_.monte_carlo.variations) {
-            DistributionSampler sampler(variation);
-            Real sampled_value = sampler.sample(thread_rng);
-            std::string param_key = variation.device_name + "." + variation.parameter_name;
-            sampled_params[param_key] = sampled_value;
+            // Sample parameter values from distributions (thread-local RNG)
+            std::map<std::string, Real> sampled_params;
+            for (const auto& variation : base_config_.monte_carlo.variations) {
+                DistributionSampler sampler(variation);
+                Real sampled_value = sampler.sample(thread_rng);
+                std::string param_key = variation.device_name + "." + variation.parameter_name;
+                sampled_params[param_key] = sampled_value;
 
-            spdlog::debug("  Run {}: {} = {} (nominal: {})",
-                         run + 1, param_key, sampled_value, variation.nominal_value);
-        }
-        parameter_samples_vec[run] = sampled_params;
+                spdlog::debug("  Run {}: {} = {} (nominal: {})",
+                             run + 1, param_key, sampled_value, variation.nominal_value);
+            }
+            parameter_samples_vec[run] = sampled_params;
 
-        // Update configuration with sampled parameters
-        auto config_copy = base_config_;
-        for (const auto& [param_name, param_value] : sampled_params) {
-            config_copy.global_params[param_name] = param_value;
-        }
+            parser::NetlistParser parser;
+            auto parse_result = parser.parse_file(netlist_path);
+            parse_result.circuit->expand_all_subcircuits();
+            apply_parameters_inplace(*parse_result.circuit, sampled_params);
 
-        // Re-parse netlist with updated parameters
-        // This applies parameter expansion automatically
-        parser::NetlistParser parser;
-        auto parse_result = parser.parse_file(netlist_path);
-
-        // Override global_params with our sampled values
-        // (in case the netlist has its own .PARAM definitions)
-        for (const auto& [param_name, param_value] : sampled_params) {
-            parse_result.config.global_params[param_name] = param_value;
-        }
-
-        // Run analysis
-        DenseVector solution;
-        SolverStats stats;
-        auto status = solver_func(
-            *parse_result.circuit,
-            parse_result.config,
-            solution,
-            stats
-        );
-
-        if (status == ConvergenceStatus::SUCCESS) {
-            // Extract output value
-            Real output_value = extract_output_value(
+            // Run analysis
+            DenseVector solution;
+            SolverStats stats;
+            auto status = solver_func(
                 *parse_result.circuit,
+                parse_result.config,
                 solution,
-                output_node
+                stats
             );
 
-            // Thread-safe direct indexing
-            all_values_vec[run] = output_value;
-            converged_flags[run] = true;
+            if (status == ConvergenceStatus::SUCCESS) {
+                // Extract output value
+                Real output_value = extract_output_value(
+                    *parse_result.circuit,
+                    solution,
+                    output_node
+                );
 
-            spdlog::debug("  Converged: output = {} V", output_value);
-        } else {
-            spdlog::warn("  Failed to converge at run {}", run + 1);
-            // converged_flags[run] remains false
+                // Thread-safe direct indexing
+                all_values_vec[run] = output_value;
+                converged_flags[run] = true;
+
+                spdlog::debug("  Converged: output = {} V", output_value);
+            } else {
+                spdlog::warn("  Failed to converge at run {}", run + 1);
+                // converged_flags[run] remains false
+            }
+        } catch (...) {
+            errors[run] = std::current_exception();
         }
+    }
+
+    for (const auto& error : errors) {
+        if (error) std::rethrow_exception(error);
     }
 
     // Collect results from parallel execution
@@ -288,7 +283,8 @@ MonteCarloResult MonteCarloExecutor::execute_dc_monte_carlo_fast(
     // Pre-allocate results for thread-safe direct indexing
     std::vector<Real> all_values_vec(result.num_runs, std::numeric_limits<Real>::quiet_NaN());
     std::vector<std::map<std::string, Real>> parameter_samples_vec(result.num_runs);
-    std::vector<bool> converged_flags(result.num_runs, false);
+    std::vector<unsigned char> converged_flags(result.num_runs, 0);
+    std::vector<std::exception_ptr> errors(result.num_runs);
 
     const auto base_seed = rng_->get_seed();
 
@@ -296,48 +292,62 @@ MonteCarloResult MonteCarloExecutor::execute_dc_monte_carlo_fast(
     // Parallel Monte Carlo (fast path) - each thread parses once
     #pragma omp parallel
     {
-        // Thread-local circuit (parsed once per thread, reused across runs)
-        parser::NetlistParser thread_parser;
-        auto thread_parse_result = thread_parser.parse_file(netlist_path);
-        auto& thread_circuit = *thread_parse_result.circuit;
-        auto thread_sim_config = thread_parse_result.config;
+        parser::NetlistParseResult thread_parse_result;
+        std::exception_ptr parse_error;
+        try {
+            parser::NetlistParser thread_parser;
+            thread_parse_result = thread_parser.parse_file(netlist_path);
+            thread_parse_result.circuit->expand_all_subcircuits();
+        } catch (...) {
+            parse_error = std::current_exception();
+        }
 
         #pragma omp for schedule(dynamic)
         for (std::uint32_t run = 0; run < result.num_runs; ++run) {
-            spdlog::debug("Monte Carlo (fast) run {}/{}", run + 1, result.num_runs);
-
-            // Thread-local RNG (deterministic seed = base_seed + run)
-            RandomNumberGenerator thread_rng(base_seed + run);
-
-            // Sample parameter values from distributions
-            std::map<std::string, Real> sampled_params;
-            for (const auto& variation : base_config_.monte_carlo.variations) {
-                DistributionSampler sampler(variation);
-                Real sampled_value = sampler.sample(thread_rng);
-                std::string param_key = variation.device_name + "." + variation.parameter_name;
-                sampled_params[param_key] = sampled_value;
-
-                spdlog::debug("  Run {}: {} = {} (nominal: {})",
-                             run + 1, param_key, sampled_value, variation.nominal_value);
+            if (parse_error) {
+                errors[run] = parse_error;
+                continue;
             }
-            parameter_samples_vec[run] = sampled_params;
+            try {
+                auto& thread_circuit = *thread_parse_result.circuit;
+                const auto& thread_sim_config = thread_parse_result.config;
+                spdlog::debug("Monte Carlo (fast) run {}/{}", run + 1, result.num_runs);
 
-            // Apply parameters in-place to the thread-local circuit
-            apply_parameters_inplace(thread_circuit, sampled_params);
+                // Thread-local RNG (deterministic seed = base_seed + run)
+                RandomNumberGenerator thread_rng(base_seed + run);
 
-            // Run DC analysis
-            DenseVector solution;
-            SolverStats stats;
-            solvers::DCSolver solver(thread_circuit, thread_sim_config);
-            auto status = solver.solve(solution, stats);
+                // Sample parameter values from distributions
+                std::map<std::string, Real> sampled_params;
+                for (const auto& variation : base_config_.monte_carlo.variations) {
+                    DistributionSampler sampler(variation);
+                    Real sampled_value = sampler.sample(thread_rng);
+                    std::string param_key = variation.device_name + "." + variation.parameter_name;
+                    sampled_params[param_key] = sampled_value;
 
-            if (status == ConvergenceStatus::SUCCESS) {
-                Real output_value = extract_output_value(thread_circuit, solution, output_node);
-                all_values_vec[run] = output_value;
-                converged_flags[run] = true;
-                spdlog::debug("  Converged (fast): output = {} V", output_value);
-            } else {
-                spdlog::warn("  Failed to converge at run {} (fast)", run + 1);
+                    spdlog::debug("  Run {}: {} = {} (nominal: {})",
+                                 run + 1, param_key, sampled_value, variation.nominal_value);
+                }
+                parameter_samples_vec[run] = sampled_params;
+
+                // Apply parameters in-place to the thread-local circuit
+                apply_parameters_inplace(thread_circuit, sampled_params);
+
+                // Run DC analysis
+                DenseVector solution;
+                SolverStats stats;
+                solvers::DCSolver solver(thread_circuit, thread_sim_config);
+                auto status = solver.solve(solution, stats);
+
+                if (status == ConvergenceStatus::SUCCESS) {
+                    Real output_value = extract_output_value(thread_circuit, solution, output_node);
+                    all_values_vec[run] = output_value;
+                    converged_flags[run] = true;
+                    spdlog::debug("  Converged (fast): output = {} V", output_value);
+                } else {
+                    spdlog::warn("  Failed to converge at run {} (fast)", run + 1);
+                }
+            } catch (...) {
+                errors[run] = std::current_exception();
             }
         }
     }
@@ -345,6 +355,7 @@ MonteCarloResult MonteCarloExecutor::execute_dc_monte_carlo_fast(
     // Sequential fallback (no OpenMP)
     parser::NetlistParser parser;
     auto parse_result = parser.parse_file(netlist_path);
+    parse_result.circuit->expand_all_subcircuits();
     auto& circuit = *parse_result.circuit;
     auto sim_config = parse_result.config;
 
@@ -371,6 +382,10 @@ MonteCarloResult MonteCarloExecutor::execute_dc_monte_carlo_fast(
         }
     }
 #endif
+
+    for (const auto& error : errors) {
+        if (error) std::rethrow_exception(error);
+    }
 
     // Collect results from parallel execution
     result.parameter_samples = std::move(parameter_samples_vec);
@@ -404,31 +419,19 @@ void MonteCarloExecutor::apply_parameters_inplace(
     const std::map<std::string, Real>& parameter_values) {
     // Parameter key format: "Device.Param" (e.g., "R1.resistance")
     for (const auto& [param_key, value] : parameter_values) {
-        std::size_t dot_pos = param_key.find('.');
+        std::size_t dot_pos = param_key.rfind('.');
         if (dot_pos == std::string::npos) {
-            spdlog::warn("Invalid parameter key: {} (expected Device.Parameter)", param_key);
-            continue;
+            throw std::invalid_argument("Invalid Monte Carlo parameter key: " + param_key);
         }
 
         std::string device_name = param_key.substr(0, dot_pos);
         std::string parameter_name = param_key.substr(dot_pos + 1);
 
-        // Find device and set parameter
-        try {
-            auto device = circuit.get_device(device_name);
-            if (!device) {
-                spdlog::warn("Device not found: {}", device_name);
-                continue;
-            }
-
-            if (!device->set_parameter(parameter_name, value)) {
-                spdlog::warn("Failed to set {}.{}", device_name, parameter_name);
-            } else {
-                spdlog::trace("Set {}.{} = {:.6e}", device_name, parameter_name, value);
-            }
-        } catch (const std::exception& e) {
-            spdlog::warn("Error setting parameter {}: {}", param_key, e.what());
+        auto device = circuit.get_device(device_name);
+        if (!device || !device->set_parameter(parameter_name, value)) {
+            throw std::invalid_argument("Cannot set Monte Carlo parameter: " + param_key);
         }
+        spdlog::trace("Set {}.{} = {:.6e}", device_name, parameter_name, value);
     }
 }
 

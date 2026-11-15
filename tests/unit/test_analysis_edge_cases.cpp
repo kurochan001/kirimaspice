@@ -152,6 +152,107 @@ TEST(DCBranchCurrents, IncludesVoltageBehavioralSources) {
     EXPECT_NEAR(result.points[0].branch_currents[1], -0.002, 1e-9);
 }
 
+class AnalysisDeckTest : public ::testing::Test {
+protected:
+    std::filesystem::path directory;
+    void SetUp() override {
+        directory = std::filesystem::temp_directory_path() /
+            ("kirimaspice_analysis_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+        std::filesystem::create_directory(directory);
+    }
+    void TearDown() override { std::filesystem::remove_all(directory); }
+    std::string write(const std::string& name, const std::string& text) {
+        const auto path = directory / name;
+        std::ofstream(path) << text;
+        return path.string();
+    }
+};
+
+TEST_F(AnalysisDeckTest, ParameterSweepsExpandSubcircuitsAndRelativeIncludes) {
+    write("parts.inc", ".subckt divider in out\nR1 in out {rv}\nR2 out 0 {rl}\n.ends divider\n");
+    for (const std::string steps : {"", ".step param rv 1k 2k 1k\n",
+             ".step param rv 1k 2k 1k\n.step param rl 1k 2k 1k\n"}) {
+        const auto deck = write("sweep.cir", "Sweep include\n.param rv=1k rl=1k\n" + steps +
+            ".include parts.inc\nV1 in 0 3\nX1 in out divider\n.op\n.end\n");
+        parser::NetlistParser parser;
+        auto parsed = parser.parse_file(deck);
+        solvers::ParameterSweepExecutor executor(parsed.config);
+        const auto result = executor.execute_dc_sweep(deck);
+        ASSERT_EQ(result.overall_status, ConvergenceStatus::SUCCESS);
+        EXPECT_EQ(result.num_success, executor.get_total_sweep_points());
+        parsed.circuit->expand_all_subcircuits();
+        const auto output = parsed.circuit->get_node_id("out") - 1;
+        for (const auto& point : result.sweep_points) {
+            const auto& values = point.param_values;
+            const Real rv = values.contains("rv") ? values.at("rv") : 1000.0;
+            const Real rl = values.contains("rl") ? values.at("rl") : 1000.0;
+            ASSERT_GT(point.solution.size(), output);
+            EXPECT_NEAR(point.solution[output], 3.0 * rl / (rv + rl), 1e-8);
+        }
+    }
+}
+
+TEST_F(AnalysisDeckTest, SweepParseErrorsAreReturnedToTheCaller) {
+    SimulationConfig config;
+    StepConfig step{};
+    step.sweep_type = StepType::LIN;
+    step.param_name = "rv";
+    step.start_value = 1.0;
+    step.stop_value = 2.0;
+    step.step_value = 1.0;
+    config.step_configs.push_back(step);
+    solvers::ParameterSweepExecutor executor(config);
+    EXPECT_THROW(executor.execute_dc_sweep((directory / "missing.cir").string()), std::exception);
+}
+
+TEST_F(AnalysisDeckTest, MonteCarloUsesTheSampledDeviceValueInBothPaths) {
+    // The 3 V divider gives 1 V for R1=2k, R2=1k (nominal R1=1k gives 1.5 V).
+    const auto deck = write("mc.cir", "MC divider\n.subckt divider in out\nR1 in out 1k\nR2 out 0 1k\n.ends\nV1 in 0 3\nX1 in out divider\n.op\n.end\n");
+    SimulationConfig config;
+    config.monte_carlo.num_runs = 65;
+    config.monte_carlo.seed = 42;
+    MonteCarloVariation variation{};
+    variation.device_name = "X1.R1";
+    variation.parameter_name = "resistance";
+    variation.distribution = DistributionType::UNIFORM;
+    variation.min_value = variation.max_value = 2000.0;
+    config.monte_carlo.variations.push_back(variation);
+    analysis::MonteCarloExecutor executor(config);
+    for (bool fast : {false, true}) {
+        const auto result = fast ? executor.execute_dc_monte_carlo_fast(deck, "out") :
+                                   executor.execute_dc_monte_carlo(deck, "out");
+        ASSERT_TRUE(result.success);
+        EXPECT_EQ(result.num_converged, config.monte_carlo.num_runs);
+        for (Real value : result.all_values) EXPECT_NEAR(value, 1.0, 1e-8);
+    }
+}
+
+TEST_F(AnalysisDeckTest, MonteCarloErrorsReachTheCaller) {
+    const auto deck = write("mc.cir", "MC errors\nV1 in 0 1\nR1 in out 1k\nR2 out 0 1k\n.end\n");
+    SimulationConfig config;
+    config.monte_carlo.num_runs = 4;
+    config.monte_carlo.seed = 42;
+    MonteCarloVariation variation{};
+    variation.device_name = "R1";
+    variation.parameter_name = "resistance";
+    variation.distribution = DistributionType::UNIFORM;
+    variation.min_value = variation.max_value = 2000.0;
+    config.monte_carlo.variations.push_back(variation);
+    for (bool fast : {false, true}) {
+        analysis::MonteCarloExecutor executor(config);
+        auto run = [&](const std::string& path, const std::string& output) {
+            return fast ? executor.execute_dc_monte_carlo_fast(path, output) :
+                          executor.execute_dc_monte_carlo(path, output);
+        };
+        EXPECT_THROW(run(deck, "missing"), std::exception);
+        EXPECT_THROW(run((directory / "missing.cir").string(), "out"), std::exception);
+    }
+    config.monte_carlo.variations[0].parameter_name = "invalid_parameter";
+    analysis::MonteCarloExecutor executor(config);
+    EXPECT_THROW(executor.execute_dc_monte_carlo(deck, "out"), std::exception);
+    EXPECT_THROW(executor.execute_dc_monte_carlo_fast(deck, "out"), std::exception);
+}
+
 TEST(FourierBoundaryConditions, InterpolatesTheStartOfTheLastPeriod) {
     // The average of the constant 2 over a complete period is exactly 2,
     // including when the beginning of that period lies between samples.

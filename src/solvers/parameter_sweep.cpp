@@ -8,7 +8,7 @@
 #include "kirimaspice/devices/device.hpp"
 #include <spdlog/spdlog.h>
 #include <numeric>
-#include <fstream>
+#include <exception>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -71,6 +71,8 @@ ParameterSweepResult ParameterSweepExecutor::execute_dc_sweep_custom(
             return result;
         }
 
+        parse_result.circuit->expand_all_subcircuits();
+
         // Run single analysis with parsed config (inherits .options, temperature, etc.)
         DenseVector solution;
         SolverStats stats;
@@ -119,76 +121,75 @@ ParameterSweepResult ParameterSweepExecutor::execute_single_param_sweep(
                 step_config.stop_value,
                 sweep_values.size());
 
-    // Preload netlist content to avoid disk I/O on every sweep point
-    std::string netlist_content;
-    {
-        std::ifstream netfile(netlist_path);
-        if (!netfile) {
-            throw std::runtime_error("Cannot open netlist: " + netlist_path);
-        }
-        std::stringstream ss;
-        ss << netfile.rdbuf();
-        netlist_content = ss.str();
-    }
-
     // Parallelize parameter sweep (analysis-level parallelization)
     // Pre-allocate results array for thread-safe direct indexing
     result.sweep_points.resize(sweep_values.size());
+    std::vector<std::exception_ptr> errors(sweep_values.size());
 
 #ifdef _OPENMP
     // Parallel sweep execution (each point is independent - embarrassingly parallel)
     #pragma omp parallel for schedule(dynamic)
 #endif
     for (size_t i = 0; i < sweep_values.size(); ++i) {
-        Real param_value = sweep_values[i];
+        try {
+            Real param_value = sweep_values[i];
 
-        spdlog::debug("Sweep point {}/{}: {}={}",
-                     i + 1, sweep_values.size(),
-                     step_config.param_name, param_value);
+            spdlog::debug("Sweep point {}/{}: {}={}",
+                         i + 1, sweep_values.size(),
+                         step_config.param_name, param_value);
 
-        // Create initial_params to override .PARAM definitions in netlist
-        std::unordered_map<std::string, Real> initial_params;
-        initial_params[step_config.param_name] = param_value;
+            // Create initial_params to override .PARAM definitions in netlist
+            std::unordered_map<std::string, Real> initial_params;
+            initial_params[step_config.param_name] = param_value;
 
-        // Re-parse netlist with updated parameter
-        // initial_params will be applied BEFORE .PARAM directives in netlist
-        parser::NetlistParser parser;
-        auto parse_result = parser.parse_string(netlist_content, initial_params);
+            // Re-parse netlist with updated parameter
+            // initial_params will be applied BEFORE .PARAM directives in netlist
+            parser::NetlistParser parser;
+            auto parse_result = parser.parse_file(netlist_path, initial_params);
 
-        // Run analysis
-        ParameterSweepPoint point;
-        point.param_name = step_config.param_name;
-        point.param_value = param_value;
-        // Also populate param_values for consistency (enhancement)
-        point.param_values[step_config.param_name] = param_value;
+            parse_result.circuit->expand_all_subcircuits();
 
-        point.status = solver_func(
-            *parse_result.circuit,
-            parse_result.config,
-            point.solution,
-            point.stats
-        );
+            // Run analysis
+            ParameterSweepPoint point;
+            point.param_name = step_config.param_name;
+            point.param_value = param_value;
+            // Also populate param_values for consistency (enhancement)
+            point.param_values[step_config.param_name] = param_value;
 
-        // Thread-safe counters update
-        if (point.status == ConvergenceStatus::SUCCESS) {
+            point.status = solver_func(
+                *parse_result.circuit,
+                parse_result.config,
+                point.solution,
+                point.stats
+            );
+
+            // Thread-safe counters update
+            if (point.status == ConvergenceStatus::SUCCESS) {
 #ifdef _OPENMP
-            #pragma omp atomic
+                #pragma omp atomic
 #endif
-            ++result.num_success;
-            spdlog::debug("  Converged in {} iterations",
-                         point.stats.total_iterations);
-        } else {
+                ++result.num_success;
+                spdlog::debug("  Converged in {} iterations",
+                             point.stats.total_iterations);
+            } else {
 #ifdef _OPENMP
-            #pragma omp atomic
+                #pragma omp atomic
 #endif
-            ++result.num_failed;
-            // Note: result.overall_status update is not thread-safe, handled after loop
-            spdlog::warn("  Failed to converge at {}={}",
-                        step_config.param_name, param_value);
+                ++result.num_failed;
+                // Note: result.overall_status update is not thread-safe, handled after loop
+                spdlog::warn("  Failed to converge at {}={}",
+                            step_config.param_name, param_value);
+            }
+
+            // Direct indexing - thread-safe without critical section
+            result.sweep_points[i] = std::move(point);
+        } catch (...) {
+            errors[i] = std::current_exception();
         }
+    }
 
-        // Direct indexing - thread-safe without critical section
-        result.sweep_points[i] = std::move(point);
+    for (const auto& error : errors) {
+        if (error) std::rethrow_exception(error);
     }
 
     // Set overall_status based on failure count (after parallel region)
@@ -217,18 +218,6 @@ ParameterSweepResult ParameterSweepExecutor::execute_multi_param_sweep(
     result.num_failed = 0;
     result.overall_status = ConvergenceStatus::SUCCESS;
 
-    // Load netlist once to avoid repeated disk I/O
-    std::string netlist_content;
-    {
-        std::ifstream netfile(netlist_path);
-        if (!netfile) {
-            throw std::runtime_error("Cannot open netlist: " + netlist_path);
-        }
-        std::stringstream ss;
-        ss << netfile.rdbuf();
-        netlist_content = ss.str();
-    }
-
     // Generate sweep points for all parameters
     std::vector<std::vector<Real>> all_sweep_values;
     std::vector<std::string> param_names;
@@ -249,66 +238,77 @@ ParameterSweepResult ParameterSweepExecutor::execute_multi_param_sweep(
 
     // Pre-allocate results array for thread-safe direct indexing
     result.sweep_points.resize(total_points);
+    std::vector<std::exception_ptr> errors(total_points);
 
 #ifdef _OPENMP
     // Parallel multi-parameter sweep (each combination is independent)
     #pragma omp parallel for schedule(dynamic)
 #endif
     for (size_t combination = 0; combination < total_points; ++combination) {
-        // Compute indices for this combination (counter-based indexing)
-        std::vector<size_t> indices(base_config_.step_configs.size(), 0);
-        size_t remaining = combination;
-        for (int i = indices.size() - 1; i >= 0; --i) {
-            indices[i] = remaining % all_sweep_values[i].size();
-            remaining /= all_sweep_values[i].size();
-        }
+        try {
+            // Compute indices for this combination (counter-based indexing)
+            std::vector<size_t> indices(base_config_.step_configs.size(), 0);
+            size_t remaining = combination;
+            for (int i = indices.size() - 1; i >= 0; --i) {
+                indices[i] = remaining % all_sweep_values[i].size();
+                remaining /= all_sweep_values[i].size();
+            }
 
-        // Build parameter map for current combination
-        std::unordered_map<std::string, Real> param_values;
-        std::string log_msg = fmt::format("Combination {}/{}: ", combination + 1, total_points);
+            // Build parameter map for current combination
+            std::unordered_map<std::string, Real> param_values;
+            std::string log_msg = fmt::format("Combination {}/{}: ", combination + 1, total_points);
 
-        for (size_t i = 0; i < base_config_.step_configs.size(); ++i) {
-            Real value = all_sweep_values[i][indices[i]];
-            param_values[param_names[i]] = value;
-            log_msg += fmt::format("{}={}, ", param_names[i], value);
-        }
-        spdlog::debug(log_msg);
+            for (size_t i = 0; i < base_config_.step_configs.size(); ++i) {
+                Real value = all_sweep_values[i][indices[i]];
+                param_values[param_names[i]] = value;
+                log_msg += fmt::format("{}={}, ", param_names[i], value);
+            }
+            spdlog::debug(log_msg);
 
-        // Pass param_values as initial_params to override .PARAM definitions
-        parser::NetlistParser parser;
-        auto parse_result = parser.parse_string(netlist_content, param_values);
+            // Pass param_values as initial_params to override .PARAM definitions
+            parser::NetlistParser parser;
+            auto parse_result = parser.parse_file(netlist_path, param_values);
 
-        // Run analysis
-        ParameterSweepPoint point;
-        point.param_name = "multi";  // Indicate multi-parameter sweep
-        point.param_value = 0.0;     // Not applicable for multi-param
-        // Store all parameter values (enhancement)
-        point.param_values = param_values;
+            parse_result.circuit->expand_all_subcircuits();
 
-        point.status = solver_func(
-            *parse_result.circuit,
-            parse_result.config,
-            point.solution,
-            point.stats
-        );
+            // Run analysis
+            ParameterSweepPoint point;
+            point.param_name = "multi";  // Indicate multi-parameter sweep
+            point.param_value = 0.0;     // Not applicable for multi-param
+            // Store all parameter values (enhancement)
+            point.param_values = param_values;
 
-        // Thread-safe counters update
-        if (point.status == ConvergenceStatus::SUCCESS) {
+            point.status = solver_func(
+                *parse_result.circuit,
+                parse_result.config,
+                point.solution,
+                point.stats
+            );
+
+            // Thread-safe counters update
+            if (point.status == ConvergenceStatus::SUCCESS) {
 #ifdef _OPENMP
-            #pragma omp atomic
+                #pragma omp atomic
 #endif
-            ++result.num_success;
-        } else {
+                ++result.num_success;
+            } else {
 #ifdef _OPENMP
-            #pragma omp atomic
+                #pragma omp atomic
 #endif
-            ++result.num_failed;
-            // Note: result.overall_status update is not thread-safe, handled after loop
-            spdlog::warn("  Failed to converge");
-        }
+                ++result.num_failed;
+                // Note: result.overall_status update is not thread-safe, handled after loop
+                spdlog::warn("  Failed to converge");
+            }
 
-        // Direct indexing - thread-safe without critical section
-        result.sweep_points[combination] = std::move(point);
+            // Direct indexing - thread-safe without critical section
+            result.sweep_points[combination] = std::move(point);
+        } catch (...) {
+            errors[combination] = std::current_exception();
+        }
+    }
+
+    for (const auto& error : errors) {
+        if (error) std::rethrow_exception(error);
     }
 
     // Set overall_status based on failure count (after parallel region)
