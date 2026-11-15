@@ -106,6 +106,18 @@ public:
     /// Get operating point currents and conductances (for debugging/validation)
     /// @param v_gs_eff: Effective gate-source voltage (vgs for N, vsg for P)
     /// @param v_ds_eff: Effective drain-source voltage (vds for N, vsd for P)
+    /// The current from drain to source of the effective device (VGS, VDS
+    /// for N; VSG, VSD for P) and its derivatives with respect to those two
+    /// voltages, in both modes: for VDS < 0 drain and source change roles,
+    /// as in SPICE, so the current is -Id(VGD, -VDS). The DC, AC and noise
+    /// stamps all take it from here.
+    struct ChannelCurrent {
+        Real id = 0.0;
+        Real gm = 0.0;   ///< d id / d VGS_eff
+        Real gds = 0.0;  ///< d id / d VDS_eff
+    };
+    ChannelCurrent channel_current(Real v_gs_eff, Real v_ds_eff) const;
+
     Real get_drain_current(Real v_gs_eff, Real v_ds_eff) const;
     Real get_transconductance(Real v_gs_eff, Real v_ds_eff) const;
     Real get_output_conductance(Real v_gs_eff, Real v_ds_eff) const;

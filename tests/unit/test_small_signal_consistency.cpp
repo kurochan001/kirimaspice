@@ -131,3 +131,34 @@ TEST(SmallSignalConsistency, IgbtNoiseFollowsTheBias) {
             << "VG=" << vg;
     }
 }
+
+TEST(SmallSignalConsistency, Level1Mosfet) {
+    // The netlist's level-1 MOSFET has no capacitances; at 1 Hz nothing else
+    // would matter anyway
+    const std::string n_card = ".model m nmos level=1 kp=2e-5 vto=0.7";
+    const std::string p_card = ".model m pmos level=1 kp=2e-5 vto=-0.7";
+    expect_ac_gain_is_the_dc_slope(
+        {"N, saturation", "M1 d g 0 0 m W=10u L=1u", n_card, 5.0, 10e3, 2.0});
+    expect_ac_gain_is_the_dc_slope(
+        {"N, linear region", "M1 d g 0 0 m W=10u L=1u", n_card, 5.0, 10e3, 4.0});
+    expect_ac_gain_is_the_dc_slope(
+        {"P, saturation", "M1 d g 0 0 m W=10u L=1u", p_card, -5.0, 10e3, -2.0});
+}
+
+// With VDS < 0 drain and source change roles, as in SPICE: the drain at 0 V,
+// the gate at 5 V and the source fed from 1 V through 1 kOhm carry
+// beta ((VGD - VTO) VSD - VSD^2 / 2) = (1 - VS) / 1k with beta = 2e-4 A/V^2,
+// so 0.1 VS^2 - 1.86 VS + 1 = 0 and VS = 0.554144 V (ngspice-47: 0.554 V).
+TEST(SmallSignalConsistency, Level1MosfetConductsBackwards) {
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "reverse\nVG g 0 DC 5\nV1 a 0 DC 1\nR1 a s 1k\nM1 0 g s 0 m W=10u L=1u\n"
+        ".model m nmos level=1 kp=2e-5 vto=0.7\n.end\n");
+    ASSERT_NE(parsed.circuit, nullptr);
+    DCSolver solver(*parsed.circuit, parsed.config);
+    DenseVector solution;
+    SolverStats stats;
+    ASSERT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS);
+    const Real vs = (1.86 - std::sqrt(1.86 * 1.86 - 0.4)) / 0.2;
+    EXPECT_NEAR(solution[parsed.circuit->get_node_id("s") - 1], vs, 1e-6);
+}

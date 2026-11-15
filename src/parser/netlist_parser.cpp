@@ -5665,12 +5665,16 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         set_parameters_by_name(*igbt, instance_params, "IGBT " + dev_name);
         spdlog::debug("Added {}: {} C={} G={} E={}", mosfet_type, dev_name, drain, gate, source);
     } else if (mosfet_type == "NMOS") {
-        state.circuit->add_mosfet_n(dev_name, drain, gate, source, kp, w, l, vth, kf, af, ef, gamma);
+        // A level-1 card has no overlap capacitances (CGSO, CGDO, CGBO = 0)
+        state.circuit->add_mosfet_n(dev_name, drain, gate, source, kp, w, l, vth, 0.0, 0.0, 0.0, kf,
+                                    af, ef, gamma);
         Real beta = kp * w / l;
         spdlog::debug("Added MOSFET_N: {} D={} G={} S={} Kp={:.3e}A/V² W={:.3e}m L={:.3e}m Vth={:.3f}V β={:.3e}A/V² Kf={:.3e} γ={:.3f}",
                      dev_name, drain, gate, source, kp, w, l, vth, beta, kf, gamma);
     } else {
-        state.circuit->add_mosfet_p(dev_name, drain, gate, source, kp, w, l, vth, kf, af, ef, gamma);
+        // A level-1 card has no overlap capacitances (CGSO, CGDO, CGBO = 0)
+        state.circuit->add_mosfet_p(dev_name, drain, gate, source, kp, w, l, vth, 0.0, 0.0, 0.0, kf,
+                                    af, ef, gamma);
         Real beta = kp * w / l;
         spdlog::debug("Added MOSFET_P: {} D={} G={} S={} Kp={:.3e}A/V² W={:.3e}m L={:.3e}m Vth={:.3f}V β={:.3e}A/V² Kf={:.3e} γ={:.3f}",
                      dev_name, drain, gate, source, kp, w, l, vth, beta, kf, gamma);

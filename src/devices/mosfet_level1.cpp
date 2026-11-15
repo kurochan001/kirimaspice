@@ -240,6 +240,23 @@ void MOSFET_Level1<P>::stamp_gmin(MNASystem& mna) const {
 }
 
 template<Polarity P>
+typename MOSFET_Level1<P>::ChannelCurrent MOSFET_Level1<P>::channel_current(Real v_gs_eff,
+                                                                           Real v_ds_eff) const {
+    if (v_ds_eff >= 0.0) {
+        return {get_drain_current(v_gs_eff, v_ds_eff), get_transconductance(v_gs_eff, v_ds_eff),
+                get_output_conductance(v_gs_eff, v_ds_eff)};
+    }
+    // Reverse mode: the source acts as the drain. With VGD = VGS - VDS and
+    // VSD = -VDS, id = -Id(VGD, VSD), so d id/d VGS = -gm' and
+    // d id/d VDS = gm' + gds'.
+    const Real v_gd = v_gs_eff - v_ds_eff;
+    const Real v_sd = -v_ds_eff;
+    const Real gm_r = get_transconductance(v_gd, v_sd);
+    const Real gds_r = get_output_conductance(v_gd, v_sd);
+    return {-get_drain_current(v_gd, v_sd), -gm_r, gm_r + gds_r};
+}
+
+template<Polarity P>
 void MOSFET_Level1<P>::stamp_dc_nonlinear(MNASystem& mna,
                                            const DenseVector& node_voltages) const {
     NodeId nd = nodes_[0];  // Drain
@@ -256,9 +273,10 @@ void MOSFET_Level1<P>::stamp_dc_nonlinear(MNASystem& mna,
     compute_effective_voltages(vd, vg, vs, v_gs_eff, v_ds_eff);
 
     // Calculate drain current and small-signal parameters (physical values)
-    Real id_physical = get_drain_current(v_gs_eff, v_ds_eff);
-    Real gm = get_transconductance(v_gs_eff, v_ds_eff);
-    Real gds = get_output_conductance(v_gs_eff, v_ds_eff);
+    const ChannelCurrent cc = channel_current(v_gs_eff, v_ds_eff);
+    Real id_physical = cc.id;
+    Real gm = cc.gm;
+    Real gds = cc.gds;
 
     // Convert to MNA convention
     // For N-channel: id_mna = id_physical (drain to source is positive)
@@ -351,98 +369,25 @@ void MOSFET_Level1<P>::stamp_transient(MNASystem& mna,
     timestep_ = timestep;
     last_method_ = method;
 
-    // Get node indices
-    const int nd_idx = (nodes_[0] == NODE_GND) ? -1 : static_cast<int>(nodes_[0]);
-    const int ng_idx = (nodes_[1] == NODE_GND) ? -1 : static_cast<int>(nodes_[1]);
-    const int ns_idx = (nodes_[2] == NODE_GND) ? -1 : static_cast<int>(nodes_[2]);
-
-    // Helper lambda for stamping capacitor companion model
-    auto stamp_capacitor = [&](Real cap, int node_p, int node_n,
-                               Real v_prev, Real v_prev2, Real v_prev3,
-                               Real* g_eq_out, Real* i_eq_out) {
-        if (cap <= 0.0) return;
-
-        // Get current voltage
-        Real v_now = 0.0;
-        if (node_p >= 0) v_now += node_voltages[node_p];
-        if (node_n >= 0) v_now -= node_voltages[node_n];
-
-        Real g_eq = 0.0;
-        Real i_eq = 0.0;
-
-        switch (method) {
-            case IntegrationMethod::BACKWARD_EULER:
-                g_eq = cap / timestep;
-                i_eq = -g_eq * v_prev;
-                break;
-            case IntegrationMethod::TRAPEZOIDAL:
-                g_eq = 2.0 * cap / timestep;
-                i_eq = -g_eq * v_prev;
-                break;
-            case IntegrationMethod::GEAR2:
-                g_eq = 1.5 * cap / timestep;
-                i_eq = -(2.0 * cap / timestep) * v_prev + (0.5 * cap / timestep) * v_prev2;
-                break;
-            case IntegrationMethod::GEAR3:
-                g_eq = (11.0 / 6.0) * cap / timestep;
-                i_eq = -(3.0 * cap / timestep) * v_prev
-                     + (1.5 * cap / timestep) * v_prev2
-                     - (cap / (3.0 * timestep)) * v_prev3;
-                break;
-            case IntegrationMethod::TR_BDF2:
-                g_eq = 1.5 * cap / timestep;
-                i_eq = -(2.0 * cap / timestep) * v_prev + (0.5 * cap / timestep) * v_prev2;
-                break;
-            default:
-                throw std::runtime_error("Unknown integration method");
+    // The overlap capacitances CGSO W, CGDO W and CGBO L by backward Euler,
+    // whatever the method: the current C / dt (V - V_prev) from the first
+    // node to the second, with V_prev accepted at the last time point
+    // (accept_solution); node k at element k - 1, as the stamps read it
+    (void)bdf_coef;
+    (void)tr_bdf2_coef;
+    const int nd_idx = (nodes_[0] == NODE_GND) ? -1 : static_cast<int>(nodes_[0] - 1);
+    const int ng_idx = (nodes_[1] == NODE_GND) ? -1 : static_cast<int>(nodes_[1] - 1);
+    const int ns_idx = (nodes_[2] == NODE_GND) ? -1 : static_cast<int>(nodes_[2] - 1);
+    auto companion = [&](Real cap, int n1, int n2, Real v_prev) {
+        if (cap <= 0.0) {
+            return;
         }
-
-        // Handle variable-timestep BDF
-        if (bdf_coef != nullptr && (method == IntegrationMethod::GEAR2 || method == IntegrationMethod::GEAR3)) {
-            use_bdf_var_ = true;
-            bdf_alpha0_ = bdf_coef->alpha0;
-            bdf_alpha1_ = bdf_coef->alpha1;
-            bdf_alpha2_ = bdf_coef->alpha2;
-            bdf_alpha3_ = bdf_coef->alpha3;
-            bdf_beta0_ = bdf_coef->beta0;
-
-            g_eq = cap * bdf_alpha0_ / bdf_beta0_;
-            i_eq = cap * (bdf_alpha1_ * v_prev + bdf_alpha2_ * v_prev2 + bdf_alpha3_ * v_prev3) / bdf_beta0_;
-        } else {
-            use_bdf_var_ = false;
-        }
-
-        // Stamp companion model
-        if (node_p >= 0) {
-            mna.G.add_entry(node_p, node_p, g_eq);
-            if (node_n >= 0) {
-                mna.G.add_entry(node_p, node_n, -g_eq);
-            }
-            mna.b[node_p] += i_eq;
-        }
-        if (node_n >= 0) {
-            if (node_p >= 0) {
-                mna.G.add_entry(node_n, node_p, -g_eq);
-            }
-            mna.G.add_entry(node_n, node_n, g_eq);
-            mna.b[node_n] -= i_eq;
-        }
-
-        if (g_eq_out) *g_eq_out = g_eq;
-        if (i_eq_out) *i_eq_out = i_eq;
+        const Real g = cap / timestep;
+        device_utils::stamp_capacitor_companion(mna, n1, n2, g, -g * v_prev, 1.0);
     };
-
-    // Junction 1: Gate-Source (G-S) capacitance
-    Real cgs = cgso_ * w_;
-    stamp_capacitor(cgs, ng_idx, ns_idx, vgs_prev_, vgs_prev2_, vgs_prev3_, nullptr, nullptr);
-
-    // Junction 2: Gate-Drain (G-D) capacitance
-    Real cgd = cgdo_ * w_;
-    stamp_capacitor(cgd, ng_idx, nd_idx, vgd_prev_, vgd_prev2_, vgd_prev3_, nullptr, nullptr);
-
-    // Junction 3: Gate-Bulk/Body (G-B) capacitance (body connected to source)
-    Real cgb = cgbo_ * l_;
-    stamp_capacitor(cgb, ng_idx, ns_idx, vgb_prev_, vgb_prev2_, vgb_prev3_, nullptr, nullptr);
+    companion(cgso_ * w_, ng_idx, ns_idx, vgs_prev_);
+    companion(cgdo_ * w_, ng_idx, nd_idx, vgd_prev_);
+    companion(cgbo_ * l_, ng_idx, ns_idx, vgb_prev_);
 }
 
 template<Polarity P>
@@ -472,8 +417,9 @@ void MOSFET_Level1<P>::stamp_ac(ComplexMNASystem& sys, Real omega,
     compute_effective_voltages(v_d, v_g, v_s, v_gs_eff, v_ds_eff);
 
     // Calculate small-signal parameters
-    Real gm = get_transconductance(v_gs_eff, v_ds_eff);
-    Real gds = get_output_conductance(v_gs_eff, v_ds_eff);
+    const ChannelCurrent cc = channel_current(v_gs_eff, v_ds_eff);
+    Real gm = cc.gm;
+    Real gds = cc.gds;
     Real cgs = get_gate_source_capacitance(v_gs_eff, v_ds_eff);
     Real cgd = get_gate_drain_capacitance(v_gs_eff, v_ds_eff);
 
@@ -567,8 +513,9 @@ std::vector<NoiseSource> MOSFET_Level1<P>::get_noise_sources(const DenseVector& 
     Real v_gs_eff, v_ds_eff;
     compute_effective_voltages(V_d, V_g, V_s, v_gs_eff, v_ds_eff);
 
-    Real I_d = get_drain_current(v_gs_eff, v_ds_eff);
-    Real g_m = get_transconductance(v_gs_eff, v_ds_eff);
+    const ChannelCurrent cc = channel_current(v_gs_eff, v_ds_eff);
+    Real I_d = std::abs(cc.id);
+    Real g_m = std::abs(cc.gm);
 
     constexpr Real gm_threshold = 1e-15;
 
