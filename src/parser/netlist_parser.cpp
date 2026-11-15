@@ -3816,11 +3816,10 @@ static void parse_model_directive(const std::vector<std::string>& tokens, ParseS
     }
 
     // Parse key=value pairs. Each is one token, whatever blanks stood around
-    // its '=' (util::split_netlist_line).
+    // its '=' (util::split_netlist_line), and a brace expression stays in its
+    // token when the text is split again.
     if (!params_content.empty()) {
-        std::istringstream iss(params_content);
-        std::string current;
-        while (iss >> current) {
+        for (const std::string& current : util::split_netlist_tokens(params_content)) {
             const size_t eq_pos = current.find('=');
             if (eq_pos == std::string::npos) {
                 continue;

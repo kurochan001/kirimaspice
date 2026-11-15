@@ -75,9 +75,6 @@ document also lists differences not decided there.
   `SFFM` at least `VO VA FC` (read in the code). An `SFFM` source without
   a DC value has `VO` in the operating point, where ngspice-47 gives 0 V
   (measured at `eaf0629`).
-- **An expression in braces must have no spaces in a `.MODEL` line;**
-  there the line is split at spaces again, and `IS={a * 2}` stops with
-  `Invalid number format`.
 - **The diode reads only `IS` and `N`; the bipolar transistor reads `IS`,
   `BF`, `NF`, `ISE`, `NE`, `ISC`, `NC` and noise parameters; the level-1
   MOSFET has no bulk terminal in its equations and no `LAMBDA`, and its

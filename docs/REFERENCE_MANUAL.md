@@ -160,10 +160,9 @@ the parameters defined so far, the constants `pi` and `e`, ExprTk's
 built-in functions, and, in `.PARAM` only, functions defined by `.FUNC`.
 Scale suffixes are not accepted inside braces (`{1m}` is an error). A brace
 group is one token even if it contains spaces, and one that follows `=`
-stays in the same token, so `IS={ISAT}` is one parameter. In a `.MODEL`
-line, however, the text is split again at spaces, so an expression there
-must have none (`IS={a * 2}` stops with `Invalid number format`). The
-arguments of a source waveform may have spaces inside braces.
+stays in the same token, so `IS={ISAT}` and `IS={a * 2}` are each one
+parameter, on a `.MODEL` line too. The arguments of a source waveform may
+have spaces inside braces.
 
 ## Elements
 

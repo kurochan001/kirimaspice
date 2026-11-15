@@ -227,3 +227,16 @@ TEST(NetlistLines, InstanceParametersWithBlanks) {
     EXPECT_DOUBLE_EQ(m1->channel_width(), 100e-6);
     EXPECT_DOUBLE_EQ(m1->channel_length(), 1e-6);
 }
+
+// A brace expression on a .MODEL line may hold blanks, as anywhere else
+// (parse_model_directive); ngspice-47 draws 125 uA from VD, with VTO 0.5 V
+TEST(NetlistLines, ModelExpressionWithBlanks) {
+    parser::NetlistParser parser;
+    const auto parsed = parser.parse_string(
+        "t\n.param a=0.25\n.model nch nmos (kp=1e-4 vto={a * 2})\nVD d 0 1\nVG g 0 1\n"
+        "M1 d g 0 0 nch W=10u L=1u\n.op\n.end\n");
+    ASSERT_NE(parsed.circuit, nullptr);
+    const auto m1 = device_as<devices::MOSFET_N_Level1>(parsed, "M1");
+    ASSERT_NE(m1, nullptr);
+    EXPECT_DOUBLE_EQ(m1->threshold_voltage(), 0.5);
+}
