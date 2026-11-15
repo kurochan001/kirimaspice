@@ -18,7 +18,9 @@
 #include "kirimaspice/core/types.hpp"
 
 #include <cstdint>
+#include <functional>
 #include <optional>
+#include <vector>
 
 namespace kirimaspice::circuit {
 class CircuitGraph;
@@ -30,6 +32,25 @@ namespace kirimaspice::solvers {
 /// (Device::limited_in_last_stamp). An iterate that a limited stamp produced
 /// is not accepted as converged, whatever its change from the last iterate.
 bool any_device_limited(const circuit::CircuitGraph& circuit);
+
+/// Kirchhoff's current law at a solution x, the second half of Newton's
+/// convergence test (the first is the step from the last iterate). Each
+/// contribution stamps one device (or one other term, such as gmin) linearized
+/// at x into an empty system; at x a linearization carries the device's own
+/// current, so the contributions G_d x - b_d summed give the residual of each
+/// row, and the largest of them is the scale of its tolerance:
+///   node row:   |sum| <= RELTOL max |contribution| + ABSTOL  (amperes)
+///   branch row: |sum| <= RELTOL max |contribution| + VNTOL   (volts)
+/// each plus 1e-12 of the sum of the magnitudes of the row's terms, for the
+/// rounding of large conductances that cancel
+/// as SPICE tests each device's current against its linearized prediction
+/// with RELTOL times the larger of the two plus ABSTOL. A step can be small
+/// while KCL does not hold, where a device's conductance is not the
+/// derivative of its current; only this test sees that.
+bool kirchhoff_current_law_holds(
+    const DenseVector& x, std::uint32_t num_nodes, std::uint32_t num_branches,
+    const std::vector<std::function<void(MNASystem&)>>& contributions, Real reltol,
+    Real abstol, Real vntol);
 
 /// .OPTIONS VOLTAGE_LIMITING=0 turns junction limiting off in every device
 /// (Device::set_voltage_limiting). With the default of 1 the devices keep
@@ -137,6 +158,13 @@ public:
      * @param num_nodes Number of node voltages
      */
     void set_num_nodes(std::uint32_t num_nodes) { num_nodes_ = num_nodes; }
+
+    /// The step test of DC: each change below VNTOL (ABSTOL for branch
+    /// currents) or below RELTOL relative to the new value
+    bool check_step_dc(const DenseVector& x_new, const DenseVector& x_old,
+                       const ConvergenceConfig& config) const {
+        return check_solution_change_dc(x_new, x_old, config);
+    }
 
 private:
     /**

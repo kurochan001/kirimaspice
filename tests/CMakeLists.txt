@@ -1143,6 +1143,10 @@ add_executable(test_units_parse unit/test_units_parse.cpp)
 target_link_libraries(test_units_parse PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_units_parse PROPERTIES TIMEOUT 1200)
 
+add_executable(test_dc_convergence_kcl unit/test_dc_convergence_kcl.cpp)
+target_link_libraries(test_dc_convergence_kcl PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_dc_convergence_kcl PROPERTIES TIMEOUT 1200)
+
 add_executable(test_source_waveforms unit/test_source_waveforms.cpp)
 target_link_libraries(test_source_waveforms PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_source_waveforms PROPERTIES TIMEOUT 1200)

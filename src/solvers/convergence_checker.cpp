@@ -19,6 +19,79 @@
 
 namespace kirimaspice::solvers {
 
+namespace {
+// Of the magnitude of the terms a row of the system adds up: about 4500
+// times the double-precision epsilon
+constexpr Real kRoundingAllowance = 1e-12;
+}  // namespace
+
+bool kirchhoff_current_law_holds(
+    const DenseVector& x, std::uint32_t num_nodes, std::uint32_t num_branches,
+    const std::vector<std::function<void(MNASystem&)>>& contributions, Real reltol,
+    Real abstol, Real vntol) {
+    const std::size_t n = static_cast<std::size_t>(num_nodes) + num_branches;
+    if (x.size() < n) {
+        return false;
+    }
+    DenseVector sum(n, 0.0), scale(n, 0.0), part(n, 0.0), magnitude(n, 0.0);
+    std::vector<char> touched(n, 0);
+    std::vector<std::uint32_t> rows;
+
+    MNASystem scratch;
+    scratch.resize(num_nodes, num_branches);
+    for (const auto& contribute : contributions) {
+        scratch.G.rows.clear();
+        scratch.G.cols.clear();
+        scratch.G.values.clear();
+        contribute(scratch);
+
+        // G_d x at the rows the contribution touched, then minus b_d there
+        // and wherever else it wrote b
+        rows.clear();
+        for (std::size_t k = 0; k < scratch.G.values.size(); ++k) {
+            const std::uint32_t i = scratch.G.rows[k];
+            const std::uint32_t j = scratch.G.cols[k];
+            if (i >= n || j >= n) continue;
+            const Real term = scratch.G.values[k] * x[j];
+            part[i] += term;
+            magnitude[i] += std::abs(term);
+            if (!touched[i]) {
+                touched[i] = 1;
+                rows.push_back(i);
+            }
+        }
+        for (std::uint32_t i = 0; i < n; ++i) {
+            if (scratch.b[i] != 0.0 && !touched[i]) {
+                touched[i] = 1;
+                rows.push_back(i);
+            }
+        }
+        for (const std::uint32_t i : rows) {
+            part[i] -= scratch.b[i];
+            magnitude[i] += std::abs(scratch.b[i]);
+            sum[i] += part[i];
+            scale[i] = std::max(scale[i], std::abs(part[i]));
+            part[i] = 0.0;
+            scratch.b[i] = 0.0;
+            touched[i] = 0;
+        }
+    }
+
+    for (std::size_t i = 0; i < n; ++i) {
+        // ... plus the rounding of the terms the row adds up, which a large
+        // conductance (a line's DC stamp, a held node) makes larger than
+        // ABSTOL
+        const Real tolerance = reltol * scale[i] + (i < num_nodes ? abstol : vntol) +
+                               kRoundingAllowance * magnitude[i];
+        if (!(std::abs(sum[i]) <= tolerance)) {
+            spdlog::debug("KCL: row {} has {:.3e} {} (tolerance {:.3e})", i, sum[i],
+                          i < num_nodes ? "A" : "V", tolerance);
+            return false;
+        }
+    }
+    return true;
+}
+
 bool any_device_limited(const circuit::CircuitGraph& circuit) {
     for (const auto& device : circuit.get_devices()) {
         if (device->limited_in_last_stamp()) {

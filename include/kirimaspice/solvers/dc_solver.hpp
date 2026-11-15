@@ -93,14 +93,15 @@ private:
     /// Stamp all devices into MNA system
     void stamp_devices(const DenseVector& node_voltages);
 
-    /// Check convergence
-    /// @param x_new New solution
-    /// @param x_old Old solution
-    /// @param f_new Residual (f = Gx - b)
-    /// @return true if converged
-    bool check_convergence(const DenseVector& x_new,
-                          const DenseVector& x_old,
-                          const DenseVector& f_new) const;
+    /// Newton's convergence test: the step from x_old to x_new is below
+    /// RELTOL of the values plus VNTOL (ABSTOL for branch currents), no
+    /// device limited its junction in the stamps at x_old or at x_new, and
+    /// Kirchhoff's current law holds at x_new with the devices' own currents
+    /// there (kirchhoff_current_law_holds). extra_gmin is the gmin from each
+    /// node to ground that the iteration solved with (gmin stepping, dynamic
+    /// gmin), so that KCL is tested on the same circuit.
+    bool check_convergence(const DenseVector& x_new, const DenseVector& x_old,
+                           Real extra_gmin = 0.0) const;
 
     /// Compute residual: f = Gx - b
     void compute_residual(const DenseVector& x, DenseVector& f) const;

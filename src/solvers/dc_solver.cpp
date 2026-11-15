@@ -341,32 +341,60 @@ void DCSolver::compute_residual(const DenseVector& x, DenseVector& f) const {
     }
 }
 
-bool DCSolver::check_convergence(const DenseVector& x_new,
-                                 const DenseVector& x_old,
-                                 const DenseVector& f_new) const {
-    // Delegate to ConvergenceChecker
+bool DCSolver::check_convergence(const DenseVector& x_new, const DenseVector& x_old,
+                                 Real extra_gmin) const {
     const auto& dc_config = config_.dc;
-
-    // Build ConvergenceConfig from SimulationConfig
-    ConvergenceConfig conv_config;
-    conv_config.abstol = dc_config.abstol;
-    conv_config.reltol = dc_config.reltol;
-    conv_config.vntol = dc_config.vntol;
-    conv_config.check_residual = true;  // DC mode: check residual
-    conv_config.relax_for_linear = true;
-    conv_config.linear_relax_factor = 1e6;
-    conv_config.stability_threshold = dc_config.vntol * 1e-3;  // Very tight threshold
-    conv_config.branch_tol_multiplier = 1e3;
 
     // An iterate from a stamp with a limited junction is not a solution yet
     if (any_device_limited(circuit_)) {
         return false;
     }
 
-    // Create checker with current num_nodes
+    // The step
+    ConvergenceConfig conv_config;
+    conv_config.abstol = dc_config.abstol;
+    conv_config.reltol = dc_config.reltol;
+    conv_config.vntol = dc_config.vntol;
     ConvergenceChecker checker(mna_.num_nodes);
+    if (!checker.check_step_dc(x_new, x_old, conv_config)) {
+        return false;
+    }
 
-    return checker.check(x_new, x_old, conv_config, &f_new);
+    // KCL at x_new, with each device's current there (as build_mna_system
+    // stamps it), the held nodes and the extra gmin
+    std::vector<std::function<void(MNASystem&)>> contributions;
+    for (const auto& device : circuit_.get_devices()) {
+        const devices::Device* dev = device.get();
+        contributions.emplace_back([dev, &x_new](MNASystem& mna) {
+            if (dev->is_linear()) {
+                dev->stamp_dc_linear(mna, x_new);
+            } else {
+                dev->stamp_gmin(mna, x_new);
+                dev->stamp_dc_nonlinear(mna, x_new);
+            }
+        });
+    }
+    for (const auto& [row, voltage] : held_nodes_) {
+        contributions.emplace_back([row = row, voltage = voltage](MNASystem& mna) {
+            mna.G.add_entry(row, row, kHoldConductance);
+            mna.b[row] += kHoldConductance * voltage;
+        });
+    }
+    if (extra_gmin > 0.0) {
+        const std::uint32_t num_nodes = mna_.num_nodes;
+        contributions.emplace_back([num_nodes, extra_gmin](MNASystem& mna) {
+            for (std::uint32_t i = 0; i < num_nodes; ++i) {
+                mna.G.add_entry(i, i, extra_gmin);
+            }
+        });
+    }
+    if (!kirchhoff_current_law_holds(x_new, mna_.num_nodes, mna_.num_branches, contributions,
+                                     dc_config.reltol, dc_config.abstol, dc_config.vntol)) {
+        return false;
+    }
+
+    // The stamps at x_new must not have limited a junction either
+    return !any_device_limited(circuit_);
 }
 
 ConvergenceStatus DCSolver::solve_standard(DenseVector& solution, SolverStats& stats) {
@@ -399,8 +427,9 @@ ConvergenceStatus DCSolver::solve_standard(DenseVector& solution, SolverStats& s
         build_mna_system(x_old);
         stats.jacobian_evals++;
 
+        Real applied_gmin = 0.0;
         if (dynamic_gmin_enabled) {
-            Real applied_gmin = std::max(config_.gmin, dynamic_gmin_value);
+            applied_gmin = std::max(config_.gmin, dynamic_gmin_value);
             if (applied_gmin > 0.0) {
                 add_gmin_to_nodes(applied_gmin);
                 spdlog::debug("Dynamic Gmin applied (iter {}): {:.3e} S", iter, applied_gmin);
@@ -592,7 +621,7 @@ ConvergenceStatus DCSolver::solve_standard(DenseVector& solution, SolverStats& s
         }
 
         // Check convergence
-        if (check_convergence(x_new, x_old, f_new)) {
+        if (check_convergence(x_new, x_old, applied_gmin)) {
             // Converged!
             solution = x_new;
             last_solution_ = x_new;  // Store for branch current extraction
@@ -865,7 +894,7 @@ ConvergenceStatus DCSolver::solve_with_source_stepping(DenseVector& solution, So
                          iter, max_residual, max_change);
 
             // Check convergence
-            if (check_convergence(x_new, x_old, f_new)) {
+            if (check_convergence(x_new, x_old)) {
                 // Converged for this step
                 x_current = x_new;
                 step_converged = true;
@@ -1024,7 +1053,7 @@ ConvergenceStatus DCSolver::solve_with_gmin_stepping(DenseVector& solution, Solv
                          iter, max_residual, max_change);
 
             // Check convergence
-            if (check_convergence(x_new, x_old, f_new)) {
+            if (check_convergence(x_new, x_old, gmin)) {
                 // Converged for this step
                 x_current = x_new;
                 step_converged = true;
