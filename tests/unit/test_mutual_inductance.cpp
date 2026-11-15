@@ -819,3 +819,30 @@ K1 L1 L2 0.9
     // A coupled inductor leaves its error to the mutual inductance
     EXPECT_EQ(l1->get_physical_lte(chgtol, v2), 0.0);
 }
+
+// In AC the coupled pair has the admittance L^-1 / (j omega), L = [[L1, M],
+// [M, L2]] (MutualInductance::stamp_ac, as stamp_transient with its factor).
+// With 1 V across L1 and R across L2, v1 = j w L1 i1 + j w M i2,
+// v2 = j w M i1 + j w L2 i2 and i2 = -v2 / R give
+// v2 = 1 / (L1/M + j w (L1 L2 - M^2) / (M R)); ngspice-47 gives
+// |V(out)| = 1.797951 and a phase of -0.0477160 rad for this netlist.
+TEST(MutualInductanceTest, AcTransferMatchesTheCoupledEquations) {
+    const std::string netlist =
+        "k ac\nV1 in 0 DC 0 AC 1\nL1 in 0 1m\nL2 out 0 4m\nK1 L1 L2 0.9\nR1 out 0 100\n"
+        ".ac lin 1 1k 1k\n.end\n";
+    NetlistParser parser;
+    auto result = parser.parse_string(netlist);
+    ACSolver ac_solver(*result.circuit, result.config);
+    const auto ac_result = ac_solver.solve();
+    ASSERT_EQ(ac_result.status, ConvergenceStatus::SUCCESS);
+    ASSERT_EQ(ac_result.frequency_points.size(), 1u);
+
+    const Real L1 = 1e-3, L2 = 4e-3, R = 100.0;
+    const Real M = 0.9 * std::sqrt(L1 * L2);
+    const Real w = 2.0 * M_PI * 1e3;
+    const Complex expected =
+        1.0 / Complex(L1 / M, w * (L1 * L2 - M * M) / (M * R));
+    const Complex v2 =
+        ac_result.frequency_points[0].solution[result.circuit->get_node_id("out") - 1];
+    EXPECT_NEAR(std::abs(v2 - expected), 0.0, 1e-9 * std::abs(expected));
+}

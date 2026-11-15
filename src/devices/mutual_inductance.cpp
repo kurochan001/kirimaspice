@@ -160,28 +160,22 @@ void MutualInductance::stamp_transient(MNASystem& mna,
             break;
     }
 
-    // Determinant of inductance matrix (clamped for numerical safety)
-    Real det = L1 * L2 - M * M;
-    Real k_eff = std::abs(M) / std::sqrt(std::max(Real(1e-30), L1 * L2));
-    // Avoid singular matrix at k≈1. Clamp relative to L1*L2 with k-aware guard (even softer for k→1).
-    Real det_min = (1e-12 + 1e-4 * (1.0 - k_eff)) * L1 * L2;
-    if (det < det_min) det = det_min;
-
     // Companion conductances derived from coupled inductance matrix
     // dI/dt ≈ (α₀ I_{n+1} + α₁ I_n + α₂ I_{n-1} + α₃ I_{n-2}) / β₀
     // I_{n+1} = (β₀/α₀) L^{-1} V_{n+1} - Σ (α_i/α₀) I_{n+1-i}
     // → G = (β₀/α₀) L^{-1}
+    const InverseInductance inverse = inverse_inductance();
     Real scale = beta0 / alpha0;
-    Real g11_target = scale * L2 / det;     // coefficient for v1
-    Real g22_target = scale * L1 / det;     // coefficient for v2
-    Real g12 = -scale * M / det;            // coefficient for v2 into i1
+    Real g11_target = scale * inverse.g11;  // coefficient for v1
+    Real g22_target = scale * inverse.g22;  // coefficient for v2
+    Real g12 = scale * inverse.g12;         // coefficient for v2 into i1
     Real g21 = g12;                         // symmetric
 
     // Existing self stamps from each inductor (added separately)
     Real gL1 = scale / L1;
     Real gL2 = scale / L2;
-    Real delta_g1 = g11_target - gL1;
-    Real delta_g2 = g22_target - gL2;
+    Real delta_g1 = scale * inverse.delta11;
+    Real delta_g2 = scale * inverse.delta22;
 
     NodeId np1 = ind1->np();
     NodeId nn1 = ind1->nn();
@@ -428,90 +422,75 @@ void MutualInductance::accept_solution(const DenseVector& node_voltages) {
     ind2->add_current_delta(delta_i2);
 }
 
+MutualInductance::InverseInductance MutualInductance::inverse_inductance() const {
+    auto* ind1 = dynamic_cast<const Inductor*>(L1_);
+    auto* ind2 = dynamic_cast<const Inductor*>(L2_);
+    if (!ind1 || !ind2) {
+        throw std::runtime_error(
+            fmt::format("Mutual inductance {}: inductors not set", name()));
+    }
+    const Real L1 = ind1->inductance();
+    const Real L2 = ind2->inductance();
+    const Real M = mutual_inductance();
+
+    // Determinant of inductance matrix (clamped for numerical safety)
+    Real det = L1 * L2 - M * M;
+    Real k_eff = std::abs(M) / std::sqrt(std::max(Real(1e-30), L1 * L2));
+    // Avoid singular matrix at k≈1. Clamp relative to L1*L2 with k-aware guard (even softer for k→1).
+    Real det_min = (1e-12 + 1e-4 * (1.0 - k_eff)) * L1 * L2;
+    if (det < det_min) det = det_min;
+
+    InverseInductance inverse;
+    inverse.g11 = L2 / det;
+    inverse.g22 = L1 / det;
+    inverse.g12 = -M / det;
+    inverse.delta11 = inverse.g11 - 1.0 / L1;
+    inverse.delta22 = inverse.g22 - 1.0 / L2;
+    return inverse;
+}
+
 void MutualInductance::stamp_ac(ComplexMNASystem& sys,
                                  Real omega,
                                  const DenseVector& dc_solution) const {
-    // AC analysis: Add jωM cross-coupling
-    //
-    // Admittance matrix for coupled inductors:
-    //   I1 = (V1 - V2) / (jωL1) + (V1) * jωM / (jωL1 * jωL2 - (jωM)²)
-    //   I2 = (V2 - V1) / (jωL2) + (V2) * jωM / (jωL1 * jωL2 - (jωM)²)
-    //
-    // Simplified approach: Add mutual admittance Y_M = jωM between inductors
-    //
-    // For coupled inductors with nodes (n1p, n1n) and (n2p, n2n):
-    //   Y11 = 1/(jωL1) + jωM_eff
-    //   Y12 = -jωM_eff
-    //   Y21 = -jωM_eff
-    //   Y22 = 1/(jωL2) + jωM_eff
-    //
-    // However, this requires modifying the inductor stamps, which is complex.
-    // For , we implement a simplified version that ignores the M term.
-
+    (void)dc_solution;
+    // The coupled pair has the admittance L^{-1} / (j omega), L its
+    // inductance matrix [[L1, M], [M, L2]], between the inductor voltages
+    // v1 = V(np1) - V(nn1) and v2 = V(np2) - V(nn2). Each inductor stamps
+    // 1/(j omega L) of its own (Inductor::stamp_ac); this device adds the rest
+    // of the diagonal and the coupling, as stamp_transient does with the
+    // factor of its step.
     if (!L1_ || !L2_) {
         throw std::runtime_error(
             fmt::format("Mutual inductance {}: inductors not set", name()));
     }
-
-    Real M = mutual_inductance();
-
-    // Cast to Inductor to access nodes
     auto* ind1 = dynamic_cast<const Inductor*>(L1_);
     auto* ind2 = dynamic_cast<const Inductor*>(L2_);
-
     if (!ind1 || !ind2) {
         throw std::runtime_error(
             fmt::format("Mutual inductance {}: failed to cast inductors", name()));
     }
 
-    NodeId np1 = ind1->np();
-    NodeId nn1 = ind1->nn();
-    NodeId np2 = ind2->np();
-    NodeId nn2 = ind2->nn();
+    const InverseInductance inverse = inverse_inductance();
+    const Complex factor = Complex(1.0, 0.0) / Complex(0.0, omega);
 
-    // Convert to MNA indices
-    auto np1_idx = (np1 == NODE_GND) ? -1 : static_cast<int>(np1 - 1);
-    auto nn1_idx = (nn1 == NODE_GND) ? -1 : static_cast<int>(nn1 - 1);
-    auto np2_idx = (np2 == NODE_GND) ? -1 : static_cast<int>(np2 - 1);
-    auto nn2_idx = (nn2 == NODE_GND) ? -1 : static_cast<int>(nn2 - 1);
+    auto idx = [](NodeId n) { return (n == NODE_GND) ? -1 : static_cast<int>(n - 1); };
+    const int np1 = idx(ind1->np()), nn1 = idx(ind1->nn());
+    const int np2 = idx(ind2->np()), nn2 = idx(ind2->nn());
 
-    // Mutual admittance: Y_M = jωM = j * omega * M
-    Complex Y_M(0.0, omega * M);
+    // Current y * (V(p_ctrl) - V(n_ctrl)) from p_out to n_out
+    auto add_transadmittance = [&](int p_out, int n_out, int p_ctrl, int n_ctrl, Complex y) {
+        if (p_out >= 0 && p_ctrl >= 0) sys.Y.add_entry(p_out, p_ctrl, y);
+        if (p_out >= 0 && n_ctrl >= 0) sys.Y.add_entry(p_out, n_ctrl, -y);
+        if (n_out >= 0 && p_ctrl >= 0) sys.Y.add_entry(n_out, p_ctrl, -y);
+        if (n_out >= 0 && n_ctrl >= 0) sys.Y.add_entry(n_out, n_ctrl, y);
+    };
+    add_transadmittance(np1, nn1, np1, nn1, factor * inverse.delta11);
+    add_transadmittance(np2, nn2, np2, nn2, factor * inverse.delta22);
+    add_transadmittance(np1, nn1, np2, nn2, factor * inverse.g12);
+    add_transadmittance(np2, nn2, np1, nn1, factor * inverse.g12);
 
-    // Add mutual coupling terms
-    // I1 += Y_M * V2, I2 += Y_M * V1
-    // This is a simplified approximation
-
-    // Cross-coupling from L2 to L1
-    if (np1_idx >= 0 && np2_idx >= 0) {
-        sys.Y.add_entry(np1_idx, np2_idx, Y_M);
-    }
-    if (np1_idx >= 0 && nn2_idx >= 0) {
-        sys.Y.add_entry(np1_idx, nn2_idx, -Y_M);
-    }
-    if (nn1_idx >= 0 && np2_idx >= 0) {
-        sys.Y.add_entry(nn1_idx, np2_idx, -Y_M);
-    }
-    if (nn1_idx >= 0 && nn2_idx >= 0) {
-        sys.Y.add_entry(nn1_idx, nn2_idx, Y_M);
-    }
-
-    // Cross-coupling from L1 to L2
-    if (np2_idx >= 0 && np1_idx >= 0) {
-        sys.Y.add_entry(np2_idx, np1_idx, Y_M);
-    }
-    if (np2_idx >= 0 && nn1_idx >= 0) {
-        sys.Y.add_entry(np2_idx, nn1_idx, -Y_M);
-    }
-    if (nn2_idx >= 0 && np1_idx >= 0) {
-        sys.Y.add_entry(nn2_idx, np1_idx, -Y_M);
-    }
-    if (nn2_idx >= 0 && nn1_idx >= 0) {
-        sys.Y.add_entry(nn2_idx, nn1_idx, Y_M);
-    }
-
-    spdlog::trace("AC stamp: Mutual inductance {}, M={:.3e}H, ωM={:.3e}, omega={}",
-                  name(), M, omega * M, omega);
+    spdlog::trace("AC stamp: Mutual inductance {}, M={:.3e}H, omega={}",
+                  name(), mutual_inductance(), omega);
 }
 
 } // namespace kirimaspice::devices

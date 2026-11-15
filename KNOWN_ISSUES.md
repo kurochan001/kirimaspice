@@ -187,6 +187,13 @@ says otherwise.
   capacitances by backward Euler** whatever integration method the
   transient uses, and the IGBT does so under the trapezoidal method (its
   `stamp_transient` takes (V − V<sub>prev</sub>)/dt for both).
+- **Three or more inductors coupled to each other are coupled pair by
+  pair.** Each `K` adds what the inverse of its own 2 × 2 inductance matrix
+  adds to the two inductors (`MutualInductance::inverse_inductance`), in AC
+  and in the transient. That is exact for one pair, not for three inductors
+  that `K` lines couple among themselves: for three of 1 H with k = 0.5
+  between each two, the diagonal of the inverse of the 3 × 3 matrix is 3/2,
+  and the pairs add up to 5/3 (computed in exact fractions).
 - KLU is the only working linear solver. The SuperLU_DIST backend is a
   placeholder: asking for it falls back to KLU.
 

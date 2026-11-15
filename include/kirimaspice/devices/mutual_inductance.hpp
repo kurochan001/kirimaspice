@@ -93,6 +93,21 @@ public:
     // Get mutual inductance value M = k * sqrt(L1 * L2)
     Real mutual_inductance() const;
 
+    /// The inverse of the pair's inductance matrix [[L1, M], [M, L2]], and
+    /// what this device stamps of it: each inductor stamps 1/L of its own
+    /// (times the factor of the analysis), so this device adds the rest of
+    /// the diagonal and the off-diagonal. The factor is beta0/alpha0 in a
+    /// transient step and 1/(j omega) in AC; both stamps take the inverse
+    /// from here, with the determinant kept off zero near k = 1.
+    struct InverseInductance {
+        Real g11;      ///< L2 / det
+        Real g22;      ///< L1 / det
+        Real g12;      ///< -M / det
+        Real delta11;  ///< g11 - 1/L1
+        Real delta22;  ///< g22 - 1/L2
+    };
+    InverseInductance inverse_inductance() const;
+
 private:
     std::string inductor1_name_;  // Name of L1
     std::string inductor2_name_;  // Name of L2
