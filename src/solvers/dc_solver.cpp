@@ -9,8 +9,6 @@
 #include "kirimaspice/devices/device.hpp"          // Base class for polymorphism
 #include "kirimaspice/devices/voltage_source.hpp"  // Source scaling/sweep
 #include "kirimaspice/devices/current_source.hpp"  // Source scaling
-#include "kirimaspice/devices/vcvs.hpp"            // Branch current extraction
-#include "kirimaspice/devices/ccvs.hpp"            // Branch current extraction
 #include "kirimaspice/devices/bjt_npn.hpp"         // Darlington detection
 #include "kirimaspice/solvers/temperature_utils.hpp"
 #include "kirimaspice/solvers/parallel_stamper.hpp"
@@ -653,6 +651,7 @@ ConvergenceStatus DCSolver::solve_standard(DenseVector& solution, SolverStats& s
 }
 
 ConvergenceStatus DCSolver::solve(DenseVector& solution, SolverStats& stats) {
+    last_solution_.clear();
     // Apply global temperature before starting analysis (only if explicitly set via .TEMP or .OPTIONS TEMP)
     // This preserves device-level temperature settings when no global temperature is specified
     if (config_.temperature_explicitly_set) {
@@ -801,10 +800,15 @@ ConvergenceStatus DCSolver::solve_with_source_stepping(DenseVector& solution, So
 
     // Generate scale factors (logarithmic)
     std::uint32_t num_steps = config_.dc.source_stepping_steps;
+    if (num_steps == 0 || !std::isfinite(start_scale) || start_scale <= 0.0 || start_scale > 1.0) {
+        spdlog::error("Source stepping requires at least one step and a starting fraction in (0, 1]");
+        solution.clear();
+        return ConvergenceStatus::NUMERICAL_ERROR;
+    }
     for (std::uint32_t i = 0; i < num_steps; ++i) {
         // Logarithmic interpolation: log(scale) = log(start) + i/(n-1) * (log(end) - log(start))
         Real log_scale = std::log(start_scale) +
-                        static_cast<Real>(i) / (num_steps - 1) *
+                        (num_steps == 1 ? 1.0 : static_cast<Real>(i) / (num_steps - 1)) *
                         (std::log(end_scale) - std::log(start_scale));
         scale_factors.push_back(std::exp(log_scale));
     }
@@ -964,10 +968,16 @@ ConvergenceStatus DCSolver::solve_with_gmin_stepping(DenseVector& solution, Solv
 
     // Generate Gmin values (logarithmic)
     std::uint32_t num_steps = config_.dc.gmin_stepping_steps;
+    if (num_steps == 0 || !std::isfinite(gmin_start) || !std::isfinite(gmin_end) ||
+        gmin_start <= 0.0 || gmin_end <= 0.0) {
+        spdlog::error("Gmin stepping requires at least one step and positive finite conductances");
+        solution.clear();
+        return ConvergenceStatus::NUMERICAL_ERROR;
+    }
     for (std::uint32_t i = 0; i < num_steps; ++i) {
         // Logarithmic interpolation: log(gmin) = log(start) + i/(n-1) * (log(end) - log(start))
         Real log_gmin = std::log(gmin_start) +
-                       static_cast<Real>(i) / (num_steps - 1) *
+                       (num_steps == 1 ? 1.0 : static_cast<Real>(i) / (num_steps - 1)) *
                        (std::log(gmin_end) - std::log(gmin_start));
         gmin_values.push_back(std::exp(log_gmin));
     }
@@ -1266,6 +1276,7 @@ ConvergenceStatus DCSolver::solve_sweep(const DCSweepConfig& config, DCSweepResu
         }
         if (!set_source_value(config.nested_sweep->source_name, config.nested_sweep->start_value)) {
             spdlog::error("DC Sweep: Nested source '{}' not found", config.nested_sweep->source_name);
+            restore_source_setting(original_primary);
             result.status = ConvergenceStatus::NUMERICAL_ERROR;
             return ConvergenceStatus::NUMERICAL_ERROR;
         }
@@ -1337,9 +1348,11 @@ ConvergenceStatus DCSolver::solve_sweep(const DCSweepConfig& config, DCSweepResu
                 DCSweepPoint point;
                 point.sweep_value = primary_value;
                 point.nested_sweep_value = nested_value;
-                std::size_t node_count = std::min<std::size_t>(mna_.num_nodes, solution.size());
-                point.node_voltages.assign(solution.begin(), solution.begin() + node_count);
-                point.branch_currents = extract_all_branch_currents(solution);
+                if (status == ConvergenceStatus::SUCCESS) {
+                    const std::size_t node_count = std::min<std::size_t>(mna_.num_nodes, solution.size());
+                    point.node_voltages.assign(solution.begin(), solution.begin() + node_count);
+                    point.branch_currents = extract_all_branch_currents(solution);
+                }
                 point.status = status;
                 point.iterations = stats.total_iterations;
 
@@ -1536,9 +1549,11 @@ ConvergenceStatus DCSolver::solve_sweep(const DCSweepConfig& config, DCSweepResu
         DCSweepPoint point;
         point.sweep_value = sweep_value;
         point.nested_sweep_value = std::nullopt;
-        std::size_t node_count = std::min<std::size_t>(mna_.num_nodes, solution.size());
-        point.node_voltages.assign(solution.begin(), solution.begin() + node_count);
-        point.branch_currents = extract_all_branch_currents(solution);
+        if (status == ConvergenceStatus::SUCCESS) {
+            const std::size_t node_count = std::min<std::size_t>(mna_.num_nodes, solution.size());
+            point.node_voltages.assign(solution.begin(), solution.begin() + node_count);
+            point.branch_currents = extract_all_branch_currents(solution);
+        }
         point.status = status;
         point.iterations = stats.total_iterations;
 
@@ -1615,15 +1630,9 @@ ConvergenceStatus DCSolver::solve_temp_sweep(TemperatureSweepResult& result) {
         // Store results
         TemperatureSweepPoint point;
         point.temperature = temp;
-        point.node_voltages.resize(mna_.num_nodes);
-        point.branch_currents.resize(mna_.num_branches);
-
-        // Extract node voltages and branch currents from solution
-        for (std::uint32_t j = 0; j < mna_.num_nodes; ++j) {
-            point.node_voltages[j] = solution[j];
-        }
-        for (std::uint32_t j = 0; j < mna_.num_branches; ++j) {
-            point.branch_currents[j] = solution[mna_.num_nodes + j];
+        if (status == ConvergenceStatus::SUCCESS) {
+            point.node_voltages.assign(solution.begin(), solution.begin() + mna_.num_nodes);
+            point.branch_currents = extract_all_branch_currents(solution);
         }
 
         point.status = status;
@@ -1665,112 +1674,29 @@ ConvergenceStatus DCSolver::solve_temp_sweep(TemperatureSweepResult& result) {
 // ============================================================================
 
 std::optional<Real> DCSolver::get_branch_current(const std::string& device_name) const {
-    // Check if we have a valid solution
-    if (last_solution_.empty()) {
-        spdlog::warn("get_branch_current({}): No solution available yet (call solve() first)",
-                     device_name);
+    const auto& branches = circuit_.get_voltage_sources();
+    const auto branch = std::find_if(branches.begin(), branches.end(), [&](const auto& device) {
+        return util::equals_icase(device->name(), device_name);
+    });
+    if (branch == branches.end()) {
         return std::nullopt;
     }
-
-    // Get device from circuit
-    auto device = circuit_.get_device(device_name);
-    if (!device) {
-        spdlog::warn("get_branch_current({}): Device not found", device_name);
+    // CircuitGraph assigns branch ids in this order for every voltage-form
+    // source, including B sources. The MNA solution uses that same order.
+    const std::size_t index = circuit_.num_nodes() - 1 + std::distance(branches.begin(), branch);
+    if (index >= last_solution_.size()) {
         return std::nullopt;
     }
-
-    // Check if device has a branch current variable
-    const auto type = device->type();
-    BranchId branch_id = INVALID_BRANCH;
-
-    if (type == DeviceType::VSOURCE) {
-        auto* vsource = dynamic_cast<const devices::VoltageSource*>(device.get());
-        if (vsource) {
-            branch_id = vsource->branch_id();
-        }
-    } else if (type == DeviceType::VCVS) {
-        auto* vcvs = dynamic_cast<const devices::VCVS*>(device.get());
-        if (vcvs) {
-            branch_id = vcvs->branch_id();
-        }
-    } else if (type == DeviceType::CCVS) {
-        auto* ccvs = dynamic_cast<const devices::CCVS*>(device.get());
-        if (ccvs) {
-            branch_id = ccvs->branch_id();
-        }
-    } else {
-        spdlog::warn("get_branch_current({}): Device type {} does not have branch current",
-                     device_name, static_cast<int>(type));
-        return std::nullopt;
-    }
-
-    // Check if branch_id is valid
-    if (branch_id == INVALID_BRANCH) {
-        spdlog::warn("get_branch_current({}): Device has no branch ID assigned", device_name);
-        return std::nullopt;
-    }
-
-    // Extract branch current from solution vector
-    // Solution structure: [node_voltages (0..num_nodes-1), branch_currents (num_nodes..end)]
-    std::uint32_t num_nodes = circuit_.num_nodes() - 1;  // Exclude GND
-    std::size_t branch_index = num_nodes + branch_id;
-
-    if (branch_index >= last_solution_.size()) {
-        spdlog::error("get_branch_current({}): Branch index {} out of range (solution size: {})",
-                     device_name, branch_index, last_solution_.size());
-        return std::nullopt;
-    }
-
-    Real current = last_solution_[branch_index];
-    spdlog::debug("get_branch_current({}): I = {:.6e} A (branch_id={}, index={})",
-                 device_name, current, branch_id, branch_index);
-
-    return current;
+    return last_solution_[index];
 }
 
 DenseVector DCSolver::extract_all_branch_currents(const DenseVector& solution) const {
-    // Calculate number of branches from solution size
-    std::uint32_t num_nodes = circuit_.num_nodes() - 1;  // Exclude GND
-    std::size_t num_branches = solution.size() - num_nodes;
-
-    // Create branch current vector (indexed by branch_id)
-    DenseVector branch_currents(num_branches, 0.0);
-
-    // Extract branch currents for all devices with branches
-    for (const auto& device : circuit_.get_devices()) {
-        const auto type = device->type();
-        BranchId branch_id = INVALID_BRANCH;
-
-        // Check if device has a branch current variable
-        if (type == DeviceType::VSOURCE) {
-            auto* vsource = dynamic_cast<const devices::VoltageSource*>(device.get());
-            if (vsource) {
-                branch_id = vsource->branch_id();
-            }
-        } else if (type == DeviceType::VCVS) {
-            auto* vcvs = dynamic_cast<const devices::VCVS*>(device.get());
-            if (vcvs) {
-                branch_id = vcvs->branch_id();
-            }
-        } else if (type == DeviceType::CCVS) {
-            auto* ccvs = dynamic_cast<const devices::CCVS*>(device.get());
-            if (ccvs) {
-                branch_id = ccvs->branch_id();
-            }
-        }
-
-        // Extract branch current if device has one
-        if (branch_id != INVALID_BRANCH && branch_id < static_cast<BranchId>(num_branches)) {
-            std::size_t branch_index = num_nodes + branch_id;
-            if (branch_index < solution.size()) {
-                branch_currents[branch_id] = solution[branch_index];
-                spdlog::trace("Extracted branch current for {}: I = {:.6e} A (branch_id={})",
-                             device->name(), branch_currents[branch_id], branch_id);
-            }
-        }
+    const std::size_t offset = circuit_.num_nodes() - 1;
+    const std::size_t count = circuit_.get_voltage_sources().size();
+    if (solution.size() < offset + count) {
+        return {};
     }
-
-    return branch_currents;
+    return DenseVector(solution.begin() + offset, solution.begin() + offset + count);
 }
 
 } // namespace kirimaspice::solvers

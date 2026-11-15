@@ -7,6 +7,10 @@ set(CTEST_TEST_TIMEOUT 1200)
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
+add_executable(test_analysis_edge_cases unit/test_analysis_edge_cases.cpp)
+target_link_libraries(test_analysis_edge_cases PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_analysis_edge_cases PROPERTIES TIMEOUT 1200)
+
 # Python integration tests (REPL + PyAPI)
 add_test(NAME python_tools_pyapi
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/scripts/test_pyapi.py

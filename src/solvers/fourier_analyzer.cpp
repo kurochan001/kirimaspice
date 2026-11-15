@@ -9,6 +9,7 @@
 
 #include <cmath>
 #include <numbers>
+#include <algorithm>
 
 namespace kirimaspice {
 
@@ -26,13 +27,20 @@ FourierResult FourierAnalyzer::analyze(const std::vector<Real>& time,
         return result;
     }
 
-    if (fundamental_freq <= 0.0) {
+    if (!std::isfinite(fundamental_freq) || fundamental_freq <= 0.0) {
         spdlog::error("Fourier analysis: invalid fundamental frequency: {} Hz", fundamental_freq);
         return result;
     }
 
     // Period of fundamental frequency
     Real period = 1.0 / fundamental_freq;
+    for (size_t i = 0; i < time.size(); ++i) {
+        if (!std::isfinite(time[i]) || !std::isfinite(signal[i]) ||
+            (i > 0 && time[i] <= time[i - 1])) {
+            spdlog::error("Fourier analysis requires finite samples and increasing time");
+            return result;
+        }
+    }
 
     // Find the last complete period in the time data
     Real t_start = time.back() - period;
@@ -45,6 +53,13 @@ FourierResult FourierAnalyzer::analyze(const std::vector<Real>& time,
     // Extract data for the last complete period
     std::vector<Real> time_period;
     std::vector<Real> signal_period;
+    const auto first = std::lower_bound(time.begin(), time.end(), t_start);
+    const size_t index = static_cast<size_t>(first - time.begin());
+    if (index > 0 && *first > t_start) {
+        const Real fraction = (t_start - time[index - 1]) / (time[index] - time[index - 1]);
+        time_period.push_back(0.0);
+        signal_period.push_back(std::lerp(signal[index - 1], signal[index], fraction));
+    }
     for (size_t i = 0; i < time.size(); ++i) {
         if (time[i] >= t_start) {
             time_period.push_back(time[i] - t_start);  // Shift to start at 0

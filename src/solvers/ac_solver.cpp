@@ -32,6 +32,10 @@ ACSolver::ACSolver(const circuit::CircuitGraph& circuit,
 
 ACResult ACSolver::solve() {
     spdlog::info("Starting AC analysis");
+    total_frequency_points_ = 0;
+    total_linear_solves_ = 0;
+    lin_solver_.reset();
+    first_factor_done_ = false;
 
     auto start_time = std::chrono::high_resolution_clock::now();
 
@@ -107,6 +111,12 @@ ACResult ACSolver::solve() {
         #pragma omp critical
         #endif
         {
+            if (point.solution.empty() ||
+                std::any_of(point.solution.begin(), point.solution.end(), [](Complex v) {
+                    return !std::isfinite(v.real()) || !std::isfinite(v.imag());
+                })) {
+                result.status = ConvergenceStatus::NUMERICAL_ERROR;
+            }
             result.frequency_points.push_back(point);
             total_frequency_points_++;
         }
@@ -177,7 +187,8 @@ std::vector<Real> ACSolver::generate_frequency_points() const {
     // - f_start must be positive
     // - f_stop must be >= f_start (allow single frequency when f_start == f_stop)
     // - num_points must be > 0
-    if (f_start <= 0.0 || f_stop < f_start || num_points == 0) {
+    if (!std::isfinite(f_start) || !std::isfinite(f_stop) ||
+        f_start <= 0.0 || f_stop < f_start || num_points == 0) {
         spdlog::error("Invalid frequency sweep parameters: f_start={}, f_stop={}, num_points={}",
                      f_start, f_stop, num_points);
         return frequencies;
@@ -193,6 +204,10 @@ std::vector<Real> ACSolver::generate_frequency_points() const {
     switch (ac_config.sweep_type) {
     case SimulationConfig::AC::SweepType::LIN: {
         // Linear sweep: equal spacing in Hz
+        if (num_points == 1) {
+            frequencies.push_back(f_start);
+            break;
+        }
         Real df = (f_stop - f_start) / (num_points - 1);
         for (std::uint32_t i = 0; i < num_points; ++i) {
             frequencies.push_back(f_start + i * df);
@@ -208,6 +223,10 @@ std::vector<Real> ACSolver::generate_frequency_points() const {
         // For n decades with m points/decade: total = n*m + 1 points
         Real decades = std::log10(f_stop / f_start);
         std::uint32_t total_points = static_cast<std::uint32_t>(std::round(decades * num_points)) + 1;
+        if (total_points == 1) {
+            frequencies.push_back(f_start);
+            break;
+        }
 
         for (std::uint32_t i = 0; i < total_points; ++i) {
             Real log_f = std::log10(f_start) + i * (std::log10(f_stop) - std::log10(f_start)) / (total_points - 1);
@@ -225,6 +244,10 @@ std::vector<Real> ACSolver::generate_frequency_points() const {
         // For n octaves with m points/octave: total = n*m + 1 points
         Real octaves = std::log2(f_stop / f_start);
         std::uint32_t total_points = static_cast<std::uint32_t>(std::round(octaves * num_points)) + 1;
+        if (total_points == 1) {
+            frequencies.push_back(f_start);
+            break;
+        }
 
         for (std::uint32_t i = 0; i < total_points; ++i) {
             Real log_f = std::log2(f_start) + i * (std::log2(f_stop) - std::log2(f_start)) / (total_points - 1);

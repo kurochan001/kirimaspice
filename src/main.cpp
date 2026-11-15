@@ -24,6 +24,7 @@
 #include <optional>
 #include <cstdlib>
 #include <algorithm>
+#include <charconv>
 #include "kirimaspice/solvers/solver_factory.hpp"
 
 using namespace kirimaspice;
@@ -134,8 +135,8 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
         DCSweepResult sweep_result;
         auto sweep_status = dc_solver.solve_sweep(config.dc_sweep, sweep_result);
 
-        if (sweep_result.points.empty() && sweep_status != ConvergenceStatus::SUCCESS) {
-            spdlog::error("DC sweep failed to produce any valid points");
+        if (sweep_status != ConvergenceStatus::SUCCESS) {
+            spdlog::error("DC sweep failed; no sweep output written");
             return 1;
         }
 
@@ -425,6 +426,9 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
                         solution_idx++;
                     }
                 }
+            } else {
+                spdlog::error("DC analysis failed to converge");
+                return 1;
             }
         }
 
@@ -433,6 +437,16 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
 
 static bool is_help_argument(const std::string& arg) {
     return arg == "-h" || arg == "--help";
+}
+
+static std::uint32_t read_positive_integer_option(const std::string& value,
+                                                 const std::string& option) {
+    std::uint32_t parsed = 0;
+    const auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), parsed);
+    if (error != std::errc{} || end != value.data() + value.size() || parsed == 0) {
+        throw std::invalid_argument(option + " requires a positive 32-bit integer");
+    }
+    return parsed;
 }
 
 static void print_usage(std::ostream& os, const char* program) {
@@ -490,52 +504,67 @@ int main(int argc, char* argv[]) {
     bool strict_backend = false;
     std::optional<std::string> sld_topology; // SUPERLU_DIST topology hint
     std::optional<std::string> sld_grid;     // SUPERLU_DIST grid hint
-    for (int i = 2; i < argc; ++i) {
-        std::string arg = argv[i];
-        if (arg == "-o" && i + 1 < argc) {
-            output_file = argv[i + 1];
-            ++i;  // Skip next argument
-        } else if (arg == "--raw-out" && i + 1 < argc) {
-            raw_output_file = argv[i + 1];
-            ++i;
-        } else if (arg.rfind("--raw-out=", 0) == 0) {
-            raw_output_file = arg.substr(std::string("--raw-out=").size());
-        } else if (arg == "--raw-binary-out" && i + 1 < argc) {
-            raw_binary_output_file = argv[i + 1];
-            ++i;
-        } else if (arg.rfind("--raw-binary-out=", 0) == 0) {
-            raw_binary_output_file = arg.substr(std::string("--raw-binary-out=").size());
-        } else if (arg == "--wav-out" && i + 1 < argc) {
-            wav_output_file = argv[i + 1];
-            ++i;
-        } else if (arg.rfind("--wav-out=", 0) == 0) {
-            wav_output_file = arg.substr(std::string("--wav-out=").size());
-        } else if (arg == "--wav-sample-rate" && i + 1 < argc) {
-            wav_sample_rate = std::stoul(argv[i + 1]);
-            ++i;
-        } else if (arg.rfind("--wav-sample-rate=", 0) == 0) {
-            wav_sample_rate = std::stoul(arg.substr(std::string("--wav-sample-rate=").size()));
-        } else if (arg == "--wav-bits" && i + 1 < argc) {
-            wav_bits_per_sample = std::stoul(argv[i + 1]);
-            ++i;
-        } else if (arg.rfind("--wav-bits=", 0) == 0) {
-            wav_bits_per_sample = std::stoul(arg.substr(std::string("--wav-bits=").size()));
-        } else if (arg.rfind("--solver-backend=", 0) == 0) {
-            cli_backend = arg.substr(std::string("--solver-backend=").size());
-        } else if (arg.rfind("--solver-fallback-order=", 0) == 0) {
-            std::string list = arg.substr(std::string("--solver-fallback-order=").size());
-            std::stringstream ss(list);
-            std::string item;
-            while (std::getline(ss, item, ',')) {
-                if (!item.empty()) cli_fb_order.push_back(item);
+    try {
+        for (int i = 2; i < argc; ++i) {
+            std::string arg = argv[i];
+            if (arg == "-o" && i + 1 < argc) {
+                output_file = argv[i + 1];
+                ++i;  // Skip next argument
+            } else if (arg == "--raw-out" && i + 1 < argc) {
+                raw_output_file = argv[i + 1];
+                ++i;
+            } else if (arg.rfind("--raw-out=", 0) == 0) {
+                raw_output_file = arg.substr(std::string("--raw-out=").size());
+            } else if (arg == "--raw-binary-out" && i + 1 < argc) {
+                raw_binary_output_file = argv[i + 1];
+                ++i;
+            } else if (arg.rfind("--raw-binary-out=", 0) == 0) {
+                raw_binary_output_file = arg.substr(std::string("--raw-binary-out=").size());
+            } else if (arg == "--wav-out" && i + 1 < argc) {
+                wav_output_file = argv[i + 1];
+                ++i;
+            } else if (arg.rfind("--wav-out=", 0) == 0) {
+                wav_output_file = arg.substr(std::string("--wav-out=").size());
+            } else if (arg == "--wav-sample-rate" && i + 1 < argc) {
+                wav_sample_rate = read_positive_integer_option(argv[i + 1], arg);
+                ++i;
+            } else if (arg.rfind("--wav-sample-rate=", 0) == 0) {
+                wav_sample_rate = read_positive_integer_option(arg.substr(std::string("--wav-sample-rate=").size()), "--wav-sample-rate");
+            } else if (arg == "--wav-bits" && i + 1 < argc) {
+                const auto bits = read_positive_integer_option(argv[i + 1], arg);
+                if (bits != 8 && bits != 16 && bits != 24 && bits != 32) {
+                    throw std::invalid_argument("--wav-bits must be 8, 16, 24, or 32");
+                }
+                wav_bits_per_sample = static_cast<std::uint16_t>(bits);
+                ++i;
+            } else if (arg.rfind("--wav-bits=", 0) == 0) {
+                const auto bits = read_positive_integer_option(arg.substr(std::string("--wav-bits=").size()), "--wav-bits");
+                if (bits != 8 && bits != 16 && bits != 24 && bits != 32) {
+                    throw std::invalid_argument("--wav-bits must be 8, 16, 24, or 32");
+                }
+                wav_bits_per_sample = static_cast<std::uint16_t>(bits);
+            } else if (arg == "--wav-sample-rate" || arg == "--wav-bits") {
+                throw std::invalid_argument(arg + " requires a value");
+            } else if (arg.rfind("--solver-backend=", 0) == 0) {
+                cli_backend = arg.substr(std::string("--solver-backend=").size());
+            } else if (arg.rfind("--solver-fallback-order=", 0) == 0) {
+                std::string list = arg.substr(std::string("--solver-fallback-order=").size());
+                std::stringstream ss(list);
+                std::string item;
+                while (std::getline(ss, item, ',')) {
+                    if (!item.empty()) cli_fb_order.push_back(item);
+                }
+            } else if (arg == "--strict-backend") {
+                strict_backend = true;
+            } else if (arg.rfind("--superlu-dist-topology=", 0) == 0) {
+                sld_topology = arg.substr(std::string("--superlu-dist-topology=").size());
+            } else if (arg.rfind("--superlu-dist-grid=", 0) == 0) {
+                sld_grid = arg.substr(std::string("--superlu-dist-grid=").size());
             }
-        } else if (arg == "--strict-backend") {
-            strict_backend = true;
-        } else if (arg.rfind("--superlu-dist-topology=", 0) == 0) {
-            sld_topology = arg.substr(std::string("--superlu-dist-topology=").size());
-        } else if (arg.rfind("--superlu-dist-grid=", 0) == 0) {
-            sld_grid = arg.substr(std::string("--superlu-dist-grid=").size());
         }
+    } catch (const std::exception& e) {
+        spdlog::error("Invalid command-line option: {}", e.what());
+        return 1;
     }
 
     // Apply CLI overrides to solver factory

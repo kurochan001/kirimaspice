@@ -34,7 +34,7 @@ TransferFunctionResult TransferFunctionSolver::analyze() {
     NodeId output_node;
     DeviceId input_device;
 
-    if (!extract_node_from_signal(config_.tf.output_signal, output_node)) {
+    if (!extract_node_from_signal(config_.tf.output_signal, output_node) || output_node == NODE_GND) {
         spdlog::error("Failed to extract output node from signal: {}", config_.tf.output_signal);
         return result;
     }
@@ -118,6 +118,7 @@ bool TransferFunctionSolver::extract_node_from_signal(const std::string& signal,
     std::string node_name = signal.substr(2, close_paren - 2);
 
     // Convert node name to NodeId
+    if (!circuit_.has_node(node_name)) return false;
     node_id = circuit_.get_node_id(node_name);
     if (node_id == NODE_INVALID) {
         spdlog::error("Node not found: {}", node_name);
@@ -171,12 +172,12 @@ Real TransferFunctionSolver::compute_transfer_gain(const std::vector<Real>& solu
     }
 
     // Nominal input voltage and perturbation
-    Real v_in_nominal = vsrc->dc_value();
+    Real v_in_nominal = vsrc->present_value();
     Real delta_v = std::max(std::abs(v_in_nominal) * 0.01, 1e-3); // ≥1 mV
 
     // Temporarily perturb source
-    const Real original_dc = vsrc->dc_value();
-    vsrc->set_dc_value(original_dc + delta_v);
+    const auto original_dc = vsrc->dc_setting();
+    vsrc->set_dc_value(v_in_nominal + delta_v);
 
     // Re-run DC operating point with perturbed source
     solvers::DCSolver dc_solver(circuit_, config_);
@@ -185,7 +186,7 @@ Real TransferFunctionSolver::compute_transfer_gain(const std::vector<Real>& solu
     ConvergenceStatus status = dc_solver.solve(pert_solution, pert_stats);
 
     // Restore source immediately
-    vsrc->set_dc_value(original_dc);
+    vsrc->restore_dc_setting(original_dc);
 
     if (status != ConvergenceStatus::SUCCESS || pert_solution.size() <= output_node - 1) {
         spdlog::warn("Perturbed DC solve failed (status={}), fallback to nominal ratio",
@@ -222,7 +223,7 @@ Real TransferFunctionSolver::compute_input_resistance(const std::vector<Real>& s
     // Get input voltage (DC value)
     Real v_in = 0.0;
     if (auto vsrc = std::dynamic_pointer_cast<devices::VoltageSource>(input_device_ptr)) {
-        v_in = vsrc->dc_value();
+        v_in = vsrc->present_value();
     } else {
         spdlog::error("Input device is not a voltage source");
         return 0.0;

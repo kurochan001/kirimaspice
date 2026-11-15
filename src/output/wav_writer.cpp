@@ -40,6 +40,9 @@ WavWriter::WavWriter(std::string filepath,
     : filepath_(std::move(filepath))
     , sample_rate_(sample_rate)
     , bits_per_sample_(bits_per_sample) {
+    if (sample_rate_ == 0) {
+        throw std::invalid_argument("sample_rate must be positive");
+    }
     // Validate bit depth
     if (bits_per_sample != 8 && bits_per_sample != 16 &&
         bits_per_sample != 24 && bits_per_sample != 32) {
