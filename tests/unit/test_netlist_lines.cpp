@@ -282,3 +282,21 @@ TEST(NetlistLines, PolyFormOfAControlledSource) {
     ASSERT_NE(parsed.circuit, nullptr);
     EXPECT_EQ(parsed.circuit->get_devices().size(), 3u);
 }
+
+// The number of points of .AC is a whole number of at least 1
+// (read_ac_point_count); another is an error at the .AC line, not a sweep
+// with its fraction dropped or with no points
+TEST(NetlistLines, AcPointCount) {
+    const std::string circuit = "t\nV1 in 0 DC 0 AC 1\nR1 in out 1k\nC1 out 0 1u\n";
+    {
+        parser::NetlistParser parser;
+        const auto parsed = parser.parse_string(circuit + ".ac dec 10 10 1k\n.end\n");
+        EXPECT_EQ(parsed.config.ac.num_points, 10u);
+    }
+    for (const std::string count : {"-1", "0", "2.5", "x"}) {
+        parser::NetlistParser parser;
+        EXPECT_THROW(parser.parse_string(circuit + ".ac dec " + count + " 10 1k\n.end\n"),
+                     parser::ParseError)
+            << count;
+    }
+}

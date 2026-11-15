@@ -23,6 +23,7 @@
 #include <cctype>
 #include <optional>  // For safe_stod/safe_stoi
 #include <algorithm>
+#include <limits>
 #include <regex>
 #include <filesystem>
 #include <set>
@@ -58,6 +59,25 @@ inline std::optional<double> safe_stod(const std::string& str, const std::string
         spdlog::warn("Numeric value '{}' for {} out of range", str, param_name);
         return std::nullopt;
     }
+}
+
+// The number of points of an AC sweep, per decade, per octave or in all: a
+// whole number of at least 1. .AC and the ac control command both read it
+// here.
+static std::uint32_t read_ac_point_count(const std::string& token) {
+    std::size_t end = 0;
+    long value = 0;
+    try {
+        value = std::stol(token, &end);
+    } catch (const std::exception&) {
+        end = 0;
+    }
+    if (end != token.size() || value < 1 || value > std::numeric_limits<std::int32_t>::max()) {
+        throw std::runtime_error(fmt::format(
+            "the number of points of an AC sweep must be a whole number of at least 1, not '{}'",
+            token));
+    }
+    return static_cast<std::uint32_t>(value);
 }
 
 inline std::optional<int> safe_stoi(const std::string& str, const std::string& param_name = "") {
@@ -901,7 +921,7 @@ static void execute_control_commands(
                             throw std::runtime_error("Invalid AC sweep type: " + type_str);
                         }
 
-                        config.ac.num_points = std::stoi(cmd.args[1]);
+                        config.ac.num_points = read_ac_point_count(cmd.args[1]);
                         config.ac.start_freq = parse_value_with_unit(cmd.args[2]);
                         config.ac.stop_freq = parse_value_with_unit(cmd.args[3]);
 
@@ -2117,7 +2137,11 @@ static void parse_ac_directive(const std::vector<std::string>& tokens, ParseStat
         throw ParseError(fmt::format("Unknown AC sweep type: {}", sweep_type_str), state.line_number);
     }
 
-    state.config->ac.num_points = static_cast<std::uint32_t>(std::stoul(tokens[2]));
+    try {
+        state.config->ac.num_points = read_ac_point_count(tokens[2]);
+    } catch (const std::runtime_error& e) {
+        throw ParseError(e.what(), state.line_number);
+    }
     state.config->ac.start_freq = parse_value_with_unit(tokens[3]);
     state.config->ac.stop_freq = parse_value_with_unit(tokens[4]);
 
