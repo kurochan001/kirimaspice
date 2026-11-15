@@ -120,7 +120,7 @@ steps:
    before parsing, and `.CONTROL` blocks.
 3. A PEGTL pass. The grammar only splits the text into a title line and
    other lines; each line goes to `process_line`, where the parsing is
-   hand-written tokenising (`split_whitespace`).
+   hand-written tokenising (`util::split_netlist_tokens`).
 4. The lines held back because they named a model defined later
    ("deferred elements", see below), parsed again.
 5. The resolution of references between elements: the controlling

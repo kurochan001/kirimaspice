@@ -4,6 +4,7 @@
 // src/circuit/subcircuit.cpp
 #include "kirimaspice/circuit/subcircuit.hpp"
 #include "kirimaspice/core/constants.hpp"
+#include "kirimaspice/util/string_utils.hpp"
 #include "kirimaspice/util/units.hpp"
 #include <algorithm>
 #include <cctype>
@@ -15,6 +16,34 @@
 #include <exprtk.hpp>
 
 namespace kirimaspice::circuit {
+
+//==============================================================================
+// Instance lines
+//==============================================================================
+
+InstanceLineParts split_instance_line(const std::vector<std::string>& tokens) {
+    InstanceLineParts parts;
+    std::size_t type_index = 0;
+    for (std::size_t i = tokens.size(); i-- > 1;) {
+        if (tokens[i].find('=') == std::string::npos) {
+            type_index = i;
+            break;
+        }
+    }
+    if (type_index == 0) {
+        return parts;
+    }
+    parts.type = tokens[type_index];
+    parts.nodes.assign(tokens.begin() + 1, tokens.begin() + static_cast<std::ptrdiff_t>(type_index));
+    for (std::size_t i = type_index + 1; i < tokens.size(); ++i) {
+        const auto eq = tokens[i].find('=');
+        std::string name = tokens[i].substr(0, eq);
+        std::transform(name.begin(), name.end(), name.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+        parts.assignments.emplace_back(std::move(name), tokens[i].substr(eq + 1));
+    }
+    return parts;
+}
 
 //==============================================================================
 // SubcircuitRegistry Implementation
@@ -72,35 +101,18 @@ std::vector<std::string> SubcircuitRegistry::check_circular_references() const {
     for (const auto& [name, def] : definitions_) {
         dependencies[name] = {};
 
-        // Scan internal netlist for X device lines
+        // The type of each instance line in the body, itself included: a
+        // definition that holds an instance of itself never ends
         for (const auto& line : def.internal_netlist_lines) {
-            if (line.empty() || line[0] != 'X' || line.size() < 2) {
+            const auto first = line.find_first_not_of(" \t");
+            if (first == std::string::npos || std::toupper(static_cast<unsigned char>(line[first])) != 'X') {
                 continue;
             }
-
-            // Simple heuristic: Look for subcircuit type name (last token before parameters)
-            // X1 in out SUBCKT_NAME [PARAMS...]
-            std::istringstream iss(line);
-            std::vector<std::string> tokens;
-            std::string token;
-            while (iss >> token) {
-                tokens.push_back(token);
-            }
-
-            // Find subcircuit type (first token that doesn't contain '=')
-            // Skip instance name (tokens[0] = "X1", "X2", etc.)
-            for (size_t i = 1; i < tokens.size(); ++i) {
-                if (tokens[i].find('=') == std::string::npos) {
-                    // This might be the subcircuit type
-                    std::string possible_subckt = tokens[i];
-                    std::transform(possible_subckt.begin(), possible_subckt.end(),
-                                 possible_subckt.begin(), ::toupper);
-
-                    if (has_subcircuit(possible_subckt) && possible_subckt != name) {
-                        dependencies[name].push_back(possible_subckt);
-                        break;  // Found subcircuit type, stop searching
-                    }
-                }
+            std::string type = split_instance_line(util::split_netlist_tokens(line)).type;
+            std::transform(type.begin(), type.end(), type.begin(),
+                           [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+            if (has_subcircuit(type)) {
+                dependencies[name].push_back(type);
             }
         }
     }

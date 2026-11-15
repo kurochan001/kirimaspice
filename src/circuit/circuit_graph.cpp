@@ -2303,42 +2303,17 @@ void CircuitGraph::expand_subcircuit_instance(const std::string& instance_name) 
                 // X<name> <node1> <node2> ... <subcircuit_type> [params...]
                 // Handle nested subcircuit instances
 
-                // Find subcircuit type (first token without '=', after device name)
-                std::string nested_subckt_type;
-                std::vector<std::string> nested_nodes;
-                std::map<std::string, Real> nested_params;
-
-                for (size_t i = 1; i < tokens.size(); ++i) {
-                    if (tokens[i].find('=') != std::string::npos) {
-                        // Parameter token: KEY=VALUE
-                        size_t eq_pos = tokens[i].find('=');
-                        std::string param_name = tokens[i].substr(0, eq_pos);
-                        std::string param_value_str = tokens[i].substr(eq_pos + 1);
-                        Real param_value = parse_value_with_unit(param_value_str);
-                        nested_params[param_name] = param_value;
-                    } else if (nested_subckt_type.empty()) {
-                        // Check if this token is a defined subcircuit type
-                        std::string token_upper = tokens[i];
-                        std::transform(token_upper.begin(), token_upper.end(),
-                                     token_upper.begin(), ::toupper);
-
-                        if (subcircuits_->has_subcircuit(token_upper)) {
-                            // This is the subcircuit type
-                            nested_subckt_type = token_upper;
-                        } else {
-                            // This is a node
-                            nested_nodes.push_back(tokens[i]);
-                        }
-                    } else {
-                        // After subcircuit type, only parameters should appear
-                        spdlog::warn("Unexpected token '{}' after subcircuit type in nested X device: '{}'",
-                                   tokens[i], line);
-                    }
-                }
-
-                if (nested_subckt_type.empty()) {
+                // The braces of the body are already replaced by values
+                const InstanceLineParts parts = split_instance_line(tokens);
+                if (parts.type.empty()) {
                     throw std::runtime_error(fmt::format(
                         "Failed to find subcircuit type in nested X device: '{}'", line));
+                }
+                const std::string& nested_subckt_type = parts.type;
+                const std::vector<std::string>& nested_nodes = parts.nodes;
+                std::map<std::string, Real> nested_params;
+                for (const auto& [param_name, value] : parts.assignments) {
+                    nested_params[param_name] = parse_value_with_unit(value);
                 }
 
                 // Map nested nodes using pin_mapping (for hierarchical nesting)

@@ -78,48 +78,6 @@ inline std::optional<int> safe_stoi(const std::string& str, const std::string& p
     }
 }
 
-// Split string by whitespace, handling {...} expressions as single tokens.
-// An expression that follows '=' stays in the same token, so a parameter
-// assignment such as IS={ISAT} or V={2*V(in)} is one token.
-std::vector<std::string> split_whitespace(const std::string& str) {
-    std::vector<std::string> tokens;
-    std::string current;
-    bool in_expression = false;
-
-    for (size_t i = 0; i < str.size(); ++i) {
-        char c = str[i];
-
-        if (c == '{') {
-            if (!current.empty() && !in_expression && current.back() != '=') {
-                tokens.push_back(current);
-                current.clear();
-            }
-            in_expression = true;
-            current += c;
-        } else if (c == '}') {
-            current += c;
-            if (in_expression) {
-                tokens.push_back(current);
-                current.clear();
-                in_expression = false;
-            }
-        } else if (std::isspace(c) && !in_expression) {
-            if (!current.empty()) {
-                tokens.push_back(current);
-                current.clear();
-            }
-        } else {
-            current += c;
-        }
-    }
-
-    if (!current.empty()) {
-        tokens.push_back(current);
-    }
-
-    return tokens;
-}
-
 using kirimaspice::util::parse_value_with_unit;
 
 // Preprocess continuation lines
@@ -537,7 +495,7 @@ static ControlCommand parse_control_command(const std::string& line) {
     cmd.type = ControlCommandType::UNKNOWN;
 
     // Tokenize the line
-    std::vector<std::string> tokens = split_whitespace(line);
+    std::vector<std::string> tokens = util::split_netlist_tokens(line);
     if (tokens.empty()) {
         return cmd;
     }
@@ -5975,54 +5933,23 @@ static void parse_subcircuit_instance_device(const std::vector<std::string>& tok
 
     std::string instance_name = dev_name;
 
-    // Find subcircuit type (last non-parameter token)
-    // Parameters contain '='
-    std::string subcircuit_type;
-    std::vector<std::string> connected_nodes;
-    std::map<std::string, Real> instance_params;
-
-    size_t subckt_type_idx = tokens.size() - 1;
-
-    // Find subcircuit type (work backwards from end, skip parameters)
-    for (int i = static_cast<int>(tokens.size()) - 1; i >= 1; --i) {
-        if (tokens[static_cast<size_t>(i)].find('=') == std::string::npos) {
-            // Not a parameter, this is the subcircuit type
-            subcircuit_type = tokens[static_cast<size_t>(i)];
-            subckt_type_idx = static_cast<size_t>(i);
-            break;
-        }
-    }
-
-    if (subcircuit_type.empty()) {
+    const circuit::InstanceLineParts parts = circuit::split_instance_line(tokens);
+    if (parts.type.empty()) {
         throw ParseError("Missing subcircuit type in X device", state.line_number);
     }
+    const std::string& subcircuit_type = parts.type;
+    const std::vector<std::string>& connected_nodes = parts.nodes;
 
-    // Nodes are tokens from index 1 to subckt_type_idx-1
-    for (size_t i = 1; i < subckt_type_idx; ++i) {
-        connected_nodes.push_back(tokens[i]);
-    }
-
-    // Parameters are tokens after subckt_type_idx
-    for (size_t i = subckt_type_idx + 1; i < tokens.size(); ++i) {
-        const std::string& token = tokens[i];
-        size_t eq_pos = token.find('=');
-
-        if (eq_pos != std::string::npos) {
-            std::string param_name = token.substr(0, eq_pos);
-            std::string param_value_str = token.substr(eq_pos + 1);
-
-            Real param_value;
-            if (!param_value_str.empty() && param_value_str[0] == '{') {
-                std::string expr = param_value_str.substr(1, param_value_str.size() - 2);
-                param_value = state.evaluator->evaluate(expr);
-            } else {
-                param_value = parse_value_with_unit(param_value_str);
-            }
-
-            // Convert param name to upper case (SPICE convention)
-            std::transform(param_name.begin(), param_name.end(), param_name.begin(), ::toupper);
-            instance_params[param_name] = param_value;
+    std::map<std::string, Real> instance_params;
+    for (const auto& [param_name, param_value_str] : parts.assignments) {
+        Real param_value;
+        if (!param_value_str.empty() && param_value_str[0] == '{') {
+            std::string expr = param_value_str.substr(1, param_value_str.size() - 2);
+            param_value = state.evaluator->evaluate(expr);
+        } else {
+            param_value = parse_value_with_unit(param_value_str);
         }
+        instance_params[param_name] = param_value;
     }
 
     // Create subcircuit instance
@@ -6056,7 +5983,7 @@ void process_line(const std::string& raw_line, ParseState& state) {
 
     // Check for control cards (directives)
     if (line[0] == '.') {
-        auto tokens = split_whitespace(line);
+        auto tokens = util::split_netlist_tokens(line);
         if (tokens.empty()) {
             return;
         }
@@ -6111,7 +6038,7 @@ void process_line(const std::string& raw_line, ParseState& state) {
     }
 
     // Parse device line
-    auto tokens = split_whitespace(line);
+    auto tokens = util::split_netlist_tokens(line);
     if (tokens.empty()) {
         return;
     }

@@ -9,6 +9,7 @@
 #include <vector>
 #include <map>
 #include <memory>
+#include <utility>
 
 namespace kirimaspice::circuit {
 
@@ -106,6 +107,21 @@ struct SubcircuitInstance {
         , connected_nodes(nodes)
         , instance_line(line_num) {}
 };
+
+/// The parts of an instance line, X<name> <nodes...> <type> [NAME=value ...]
+struct InstanceLineParts {
+    std::vector<std::string> nodes;  ///< as written
+    std::string type;                ///< as written; empty if there is none
+    /// NAME=value after the type, NAME in upper case, value as written
+    std::vector<std::pair<std::string, std::string>> assignments;
+};
+
+/// Split the tokens of an instance line (tokens[0] is its name). The type is
+/// the last token that is not an assignment; the tokens between the name and
+/// the type are the nodes, whatever their names, and the assignments follow
+/// the type. The main parser, the expansion of a nested instance and the
+/// check for circular references all read an instance line through this.
+InstanceLineParts split_instance_line(const std::vector<std::string>& tokens);
 
 /// Subcircuit registry
 /// Manages all defined subcircuits and their instances

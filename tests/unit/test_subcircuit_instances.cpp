@@ -1,0 +1,100 @@
+// Copyright (c) 2026 The kirimaspice Authors
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+
+// How an instance line X<name> <nodes...> <type> [NAME=value ...] is read
+// (split_instance_line) and expanded. ngspice-47 gives the same operating
+// points, and stops on the same circular definitions (run on 2026-11-15).
+
+#include <gtest/gtest.h>
+
+#include <memory>
+#include <stdexcept>
+#include <string>
+
+#include "kirimaspice/circuit/circuit_graph.hpp"
+#include "kirimaspice/devices/resistor.hpp"
+#include "kirimaspice/parser/netlist_parser.hpp"
+#include "kirimaspice/solvers/dc_solver.hpp"
+
+using namespace kirimaspice;
+
+namespace {
+
+struct OperatingPoint {
+    parser::NetlistParseResult parsed;
+    ConvergenceStatus status = ConvergenceStatus::MAX_ITERATIONS;
+    DenseVector solution;
+
+    Real voltage(const std::string& node) const {
+        return solution[parsed.circuit->get_node_id(node) - 1];
+    }
+};
+
+// Parse and expand, as the program does (main.cpp)
+parser::NetlistParseResult parse(const std::string& netlist) {
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(netlist);
+    parsed.circuit->set_simulation_config(&parsed.config);
+    parsed.circuit->expand_all_subcircuits();
+    return parsed;
+}
+
+OperatingPoint solve(const std::string& netlist) {
+    OperatingPoint op{parse(netlist)};
+    op.parsed.circuit->set_simulation_config(&op.parsed.config);
+    solvers::DCSolver solver(*op.parsed.circuit, op.parsed.config);
+    SolverStats stats;
+    op.status = solver.solve(op.solution, stats);
+    return op;
+}
+
+// The message of the error that parsing and expanding the netlist throws, or
+// "" if none
+std::string parse_error(const std::string& netlist) {
+    try {
+        parse(netlist);
+    } catch (const std::exception& e) {
+        return e.what();
+    }
+    return "";
+}
+
+}  // namespace
+
+// The type is the last token that is not an assignment; a node of a nested
+// instance may have the name of a subcircuit. X2 divides 1 V by two 1 kOhm.
+TEST(SubcircuitInstances, NodeNamedLikeASubcircuit) {
+    const auto op = solve(
+        "t\n.subckt load a b\nR1 a b 1k\n.ends load\n.subckt top in\nR2 in load 1k\n"
+        "X2 load 0 load\n.ends top\nV1 in 0 1\nX1 in top\n.op\n.end\n");
+    ASSERT_EQ(op.status, ConvergenceStatus::SUCCESS);
+    EXPECT_NEAR(op.voltage("X1.load"), 0.5, 1e-9);
+}
+
+// A definition that holds an instance of itself never ends: it is a circular
+// reference, found before any expansion
+TEST(SubcircuitInstances, InstanceOfItselfIsCircular) {
+    const std::string message = parse_error(
+        "t\n.subckt a p\nR1 p 0 1k\nX1 p a\nX2 p a\n.ends a\nV1 in 0 1\nX0 in a\n.op\n.end\n");
+    EXPECT_NE(message.find("Circular"), std::string::npos) << message;
+}
+
+// ... whatever the case of the instance line
+TEST(SubcircuitInstances, LowerCaseInstanceInACycle) {
+    const std::string message = parse_error(
+        "t\n.subckt a p\nR1 p 0 1k\nx1 p b\n.ends a\n.subckt b p\nx1 p a\n.ends b\n"
+        "V1 in 0 1\nX0 in a\n.op\n.end\n");
+    EXPECT_NE(message.find("Circular"), std::string::npos) << message;
+}
+
+// The names of the assignments of a nested instance are not case-sensitive:
+// rv=2k replaces the default rv=1k (ngspice-47 draws 0.5 mA from V1)
+TEST(SubcircuitInstances, NestedInstanceParameterInLowerCase) {
+    const auto op = solve(
+        "t\n.subckt inner a b rv=1k\nR1 a b {rv}\n.ends inner\n.subckt outer a b\n"
+        "X2 a b inner rv=2k\n.ends outer\nV1 in 0 1\nX1 in 0 outer\n.op\n.end\n");
+    ASSERT_EQ(op.status, ConvergenceStatus::SUCCESS);
+    const auto r = std::dynamic_pointer_cast<devices::Resistor>(op.parsed.circuit->get_device("X1.X2.R1"));
+    ASSERT_NE(r, nullptr);
+    EXPECT_DOUBLE_EQ(r->resistance(), 2e3);
+}

@@ -10,6 +10,7 @@
 #include <cctype>
 #include <string>
 #include <string_view>
+#include <vector>
 
 namespace kirimaspice::util {
 
@@ -98,6 +99,48 @@ inline std::string to_upper_copy(std::string_view sv) {
     std::string result(sv);
     to_upper_inplace(result);
     return result;
+}
+
+
+/// Split a netlist line at blanks, keeping a {...} expression in one token
+/// even if it holds blanks. An expression that follows '=' stays in the same
+/// token, so a parameter assignment such as IS={ISAT} or V={2*V(in)} is one
+/// token.
+inline std::vector<std::string> split_netlist_tokens(std::string_view str) {
+    std::vector<std::string> tokens;
+    std::string current;
+    bool in_expression = false;
+
+    for (const char c : str) {
+        if (c == '{') {
+            if (!current.empty() && !in_expression && current.back() != '=') {
+                tokens.push_back(current);
+                current.clear();
+            }
+            in_expression = true;
+            current += c;
+        } else if (c == '}') {
+            current += c;
+            if (in_expression) {
+                tokens.push_back(current);
+                current.clear();
+                in_expression = false;
+            }
+        } else if (std::isspace(static_cast<unsigned char>(c)) && !in_expression) {
+            if (!current.empty()) {
+                tokens.push_back(current);
+                current.clear();
+            }
+        } else {
+            current += c;
+        }
+    }
+
+    if (!current.empty()) {
+        tokens.push_back(current);
+    }
+
+    return tokens;
 }
 
 }  // namespace kirimaspice::util

@@ -1155,6 +1155,10 @@ add_executable(test_netlist_lines unit/test_netlist_lines.cpp)
 target_link_libraries(test_netlist_lines PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_netlist_lines PROPERTIES TIMEOUT 1200)
 
+add_executable(test_subcircuit_instances unit/test_subcircuit_instances.cpp)
+target_link_libraries(test_subcircuit_instances PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_subcircuit_instances PROPERTIES TIMEOUT 1200)
+
 add_executable(test_source_waveforms unit/test_source_waveforms.cpp)
 target_link_libraries(test_source_waveforms PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_source_waveforms PROPERTIES TIMEOUT 1200)
