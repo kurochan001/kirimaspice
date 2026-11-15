@@ -94,3 +94,40 @@ TEST(SmallSignalConsistency, GanHemt) {
     expect_ac_gain_is_the_dc_slope({"P, linear region", "M1 d g 0 m", p_card, -5.0, 200.0, 0.0});
     expect_ac_gain_is_the_dc_slope({"P, saturation", "M1 d g 0 m", p_card, -20.0, 200.0, 1.5});
 }
+
+TEST(SmallSignalConsistency, Igbt) {
+    // Ic = KP (VGE - VGE_TH)^2, times VCE / VCE_SAT below VCE_SAT; the
+    // capacitances do not matter at 1 Hz
+    const std::string values = " level=21 kp=1e-3 vge_th=2 vce_sat=2";
+    const std::string n_card = ".model m nmos" + values;
+    const std::string p_card = ".model m pmos" + values;
+    expect_ac_gain_is_the_dc_slope({"N, active", "M1 d g 0 m", n_card, 10.0, 1e3, 3.0});
+    expect_ac_gain_is_the_dc_slope({"N, saturation", "M1 d g 0 m", n_card, 10.0, 1e3, 5.0});
+    expect_ac_gain_is_the_dc_slope({"P, active", "M1 d g 0 m", p_card, -10.0, 1e3, -3.0});
+    expect_ac_gain_is_the_dc_slope({"P, saturation", "M1 d g 0 m", p_card, -10.0, 1e3, -5.0});
+}
+
+// The IGBT's channel noise follows its bias: 4 k T (2/3) gm, with gm =
+// 2 KP (VGE - VGE_TH) in the active region, 2 mS at VGE = 3 V and 6 mS at 5 V.
+TEST(SmallSignalConsistency, IgbtNoiseFollowsTheBias) {
+    for (const Real vg : {3.0, 5.0}) {
+        parser::NetlistParser parser;
+        auto parsed = parser.parse_string("igbt noise\nVCC c 0 DC 10\nVG g 0 DC " +
+                                          std::to_string(vg) +
+                                          "\nM1 c g 0 m\n.model m nmos level=21 kp=1e-3 "
+                                          "vge_th=2 vce_sat=2\n.end\n");
+        ASSERT_NE(parsed.circuit, nullptr);
+        DCSolver solver(*parsed.circuit, parsed.config);
+        DenseVector solution;
+        SolverStats stats;
+        ASSERT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS);
+        const auto sources = parsed.circuit->get_device("M1")->get_noise_sources(solution, 1e3);
+        ASSERT_FALSE(sources.empty());
+        const Real gm = 2.0 * 1e-3 * (vg - 2.0);
+        const Real kelvin = 300.15;
+        EXPECT_NEAR(sources[0].spectral_density,
+                    4.0 * 1.380649e-23 * kelvin * (2.0 / 3.0) * gm,
+                    1e-6 * 4.0 * 1.380649e-23 * kelvin * gm)
+            << "VG=" << vg;
+    }
+}

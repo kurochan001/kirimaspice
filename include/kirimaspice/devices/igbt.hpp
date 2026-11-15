@@ -395,10 +395,11 @@ public:
     // AC analysis: Small-signal linearization
     void stamp_ac(ComplexMNASystem& mna, Real omega,
                   const DenseVector& dc_solution) const override {
-        // Get DC operating point
-        Real vc = (collector_ != NODE_GND) ? dc_solution[collector_] : 0.0;
-        Real vg = (gate_ != NODE_GND) ? dc_solution[gate_] : 0.0;
-        Real ve = (emitter_ != NODE_GND) ? dc_solution[emitter_] : 0.0;
+        // The operating point, node k at element k - 1 as the AC solver
+        // passes it (DCSolver::solve)
+        Real vc = (collector_ != NODE_GND) ? dc_solution[collector_ - 1] : 0.0;
+        Real vg = (gate_ != NODE_GND) ? dc_solution[gate_ - 1] : 0.0;
+        Real ve = (emitter_ != NODE_GND) ? dc_solution[emitter_ - 1] : 0.0;
 
         // Compute control voltages with polarity
         Real vge = polarity_sign * (vg - ve);
@@ -485,14 +486,19 @@ public:
     // Noise analysis
     std::vector<NoiseSource> get_noise_sources(const DenseVector& dc_solution,
                                                 Real frequency) const override {
-        (void)dc_solution;
         std::vector<NoiseSource> sources;
 
-        // Thermal noise: I_n² = 4kT × gm [A²/Hz]
-        Real kp_temp = compute_temperature_scaled_kp();
+        // At the operating point (node k at element k - 1), with the
+        // collector current and gm of the DC and AC stamps
+        Real vc = (collector_ != NODE_GND) ? dc_solution[collector_ - 1] : 0.0;
+        Real vg = (gate_ != NODE_GND) ? dc_solution[gate_ - 1] : 0.0;
+        Real ve = (emitter_ != NODE_GND) ? dc_solution[emitter_ - 1] : 0.0;
+        const Real vge = polarity_sign * (vg - ve);
+        const Real vce = polarity_sign * (vc - ve);
+        const Real gm = compute_transconductance(vge, vce);
+        const Real ic = compute_collector_current(vge, vce);
 
-        // Assume typical bias: Vge = Vge_th + 5V (moderate gate drive)
-        Real gm = 2.0 * area_ * kp_temp * 5.0;  // gm = 2×KP×Vov
+        // Thermal noise: I_n² = 4kT × gm [A²/Hz]
 
         constexpr Real gamma = 2.0 / 3.0;  // Channel thermal noise coefficient
         Real thermal_psd = device_utils::thermal_noise_psd(temperature_, gm, gamma);
@@ -507,8 +513,8 @@ public:
         sources.push_back(thermal);
 
         // Flicker noise: I_n² = KF × |Ic|^AF / f [A²/Hz]
-        if (kf_ > 0.0 && ic_prev_ > 1e-15) {
-            Real flicker_noise = kf_ * std::pow(std::abs(ic_prev_), af_) / frequency;
+        if (kf_ > 0.0 && std::abs(ic) > 1e-15 && frequency > 0.0) {
+            Real flicker_noise = kf_ * std::pow(std::abs(ic), af_) / frequency;
 
             NoiseSource flicker;
             flicker.name = is_n_channel ? "IGBT_N_flicker" : "IGBT_P_flicker";
