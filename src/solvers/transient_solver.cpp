@@ -29,6 +29,31 @@
 
 namespace kirimaspice::solvers {
 
+namespace {
+
+// The step from t towards t_stop when the next step would be dt: dt, or the
+// rest of the interval when that is shorter than dt or longer by less than
+// the rounding of a sum of steps; 0 when t has reached t_stop within that
+// rounding. Adding up N steps of dt rounds by at most about N^2 1.1e-16 dt,
+// below 1e-5 dt for the 100 000 steps of ITL5, so a rest below that is the
+// rounding of the steps, not a step of its own.
+Real step_toward(Real t, Real t_stop, Real dt) {
+    const Real tolerance = 1e-5 * dt;
+    const Real rest = t_stop - t;
+    if (rest <= tolerance) {
+        return 0.0;
+    }
+    return (rest - dt <= tolerance) ? rest : dt;
+}
+
+// The time after a step of dt from t: t_stop itself when the step was the
+// rest of the interval (step_toward), so the last point lies on t_stop.
+Real advance_time(Real t, Real t_stop, Real dt) {
+    return (dt == t_stop - t) ? t_stop : t + dt;
+}
+
+}  // namespace
+
 TransientSolver::TransientSolver(const circuit::CircuitGraph& circuit,
                                  const SimulationConfig& config)
     : circuit_(circuit)
@@ -1504,7 +1529,7 @@ TransientResult TransientSolver::initialize_simulation(Real t_start, Real timest
 
 void TransientSolver::run_adaptive_timestepping(TransientResult& result, DenseVector& solution,
                                                 Real& t, Real t_stop, Real& dt, std::uint32_t& step_count) {
-    while (t < t_stop) {
+    while (step_toward(t, t_stop, dt) > 0.0) {
         // Check ITL5 limit (max timesteps)
         if (step_count >= config_.transient.max_timesteps) {
             spdlog::error("Transient analysis exceeded ITL5 limit (max_timesteps={})",
@@ -1513,7 +1538,7 @@ void TransientSolver::run_adaptive_timestepping(TransientResult& result, DenseVe
             return;
         }
 
-        Real dt_attempt = std::min(dt, t_stop - t);
+        Real dt_attempt = step_toward(t, t_stop, dt);
         std::uint32_t attempt = 0;
 
         while (true) {
@@ -1547,7 +1572,7 @@ void TransientSolver::run_adaptive_timestepping(TransientResult& result, DenseVe
 
             if (accepted) {
                 // Timestep accepted
-                t += accepted_dt;
+                t = advance_time(t, t_stop, accepted_dt);
                 step_count++;
 
                 // Accept solution (already updated in solve_timestep_adaptive)
@@ -1595,7 +1620,7 @@ void TransientSolver::run_adaptive_timestepping(TransientResult& result, DenseVe
 
 void TransientSolver::run_fixed_timestepping(TransientResult& result, DenseVector& solution,
                                              Real& t, Real t_stop, Real dt, std::uint32_t& step_count) {
-    while (t < t_stop) {
+    while (step_toward(t, t_stop, dt) > 0.0) {
         // Check ITL5 limit (max timesteps)
         if (step_count >= config_.transient.max_timesteps) {
             spdlog::error("Transient analysis exceeded ITL5 limit (max_timesteps={})",
@@ -1604,7 +1629,7 @@ void TransientSolver::run_fixed_timestepping(TransientResult& result, DenseVecto
             return;
         }
 
-        Real dt_target = std::min(dt, t_stop - t);
+        Real dt_target = step_toward(t, t_stop, dt);
         Real dt_attempt = dt_target;
         std::uint32_t attempt = 0;
         ConvergenceStatus status = ConvergenceStatus::SUCCESS;
@@ -1682,7 +1707,7 @@ void TransientSolver::run_fixed_timestepping(TransientResult& result, DenseVecto
         timestep_history_.push_back(dt_attempt);
 
         // Advance time
-        t += dt_attempt;
+        t = advance_time(t, t_stop, dt_attempt);
 
         // Save timepoint
         TimePoint tp;

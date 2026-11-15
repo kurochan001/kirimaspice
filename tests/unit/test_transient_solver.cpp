@@ -670,3 +670,35 @@ TEST(TransientSolver, DcCircuitsStayAtTheirOperatingPoint) {
         }
     }
 }
+
+// The fixed steps of tstep end on tstop: the time points are 0, tstep, ...,
+// tstop, with one more point at tstop when tstop is not a multiple of tstep,
+// and no extra step for the rounding of the sum of the steps (200 steps of
+// 1 us sum to 199.999...us).
+TEST(TransientSolver, StepsEndOnTstop) {
+    struct Case {
+        Real tstep, tstop;
+        std::size_t points;
+    };
+    const Case cases[] = {
+        {1e-6, 200e-6, 201}, {10e-6, 5e-3, 501}, {1e-9, 30e-9, 31},
+        {10e-6, 1e-3, 101},  {1e-6, 2.5e-6, 4},
+    };
+    for (const auto& c : cases) {
+        CircuitGraph circuit;
+        circuit.add_voltage_source("V1", "in", "0", 1.0, 0.0);
+        circuit.add_resistor("R1", "in", "out", 1e3);
+        circuit.add_capacitor("C1", "out", "0", 1e-9);
+        SimulationConfig config;
+        config.transient.use_adaptive_timestep = false;
+        TransientSolver solver(circuit, config);
+        const TransientResult result = solver.solve(0.0, c.tstop, c.tstep);
+        ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
+        ASSERT_EQ(result.timepoints.size(), c.points) << "tstep=" << c.tstep << " tstop=" << c.tstop;
+        EXPECT_EQ(result.timepoints.back().time, c.tstop);
+        for (std::size_t k = 1; k < result.timepoints.size(); ++k) {
+            EXPECT_GT(result.timepoints[k].time - result.timepoints[k - 1].time, 0.4 * c.tstep)
+                << "point " << k;
+        }
+    }
+}
