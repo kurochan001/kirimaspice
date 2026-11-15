@@ -67,8 +67,8 @@ public:
     BranchId branch_id() const { return branch_id_; }
 
     void set_branch_id(BranchId id) { branch_id_ = id; }
-    /// TIME in the expression (Device::set_time)
-    void set_time(Real time) override { current_time_ = time; }
+    /// TIME in the expression (Device::set_time), 0 outside a transient
+    void set_time(std::optional<Real> time) override { current_time_ = time.value_or(0.0); }
 
 private:
     std::vector<NodeId> nodes_;       // [np, nn]

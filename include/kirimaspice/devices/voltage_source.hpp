@@ -4,6 +4,10 @@
 // include/kirimaspice/devices/voltage_source.hpp
 #pragma once
 #include "kirimaspice/devices/device.hpp"
+#include "kirimaspice/devices/waveform.hpp"
+
+#include <memory>
+#include <optional>
 
 namespace kirimaspice::devices {
 
@@ -48,6 +52,25 @@ public:
     bool is_linear() const override { return true; }
     bool is_dynamic() const override { return false; }
 
+    /// A transient waveform (PULSE, SIN, EXP, PWL, SFFM). As in SPICE, the
+    /// transient and its operating point take the waveform at the time of
+    /// the transient (Device::set_time); outside a transient the source has
+    /// its DC value, or, when the netlist gives none (dc_given false), the
+    /// waveform's value at time 0.
+    void set_waveform(std::shared_ptr<const Waveform> waveform, bool dc_given) {
+        waveform_ = std::move(waveform);
+        dc_given_ = dc_given;
+    }
+    const Waveform* waveform() const { return waveform_.get(); }
+    void set_time(std::optional<Real> time) override { time_ = time; }
+
+    /// The value the next stamp takes, before source stepping
+    Real present_value() const {
+        if (waveform_ && time_) return waveform_->evaluate(*time_);
+        if (waveform_ && !dc_given_) return waveform_->evaluate(0.0);
+        return dc_value_;
+    }
+
     // Accessors
     Real dc_value() const { return dc_value_; }
     Real ac_magnitude() const { return ac_magnitude_; }
@@ -63,7 +86,10 @@ public:
     Real get_scale_factor() const { return scale_factor_; }
 
     // DC Sweep support
-    void set_dc_value(Real value) { dc_value_ = value; }
+    void set_dc_value(Real value) {
+        dc_value_ = value;
+        dc_given_ = true;
+    }
 
 private:
     std::vector<NodeId> nodes_;  // [np, nn]
@@ -72,6 +98,9 @@ private:
     Real ac_phase_;       // AC phase (degrees)
     BranchId branch_id_;  // Branch current variable index in MNA
     Real scale_factor_ = 1.0;  // Source stepping scale factor
+    std::shared_ptr<const Waveform> waveform_;  // none for a DC source
+    bool dc_given_ = true;
+    std::optional<Real> time_;  // the transient's time, none outside one
 };
 
 } // namespace kirimaspice::devices

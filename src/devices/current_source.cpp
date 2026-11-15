@@ -35,7 +35,7 @@ void CurrentSource::stamp_dc_linear(MNASystem& mna,
     NodeId np = nodes_[0];
     NodeId nn = nodes_[1];
     // Apply source stepping scale factor
-    Real current = dc_value_ * scale_factor_;
+    Real current = present_value() * scale_factor_;
 
     // Convert node IDs to MNA indices
     auto np_idx = (np == NODE_GND) ? -1 : static_cast<int>(np - 1);

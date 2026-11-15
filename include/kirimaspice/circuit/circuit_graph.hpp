@@ -9,6 +9,7 @@
 #include "kirimaspice/devices/mosfet_bsim1_params.hpp"
 #include "kirimaspice/devices/mosfet_bsim3_params.hpp"
 #include "kirimaspice/devices/mosfet_bsim4_params.hpp"
+#include "kirimaspice/devices/waveform.hpp"
 #include <boost/graph/adjacency_list.hpp>
 #include <string>
 #include <vector>
@@ -200,6 +201,19 @@ public:
                                 const std::string& np,
                                 const std::string& nn,
                                 const std::vector<std::pair<Real, Real>>& points);
+
+    /// Add an independent source with a transient waveform: the DC value
+    /// (dc_given false when the netlist gives none, so the waveform's value
+    /// at time 0 stands for it), the AC input and the waveform
+    /// (VoltageSource::set_waveform)
+    void add_voltage_source_with_waveform(const std::string& name, const std::string& np,
+                                          const std::string& nn, Real dc_value, bool dc_given,
+                                          Real ac_magnitude, Real ac_phase,
+                                          std::shared_ptr<const devices::Waveform> waveform);
+    void add_current_source_with_waveform(const std::string& name, const std::string& np,
+                                          const std::string& nn, Real dc_value, bool dc_given,
+                                          Real ac_magnitude, Real ac_phase,
+                                          std::shared_ptr<const devices::Waveform> waveform);
 
     /// Add diode
     /// @param name Device name (e.g., "D1")
@@ -1161,7 +1175,7 @@ private:
     std::vector<std::string> node_names_;                  ///< NodeId → name mapping
     std::vector<std::shared_ptr<devices::Device>> devices_; ///< Device list
     std::unordered_map<std::string, std::shared_ptr<devices::Device>> device_map_; ///< Device name → pointer
-    std::vector<std::shared_ptr<devices::Device>> voltage_sources_; ///< Voltage sources (both VoltageSource and TimeVaryingVoltageSource, for branch current management)
+    std::vector<std::shared_ptr<devices::Device>> voltage_sources_; ///< Voltage sources, for branch current management
     std::string title_;                                    ///< Circuit title
     NodeId next_node_id_;                                  ///< Next node ID counter
     DeviceId next_device_id_;                              ///< Next device ID counter

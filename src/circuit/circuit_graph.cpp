@@ -11,7 +11,6 @@
 #include "kirimaspice/devices/capacitor.hpp"
 #include "kirimaspice/devices/inductor.hpp"
 #include "kirimaspice/devices/voltage_source.hpp"
-#include "kirimaspice/devices/time_varying_voltage_source.hpp"
 #include "kirimaspice/devices/waveform.hpp"
 #include "kirimaspice/devices/current_source.hpp"
 #include "kirimaspice/devices/diode.hpp"
@@ -442,30 +441,10 @@ void CircuitGraph::add_sin_voltage_source(const std::string& name,
                                           Real delay,
                                           Real damping,
                                           Real phase) {
-    NodeId np_id = add_node(np);
-    NodeId nn_id = add_node(nn);
-
-    DeviceId id = next_device_id_++;
-    auto waveform = std::make_unique<devices::SinWaveform>(
-        offset, amplitude, frequency, delay, damping, phase);
-    auto vsource = std::make_shared<devices::TimeVaryingVoltageSource>(
-        id, name, np_id, nn_id, std::move(waveform));
-
-    // Assign branch ID for MNA (voltage sources need extra current variable)
-    BranchId branch_id = static_cast<BranchId>(voltage_sources_.size());
-    vsource->set_branch_id(branch_id);
-    voltage_sources_.push_back(vsource);
-
-    devices_.push_back(vsource);
-    device_map_[name] = vsource;
-
-    auto [edge, success] = boost::add_edge(np_id, nn_id, graph_);
-    if (success) {
-        graph_[edge].device_id = id;
-    }
-
-    spdlog::debug("Added SIN voltage source: {} {} {} offset={}V amp={}V freq={}Hz",
-                  name, np, nn, offset, amplitude, frequency);
+    add_voltage_source_with_waveform(
+        name, np, nn, 0.0, false, 0.0, 0.0,
+        std::make_shared<devices::SinWaveform>(offset, amplitude, frequency, delay, damping,
+                                                phase));
 }
 
 void CircuitGraph::add_pulse_voltage_source(const std::string& name,
@@ -478,59 +457,36 @@ void CircuitGraph::add_pulse_voltage_source(const std::string& name,
                                             Real fall_time,
                                             Real pulse_width,
                                             Real period) {
-    NodeId np_id = add_node(np);
-    NodeId nn_id = add_node(nn);
-
-    DeviceId id = next_device_id_++;
-    auto waveform = std::make_unique<devices::PulseWaveform>(
-        v1, v2, delay, rise_time, fall_time, pulse_width, period);
-    auto vsource = std::make_shared<devices::TimeVaryingVoltageSource>(
-        id, name, np_id, nn_id, std::move(waveform));
-
-    // Assign branch ID for MNA
-    BranchId branch_id = static_cast<BranchId>(voltage_sources_.size());
-    vsource->set_branch_id(branch_id);
-    voltage_sources_.push_back(vsource);
-
-    devices_.push_back(vsource);
-    device_map_[name] = vsource;
-
-    auto [edge, success] = boost::add_edge(np_id, nn_id, graph_);
-    if (success) {
-        graph_[edge].device_id = id;
-    }
-
-    spdlog::debug("Added PULSE voltage source: {} {} {} v1={}V v2={}V period={}s",
-                  name, np, nn, v1, v2, period);
+    add_voltage_source_with_waveform(
+        name, np, nn, 0.0, false, 0.0, 0.0,
+        std::make_shared<devices::PulseWaveform>(v1, v2, delay, rise_time, fall_time,
+                                                  pulse_width, period));
 }
 
 void CircuitGraph::add_pwl_voltage_source(const std::string& name,
                                           const std::string& np,
                                           const std::string& nn,
                                           const std::vector<std::pair<Real, Real>>& points) {
-    NodeId np_id = add_node(np);
-    NodeId nn_id = add_node(nn);
+    add_voltage_source_with_waveform(name, np, nn, 0.0, false, 0.0, 0.0,
+                                     std::make_shared<devices::PWLWaveform>(points));
+}
 
-    DeviceId id = next_device_id_++;
-    auto waveform = std::make_unique<devices::PWLWaveform>(points);
-    auto vsource = std::make_shared<devices::TimeVaryingVoltageSource>(
-        id, name, np_id, nn_id, std::move(waveform));
+void CircuitGraph::add_voltage_source_with_waveform(
+    const std::string& name, const std::string& np, const std::string& nn, Real dc_value,
+    bool dc_given, Real ac_magnitude, Real ac_phase,
+    std::shared_ptr<const devices::Waveform> waveform) {
+    add_voltage_source(name, np, nn, dc_value, ac_magnitude, ac_phase);
+    std::dynamic_pointer_cast<devices::VoltageSource>(device_map_.at(name))
+        ->set_waveform(std::move(waveform), dc_given);
+}
 
-    // Assign branch ID for MNA
-    BranchId branch_id = static_cast<BranchId>(voltage_sources_.size());
-    vsource->set_branch_id(branch_id);
-    voltage_sources_.push_back(vsource);
-
-    devices_.push_back(vsource);
-    device_map_[name] = vsource;
-
-    auto [edge, success] = boost::add_edge(np_id, nn_id, graph_);
-    if (success) {
-        graph_[edge].device_id = id;
-    }
-
-    spdlog::debug("Added PWL voltage source: {} {} {} points={}",
-                  name, np, nn, points.size());
+void CircuitGraph::add_current_source_with_waveform(
+    const std::string& name, const std::string& np, const std::string& nn, Real dc_value,
+    bool dc_given, Real ac_magnitude, Real ac_phase,
+    std::shared_ptr<const devices::Waveform> waveform) {
+    add_current_source(name, np, nn, dc_value, ac_magnitude, ac_phase);
+    std::dynamic_pointer_cast<devices::CurrentSource>(device_map_.at(name))
+        ->set_waveform(std::move(waveform), dc_given);
 }
 
 void CircuitGraph::add_diode(const std::string& name,
@@ -1934,16 +1890,7 @@ void CircuitGraph::resolve_controlled_source_references() {
                 continue;
             }
 
-            // Try TimeVaryingVoltageSource
-            auto time_vsource = std::dynamic_pointer_cast<devices::TimeVaryingVoltageSource>(control_device);
-            if (time_vsource) {
-                cccs->set_control_branch_id(time_vsource->branch_id());
-                spdlog::debug("CCCS {}: resolved control '{}' → branch_id={}",
-                             cccs->name(), control_name, time_vsource->branch_id());
-                continue;
-            }
-
-            // Neither VoltageSource nor TimeVaryingVoltageSource
+            // Not a voltage source
             throw std::runtime_error(
                 fmt::format("CCCS {}: control device '{}' is not a voltage source",
                            cccs->name(), control_name));
@@ -1968,16 +1915,7 @@ void CircuitGraph::resolve_controlled_source_references() {
                 continue;
             }
 
-            // Try TimeVaryingVoltageSource
-            auto time_vsource = std::dynamic_pointer_cast<devices::TimeVaryingVoltageSource>(control_device);
-            if (time_vsource) {
-                ccvs->set_control_branch_id(time_vsource->branch_id());
-                spdlog::debug("CCVS {}: resolved control '{}' → branch_id={}",
-                             ccvs->name(), control_name, time_vsource->branch_id());
-                continue;
-            }
-
-            // Neither VoltageSource nor TimeVaryingVoltageSource
+            // Not a voltage source
             throw std::runtime_error(
                 fmt::format("CCVS {}: control device '{}' is not a voltage source",
                            ccvs->name(), control_name));

@@ -70,7 +70,7 @@ void VoltageSource::stamp_dc_linear(MNASystem& mna,
 
     // Stamp E vector (RHS for branch equations)
     // Apply source stepping scale factor
-    mna.b[br] = dc_value_ * scale_factor_;
+    mna.b[br] = present_value() * scale_factor_;
 }
 
 void VoltageSource::stamp_transient(MNASystem& mna,

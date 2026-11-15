@@ -10,28 +10,22 @@
 
 namespace kirimaspice::devices {
 
-/// Base class for time-varying waveforms
+/// The transient waveform of an independent source (VoltageSource,
+/// CurrentSource): its value, in volts or amperes, at a time of the transient
 class Waveform {
 public:
     virtual ~Waveform() = default;
 
     /// Evaluate waveform at given time
     /// @param time Simulation time (seconds)
-    /// @return Voltage value at time t
+    /// @return The value at time t
     virtual Real evaluate(Real time) const = 0;
-
-    /// Get DC value (for DC operating point analysis)
-    virtual Real dc_value() const = 0;
 };
 
-/// Sinusoidal waveform: V(t) = VO + VA * sin(2*pi*FREQ*t + PHASE/180*pi)
-/// SPICE syntax: SIN(VO VA FREQ TD THETA PHASE)
-/// - VO: Offset voltage (V)
-/// - VA: Amplitude (V)
-/// - FREQ: Frequency (Hz)
-/// - TD: Delay time (s) - waveform starts at t=TD
-/// - THETA: Damping factor (1/s) - amplitude decays as exp(-THETA*(t-TD))
-/// - PHASE: Phase angle (degrees)
+/// Sinusoidal waveform, SPICE syntax SIN(VO VA FREQ TD THETA PHASE):
+///   VO + VA sin(PHASE) before TD, and from TD on
+///   VO + VA exp(-THETA (t - TD)) sin(2 pi FREQ (t - TD) + PHASE)
+/// with PHASE in degrees (ngspice-47 holds VO + VA sin(PHASE) before TD too)
 class SinWaveform : public Waveform {
 public:
     SinWaveform(Real offset, Real amplitude, Real frequency,
@@ -46,7 +40,7 @@ public:
 
     Real evaluate(Real time) const override {
         if (time < delay_) {
-            return offset_;
+            return offset_ + amplitude_ * std::sin(phase_);
         }
 
         Real t = time - delay_;
@@ -54,10 +48,6 @@ public:
         Real decay = (damping_ != 0.0) ? std::exp(-damping_ * t) : 1.0;
 
         return offset_ + amplitude_ * decay * std::sin(omega * t + phase_);
-    }
-
-    Real dc_value() const override {
-        return offset_;
     }
 
 private:
@@ -124,10 +114,6 @@ public:
         return v1_;
     }
 
-    Real dc_value() const override {
-        return v1_;
-    }
-
 private:
     Real v1_;          // Initial value (V)
     Real v2_;          // Pulsed value (V)
@@ -181,12 +167,51 @@ public:
         return points_.back().second;
     }
 
-    Real dc_value() const override {
-        return points_.front().second;
+private:
+    std::vector<std::pair<Real, Real>> points_;  // (time, voltage) pairs
+};
+
+/// Exponential waveform, SPICE syntax EXP(V1 V2 TD1 TAU1 TD2 TAU2):
+///   V1 before TD1,
+///   V1 + (V2 - V1) (1 - exp(-(t - TD1) / TAU1)) from TD1 to TD2,
+///   and from TD2 on that plus (V1 - V2) (1 - exp(-(t - TD2) / TAU2))
+class ExpWaveform : public Waveform {
+public:
+    ExpWaveform(Real v1, Real v2, Real td1, Real tau1, Real td2, Real tau2)
+        : v1_(v1), v2_(v2), td1_(td1), tau1_(tau1), td2_(td2), tau2_(tau2) {}
+
+    Real evaluate(Real time) const override {
+        if (time < td1_) {
+            return v1_;
+        }
+        Real value = v1_ + (v2_ - v1_) * (1.0 - std::exp(-(time - td1_) / tau1_));
+        if (time >= td2_) {
+            value += (v1_ - v2_) * (1.0 - std::exp(-(time - td2_) / tau2_));
+        }
+        return value;
     }
 
 private:
-    std::vector<std::pair<Real, Real>> points_;  // (time, voltage) pairs
+    Real v1_, v2_, td1_, tau1_, td2_, tau2_;
+};
+
+/// Single-frequency FM waveform, SPICE syntax SFFM(VO VA FC MDI FS):
+///   VO + VA sin(2 pi FC t + MDI sin(2 pi FS t))
+class SffmWaveform : public Waveform {
+public:
+    SffmWaveform(Real offset, Real amplitude, Real carrier, Real modulation_index,
+                 Real signal)
+        : offset_(offset), amplitude_(amplitude), carrier_(carrier),
+          modulation_index_(modulation_index), signal_(signal) {}
+
+    Real evaluate(Real time) const override {
+        return offset_ + amplitude_ * std::sin(2.0 * M_PI * carrier_ * time +
+                                               modulation_index_ *
+                                                   std::sin(2.0 * M_PI * signal_ * time));
+    }
+
+private:
+    Real offset_, amplitude_, carrier_, modulation_index_, signal_;
 };
 
 } // namespace kirimaspice::devices

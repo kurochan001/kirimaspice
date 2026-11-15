@@ -288,7 +288,6 @@ add_library(kirimaspice_lib STATIC
     src/devices/capacitor.cpp
     src/devices/inductor.cpp
     src/devices/voltage_source.cpp
-    src/devices/time_varying_voltage_source.cpp
     src/devices/current_source.cpp
     src/devices/behavioral_source.cpp
     src/devices/diode.cpp

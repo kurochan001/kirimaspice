@@ -4198,160 +4198,217 @@ static void parse_inductor_device(const std::vector<std::string>& tokens, const 
     spdlog::debug("Added inductor: {} {} {} {}H", dev_name, np, nn, value);
 }
 
-static void parse_voltage_source_device(const std::vector<std::string>& tokens, const std::string& dev_name, ParseState& state) {
+// The specification of an independent source after its nodes, in any order:
+// [DC] <value>, AC [<magnitude> [<phase>]], and a transient waveform
+// PULSE, SIN, EXP, PWL or SFFM with its arguments in parentheses (or without
+// them, up to the next keyword), separated by spaces or commas; an argument
+// may be an expression in braces. Every analysis reads the source through
+// VoltageSource or CurrentSource (set_waveform): the operating point and the
+// DC sweep take the DC value, or the waveform at time 0 when there is none;
+// the transient takes the waveform; AC takes the AC input.
+struct SourceSpecification {
+    Real dc_value = 0.0;
+    bool dc_given = false;
+    util::AcInput ac;
+    std::shared_ptr<const devices::Waveform> waveform;
+};
+
+static bool is_waveform_keyword(const std::string& token, std::string& keyword) {
+    std::string upper = token.substr(0, token.find('('));
+    std::transform(upper.begin(), upper.end(), upper.begin(), ::toupper);
+    for (const char* name : {"PULSE", "SIN", "EXP", "PWL", "SFFM"}) {
+        if (upper == name) {
+            keyword = name;
+            return true;
+        }
+    }
+    return false;
+}
+
+// The arguments of a waveform: the text inside its parentheses split at
+// spaces and commas, each a number or an expression in braces
+static std::vector<std::string> split_waveform_arguments(const std::string& inside) {
+    std::vector<std::string> arguments;
+    std::size_t i = 0;
+    while (i < inside.size()) {
+        const char c = inside[i];
+        if (std::isspace(static_cast<unsigned char>(c)) || c == ',') {
+            ++i;
+            continue;
+        }
+        std::size_t end = i;
+        if (c == '{') {
+            int depth = 0;
+            for (; end < inside.size(); ++end) {
+                if (inside[end] == '{') ++depth;
+                if (inside[end] == '}' && --depth == 0) break;
+            }
+            ++end;
+        } else {
+            while (end < inside.size() && !std::isspace(static_cast<unsigned char>(inside[end])) &&
+                   inside[end] != ',') {
+                ++end;
+            }
+        }
+        arguments.push_back(inside.substr(i, end - i));
+        i = end;
+    }
+    return arguments;
+}
+
+static std::shared_ptr<const devices::Waveform> make_waveform(const std::string& keyword,
+                                                              const std::vector<Real>& a,
+                                                              ParseState& state) {
+    const auto need = [&](std::size_t low, std::size_t high, const char* syntax) {
+        if (a.size() < low || a.size() > high) {
+            throw ParseError(fmt::format("{} takes {} ({} given)", keyword, syntax, a.size()),
+                             state.line_number);
+        }
+    };
+    if (keyword == "PULSE") {
+        need(7, 7, "7 arguments: V1 V2 TD TR TF PW PER");
+        return std::make_shared<devices::PulseWaveform>(a[0], a[1], a[2], a[3], a[4], a[5], a[6]);
+    }
+    if (keyword == "SIN") {
+        need(3, 6, "3 to 6 arguments: VO VA FREQ [TD [THETA [PHASE]]]");
+        return std::make_shared<devices::SinWaveform>(a[0], a[1], a[2], a.size() > 3 ? a[3] : 0.0,
+                                                      a.size() > 4 ? a[4] : 0.0,
+                                                      a.size() > 5 ? a[5] : 0.0);
+    }
+    if (keyword == "EXP") {
+        need(6, 6, "6 arguments: V1 V2 TD1 TAU1 TD2 TAU2");
+        if (a[3] <= 0.0 || a[5] <= 0.0) {
+            throw ParseError("EXP needs positive TAU1 and TAU2", state.line_number);
+        }
+        return std::make_shared<devices::ExpWaveform>(a[0], a[1], a[2], a[3], a[4], a[5]);
+    }
+    if (keyword == "SFFM") {
+        need(3, 5, "3 to 5 arguments: VO VA FC [MDI FS]");
+        if (a.size() == 4 && a[3] != 0.0) {
+            throw ParseError("SFFM with a modulation index needs FS", state.line_number);
+        }
+        return std::make_shared<devices::SffmWaveform>(a[0], a[1], a[2], a.size() > 3 ? a[3] : 0.0,
+                                                       a.size() > 4 ? a[4] : 0.0);
+    }
+    // PWL
+    if (a.size() < 2 || a.size() % 2 != 0) {
+        throw ParseError(fmt::format("PWL takes pairs of time and value ({} numbers given)",
+                                     a.size()),
+                         state.line_number);
+    }
+    std::vector<std::pair<Real, Real>> points;
+    for (std::size_t k = 0; k < a.size(); k += 2) {
+        if (!points.empty() && a[k] < points.back().first) {
+            throw ParseError("PWL times must not decrease", state.line_number);
+        }
+        points.emplace_back(a[k], a[k + 1]);
+    }
+    return std::make_shared<devices::PWLWaveform>(std::move(points));
+}
+
+static SourceSpecification parse_source_specification(const std::vector<std::string>& tokens,
+                                                      std::size_t idx, ParseState& state) {
     auto read_value = [&](const std::string& token) { return read_element_value(token, state); };
+    SourceSpecification spec;
+    while (idx < tokens.size()) {
+        const std::string& token = tokens[idx];
+        std::string keyword;
+        if (util::equals_icase(token, "DC")) {
+            ++idx;
+            spec.dc_given = true;
+            spec.dc_value = 0.0;  // DC without a number is 0
+            if (idx < tokens.size() && util::is_value_token(tokens[idx])) {
+                spec.dc_value = read_value(tokens[idx++]);
+            }
+        } else if (util::equals_icase(token, "AC")) {
+            idx = util::read_ac_input(tokens, idx, spec.ac, read_value);
+        } else if (is_waveform_keyword(token, keyword)) {
+            if (spec.waveform) {
+                throw ParseError("A source takes one transient waveform", state.line_number);
+            }
+            // The text from the keyword to its closing parenthesis, or to
+            // the next DC or AC keyword when there are no parentheses
+            std::string text;
+            int depth = 0;
+            bool parenthesized = false;
+            for (; idx < tokens.size(); ++idx) {
+                if (!text.empty() && !parenthesized &&
+                    (util::equals_icase(tokens[idx], "DC") || util::equals_icase(tokens[idx], "AC"))) {
+                    break;
+                }
+                text += (text.empty() ? "" : " ") + tokens[idx];
+                for (char c : tokens[idx]) {
+                    if (c == '(') { ++depth; parenthesized = true; }
+                    if (c == ')') --depth;
+                }
+                if (parenthesized && depth == 0) {
+                    ++idx;
+                    break;
+                }
+            }
+            if (parenthesized && depth != 0) {
+                throw ParseError("Malformed " + keyword + " waveform (missing parentheses)",
+                                 state.line_number);
+            }
+            std::string inside;
+            if (parenthesized) {
+                const auto open = text.find('(');
+                inside = text.substr(open + 1, text.rfind(')') - open - 1);
+            } else {
+                inside = text.substr(keyword.size());
+            }
+            std::vector<Real> arguments;
+            for (const auto& argument : split_waveform_arguments(inside)) {
+                arguments.push_back(read_value(argument));
+            }
+            spec.waveform = make_waveform(keyword, arguments, state);
+        } else if (!spec.dc_given && util::is_value_token(token)) {
+            spec.dc_value = read_value(token);
+            spec.dc_given = true;
+            ++idx;
+        } else {
+            throw ParseError("Unexpected '" + token + "' in the source", state.line_number);
+        }
+    }
+    return spec;
+}
+
+static void parse_voltage_source_device(const std::vector<std::string>& tokens, const std::string& dev_name, ParseState& state) {
     if (tokens.size() < 4) {
         throw ParseError("Invalid voltage source syntax", state.line_number);
     }
-    std::string np = tokens[1];
-    std::string nn = tokens[2];
-
-    // Parse DC value
-    Real dc_value = 0.0;
-    std::size_t idx = 3;
-
-    if (idx < tokens.size()) {
-        std::string token_upper = tokens[idx];
-        std::transform(token_upper.begin(), token_upper.end(), token_upper.begin(), ::toupper);
-
-        if (token_upper == "DC") {
-            idx++;  // Skip "DC" keyword
-        }
-
-        if (idx < tokens.size()) {
-            std::string value_str = tokens[idx];
-            if (value_str[0] == '{') {
-                std::string expr = value_str.substr(1, value_str.size() - 2);
-                dc_value = state.evaluator->evaluate(expr);
-            } else {
-                dc_value = parse_value_with_unit(value_str);
-            }
-            idx++;
-        }
+    const SourceSpecification spec = parse_source_specification(tokens, 3, state);
+    if (spec.waveform) {
+        state.circuit->add_voltage_source_with_waveform(dev_name, tokens[1], tokens[2],
+                                                        spec.dc_value, spec.dc_given,
+                                                        spec.ac.magnitude, spec.ac.phase,
+                                                        spec.waveform);
+    } else {
+        state.circuit->add_voltage_source(dev_name, tokens[1], tokens[2], spec.dc_value,
+                                          spec.ac.magnitude, spec.ac.phase);
     }
-
-    // AC input (NETLIST_CONVENTIONS rule 2): only with the keyword AC
-    util::AcInput ac;
-    idx = util::read_ac_input(tokens, idx, ac, read_value);
-    const Real ac_magnitude = ac.magnitude;
-    const Real ac_phase = ac.phase;
-
-    // Remaining tokens may describe a time-varying waveform (PULSE, SIN, PWL...)
-    // Join the rest to simplify parsing of parenthesis-delimited arguments.
-    auto join_remaining = [&](std::size_t start) {
-        std::string joined;
-        for (std::size_t i = start; i < tokens.size(); ++i) {
-            if (i > start) joined.push_back(' ');
-            joined += tokens[i];
-        }
-        return joined;
-    };
-
-    auto parse_waveform_args = [&](const std::string& keyword,
-                                   const std::string& text) -> std::vector<Real> {
-        auto open = text.find('(');
-        auto close = text.rfind(')');
-        if (open == std::string::npos || close == std::string::npos || close <= open) {
-            throw ParseError("Malformed " + keyword + " waveform (missing parentheses)", state.line_number);
-        }
-        std::string inside = text.substr(open + 1, close - open - 1);
-        std::stringstream ss(inside);
-        std::string tok;
-        std::vector<Real> values;
-        while (ss >> tok) {
-            if (!tok.empty() && tok.back() == ',') {
-                tok.pop_back();  // allow comma separators
-            }
-            Real v = 0.0;
-            if (!tok.empty() && tok.front() == '{') {
-                // Expression block {...}
-                std::string expr = tok.substr(1, tok.size() - 2);
-                v = state.evaluator->evaluate(expr);
-            } else {
-                v = parse_value_with_unit(tok);
-            }
-            values.push_back(v);
-        }
-        return values;
-    };
-
-    bool waveform_parsed = false;
-
-    if (idx < tokens.size()) {
-        std::string wave_token_upper = tokens[idx];
-        std::transform(wave_token_upper.begin(), wave_token_upper.end(),
-                       wave_token_upper.begin(), ::toupper);
-
-        if (wave_token_upper.rfind("PULSE", 0) == 0) {
-            std::string joined = join_remaining(idx);
-            auto args = parse_waveform_args("PULSE", joined);
-            if (args.size() < 7) {
-                throw ParseError("PULSE requires 7 parameters (V1 V2 TD TR TF PW PER)", state.line_number);
-            }
-            Real v1 = args[0];
-            Real v2 = args[1];
-            Real td = args[2];
-            Real tr = args[3];
-            Real tf = args[4];
-            Real pw = args[5];
-            Real per = args[6];
-            state.circuit->add_pulse_voltage_source(dev_name, np, nn,
-                                                    v1, v2, td, tr, tf, pw, per);
-            spdlog::debug("Added pulse voltage source: {} {} {} V1={} V2={} TD={} TR={} TF={} PW={} PER={}",
-                         dev_name, np, nn, v1, v2, td, tr, tf, pw, per);
-            waveform_parsed = true;
-        }
-    }
-
-    if (!waveform_parsed) {
-        // Default: DC source (with optional AC magnitude/phase)
-        state.circuit->add_voltage_source(dev_name, np, nn, dc_value, ac_magnitude, ac_phase);
-        spdlog::debug("Added voltage source: {} {} {} DC={}V AC={}V∠{}°",
-                     dev_name, np, nn, dc_value, ac_magnitude, ac_phase);
-    }
+    spdlog::debug("Added voltage source: {} {} {} DC={}V AC={}V∠{}°{}", dev_name, tokens[1],
+                  tokens[2], spec.dc_value, spec.ac.magnitude, spec.ac.phase,
+                  spec.waveform ? " with a waveform" : "");
 }
 
 static void parse_current_source_device(const std::vector<std::string>& tokens, const std::string& dev_name, ParseState& state) {
-    auto read_value = [&](const std::string& token) { return read_element_value(token, state); };
     if (tokens.size() < 4) {
         throw ParseError("Invalid current source syntax", state.line_number);
     }
-    std::string np = tokens[1];
-    std::string nn = tokens[2];
-
-    size_t idx = 3;
-    if (tokens.size() > 4) {
-        std::string dc_check = tokens[3];
-        std::transform(dc_check.begin(), dc_check.end(), dc_check.begin(), ::toupper);
-        if (dc_check == "DC") {
-            idx = 4;
-        }
+    const SourceSpecification spec = parse_source_specification(tokens, 3, state);
+    if (spec.waveform) {
+        state.circuit->add_current_source_with_waveform(dev_name, tokens[1], tokens[2],
+                                                        spec.dc_value, spec.dc_given,
+                                                        spec.ac.magnitude, spec.ac.phase,
+                                                        spec.waveform);
+    } else {
+        state.circuit->add_current_source(dev_name, tokens[1], tokens[2], spec.dc_value,
+                                          spec.ac.magnitude, spec.ac.phase);
     }
-
-    if (idx >= tokens.size()) {
-        throw ParseError("Missing current value", state.line_number);
-    }
-
-    Real dc_value = 0.0;
-    {
-        std::string value_str = tokens[idx++];
-        if (value_str[0] == '{') {
-            std::string expr = value_str.substr(1, value_str.size() - 2);
-            dc_value = state.evaluator->evaluate(expr);
-        } else {
-            dc_value = parse_value_with_unit(value_str);
-        }
-    }
-
-    // AC input (NETLIST_CONVENTIONS rule 2): only with the keyword AC
-    util::AcInput ac;
-    idx = util::read_ac_input(tokens, idx, ac, read_value);
-    const Real ac_magnitude = ac.magnitude;
-    const Real ac_phase = ac.phase;
-
-    state.circuit->add_current_source(dev_name, np, nn, dc_value, ac_magnitude, ac_phase);
-    spdlog::debug("Added current source: {} {} {} IDC={}A AC={}A∠{}°",
-                 dev_name, np, nn, dc_value, ac_magnitude, ac_phase);
+    spdlog::debug("Added current source: {} {} {} IDC={}A AC={}A∠{}°{}", dev_name, tokens[1],
+                  tokens[2], spec.dc_value, spec.ac.magnitude, spec.ac.phase,
+                  spec.waveform ? " with a waveform" : "");
 }
 
 static void parse_diode_device(const std::vector<std::string>& tokens, const std::string& dev_name, ParseState& state) {

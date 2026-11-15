@@ -670,7 +670,7 @@ public:
 
     // State management for dynamic devices
     /// The time since turn-off of the tail current (Device::set_time)
-    void set_time(Real time) override { current_time_ = time; }
+    void set_time(std::optional<Real> time) override { current_time_ = time.value_or(0.0); }
 
     void reset_state() override {
         vge_prev_ = 0.0;

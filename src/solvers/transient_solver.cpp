@@ -122,6 +122,13 @@ TransientSolver::~TransientSolver() = default;
 TransientResult TransientSolver::solve(Real t_start, Real t_stop, Real timestep) {
     auto start_time = std::chrono::high_resolution_clock::now();
 
+    // After the transient, however it ends, the devices are outside one
+    // again: sources take their DC values (Device::set_time)
+    struct OutsideTransientOnExit {
+        TransientSolver& solver;
+        ~OutsideTransientOnExit() { solver.set_device_time(std::nullopt); }
+    } outside_on_exit{*this};
+
     spdlog::info("Starting transient analysis: t=[{}, {}], dt={}",
                  t_start, t_stop, timestep);
 
@@ -1486,7 +1493,7 @@ bool TransientSolver::initialize_pure_dc_mode(TransientResult& result, Real t_st
     return true;
 }
 
-void TransientSolver::set_device_time(Real time) {
+void TransientSolver::set_device_time(std::optional<Real> time) {
     for (const auto& device : circuit_.get_devices()) {
         device->set_time(time);
     }
