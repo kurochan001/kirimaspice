@@ -36,7 +36,7 @@ and SuiteSparse 7.6.1 unless an entry says otherwise.
 - `BSIM4Transient.InverterChain_MatchesNgspiceReference` is disabled
   (`DISABLED_` in its name); its comment says that the BSIM4 transient
   does not converge near 1 ns (not checked again).
-- At commit `db0fef6` on macOS, CTest has 1162 tests: 1132 pass, 22 are
+- At commit `eaf0629` on macOS, CTest has 1182 tests: 1152 pass, 22 are
   skipped (the twenty comparison tests above, `TemperatureSweepValidation`
   and `VdsatBranchSelection`), 7 fail and 1 is disabled.
 - Some tests find their data relative to the build directory and pass only
@@ -56,15 +56,10 @@ document also lists differences not decided there.
 - **`B` sources have no AC model and no `I(<source>)`.** In AC analysis a
   `B` source contributes nothing and logs `AC analysis not yet supported`;
   an expression with `I(...)` is an error.
-- **`TIME` in a `B` source is always 0** (at `db0fef6`): with
-  `B1 out 0 V={2*V(in)+1000*TIME}` and `V(in)` = 1 V, `V(out)` is 2 V at
-  every point of `.tran 0.1m 1m`. The transient solver never passes the
-  time to the source (`BehavioralSource::set_current_time` is not called;
-  read in the code).
 - **Scale factors are not accepted inside braces or in `.OPTIONS`
   values** (there the option is ignored with a warning).
 - **Inside `.SUBCKT`, only `R`, `C`, `L`, `V` and `I` (DC and AC values,
-  no `PULSE`), `M` (four terminals, level 1 or BSIM4) and `X` are
+  no waveform), `M` (four terminals, level 1 or BSIM4) and `X` are
   expanded.** Other elements
   are skipped with a warning. `PARAMS:` is not accepted.
 - **`.FUNC` cannot be called in an element value,** only in `.PARAM`
@@ -75,17 +70,14 @@ document also lists differences not decided there.
   `Failed to add ... to symbol table`.
 - **`.IC` and `.NODESET` need an upper-case `V(`;** `v(out)=1` is skipped
   with a warning.
-- **`PULSE` is the only waveform, and only after a DC value.**
-  `V1 in 0 PULSE(...)` stops with `Invalid number format: missing digits`.
-  `SIN`, `EXP`, `PWL` and `SFFM` are dropped without a message and the
-  source keeps its DC value; so is `PULSE` on a current source. A comma
-  between `PULSE` arguments must have a space after it. With `PULSE`, the
-  DC value and `AC` are not used, and `.DC` cannot sweep the source: it
-  logs `DC Sweep: Source 'V1' not found` and the program exits with 1 (at
-  `db0fef6`).
-- **An expression in braces must have no spaces in a `.MODEL` line or in
-  `PULSE(...)`;** there the line is split at spaces again, and
-  `IS={a * 2}` stops with `Invalid number format`.
+- **Waveform arguments that SPICE defaults from `.TRAN` must be given:**
+  `PULSE` takes all seven, `SIN` at least `VO VA FREQ`, `EXP` all six,
+  `SFFM` at least `VO VA FC` (read in the code). An `SFFM` source without
+  a DC value has `VO` in the operating point, where ngspice-47 gives 0 V
+  (measured at `eaf0629`).
+- **An expression in braces must have no spaces in a `.MODEL` line;**
+  there the line is split at spaces again, and `IS={a * 2}` stops with
+  `Invalid number format`.
 - **The diode reads only `IS` and `N`; the bipolar transistor reads `IS`,
   `BF`, `NF`, `ISE`, `NE`, `ISC`, `NC` and noise parameters; the level-1
   MOSFET has no bulk terminal in its equations and no `LAMBDA`, and its
@@ -95,7 +87,6 @@ document also lists differences not decided there.
   ([Reference Manual](docs/REFERENCE_MANUAL.md#models)). Level 3 accepts
   `LAMBDA`, `RS`, `RD`, `CJ`, `CJSW` and `MJSW` without a warning and does
   not use them.
-- **A `LEVEL` that no model has gives level 1 without a message.**
 - **`S` and `Y` take a model name that is not defined before them without
   a message,** and use their defaults.
 - **`.PRINT`, `.SAVE`, `.STEP`, `.SENS`, `.MC`, `.TF`, `.PZ`, `.DISTO`,
@@ -123,27 +114,16 @@ says otherwise.
 - **`TRTOL`, `CHGTOL`, the `LTE_*` options, `ERROR_EST` and `MAXORD` have
   no effect**, because they act on the adaptive path that the program
   does not use (read in the code).
-- **The transient starts at `tstart`, from the operating point,** where
-  SPICE simulates from 0 and saves from `tstart`. With an RC low-pass
-  (1 kΩ, 1 µF) driven by a step at 0 and `.tran 0.5m 2m 1m`, the first row
-  is t = 1 ms with V(out) = 0, where the exact value is 1 − e⁻¹ = 0.632
-  (at `db0fef6`).
-- **The fixed-step loop can take one more, very short step at the end.**
-  `run_fixed_timestepping` adds `tstep` to the time until it reaches
-  `tstop`; when the sum falls short by rounding, it takes a step of the
-  remainder. `.tran 1u 200u` then gives 202 points, the last two at 200 µs
-  (at `db0fef6`). The extra point equals the one before it for most
-  circuits, but differs for a device whose transient stamp is wrong (the
-  SiC MOSFET below). The same causes the doubled last row of the
-  transient table ([Command line and output](#command-line-and-output)).
-- **Under `.TEMP`, the DC sweep and AC analysis run at `.OPTIONS TEMP` (27
-  °C by default), not at the `.TEMP` values,** and the operating point
-  and transient write no files; the transient prints only log lines.
-  An operating point that the program runs because the netlist asks for
-  no analysis uses the default settings: neither `.OPTIONS` nor `.TEMP`.
 - **`.OP` with `.DC` runs only the sweep.**
-- **`.FOUR` analyses only its first signal;** further signals on the
-  line are ignored without a message.
+- **The DC convergence test does not check the currents.** The residual
+  that `DCSolver::check_convergence` tests is that of the linear system
+  just solved (`compute_residual` with the matrix of the previous
+  iterate), which is about 0 after every solve; so the iteration ends
+  when the voltage steps fall below RELTOL·|V| + VNTOL, even where KCL
+  does not hold. With a large voltage the tolerance is large: an IGBT
+  with its default card, VGE = 15 V, VCC = 100 V and RL = 100 Ω ends at
+  V(c) = −1404.7 V, where the load carries 15 A and the IGBT's current is
+  0 (measured at `eaf0629`; see [Device models](#device-models)).
 
 ## Device models
 
@@ -153,24 +133,19 @@ says otherwise.
   The noise sources (`MOSFET_BSIM4::get_noise_sources`) and
   `BSIM4ParameterExtractor` instead use `compute_drain_current` and
   `compute_threshold_voltage` in `src/devices/mosfet_bsim4.cpp`.
-- **The SiC MOSFET, the GaN HEMT and the IGBT compute their current again
-  for AC or noise** (read in the code). The SiC MOSFET's `stamp_ac` and
-  `get_noise_sources` write the square law again without RDRIFT, and
-  `stamp_ac` takes g<sub>ds</sub> from a formula of its own. The GaN HEMT
-  corrects for RS and RD differently in its DC, AC and noise stamps. The
-  IGBT's noise source uses g<sub>m</sub> = 2·AREA·KP·5 whatever the bias.
-- **The SiC MOSFET's gate capacitances have the wrong sign of their
-  history current** (`MOSFET_SiC::stamp_transient` adds −C/dt·V<sub>prev</sub>
-  to the right-hand side, where the backward-Euler companion has
-  +C/dt·V<sub>prev</sub>). A gate driven through RG settles at
-  1/(1 + 2·RG·C/dt) of the drive instead of all of it: with RG = 1 kΩ,
-  CGS = CGSO·W = 10 nF and `.tran 0.1m 1m`, V(g) is 0.833 V for a 1 V step
-  (at `db0fef6`).
-- **The MESFET's transient diverges with its gate forward biased.** A
-  1 V step through 1 kΩ into the gate of `.model mz NMF cgs=1u cgd=0
-  cds=0`, with V<sub>DS</sub> = 2 V and `.tran 1u 20u`, gives V(g) = −999 V
-  at 2 µs and 9.99·10<sup>53</sup> V at 19 µs, and the program exits with
-  0 (at `db0fef6`; the cause is not confirmed).
+- **The IGBT's DC model has an output conductance that is not the
+  derivative of its current.** `compute_output_conductance` returns
+  AREA·KP·V<sub>ov</sub><sup>2</sup>/VCE_SAT for every V<sub>CE</sub> below
+  VCE_SAT, also below 0, where the current is 0. With the convergence test
+  above, an operating point can end far from a solution (V(c) = −1404.7 V
+  for VGE = 15 V, VCC = 100 V, RL = 100 Ω and the default KP of 50 A/V²).
+  Making it the derivative turns that run into a non-converging one, and
+  `IGBT_N.TemperatureDependence_VGE_TH` and `IGBT_P.ActiveRegion` then
+  fail too, so it is left as it is (tried at `eaf0629`).
+- **The IGBT's transient stamp is a second copy of its DC stamp,** with
+  its own cutoff branch and tail current (`IGBT::stamp_transient`, read in
+  the code). In a turn-off run (VCC 100 V, RL 100 Ω, TAU 2 µs) the tail
+  current does not show; why is not confirmed.
 - **BSIM4 has no DC model of its source and drain junctions.** ngspice-47's
   `i(vd)` holds their GMIN currents as well (10<sup>−12</sup> S times the
   junction voltage), which shows below the threshold: for the card of
@@ -224,7 +199,7 @@ says otherwise.
   NFIN·HFIN, without the fin's other side and top. Drain and source are not
   swapped when V<sub>DS</sub> < 0, and `TFIN` and `VSAT` are read but not
   used ([reference manual](docs/REFERENCE_MANUAL.md#finfet-level12)).
-- **The SiC MOSFET, GaN HEMT, VDMOS and FinFET integrate their
+- **The SiC MOSFET, GaN HEMT, VDMOS, FinFET and MESFET integrate their
   capacitances by backward Euler** whatever integration method the
   transient uses, and the IGBT does so under the trapezoidal method (its
   `stamp_transient` takes (V − V<sub>prev</sub>)/dt for both).
@@ -247,16 +222,7 @@ says otherwise.
 - The CSV of an AC analysis says `# Simulator: kirimaspice v0.27`; the
   version is written there as fixed text.
 - Log lines and results both go to standard output.
-- No file is written for an operating point or transient under `.TEMP`,
-  and no SSF for a DC sweep.
-- In some runs the transient table on standard output, and the raw file,
-  list the last time point twice (seen with `.TRAN 10u 5m`, `.TRAN 1n 30n`
-  and `.TRAN 1u 200u`, not with `.TRAN 10u 1m`): the fixed-step loop takes
-  one more step of the rounding remainder
-  ([Analyses](#analyses)).
-- With `-o <path>`, the CSV of an AC analysis is written to a name made by
-  removing everything after the last dot of the whole path, so a dot in a
-  directory name moves the file to the parent directory.
+- No SSF file is written for a DC sweep.
 - The SSF output format has no published specification in this repository.
 
 ## Platforms
