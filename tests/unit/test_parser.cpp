@@ -4640,3 +4640,20 @@ Rh h 0 1k
     // H drives -0.1 V into 1 kOhm, so 0.1 mA flows into its n+
     EXPECT_NEAR(solver.get_branch_current("H1").value(), 1e-4, 1e-12);
 }
+
+// A MOSFET card's LEVEL selects the device; a LEVEL that no device has is an
+// error at the card, as in ngspice-47 ("Error on line 4"), not level 1.
+TEST(ModelLevel, UnknownLevelIsAnError) {
+    for (const char* level : {"2", "99", "1.5"}) {
+        parser::NetlistParser parser;
+        try {
+            parser.parse_string(std::string("level\nM1 d g 0 0 m\n.model m nmos level=") + level +
+                                "\n.end\n");
+            FAIL() << "LEVEL=" << level << " was accepted";
+        } catch (const parser::ParseError& e) {
+            EXPECT_EQ(e.line(), 3u) << level;
+        }
+    }
+    parser::NetlistParser parser;
+    EXPECT_NO_THROW(parser.parse_string("level\nM1 d g 0 0 m\n.model m nmos level=1\n.end\n"));
+}

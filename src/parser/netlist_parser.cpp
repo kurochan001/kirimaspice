@@ -3875,11 +3875,22 @@ static void parse_model_directive(const std::vector<std::string>& tokens, ParseS
         }
     }
 
-    // Check for Level 3 model (LEVEL=3)
+    // The LEVEL of a MOSFET card selects the device. A LEVEL that no device
+    // has is an error, as in ngspice-47, not level 1.
     if (device_type == DeviceType::MOSFET_N || device_type == DeviceType::MOSFET_P) {
         auto level_it = params.find("level");
         if (level_it != params.end()) {
             int level = static_cast<int>(level_it->second);
+            static constexpr int known_levels[] = {1, 3, 8, 9, 10, 11, 12, 14, 20, 21, 49, 54};
+            if (level_it->second != static_cast<Real>(level) ||
+                std::find(std::begin(known_levels), std::end(known_levels), level) ==
+                    std::end(known_levels)) {
+                throw ParseError(
+                    fmt::format("MOSFET model {}: LEVEL={} is not implemented (levels 1, 3, "
+                                "8/49, 9, 10, 11, 12, 14/54, 20, 21)",
+                                model_name, level_it->second),
+                    state.line_number);
+            }
             if (level == 3) {
                 // MOSFET Level 3 model
                 if (device_type == DeviceType::MOSFET_N) {
