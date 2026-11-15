@@ -4,6 +4,8 @@
 // src/devices/mosfet_sic.cpp
 // Unified SiC MOSFET template implementation
 #include "kirimaspice/devices/mosfet_sic.hpp"
+
+#include "kirimaspice/core/device_utils.hpp"
 #include <algorithm>
 #include <cctype>
 #include <spdlog/spdlog.h>
@@ -336,7 +338,9 @@ void MOSFET_SiC<P>::stamp_transient(MNASystem& mna,
     // Step 1: Stamp DC nonlinear model
     stamp_dc_nonlinear(mna, node_voltages);
 
-    // Step 2: Stamp overlap capacitances (simplified model)
+    // Step 2: The overlap capacitances CGSO W and CGDO W by backward Euler:
+    // the current C / dt (V - V_prev) from the gate to the source and to
+    // the drain, with V_prev accepted at the last time point (accept_solution)
     NodeId nd = nodes_[0];
     NodeId ng = nodes_[1];
     NodeId ns = nodes_[2];
@@ -345,49 +349,16 @@ void MOSFET_SiC<P>::stamp_transient(MNASystem& mna,
     auto ng_idx = (ng == NODE_GND) ? -1 : static_cast<int>(ng - 1);
     auto ns_idx = (ns == NODE_GND) ? -1 : static_cast<int>(ns - 1);
 
-    // G-S capacitance
-    if (cgso_ > 0.0) {
-        Real cgs = cgso_ * w_;
-        Real g_eq = cgs / timestep;
-        Real i_eq = -g_eq * vgs_prev_;
-
-        if (ng_idx >= 0) {
-            mna.G.add_entry(ng_idx, ng_idx, g_eq);
-            if (ns_idx >= 0) {
-                mna.G.add_entry(ng_idx, ns_idx, -g_eq);
-            }
-            mna.b[ng_idx] += i_eq;
+    (void)method;
+    auto companion = [&](Real c, int n1, int n2, Real v_prev) {
+        if (c <= 0.0) {
+            return;
         }
-        if (ns_idx >= 0) {
-            if (ng_idx >= 0) {
-                mna.G.add_entry(ns_idx, ng_idx, -g_eq);
-            }
-            mna.G.add_entry(ns_idx, ns_idx, g_eq);
-            mna.b[ns_idx] -= i_eq;
-        }
-    }
-
-    // G-D capacitance
-    if (cgdo_ > 0.0) {
-        Real cgd = cgdo_ * w_;
-        Real g_eq = cgd / timestep;
-        Real i_eq = -g_eq * vgd_prev_;
-
-        if (ng_idx >= 0) {
-            mna.G.add_entry(ng_idx, ng_idx, g_eq);
-            if (nd_idx >= 0) {
-                mna.G.add_entry(ng_idx, nd_idx, -g_eq);
-            }
-            mna.b[ng_idx] += i_eq;
-        }
-        if (nd_idx >= 0) {
-            if (ng_idx >= 0) {
-                mna.G.add_entry(nd_idx, ng_idx, -g_eq);
-            }
-            mna.G.add_entry(nd_idx, nd_idx, g_eq);
-            mna.b[nd_idx] -= i_eq;
-        }
-    }
+        const Real g = c / timestep;
+        device_utils::stamp_capacitor_companion(mna, n1, n2, g, -g * v_prev, 1.0);
+    };
+    companion(cgso_ * w_, ng_idx, ns_idx, vgs_prev_);
+    companion(cgdo_ * w_, ng_idx, nd_idx, vgd_prev_);
 }
 
 template<Polarity P>
