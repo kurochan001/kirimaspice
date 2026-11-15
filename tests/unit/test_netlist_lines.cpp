@@ -19,6 +19,7 @@
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/devices/mosfet_level1.hpp"
 #include "kirimaspice/devices/resistor.hpp"
+#include "kirimaspice/devices/tline_lossy.hpp"
 #include "kirimaspice/parser/netlist_parser.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
 
@@ -299,4 +300,19 @@ TEST(NetlistLines, AcPointCount) {
                      parser::ParseError)
             << count;
     }
+}
+
+// The values of an O line are element values, numbers or expressions in
+// braces, as on every element line (read_element_value)
+TEST(NetlistLines, LossyLineValuesInBraces) {
+    parser::NetlistParser parser;
+    const auto parsed = parser.parse_string(
+        "t\n.param rr=2\nV1 a 0 1\nO1 a 0 b 0 R={rr} L={rr*1e-9} C=1p G=0 TD={2*1e-9}\nR1 b 0 50\n"
+        ".op\n.end\n");
+    ASSERT_NE(parsed.circuit, nullptr);
+    const auto o1 = device_as<devices::TLineLossy>(parsed, "O1");
+    ASSERT_NE(o1, nullptr);
+    EXPECT_DOUBLE_EQ(o1->r(), 2.0);
+    EXPECT_DOUBLE_EQ(o1->l(), 2e-9);
+    EXPECT_DOUBLE_EQ(o1->td(), 2e-9);
 }

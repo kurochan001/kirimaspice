@@ -5935,11 +5935,11 @@ static void parse_tline_lumped_device(const std::vector<std::string>& tokens, co
         std::string param = token_upper.substr(0, eq_pos);
         std::string value = token.substr(eq_pos + 1);
 
-        if (param == "R") r = parse_value_with_unit(value);
-        else if (param == "L") l = parse_value_with_unit(value);
-        else if (param == "C") c = parse_value_with_unit(value);
-        else if (param == "G") g = parse_value_with_unit(value);
-        else if (param == "TD") { td = parse_value_with_unit(value); has_td = true; }
+        if (param == "R") r = read_element_value(value, state);
+        else if (param == "L") l = read_element_value(value, state);
+        else if (param == "C") c = read_element_value(value, state);
+        else if (param == "G") g = read_element_value(value, state);
+        else if (param == "TD") { td = read_element_value(value, state); has_td = true; }
     }
 
     if (!has_td || td <= 0.0) {
