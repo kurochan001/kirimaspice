@@ -84,6 +84,10 @@ public:
     void set_branch_id_port_a(BranchId id) { branch_id_port_a_ = id; }
     void set_branch_id_port_b(BranchId id) { branch_id_port_b_ = id; }
 
+    /// [S] DC coupling of the ports, as an inductor in DC; also the DC wire
+    /// of a lossy line without R (TLineLossy::stamp_dc_linear)
+    static constexpr Real kDcCoupling = 1e6;
+
 private:
     /// History point: (time, V_A, V_B, I_A, I_B)
     struct HistoryPoint {
@@ -127,7 +131,6 @@ private:
     mutable Real current_time_ = 0.0;
     mutable Real last_timestep_ = 0.0;  // Cached from stamp_transient
     mutable bool last_stamp_was_dc_ = false;  // The last stamp was the DC one
-    static constexpr Real kDcCoupling = 1e6;  // [S] DC coupling of the ports, as an inductor in DC
 
     // Saved state (for timestep rejection)
     std::deque<HistoryPoint> history_saved_;

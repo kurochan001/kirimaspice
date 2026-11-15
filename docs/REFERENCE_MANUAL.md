@@ -193,7 +193,7 @@ an error.
 | SCR | `S<name> <anode> <cathode> <gate> [parameters]` | | no |
 | TRIAC | `Y<name> <mt2> <mt1> <gate> [parameters]` | | no |
 | Lossless line | `T<name> <a+> <a-> <b+> <b-> Z0=<v> TD=<v>` | both required and positive; `ZO` is accepted for `Z0` | no |
-| Lossy line | `O<name> <a+> <a-> <b+> <b-> R=<v> L=<v> C=<v> G=<v> TD=<v>` | per unit length; `TD` required and positive | no |
+| Lossy line | `O<name> <a+> <a-> <b+> <b-> R=<v> L=<v> C=<v> G=<v> TD=<v>` | per unit length; `TD`, `L` and `C` above 0; the length is `TD`/√(`L`·`C`); DC and AC use the line's exact two-port, the transient an approximation ([known issues](../KNOWN_ISSUES.md#device-models)) | no |
 | Subcircuit instance | `X<name> <nodes...> <subckt> [NAME=<v> ...]` | | yes |
 
 Inside a subcircuit, an element marked "no" is dropped with the warning

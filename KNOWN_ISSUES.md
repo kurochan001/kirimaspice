@@ -186,6 +186,13 @@ says otherwise.
   capacitances by backward Euler** whatever integration method the
   transient uses, and the IGBT does so under the trapezoidal method (its
   `stamp_transient` takes (V − V<sub>prev</sub>)/dt for both).
+- **The lossy line `O` is approximate in the transient.** DC and AC take
+  its exact two-port; the transient takes the lossless line's model with
+  the characteristic impedance sqrt(L/C), the delayed waves attenuated by
+  exp(−α·length) with α = (R/Z0 + G·Z0)/2, and a low-pass filter whose time
+  constant is made from L/R and C/G (`src/devices/tline_lossy.cpp`, read in
+  the code). For the first TD of a transient its delayed waves are those of
+  0 V, not those of the operating point (read in the code).
 - **Three or more inductors coupled to each other are coupled pair by
   pair.** Each `K` adds what the inverse of its own 2 × 2 inductance matrix
   adds to the two inductors (`MutualInductance::inverse_inductance`), in AC

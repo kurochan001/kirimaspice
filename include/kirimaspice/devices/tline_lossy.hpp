@@ -10,8 +10,10 @@
 
 namespace kirimaspice::devices {
 
-/// Lossy transmission line (O-element): distributed R, L, C, G with time delay TD
-/// AC-only minimal implementation using closed-form Y-parameters.
+/// Lossy transmission line (O-element): R, L, C and G per unit length, and the
+/// delay TD of the line without loss, which fixes its length TD / sqrt(L C).
+/// DC and AC take the line's exact two-port (two_port); the transient is an
+/// approximation (KNOWN_ISSUES).
 class TLineLossy : public Device {
 public:
     TLineLossy(DeviceId id, const std::string& name,
@@ -24,10 +26,7 @@ public:
     const std::vector<NodeId>& nodes() const override { return nodes_; }
 
     void stamp_dc_linear(MNASystem& mna,
-                         const DenseVector& node_voltages) const override {
-        (void)mna; (void)node_voltages;
-        // DC: model as open (same as lossless line) — no coupling at DC.
-    }
+                         const DenseVector& node_voltages) const override;
 
     void stamp_dc_nonlinear(MNASystem& mna,
                             const DenseVector& node_voltages) const override {
@@ -54,6 +53,19 @@ public:
     Real c() const { return c_per_m_; }
     Real g() const { return g_per_m_; }
     Real td() const { return td_; }
+    /// TD / sqrt(L C), in the unit of length of R, L, C and G
+    Real length() const { return length_; }
+
+    /// The line's admittance parameters at angular frequency omega:
+    /// I_A = Y11 V_A + Y12 V_B, I_B = Y12 V_A + Y11 V_B. With the series
+    /// impedance Z = (R + j omega L) length, the shunt admittance
+    /// Y = (G + j omega C) length and x = sqrt(Z Y), Y11 = x coth(x) / Z and
+    /// Y12 = -x csch(x) / Z (the telegrapher's equations). Z is 0 only at DC
+    /// without R, where the line is a wire.
+    struct TwoPort {
+        Complex y11, y12;
+    };
+    TwoPort two_port(Real omega) const;
 
 private:
     std::vector<NodeId> nodes_; // [ap, an, bp, bn]
@@ -62,6 +74,7 @@ private:
     Real c_per_m_;
     Real g_per_m_;
     Real td_;
+    Real length_;
 
     Real z0_;   // approx characteristic impedance (sqrt(L/C))
     Real g0_;   // 1/Z0

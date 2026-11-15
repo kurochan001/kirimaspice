@@ -3,6 +3,9 @@
 
 // src/devices/tline_lossy.cpp
 #include "kirimaspice/devices/tline_lossy.hpp"
+#include "kirimaspice/devices/tline_lossless.hpp"
+#include <fmt/format.h>
+#include <stdexcept>
 #include <cmath>
 #include <algorithm>
 #include <cstdlib>
@@ -18,6 +21,12 @@ TLineLossy::TLineLossy(DeviceId id, const std::string& name,
       r_per_m_(r_per_m), l_per_m_(l_per_m),
       c_per_m_(c_per_m), g_per_m_(g_per_m),
       td_(td) {
+    if (!(l_per_m_ > 0.0) || !(c_per_m_ > 0.0) || !(td_ > 0.0)) {
+        throw std::invalid_argument(fmt::format(
+            "O line {}: L, C and TD must be above 0; the length is TD / sqrt(L C)", name));
+    }
+    length_ = td_ / std::sqrt(l_per_m_ * c_per_m_);
+
     // Approximate characteristic impedance and attenuation (low-frequency)
     z0_ = std::sqrt(l_per_m_ / std::max(c_per_m_, 1e-30));
     g0_ = 1.0 / std::max(z0_, 1e-30);
@@ -44,40 +53,72 @@ TLineLossy::TLineLossy(DeviceId id, const std::string& name,
     history_.push_back(init);
 }
 
+TLineLossy::TwoPort TLineLossy::two_port(Real omega) const {
+    const Complex z = Complex(r_per_m_, omega * l_per_m_) * length_;
+    const Complex y = Complex(g_per_m_, omega * c_per_m_) * length_;
+    const Complex x = std::sqrt(z * y);
+    // x coth(x) and x csch(x), even in x: their series near 0, and their
+    // limits x and 2 x exp(-x) where cosh and sinh would overflow
+    Complex f, g;
+    if (std::abs(x) < 1e-4) {
+        const Complex x2 = x * x;
+        f = 1.0 + x2 / 3.0;
+        g = 1.0 - x2 / 6.0;
+    } else if (x.real() > 30.0) {
+        f = x;
+        g = 2.0 * x * std::exp(-x);
+    } else {
+        f = x * std::cosh(x) / std::sinh(x);
+        g = x / std::sinh(x);
+    }
+    return {f / z, -g / z};
+}
+
+void TLineLossy::stamp_dc_linear(MNASystem& mna, const DenseVector& node_voltages) const {
+    (void)node_voltages;
+    const int idx[4] = {
+        (nodes_[0] == NODE_GND) ? -1 : static_cast<int>(nodes_[0] - 1),
+        (nodes_[1] == NODE_GND) ? -1 : static_cast<int>(nodes_[1] - 1),
+        (nodes_[2] == NODE_GND) ? -1 : static_cast<int>(nodes_[2] - 1),
+        (nodes_[3] == NODE_GND) ? -1 : static_cast<int>(nodes_[3] - 1),
+    };
+    // The port currents in terms of u = (V_A, V_B), V_A = V(ap) - V(an) and
+    // V_B = V(bp) - V(bn), each port's current entering its + node
+    auto stamp = [&](Real y11, Real y12) {
+        const Real y[2][2] = {{y11, y12}, {y12, y11}};
+        const int plus[2] = {idx[0], idx[2]};
+        const int minus[2] = {idx[1], idx[3]};
+        for (int p = 0; p < 2; ++p) {
+            for (int q = 0; q < 2; ++q) {
+                if (plus[p] >= 0 && plus[q] >= 0) mna.G.add_entry(plus[p], plus[q], y[p][q]);
+                if (plus[p] >= 0 && minus[q] >= 0) mna.G.add_entry(plus[p], minus[q], -y[p][q]);
+                if (minus[p] >= 0 && plus[q] >= 0) mna.G.add_entry(minus[p], plus[q], -y[p][q]);
+                if (minus[p] >= 0 && minus[q] >= 0) mna.G.add_entry(minus[p], minus[q], y[p][q]);
+            }
+        }
+    };
+    if (r_per_m_ > 0.0) {
+        const TwoPort tp = two_port(0.0);
+        stamp(tp.y11.real(), tp.y12.real());
+    } else {
+        // Without R the DC line is a wire, V_A = V_B, with its shunt
+        // conductance G length: the wire as the lossless line's coupling
+        // (TLineLossless::kDcCoupling), and half of G length on each port
+        const Real k = TLineLossless::kDcCoupling;
+        const Real half_g = 0.5 * g_per_m_ * length_;
+        stamp(k + half_g, -k);
+    }
+}
+
 void TLineLossy::stamp_ac(ComplexMNASystem& sys,
                           Real omega,
                           const DenseVector& dc_solution) const {
     (void)dc_solution; // unused
-
-    // θ = ω * TD (use TD directly; length from TD and propagation speed is implicit)
-    // γ = sqrt((R + jωL)(G + jωC))
-    Complex j(0.0, 1.0);
-    Complex Z_r = Complex(r_per_m_, omega * l_per_m_);
-    Complex Y_g = Complex(g_per_m_, omega * c_per_m_);
-    Complex gamma = std::sqrt(Z_r * Y_g);
-
-    // Map TD to effective length in time domain; use gamma*td as phase/amplitude factor
-    Complex gamma_l = gamma * td_;
-
-    // Compute hyperbolic functions safely
-    Complex sinh_gl = std::sinh(gamma_l);
-    Complex cosh_gl = std::cosh(gamma_l);
-
-    // Avoid division by zero near sinh_gl = 0
-    const Real eps = 1e-12;
-    if (std::abs(sinh_gl.real()) < eps && std::abs(sinh_gl.imag()) < eps) {
-        // clamp to epsilon to avoid blow-up; direction preserved
-        sinh_gl = Complex((sinh_gl.real() >= 0 ? eps : -eps),
-                          (sinh_gl.imag() >= 0 ? eps : -eps));
-    }
-
-    Complex Zc = std::sqrt(Z_r / Y_g);
-
-    // Y-parameters
-    Complex Y11 = (1.0 / Zc) * (cosh_gl / sinh_gl);   // coth = cosh/sinh
-    Complex Y12 = -(1.0 / Zc) * (1.0 / sinh_gl);      // -csch = -1/sinh
-    Complex Y21 = Y12;
-    Complex Y22 = Y11;
+    const TwoPort tp = two_port(omega);
+    const Complex Y11 = tp.y11;
+    const Complex Y12 = tp.y12;
+    const Complex Y21 = Y12;
+    const Complex Y22 = Y11;
 
     // Node mapping
     const NodeId ap = nodes_[0];
@@ -179,8 +220,8 @@ TLineLossy::FilteredWaves TLineLossy::filtered_waves(Real time, Real timestep) c
     Real v_a_delayed, v_b_delayed, i_a_delayed, i_b_delayed;
     get_delayed_signals(time, v_a_delayed, v_b_delayed, i_a_delayed, i_b_delayed);
 
-    // Attenuation for one-way propagation over TD
-    const Real atten = std::exp(-alpha_ * td_);
+    // Attenuation for one-way propagation over the length of the line
+    const Real atten = std::exp(-alpha_ * length_);
     v_a_delayed *= atten;
     v_b_delayed *= atten;
 

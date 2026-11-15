@@ -6,6 +6,7 @@
 #include "kirimaspice/parser/netlist_parser.hpp"
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/devices/tline_lossless.hpp"
+#include "kirimaspice/solvers/ac_solver.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
 #include "kirimaspice/solvers/transient_solver.hpp"
 #include <cmath>
@@ -441,4 +442,65 @@ TEST(TLineDevice, OperatingPointConnectsThePorts) {
     ASSERT_EQ(dc.solve(op, stats), ConvergenceStatus::SUCCESS);
     EXPECT_NEAR(op[result.circuit->get_node_id("a") - 1], 0.5, 1e-7);
     EXPECT_NEAR(op[result.circuit->get_node_id("b") - 1], 0.5, 1e-7);
+}
+
+//==============================================================================
+// Lossy line: the exact two-port in DC and AC (TLineLossy::two_port)
+//==============================================================================
+
+// R, L, C, G are per unit length and TD fixes the length, TD / sqrt(L C):
+// with L = 250 nH, C = 100 pF and TD = 5 ns the line is 1 m long, so in DC it
+// is 1 Ohm in series. ngspice-47 gives V(b) = 50/101 V for its LTRA with the
+// same values and LEN = 1 (run on 2026-11-15).
+TEST(TLineDevice, LossyLineInDcIsItsSeriesResistance) {
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "t\nV1 a 0 1\nR0 a a2 50\nO1 a2 0 b 0 R=1 L=250n C=100p G=0 TD=5n\nR1 b 0 50\n.op\n.end\n");
+    solvers::DCSolver solver(*parsed.circuit, parsed.config);
+    DenseVector x;
+    SolverStats stats;
+    ASSERT_EQ(solver.solve(x, stats), ConvergenceStatus::SUCCESS);
+    EXPECT_NEAR(x[parsed.circuit->get_node_id("b") - 1], 50.0 / 101.0, 1e-9);
+    EXPECT_NEAR(x[parsed.circuit->get_node_id("a2") - 1], 51.0 / 101.0, 1e-9);
+}
+
+// ... and with G the shunt conductance too: 1 Ohm and 1 mS over 1 m, the
+// two-port of the telegrapher's equations at omega = 0
+TEST(TLineDevice, LossyLineInDcWithShuntConductance) {
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "t\nV1 a 0 1\nO1 a 0 b 0 R=1 L=250n C=100p G=1m TD=5n\nR1 b 0 50\n.op\n.end\n");
+    solvers::DCSolver solver(*parsed.circuit, parsed.config);
+    DenseVector x;
+    SolverStats stats;
+    ASSERT_EQ(solver.solve(x, stats), ConvergenceStatus::SUCCESS);
+    // V_B with port A at 1 V: I_B = Y12 + Y11 V_B = -V_B / 50
+    const Real g = std::sqrt(1.0 * 1e-3);  // gamma = sqrt(R G), length 1
+    const Real zc = std::sqrt(1.0 / 1e-3);
+    const Real y11 = 1.0 / (zc * std::tanh(g));
+    const Real y12 = -1.0 / (zc * std::sinh(g));
+    EXPECT_NEAR(x[parsed.circuit->get_node_id("b") - 1], -y12 / (y11 + 1.0 / 50.0), 1e-9);
+}
+
+// In AC the line between 50 Ohm ends: V(b) / V(a) from its ABCD matrix,
+// A = D = cosh(gamma l), B = Zc sinh(gamma l), C = sinh(gamma l) / Zc
+TEST(TLineDevice, LossyLineInAcIsTheTelegrapherTwoPort) {
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "t\nV1 a 0 DC 0 AC 1\nR0 a a2 50\nO1 a2 0 b 0 R=5 L=250n C=100p G=1m TD=5n\nR1 b 0 50\n"
+        ".ac lin 1 30Meg 30Meg\n.end\n");
+    solvers::ACSolver solver(*parsed.circuit, parsed.config);
+    const auto ac = solver.solve();
+    ASSERT_EQ(ac.status, ConvergenceStatus::SUCCESS);
+    ASSERT_EQ(ac.frequency_points.size(), 1u);
+    const Complex vb = ac.frequency_points[0].solution[parsed.circuit->get_node_id("b") - 1];
+
+    const Real w = 2.0 * M_PI * 30e6;
+    const Complex zs(5.0, w * 250e-9), ys(1e-3, w * 100e-12);
+    const Complex gl = std::sqrt(zs * ys) * 1.0;
+    const Complex zc = std::sqrt(zs / ys);
+    const Complex a = std::cosh(gl), b = zc * std::sinh(gl), c = std::sinh(gl) / zc;
+    // V2 = 50 I2 at the load; V1 = A V2 + B I2, I1 = C V2 + A I2; 1 = 50 I1 + V1
+    const Complex i2 = 1.0 / (a * 50.0 + b + 50.0 * (c * 50.0 + a));
+    EXPECT_NEAR(std::abs(vb - 50.0 * i2), 0.0, 1e-9);
 }
