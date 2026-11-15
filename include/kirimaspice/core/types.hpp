@@ -854,7 +854,8 @@ struct SimulationConfig {
     // Fourier analysis
     struct Fourier {
         Real fundamental_freq = 1000.0;  ///< Fundamental frequency [Hz]
-        std::string signal;              ///< Signal to analyze (e.g., "v(out)")
+        std::string signal;              ///< The first signal to analyze (e.g., "v(out)")
+        std::vector<std::string> signals; ///< Every signal of the .FOUR line, in order
         bool enabled = false;            ///< Whether Fourier analysis is requested
         std::uint32_t num_harmonics = 9; ///< Number of harmonics to calculate (default: 9)
     } fourier;

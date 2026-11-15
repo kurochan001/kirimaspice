@@ -393,3 +393,44 @@ Vin in 0 DC 1
     // For a DC voltage source, we expect DC component ≈ 1.0 and negligible harmonics
     // This test verifies the integration is working (no crashes, analysis runs)
 }
+
+// .FOUR analyses every signal of its line, in order. i(<source>) takes the
+// branch of that voltage source, also when another source with a branch (E1
+// here, with twice the current) comes first: a square wave of +-1 V into
+// 1 kOhm has a fundamental of 4/pi mA, and V(in) one of 4/pi V.
+TEST(FourierDirective, AnalysesEverySignalOfTheLine) {
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "four\nE1 e 0 in 0 2\nR2 e 0 1k\nV1 in 0 PULSE(-1 1 0 1n 1n 0.5m 1m)\nR1 in 0 1k\n"
+        ".tran 1u 2m\n.four 1k i(V1) v(in)\n.end\n");
+    ASSERT_NE(parsed.circuit, nullptr);
+    ASSERT_EQ(parsed.config.fourier.signals, (std::vector<std::string>{"i(V1)", "v(in)"}));
+    EXPECT_EQ(parsed.config.fourier.signal, "i(V1)");
+
+    SimulationConfig config = parsed.config;
+    config.transient.use_adaptive_timestep = false;
+    solvers::TransientSolver solver(*parsed.circuit, config);
+    testing::internal::CaptureStdout();
+    const auto result = solver.solve(0.0, 2e-3, 1e-6);
+    const std::string out = testing::internal::GetCapturedStdout();
+    ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
+
+    auto fundamental = [&](const std::string& signal) {
+        const auto at = out.find("Signal: " + signal);
+        EXPECT_NE(at, std::string::npos) << signal << "\n" << out;
+        std::istringstream rows(out.substr(at));
+        std::string line;
+        while (std::getline(rows, line)) {
+            std::istringstream fields(line);
+            int harmonic = 0;
+            Real frequency = 0.0, magnitude = 0.0;
+            if (fields >> harmonic >> frequency >> magnitude && harmonic == 1) {
+                return magnitude;
+            }
+        }
+        return std::nan("");
+    };
+    const Real square = 4.0 / 3.14159265358979323846;
+    EXPECT_NEAR(fundamental("i(V1)"), square * 1e-3, 2e-3 * square * 1e-3);
+    EXPECT_NEAR(fundamental("v(in)"), square, 2e-3 * square);
+}

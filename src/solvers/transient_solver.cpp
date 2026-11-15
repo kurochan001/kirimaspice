@@ -9,6 +9,7 @@
 // Only the device headers used directly here are included; the
 // temperature-dependent device headers are in temperature_utils.cpp
 #include "kirimaspice/devices/device.hpp"                     // Base class
+#include "kirimaspice/devices/voltage_source.hpp"
 #include "kirimaspice/solvers/temperature_utils.hpp"
 #include "kirimaspice/solvers/parallel_stamper.hpp"
 #include "kirimaspice/core/constants.hpp"
@@ -161,102 +162,75 @@ TransientResult TransientSolver::solve(Real t_start, Real t_stop, Real timestep)
                  result.timepoints.size() - 1, result.stats.total_iterations,
                  result.stats.total_time_seconds);
 
-    // Step 4: Perform Fourier analysis if requested
+    // Step 4: Fourier analysis of each signal of .FOUR, over the last period
     if (config_.fourier.enabled) {
-        spdlog::info("Performing Fourier analysis on signal: {}", config_.fourier.signal);
-
-        // Extract time and signal data from timepoints
-        std::vector<Real> time;
-        std::vector<Real> signal;
-
-        // Parse signal name to determine type (voltage or current)
-        std::string signal_name = config_.fourier.signal;
-        bool is_voltage = false;
-        bool is_current = false;
-        std::string node_or_source;
-
-        // Parse v(node) or i(source) format
-        if (signal_name.size() >= 4 && signal_name[1] == '(' && signal_name.back() == ')') {
-            char type = signal_name[0];
-            node_or_source = signal_name.substr(2, signal_name.size() - 3);
-
-            if (type == 'v' || type == 'V') {
-                is_voltage = true;
-            } else if (type == 'i' || type == 'I') {
-                is_current = true;
-            }
+        std::vector<std::string> signals = config_.fourier.signals;
+        if (signals.empty()) {
+            signals.push_back(config_.fourier.signal);
         }
-
-        if (!is_voltage && !is_current) {
-            spdlog::error("Invalid Fourier signal format: {}", signal_name);
-        } else if (is_voltage) {
-            // Extract voltage signal: v(node)
-            // Find node ID from node name
-            try {
-                std::uint32_t node_id = circuit_.get_node_id(node_or_source);
-                std::uint32_t node_index = node_id - 1;  // Convert to 0-based index (skip GND)
-
-                for (const auto& tp : result.timepoints) {
-                    time.push_back(tp.time);
-                    if (node_index < tp.node_voltages.size()) {
-                        signal.push_back(tp.node_voltages[node_index]);
-                    } else {
-                        spdlog::warn("Node index {} out of range at t={}", node_index, tp.time);
-                        signal.push_back(0.0);
-                    }
-                }
-            } catch (const std::exception& e) {
-                spdlog::error("Node not found for Fourier analysis: {} ({})", node_or_source, e.what());
-            }
-        } else if (is_current) {
-            // Extract current signal: i(source)
-            // Find branch current index for voltage source
-            std::uint32_t branch_index = 0;
-            bool found = false;
-
-            for (const auto& device : circuit_.get_devices()) {
-                if (device->type() == DeviceType::VSOURCE) {
-                    // Check if device name matches
-                    if (device->name() == node_or_source) {
-                        found = true;
-                        break;
-                    }
-                    branch_index++;
-                }
-            }
-
-            if (!found) {
-                spdlog::error("Voltage source not found for Fourier analysis: {}", node_or_source);
-            } else {
-                for (const auto& tp : result.timepoints) {
-                    time.push_back(tp.time);
-                    if (branch_index < tp.branch_currents.size()) {
-                        signal.push_back(tp.branch_currents[branch_index]);
-                    } else {
-                        spdlog::warn("Branch index {} out of range at t={}", branch_index, tp.time);
-                        signal.push_back(0.0);
-                    }
-                }
-            }
-        }
-
-        // Perform Fourier analysis if data was extracted
-        if (!time.empty() && !signal.empty()) {
-            FourierResult fourier_result = FourierAnalyzer::analyze(
-                time, signal,
-                config_.fourier.fundamental_freq,
-                config_.fourier.signal,
-                config_.fourier.num_harmonics
-            );
-
-            // Print results
-            FourierAnalyzer::print_result(fourier_result);
-        } else {
-            spdlog::error("Failed to extract signal data for Fourier analysis");
+        for (const auto& signal_name : signals) {
+            run_fourier_analysis(result, signal_name);
         }
     }
 
     return result;
+}
+
+void TransientSolver::run_fourier_analysis(const TransientResult& result,
+                                           const std::string& signal_name) const {
+    spdlog::info("Performing Fourier analysis on signal: {}", signal_name);
+
+    // v(node) or i(source), in any case
+    const bool well_formed =
+        signal_name.size() >= 4 && signal_name[1] == '(' && signal_name.back() == ')';
+    const char kind =
+        well_formed ? static_cast<char>(std::tolower(static_cast<unsigned char>(signal_name[0]))) : 0;
+    if (kind != 'v' && kind != 'i') {
+        spdlog::error("Invalid Fourier signal format: {}", signal_name);
+        return;
+    }
+    const std::string name = signal_name.substr(2, signal_name.size() - 3);
+
+    std::vector<Real> time;
+    std::vector<Real> signal;
+    if (kind == 'v') {
+        std::uint32_t node_index = 0;
+        try {
+            node_index = circuit_.get_node_id(name) - 1;  // ground is not in the vector
+        } catch (const std::exception& e) {
+            spdlog::error("Node not found for Fourier analysis: {} ({})", name, e.what());
+            return;
+        }
+        for (const auto& tp : result.timepoints) {
+            time.push_back(tp.time);
+            signal.push_back(node_index < tp.node_voltages.size() ? tp.node_voltages[node_index]
+                                                                  : 0.0);
+        }
+    } else {
+        // The branch of the voltage source, as the MNA system numbers it
+        const auto source =
+            std::dynamic_pointer_cast<devices::VoltageSource>(circuit_.get_device(name));
+        if (!source) {
+            spdlog::error("Voltage source not found for Fourier analysis: {}", name);
+            return;
+        }
+        const std::size_t branch_index = source->branch_id();
+        for (const auto& tp : result.timepoints) {
+            time.push_back(tp.time);
+            signal.push_back(branch_index < tp.branch_currents.size()
+                                 ? tp.branch_currents[branch_index]
+                                 : 0.0);
+        }
+    }
+
+    if (time.empty()) {
+        spdlog::error("Failed to extract signal data for Fourier analysis");
+        return;
+    }
+    const FourierResult fourier_result = FourierAnalyzer::analyze(
+        time, signal, config_.fourier.fundamental_freq, signal_name,
+        config_.fourier.num_harmonics);
+    FourierAnalyzer::print_result(fourier_result);
 }
 
 bool TransientSolver::initialize_dc_operating_point(DenseVector& solution) {

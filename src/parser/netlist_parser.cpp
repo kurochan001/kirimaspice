@@ -3236,31 +3236,29 @@ static void parse_four_directive(const std::vector<std::string>& tokens, ParseSt
                         state.line_number);
     }
 
-    // Parse signal
-    std::string signal = tokens[2];
-
-    // Validate signal format (should be v(node) or i(source), in any case)
-    bool valid_signal = false;
-    if (signal.size() >= 4) {
-        const char kind = static_cast<char>(std::tolower(static_cast<unsigned char>(signal[0])));
-        if ((kind == 'v' || kind == 'i') &&
-            signal[1] == '(' &&
-            signal.find(')') != std::string::npos) {
-            valid_signal = true;
+    // The signals: each v(node) or i(source), in any case
+    std::vector<std::string> signals(tokens.begin() + 2, tokens.end());
+    for (const auto& signal : signals) {
+        bool valid_signal = false;
+        if (signal.size() >= 4) {
+            const char kind = static_cast<char>(std::tolower(static_cast<unsigned char>(signal[0])));
+            if ((kind == 'v' || kind == 'i') && signal[1] == '(' && signal.back() == ')') {
+                valid_signal = true;
+            }
         }
-    }
-
-    if (!valid_signal) {
-        throw ParseError(fmt::format("Invalid .FOUR signal format: {} (expected v(node) or i(source))", signal),
-                        state.line_number);
+        if (!valid_signal) {
+            throw ParseError(fmt::format("Invalid .FOUR signal format: {} (expected v(node) or i(source))", signal),
+                            state.line_number);
+        }
     }
 
     // Store configuration
     state.config->fourier.fundamental_freq = fundamental_freq;
-    state.config->fourier.signal = signal;
+    state.config->fourier.signal = signals.front();
+    state.config->fourier.signals = signals;
     state.config->fourier.enabled = true;
 
-    spdlog::info("Parsed .FOUR: freq={} Hz, signal={}", fundamental_freq, signal);
+    spdlog::info("Parsed .FOUR: freq={} Hz, signals={}", fundamental_freq, fmt::join(signals, " "));
 
 }
 

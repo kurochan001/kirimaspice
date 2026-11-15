@@ -118,6 +118,10 @@ private:
                             const BDFCoefficients* bdf_coef = nullptr,
                             const TR_BDF2_Coefficients* tr_bdf2_coef = nullptr);
 
+    /// The Fourier analysis of one signal of .FOUR (v(node) or i(source))
+    /// over the time points of result, printed
+    void run_fourier_analysis(const TransientResult& result, const std::string& signal_name) const;
+
     /// Give every device the time of the next stamps, or none after the
     /// transient (Device::set_time)
     void set_device_time(std::optional<Real> time);
