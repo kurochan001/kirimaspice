@@ -8,7 +8,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <spdlog/spdlog.h>
 
 namespace kirimaspice::devices {
 
@@ -41,16 +40,6 @@ Real BSIM3Core::calc_vth(Real vbs, Real leff, Real weff) const {
         Real sqrt_phi = std::sqrt(phi);
         Real sqrt_vbs_phi = std::sqrt(std::abs(vbs) + phi);
         Real delta_vth_k1 = params_.k1 * (sqrt_vbs_phi - sqrt_phi);
-        // Temporary debug for BSIM3N_REF-style params
-        if (std::abs(params_.tox - 4.0e-9) < 1e-12 &&
-            std::abs(params_.vth0 - 0.5) < 1e-6 &&
-            std::abs(params_.w - 10.0e-6) < 1e-9 &&
-            std::abs(params_.l - 1.0e-6) < 1e-9) {
-            spdlog::info(
-                "[BSIM3Core_Vth_Debug] vbs={:.3f} V, nsub={:.3e} cm^-3, phi={:.6f} V, "
-                "sqrt_phi={:.6f}, sqrt_vbs_phi={:.6f}, delta_vth_k1={:.6f} V, vth_before={:.6f} V",
-                vbs, params_.nsub, phi, sqrt_phi, sqrt_vbs_phi, delta_vth_k1, vth);
-        }
         vth += delta_vth_k1;
     }
 
@@ -63,16 +52,6 @@ Real BSIM3Core::calc_vth(Real vbs, Real leff, Real weff) const {
         Real lt = std::sqrt(params_.dvt1 * leff);
         Real theta0 = std::atan(params_.dvt2 * vbs / lt);
         Real delta_vth_sce = -params_.dvt0 * theta0 / (1.0 + params_.dvt2 * vbs);
-        if (std::abs(params_.tox - 4.0e-9) < 1e-12 &&
-            std::abs(params_.vth0 - 0.5) < 1e-6 &&
-            std::abs(params_.w - 10.0e-6) < 1e-9 &&
-            std::abs(params_.l - 1.0e-6) < 1e-9) {
-            spdlog::info(
-                "[BSIM3Core_Vth_Debug_SCE] vbs={:.3f} V, leff={:.3e} m, dvt0={:.3f}, dvt1={:.3f}, "
-                "dvt2={:.3f}, lt={:.6e}, theta0={:.6e}, delta_vth_sce={:.6f} V, vth_before={:.6f} V",
-                vbs, leff, params_.dvt0, params_.dvt1, params_.dvt2,
-                lt, theta0, delta_vth_sce, vth);
-        }
         vth += delta_vth_sce;
     }
 
@@ -84,14 +63,6 @@ Real BSIM3Core::calc_vth(Real vbs, Real leff, Real weff) const {
         vth += delta_vth_narrow;
     }
 
-    if (std::abs(params_.tox - 4.0e-9) < 1e-12 &&
-        std::abs(params_.vth0 - 0.5) < 1e-6 &&
-        std::abs(params_.w - 10.0e-6) < 1e-9 &&
-        std::abs(params_.l - 1.0e-6) < 1e-9) {
-        spdlog::info(
-            "[BSIM3Core_Vth_Debug_Final] vbs={:.3f} V, vth_final={:.6f} V",
-            vbs, vth);
-    }
 
     return vth;
 }
@@ -106,16 +77,6 @@ Real BSIM3Core::apply_temp_vth(Real vth_base, Real vbs, Real temperature) const 
     Real delta_vth = params_.kt1 * delta_temp +
                      params_.kt2 * vbs * delta_temp;
 
-     if (std::abs(params_.tox - 4.0e-9) < 1e-12 &&
-         std::abs(params_.vth0 - 0.5) < 1e-6 &&
-         std::abs(params_.w - 10.0e-6) < 1e-9 &&
-         std::abs(params_.l - 1.0e-6) < 1e-9) {
-         spdlog::info(
-             "[BSIM3Core_Vth_Temp_Debug] vth_in={:.6f} V, vbs={:.3f} V, T={:.2f} K, "
-             "tnom={:.2f} K, delta_temp={:.6f} K, kt1={:.4f}, kt2={:.4f}, delta_vth={:.6f} V",
-             vth_base, vbs, temperature, params_.tnom, delta_temp,
-             params_.kt1, params_.kt2, delta_vth);
-     }
 
     return vth_base + delta_vth;
 }
@@ -357,26 +318,6 @@ Real BSIM3Core::compute_ids_raw(Real vgs, Real vds, Real vbs, Real temperature,
 
     Real vgst = vgs - vth;
 
-    // Temporary debug: trace core quantities for the reference BSIM3N_REF card
-    // used in scripts/bench/compare_bsim3_ids.py (tox=4e-9, vth0=0.5, W=10u, L=1u).
-    // This is limited to a few calls to avoid excessive logging.
-    if (std::abs(params_.tox - 4.0e-9) < 1e-12 &&
-        std::abs(params_.vth0 - 0.5) < 1e-6 &&
-        std::abs(params_.w - 10.0e-6) < 1e-9 &&
-        std::abs(params_.l - 1.0e-6) < 1e-9) {
-        thread_local static int debug_count = 0;
-        if (debug_count < 20) {
-            spdlog::info(
-                "[BSIM3Core_Debug] vgs={:.3f} V, vds={:.3f} V, vbs={:.3f} V, "
-                "leff={:.3e} m, weff={:.3e} m, nsub={:.3e} cm^-3, nch={:.3e} cm^-3, "
-                "vth0={:.6f} V, vth_base={:.6f} V, dibl={:.6e} V, vth={:.6f} V, vgst={:.6f} V",
-                vgs, vds, vbs,
-                leff, weff,
-                params_.nsub, params_.nch,
-                params_.vth0, vth_base, dibl, vth, vgst);
-            ++debug_count;
-        }
-    }
 
     // Subthreshold region: BSIM-style exponential tail (Vgs below Vth, Vgs > 0).
     if (vgst <= 0.0) {
