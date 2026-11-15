@@ -183,6 +183,19 @@ public:
     static constexpr Real gmin_default = 1e-12;
     static constexpr Real k_boltzmann = 1.380649e-23;
 
+    /// The current of the effective device and its derivatives
+    struct DrainCurrent {
+        Real id = 0.0;   ///< From drain to source for N, from source to drain for P [A]
+        Real gm = 0.0;   ///< d id / d Vgs_eff [S]
+        Real gds = 0.0;  ///< d id / d Vds_eff [S]
+    };
+
+    /// The drain current at the effective voltages (VGS and VDS for N, VSG
+    /// and VSD for P): the square law with THETA and RDRIFT at the device's
+    /// temperature, and gm and gds as forward differences of it. The DC, AC
+    /// and noise stamps all take it from here.
+    DrainCurrent drain_current(Real v_gs_eff, Real v_ds_eff) const;
+
 protected:
     /// Get effective threshold voltage (|Vth| for P-channel)
     Real get_effective_threshold() const {

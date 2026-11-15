@@ -158,174 +158,85 @@ void MOSFET_SiC<P>::stamp_gmin(MNASystem& mna) const {
 }
 
 template<Polarity P>
+typename MOSFET_SiC<P>::DrainCurrent MOSFET_SiC<P>::drain_current(Real v_gs_eff,
+                                                                  Real v_ds_eff) const {
+    // Shichman-Hodges with SiC-specific terms, at the device's temperature:
+    //   beta_eff = KP(T) W / L / (1 + THETA Vds)
+    //   Id0 = beta_eff (Vov Vds - Vds^2 / 2) below Vds = Vov, beta_eff Vov^2 / 2 above
+    //   Id = Id0 / (1 + Id0 RDRIFT(T) / Vds), the drop across the drift region
+    // with Vds_eff taken as 0 when it is negative
+    const Real kp_temp = compute_temperature_scaled_kp();
+    const Real rdrift_temp = compute_temperature_scaled_rdrift();
+    const Real beta_temp = kp_temp * w_ / l_;
+    const Real vth_eff = get_effective_threshold();
+
+    auto current = [&](Real vgs, Real vds) {
+        const Real v_ov = vgs - vth_eff;
+        if (v_ov <= 0.0) {
+            return 0.0;
+        }
+        const Real beta_eff = beta_temp / (1.0 + theta_ * vds);
+        const Real id0 = (vds < v_ov) ? beta_eff * (v_ov * vds - 0.5 * vds * vds)
+                                      : 0.5 * beta_eff * v_ov * v_ov;
+        if (rdrift_temp > 0.0 && vds > 1e-6) {
+            return id0 / (1.0 + id0 * rdrift_temp / vds);
+        }
+        return id0;
+    };
+
+    DrainCurrent dc;
+    if (v_gs_eff < vth_eff) {
+        return dc;  // cutoff
+    }
+    const Real vds = std::max(v_ds_eff, 0.0);
+    constexpr Real delta = 1e-6;
+    dc.id = current(v_gs_eff, vds);
+    // The derivatives of this current as they are: with THETA, gds is
+    // negative where the mobility falls faster than the channel opens
+    dc.gm = (current(v_gs_eff + delta, vds) - dc.id) / delta;
+    dc.gds = (current(v_gs_eff, vds + delta) - dc.id) / delta;
+    return dc;
+}
+
+template<Polarity P>
 void MOSFET_SiC<P>::stamp_dc_nonlinear(MNASystem& mna,
                                        const DenseVector& node_voltages) const {
-    // SiC MOSFET DC model: Shichman-Hodges Level 1 with SiC-specific enhancements
-    //
-    // Enhancements:
-    // 1. Mobility modulation (THETA): β_eff = β / (1 + THETA × Vds_eff)
-    // 2. Drift region resistance (Rdrift): Voltage drop ΔV = Id × Rdrift
-    // 3. Temperature scaling: Vth(T), KP(T), Rdrift(T)
-    //
-    // For N-channel: Vgs = Vg - Vs, Vds = Vd - Vs, Vth > 0
-    // For P-channel: Vgs_eff = Vs - Vg (Vsg), Vds_eff = Vs - Vd (Vsd), |Vth| for comparison
-
     NodeId nd = nodes_[0];
     NodeId ng = nodes_[1];
     NodeId ns = nodes_[2];
 
-    // Get terminal voltages
     Real vd = (nd == NODE_GND) ? 0.0 : node_voltages[nd - 1];
     Real vg = (ng == NODE_GND) ? 0.0 : node_voltages[ng - 1];
     Real vs = (ns == NODE_GND) ? 0.0 : node_voltages[ns - 1];
 
-    // Compute effective voltages based on polarity
     Real v_gs_eff, v_ds_eff;
     compute_effective_voltages(vd, vg, vs, v_gs_eff, v_ds_eff);
-
-    // Temperature-scaled parameters
-    Real vth_temp = compute_temperature_scaled_vth();
-    Real kp_temp = compute_temperature_scaled_kp();
-    Real rdrift_temp = compute_temperature_scaled_rdrift();
-    Real beta_temp = kp_temp * w_ / l_;
-
-    // Get effective threshold for cutoff comparison
-    Real vth_eff = get_effective_threshold();
-
-    // Cutoff region: v_gs_eff < vth_eff
-    if (v_gs_eff < vth_eff) {
-        return;
+    if (v_gs_eff < get_effective_threshold()) {
+        return;  // cutoff: only the gmin of stamp_dc_linear
     }
-
-    // Overdrive voltage
-    Real v_ov = v_gs_eff - vth_eff;
-    Real v_ds_sat = v_ov;
-
-    // Ensure Vds >= 0
-    if (v_ds_eff < 0.0) {
-        v_ds_eff = 0.0;
-    }
-
-    // Breakdown voltage check
     if (v_ds_eff > vbd_) {
         spdlog::warn("{} Vds={:.3f}V exceeds breakdown voltage Vbd={:.1f}V",
                      name_, v_ds_eff, vbd_);
     }
+    const DrainCurrent dc = drain_current(v_gs_eff, v_ds_eff);
 
-    // SiC-specific: Mobility modulation
-    Real beta_eff = beta_temp / (1.0 + theta_ * v_ds_eff);
+    // The current from drain to source is id for N and -id for P; its
+    // derivatives with respect to Vg, Vd and Vs are gm, gds and -(gm + gds)
+    // for both (device_utils::stamp_vccs_3terminal, stamp_conductance_ds)
+    const Real i_ds = (P == Polarity::N) ? dc.id : -dc.id;
+    const Real i_eq = i_ds - dc.gm * (vg - vs) - dc.gds * (vd - vs);
 
-    // Calculate intrinsic drain current
-    Real id_intrinsic = 0.0;
-    if (v_ds_eff < v_ds_sat) {
-        // Linear region
-        id_intrinsic = beta_eff * (v_ov * v_ds_eff - 0.5 * v_ds_eff * v_ds_eff);
-    } else {
-        // Saturation region
-        id_intrinsic = 0.5 * beta_eff * v_ov * v_ov;
-    }
-
-    // SiC-specific: Drift resistance effect
-    Real id = id_intrinsic;
-    if (rdrift_temp > 0.0 && v_ds_eff > 1e-6) {
-        Real rdrift_factor = id_intrinsic * rdrift_temp / v_ds_eff;
-        id = id_intrinsic / (1.0 + rdrift_factor);
-    }
-
-    // Numerical differentiation for small-signal parameters
-    const Real delta = 1e-6;
-
-    // Transconductance (gm)
-    Real v_gs_plus = v_gs_eff + delta;
-    Real v_ov_plus = v_gs_plus - vth_eff;
-    Real beta_eff_gm = beta_temp / (1.0 + theta_ * v_ds_eff);
-    Real id_plus = 0.0;
-
-    if (v_ov_plus > 0.0) {
-        if (v_ds_eff < v_ov_plus) {
-            id_plus = beta_eff_gm * (v_ov_plus * v_ds_eff - 0.5 * v_ds_eff * v_ds_eff);
-        } else {
-            id_plus = 0.5 * beta_eff_gm * v_ov_plus * v_ov_plus;
-        }
-        if (rdrift_temp > 0.0 && v_ds_eff > 1e-6) {
-            Real rdrift_factor = id_plus * rdrift_temp / v_ds_eff;
-            id_plus = id_plus / (1.0 + rdrift_factor);
-        }
-    }
-
-    Real gm = (id_plus - id) / delta;
-    gm = std::max(gm, gmin_default);
-
-    // Output conductance (gds)
-    Real v_ds_plus = v_ds_eff + delta;
-    Real beta_eff_gds = beta_temp / (1.0 + theta_ * v_ds_plus);
-    Real id_plus_vds = 0.0;
-
-    if (v_ds_plus < v_ds_sat) {
-        id_plus_vds = beta_eff_gds * (v_ov * v_ds_plus - 0.5 * v_ds_plus * v_ds_plus);
-    } else {
-        id_plus_vds = 0.5 * beta_eff_gds * v_ov * v_ov;
-    }
-
-    if (rdrift_temp > 0.0 && v_ds_plus > 1e-6) {
-        Real rdrift_factor = id_plus_vds * rdrift_temp / v_ds_plus;
-        id_plus_vds = id_plus_vds / (1.0 + rdrift_factor);
-    }
-
-    Real gds = (id_plus_vds - id) / delta;
-    gds = std::max(gds, gmin_default);
-
-    // Equivalent current source (Newton-Raphson linearization)
-    Real id_eq = id - gm * v_gs_eff - gds * v_ds_eff;
-
-    const char* region_str = (v_ds_eff < v_ds_sat) ? "LINEAR" : "SATURATION";
-    const char* polarity_str = (P == Polarity::N) ? "N" : "P";
     spdlog::trace("{} stamp_nonlinear ({}-ch): Vgs_eff={:.6f}V, Vds_eff={:.6f}V, Id={:.6e}A, "
-                  "gm={:.6e}S, gds={:.6e}S, β_eff={:.6e}A/V², Rdrift={:.6e}Ω, region={}",
-                  name_, polarity_str, v_gs_eff, v_ds_eff, id, gm, gds, beta_eff, rdrift_temp, region_str);
+                  "gm={:.6e}S, gds={:.6e}S",
+                  name_, (P == Polarity::N) ? "N" : "P", v_gs_eff, v_ds_eff, dc.id, dc.gm, dc.gds);
 
-    // Convert to MNA indices
     auto nd_idx = (nd == NODE_GND) ? -1 : static_cast<int>(nd - 1);
     auto ng_idx = (ng == NODE_GND) ? -1 : static_cast<int>(ng - 1);
     auto ns_idx = (ns == NODE_GND) ? -1 : static_cast<int>(ns - 1);
-
-    // Stamp transconductance gm
-    if (nd_idx >= 0) {
-        if (ng_idx >= 0) {
-            mna.G.add_entry(nd_idx, ng_idx, gm);
-        }
-        if (ns_idx >= 0) {
-            mna.G.add_entry(nd_idx, ns_idx, -gm);
-        }
-    }
-    if (ns_idx >= 0) {
-        if (ng_idx >= 0) {
-            mna.G.add_entry(ns_idx, ng_idx, -gm);
-        }
-        mna.G.add_entry(ns_idx, ns_idx, gm);
-    }
-
-    // Stamp output conductance gds
-    if (nd_idx >= 0) {
-        mna.G.add_entry(nd_idx, nd_idx, gds);
-        if (ns_idx >= 0) {
-            mna.G.add_entry(nd_idx, ns_idx, -gds);
-        }
-    }
-    if (ns_idx >= 0) {
-        if (nd_idx >= 0) {
-            mna.G.add_entry(ns_idx, nd_idx, -gds);
-        }
-        mna.G.add_entry(ns_idx, ns_idx, gds);
-    }
-
-    // Stamp RHS
-    if (nd_idx >= 0) {
-        mna.b[nd_idx] -= id_eq;
-    }
-    if (ns_idx >= 0) {
-        mna.b[ns_idx] += id_eq;
-    }
+    device_utils::stamp_vccs_3terminal(mna.G, nd_idx, ng_idx, ns_idx, dc.gm, 1.0);
+    device_utils::stamp_conductance_ds(mna.G, nd_idx, ns_idx, dc.gds);
+    if (nd_idx >= 0) mna.b[nd_idx] -= i_eq;
+    if (ns_idx >= 0) mna.b[ns_idx] += i_eq;
 }
 
 template<Polarity P>
@@ -374,122 +285,22 @@ void MOSFET_SiC<P>::stamp_ac(ComplexMNASystem& sys, Real omega,
 
     Real v_gs_eff, v_ds_eff;
     compute_effective_voltages(vd, vg, vs, v_gs_eff, v_ds_eff);
-
-    // Temperature-scaled parameters
-    Real vth_temp = compute_temperature_scaled_vth();
-    Real kp_temp = compute_temperature_scaled_kp();
-    Real rdrift_temp = compute_temperature_scaled_rdrift();
-    Real beta_temp = kp_temp * w_ / l_;
-
-    Real vth_eff = get_effective_threshold();
-
-    // Calculate small-signal parameters
-    const Real delta = 1e-6;
-    Real beta_eff = beta_temp / (1.0 + theta_ * v_ds_eff);
-    Real v_ov = v_gs_eff - vth_eff;
-    Real v_ds_sat = v_ov;
-
-    Real id = 0.0;
-    Real id_plus = 0.0;
-
-    if (v_ov > 0.0) {
-        if (v_ds_eff < v_ds_sat) {
-            id = beta_eff * (v_ov * v_ds_eff - 0.5 * v_ds_eff * v_ds_eff);
-        } else {
-            id = 0.5 * beta_eff * v_ov * v_ov;
-        }
-
-        Real v_ov_plus = (v_gs_eff + delta) - vth_eff;
-        if (v_ds_eff < v_ov_plus) {
-            id_plus = beta_eff * (v_ov_plus * v_ds_eff - 0.5 * v_ds_eff * v_ds_eff);
-        } else {
-            id_plus = 0.5 * beta_eff * v_ov_plus * v_ov_plus;
-        }
-    }
-
-    Real gm = (id_plus - id) / delta;
-    gm = std::max(gm, gmin_default);
-
-    Real gds = gmin_default;
-    if (rdrift_temp > 0.0 && v_ds_eff > 1e-6) {
-        gds = id / (rdrift_temp * id + v_ds_eff);
-        gds = std::max(gds, gmin_default);
-    }
-
-    Real cgs = cgso_ * w_;
-    Real cgd = cgdo_ * w_;
-
-    const char* polarity_str = (P == Polarity::N) ? "N" : "P";
-    spdlog::trace("{} stamp_ac ({}-ch): Vgs_eff={:.6f}V, Vds_eff={:.6f}V, Gm={:.6e}S, gds={:.6e}S, "
-                  "Cgs={:.6e}F, Cgd={:.6e}F, ω={:.3e}rad/s",
-                  name_, polarity_str, v_gs_eff, v_ds_eff, gm, gds, cgs, cgd, omega);
+    const DrainCurrent dc = drain_current(v_gs_eff, v_ds_eff);
 
     auto nd_idx = (nd == NODE_GND) ? -1 : static_cast<int>(nd - 1);
     auto ng_idx = (ng == NODE_GND) ? -1 : static_cast<int>(ng - 1);
     auto ns_idx = (ns == NODE_GND) ? -1 : static_cast<int>(ns - 1);
 
-    Complex ygs(0.0, omega * cgs);
-    Complex ygd(0.0, omega * cgd);
-    Complex yds(gds, 0.0);
-    Complex gmvgs(gm, 0.0);
+    // The small-signal current from drain to source, as in the DC stamp
+    device_utils::stamp_complex_vccs_3terminal(sys.Y, nd_idx, ng_idx, ns_idx,
+                                               Complex(dc.gm, 0.0), 1.0);
+    device_utils::stamp_complex_conductance_ds(sys.Y, nd_idx, ns_idx, Complex(dc.gds, 0.0));
 
-    // Stamp G-S capacitance
-    if (ng_idx >= 0) {
-        sys.Y.add_entry(ng_idx, ng_idx, ygs);
-        if (ns_idx >= 0) {
-            sys.Y.add_entry(ng_idx, ns_idx, -ygs);
-        }
-    }
-    if (ns_idx >= 0) {
-        sys.Y.add_entry(ns_idx, ns_idx, ygs);
-        if (ng_idx >= 0) {
-            sys.Y.add_entry(ns_idx, ng_idx, -ygs);
-        }
-    }
-
-    // Stamp G-D capacitance
-    if (ng_idx >= 0) {
-        sys.Y.add_entry(ng_idx, ng_idx, ygd);
-        if (nd_idx >= 0) {
-            sys.Y.add_entry(ng_idx, nd_idx, -ygd);
-        }
-    }
-    if (nd_idx >= 0) {
-        sys.Y.add_entry(nd_idx, nd_idx, ygd);
-        if (ng_idx >= 0) {
-            sys.Y.add_entry(nd_idx, ng_idx, -ygd);
-        }
-    }
-
-    // Stamp D-S output conductance
-    if (nd_idx >= 0) {
-        sys.Y.add_entry(nd_idx, nd_idx, yds);
-        if (ns_idx >= 0) {
-            sys.Y.add_entry(nd_idx, ns_idx, -yds);
-        }
-    }
-    if (ns_idx >= 0) {
-        sys.Y.add_entry(ns_idx, ns_idx, yds);
-        if (nd_idx >= 0) {
-            sys.Y.add_entry(ns_idx, nd_idx, -yds);
-        }
-    }
-
-    // Stamp controlled current source
-    if (nd_idx >= 0) {
-        if (ng_idx >= 0) {
-            sys.Y.add_entry(nd_idx, ng_idx, +gmvgs);
-        }
-        if (ns_idx >= 0) {
-            sys.Y.add_entry(nd_idx, ns_idx, -gmvgs);
-        }
-    }
-    if (ns_idx >= 0) {
-        if (ng_idx >= 0) {
-            sys.Y.add_entry(ns_idx, ng_idx, -gmvgs);
-        }
-        sys.Y.add_entry(ns_idx, ns_idx, +gmvgs);
-    }
+    // The overlap capacitances CGSO W and CGDO W
+    device_utils::stamp_complex_capacitor(sys.Y, ng_idx, ns_idx,
+                                          Complex(0.0, omega * cgso_ * w_), 1.0);
+    device_utils::stamp_complex_capacitor(sys.Y, ng_idx, nd_idx,
+                                          Complex(0.0, omega * cgdo_ * w_), 1.0);
 }
 
 template<Polarity P>
@@ -508,37 +319,9 @@ std::vector<NoiseSource> MOSFET_SiC<P>::get_noise_sources(const DenseVector& dc_
     Real v_gs_eff, v_ds_eff;
     compute_effective_voltages(V_d, V_g, V_s, v_gs_eff, v_ds_eff);
 
-    // Temperature-scaled parameters
-    Real kp_temp = compute_temperature_scaled_kp();
-    Real beta_temp = kp_temp * w_ / l_;
-    Real vth_eff = get_effective_threshold();
-
-    // Calculate drain current and transconductance
-    Real beta_eff = beta_temp / (1.0 + theta_ * v_ds_eff);
-    Real v_ov = v_gs_eff - vth_eff;
-    Real v_ds_sat = v_ov;
-
-    Real I_d = 0.0;
-    if (v_ov > 0.0) {
-        if (v_ds_eff < v_ds_sat) {
-            I_d = beta_eff * (v_ov * v_ds_eff - 0.5 * v_ds_eff * v_ds_eff);
-        } else {
-            I_d = 0.5 * beta_eff * v_ov * v_ov;
-        }
-    }
-
-    // gm (numerical differentiation)
-    const Real delta = 1e-6;
-    Real I_d_plus = 0.0;
-    Real v_ov_plus = (v_gs_eff + delta) - vth_eff;
-    if (v_ov_plus > 0.0) {
-        if (v_ds_eff < v_ov_plus) {
-            I_d_plus = beta_eff * (v_ov_plus * v_ds_eff - 0.5 * v_ds_eff * v_ds_eff);
-        } else {
-            I_d_plus = 0.5 * beta_eff * v_ov_plus * v_ov_plus;
-        }
-    }
-    Real g_m = (I_d_plus - I_d) / delta;
+    const DrainCurrent dc = drain_current(v_gs_eff, v_ds_eff);
+    const Real I_d = dc.id;
+    const Real g_m = (dc.id > 0.0) ? dc.gm : 0.0;
 
     constexpr Real gm_threshold = 1e-15;
 
