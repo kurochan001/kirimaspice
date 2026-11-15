@@ -5659,8 +5659,21 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
     }
 }
 
+// The POLY form of a controlled source, E/F/G/H <n+> <n-> POLY(<n>) ..., is
+// not implemented. Read as the linear form, its POLY(<n>) would be a node or
+// a source name and a coefficient the gain, so it is an error instead.
+static void reject_poly_form(const std::vector<std::string>& tokens, ParseState& state) {
+    if (tokens.size() > 3 &&
+        (util::starts_with_icase(tokens[3], "POLY(") || util::equals_icase(tokens[3], "POLY"))) {
+        throw ParseError(fmt::format("{}: the POLY form of a controlled source is not implemented",
+                                     tokens[0]),
+                         state.line_number);
+    }
+}
+
 static void parse_vcvs_device(const std::vector<std::string>& tokens, const std::string& dev_name, ParseState& state) {
     // VCVS: E<name> <n+> <n-> <nc+> <nc-> <gain>
+    reject_poly_form(tokens, state);
     if (tokens.size() < 6) {
         throw ParseError("Invalid VCVS syntax (E<name> <n+> <n-> <nc+> <nc-> <gain>)", state.line_number);
     }
@@ -5685,6 +5698,7 @@ static void parse_vcvs_device(const std::vector<std::string>& tokens, const std:
 
 static void parse_cccs_device(const std::vector<std::string>& tokens, const std::string& dev_name, ParseState& state) {
     // CCCS: F<name> <n+> <n-> V<control> <gain>
+    reject_poly_form(tokens, state);
     if (tokens.size() < 5) {
         throw ParseError("Invalid CCCS syntax (F<name> <n+> <n-> V<control> <gain>)", state.line_number);
     }
@@ -5713,6 +5727,7 @@ static void parse_cccs_device(const std::vector<std::string>& tokens, const std:
 
 static void parse_vccs_device(const std::vector<std::string>& tokens, const std::string& dev_name, ParseState& state) {
     // VCCS: G<name> <n+> <n-> <nc+> <nc-> <transconductance>
+    reject_poly_form(tokens, state);
     if (tokens.size() < 6) {
         throw ParseError("Invalid VCCS syntax (G<name> <n+> <n-> <nc+> <nc-> <Gm>)", state.line_number);
     }
@@ -5737,6 +5752,7 @@ static void parse_vccs_device(const std::vector<std::string>& tokens, const std:
 
 static void parse_ccvs_device(const std::vector<std::string>& tokens, const std::string& dev_name, ParseState& state) {
     // CCVS: H<name> <n+> <n-> V<control> <transresistance>
+    reject_poly_form(tokens, state);
     if (tokens.size() < 5) {
         throw ParseError("Invalid CCVS syntax (H<name> <n+> <n-> V<control> <H>)", state.line_number);
     }

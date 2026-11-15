@@ -264,3 +264,21 @@ TEST(NetlistLines, ElementNameUsedTwice) {
     EXPECT_THROW(parser.parse_string("t\nV1 in 0 1\nR1 in 0 1k\nR1 in 0 1k\n.op\n.end\n"),
                  parser::ParseError);
 }
+
+// The POLY form of a controlled source is not implemented, so it is an error,
+// not a linear source with POLY(1) for a node (reject_poly_form); a node whose
+// name starts with "poly" is a node
+TEST(NetlistLines, PolyFormOfAControlledSource) {
+    for (const std::string e : {"E1 out 0 POLY(1) in 0 0 2", "G1 out 0 poly (1) in 0 0 2",
+                                "F1 out 0 POLY(1) V1 0 2", "H1 out 0 POLY(1) V1 0 2"}) {
+        parser::NetlistParser parser;
+        EXPECT_THROW(parser.parse_string("t\nV1 in 0 1\n" + e + "\nR1 out 0 1k\n.op\n.end\n"),
+                     parser::ParseError)
+            << e;
+    }
+    parser::NetlistParser parser;
+    const auto parsed = parser.parse_string(
+        "t\nV1 polynode 0 1\nE1 out 0 polynode 0 2\nR1 out 0 1k\n.op\n.end\n");
+    ASSERT_NE(parsed.circuit, nullptr);
+    EXPECT_EQ(parsed.circuit->get_devices().size(), 3u);
+}

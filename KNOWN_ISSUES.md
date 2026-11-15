@@ -62,6 +62,8 @@ document also lists differences not decided there.
   no waveform), `M` (four terminals, level 1 or BSIM4) and `X` are
   expanded.** Other elements
   are skipped with a warning. `PARAMS:` is not accepted.
+- **`E`, `F`, `G` and `H` have no `POLY` form;** a line with `POLY(...)`
+  after the output nodes is an error.
 - **`.FUNC` cannot be called in an element value,** only in `.PARAM`
   expressions (`Expression parse error`).
 - **`.IF` cannot read `.PARAM` values.** When the condition cannot be
