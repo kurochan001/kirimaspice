@@ -65,7 +65,7 @@ void ACCSVWriter::write_metadata(const std::string& title,
     out_ << "# AC Analysis Result\n";
     out_ << "# Title: " << title << "\n";
     out_ << "# Date: " << time_buffer << "\n";
-    out_ << "# Simulator: kirimaspice v0.27\n";
+    out_ << "# Simulator: kirimaspice v" KIRIMASPICE_VERSION "\n";
     out_ << "# Analysis Type: AC (Small-Signal Frequency Domain)\n";
     out_ << "# Num Frequency Points: " << result.frequency_points.size() << "\n";
     out_ << "# Num Nodes: " << (circuit_.num_nodes() - 1) << "\n";
