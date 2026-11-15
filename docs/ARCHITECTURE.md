@@ -233,7 +233,7 @@ them, and the function skips them.
 | --- | --- |
 | passive, coupling, lines | resistor, capacitor, inductor, mutual_inductance, tline_lossless, tline_lossy |
 | sources | voltage_source, current_source (both with a waveform of `waveform.hpp`), behavioral_source, vcvs, vccs, cccs, ccvs |
-| diodes and bipolar | diode, bjt_base, bjt_npn, bjt_pnp |
+| diodes and bipolar | diode, bjt (bjt_npn and bjt_pnp are aliases) |
 | MOSFET | mosfet_base, mosfet_level1, mosfet_level3, mosfet_bsim1, mosfet_bsim3 (with bsim3_core), mosfet_bsim4 (with bsim4_core and its parameters), mosfet_sic, finfet |
 | power and others | gan_hemt, vdmos, igbt, jfet, mesfet, scr, triac |
 
@@ -241,10 +241,12 @@ The MOSFET models are class templates over `Polarity` (`polarity.hpp`).
 The GaN HEMT, IGBT, JFET, MESFET, SCR and VDMOS are templates over their
 own polarity enums (`GaNPolarity` and so on), in their headers only; level
 1, level 3, BSIM1, BSIM3, BSIM4, SiC and FinFET are instantiated
-explicitly in their `.cpp` files. The bipolar transistor is two classes,
-`BJT_NPN` and `BJT_PNP`, which derive from `Device` directly; `BJT_Base`
-is used by neither. The library has a JFET, but the parser has no `J`
-element.
+explicitly in their `.cpp` files. The bipolar transistor is
+`BJT<BJTPolarity>`, instantiated for NPN and PNP in `bjt.cpp`;
+`BJT_NPN` and `BJT_PNP` are aliases. Its currents and analytic derivatives
+come from `BJT::evaluate` in DC, AC, transient and noise analysis. Its
+junction charges give the capacitances. The library has a JFET, but the
+parser has no `J` element.
 
 ## Equations and linear solvers
 
@@ -405,7 +407,7 @@ lists the directives the program parses but does not run.
 - **Unused parts.** The Boost.Graph of `CircuitGraph`, the extra internal
   nodes that BSIM4 declares through `extra_node_count` (the solvers take
   none), the SuperLU_DIST backend, the parallel DC sweep, which is
-  disabled, `BJT_Base`, the analytic derivatives of
+  disabled, the analytic derivatives of
   `BSIM4Core::compute_cdrain`, and `CircuitGraph::add_sin_voltage_source`,
   `add_pulse_voltage_source` and `add_pwl_voltage_source`, which only
   tests call (the parser uses `add_voltage_source_with_waveform`).

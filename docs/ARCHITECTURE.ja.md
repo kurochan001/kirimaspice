@@ -194,16 +194,17 @@ MESFET、SCR、TRIAC、受動素子はそこに入っておらず、この関数
 | --- | --- |
 | 受動素子、結合、線路 | resistor、capacitor、inductor、mutual_inductance、tline_lossless、tline_lossy |
 | 電源 | voltage_source、current_source（どちらも `waveform.hpp` の波形と一緒に）、behavioral_source、vcvs、vccs、cccs、ccvs |
-| ダイオードとバイポーラ | diode、bjt_base、bjt_npn、bjt_pnp |
+| ダイオードとバイポーラ | diode、bjt（bjt_npn と bjt_pnp は別名） |
 | MOSFET | mosfet_base、mosfet_level1、mosfet_level3、mosfet_bsim1、mosfet_bsim3（bsim3_core と一緒に）、mosfet_bsim4（bsim4_core とそのパラメータと一緒に）、mosfet_sic、finfet |
 | パワー素子とそのほか | gan_hemt、vdmos、igbt、jfet、mesfet、scr、triac |
 
 MOSFET のモデルは、`Polarity`（`polarity.hpp`）についてのクラステンプレートです。GaN HEMT、IGBT、JFET、
 MESFET、SCR、VDMOS は、それぞれ自分の極性の列挙型（`GaNPolarity` など）についてのテンプレートで、ヘッダーに
 だけあります。レベル 1、レベル 3、BSIM1、BSIM3、BSIM4、SiC、FinFET は、それぞれの `.cpp` で明示的に
-実体化します。バイポーラトランジスタは `BJT_NPN` と `BJT_PNP` の 2 つのクラスで、`Device` から直接
-派生します。`BJT_Base` はどちらも使っていません。ライブラリには JFET がありますが、パーサーに `J` 素子は
-ありません。
+実体化します。バイポーラトランジスタは `BJT<BJTPolarity>` で、`bjt.cpp` で NPN と PNP を実体化します。
+`BJT_NPN` と `BJT_PNP` はその別名です。DC、AC、過渡、ノイズ解析の電流と解析的な微分は
+`BJT::evaluate` から取り、容量は接合の電荷から求めます。ライブラリには JFET がありますが、パーサーに
+`J` 素子はありません。
 
 ## 方程式と線形ソルバー
 
@@ -327,7 +328,7 @@ MESFET、SCR、VDMOS は、それぞれ自分の極性の列挙型（`GaNPolarit
 - **静的な状態があります。** ソルバーの工場はコマンドラインの選択を静的変数に持ち、`bsim4_core.cpp` と
   `mutual_inductance.cpp` のいくつかの関数は、OpenMP が並列に実行しうる経路で関数内の静的変数を持ちます。
 - **使われていない部分。** `CircuitGraph` の Boost.Graph、BSIM4 が `extra_node_count` で宣言する内部ノード
-  （ソルバーは 0 個として扱います）、SuperLU_DIST のバックエンド、止めてある DC スイープの並列化、`BJT_Base`、
+  （ソルバーは 0 個として扱います）、SuperLU_DIST のバックエンド、止めてある DC スイープの並列化、
   `BSIM4Core::compute_cdrain` の解析的な微分、テストだけが呼ぶ `CircuitGraph::add_sin_voltage_source`、
   `add_pulse_voltage_source`、`add_pwl_voltage_source` です（パーサーは `add_voltage_source_with_waveform`
   を使います）。

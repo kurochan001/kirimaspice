@@ -83,13 +83,19 @@ document also lists differences not decided there.
   ([Reference Manual](docs/REFERENCE_MANUAL.md#models)). Level 3 accepts
   `LAMBDA`, `RS`, `RD`, `CJ`, `CJSW` and `MJSW` without a warning and does
   not use them.
-- **The bipolar transistor is not SPICE's Gummel–Poon model, and its PNP
-  device is not the mirror of its NPN device.** With IS = 1e-15, BF = 100,
-  VAF = 50, BR = 2, IKF = 0.1, ISE = 1e-14 and NE = 1.5 at VBE = 0.7 V and
-  VCE = 2 V, the NPN device carries Ic = 5.805e-4 A where ngspice-47 gives
-  5.785e-4 A (its Early effect and high injection are not SPICE's), and the
-  PNP device at the mirrored bias 5.670e-4 A, with Ib = Ic / BF: it does
-  not use VAF or ISE (run on 2026-11-15).
+- **The bipolar transistor implements the Gummel–Poon currents in one
+  device for NPN and PNP, with limits on its parasitics.** The currents
+  and their analytic derivatives share `BJT::evaluate`. Forward-active,
+  saturation, reverse-active and high-injection currents agree with
+  ngspice-47 within 2e-5 relative error (run on 2026-11-15;
+  `tests/unit/test_bjt_gummel_poon.cpp`). RB, RBM and IRB give the base
+  resistance through an accessor, but that resistance is not stamped;
+  RE, RC, the substrate junction, XTF, VTF, ITF, PTF and XCJC are not
+  modelled, and FC is fixed at 0.5. The transient integrates the
+  voltage-dependent capacitances rather than the junction charges, and
+  AC and transient omit the derivative of B-E charge by VBC. The
+  temperature adjustment scales currents and beta, without adjusting
+  depletion capacitances or junction potentials (read in the code).
 - **`S` and `Y` take a model name that is not defined before them without
   a message,** and use their defaults.
 - **`.PRINT`, `.SAVE`, `.STEP`, `.SENS`, `.MC`, `.TF`, `.PZ`, `.DISTO`,
