@@ -12,6 +12,7 @@
 
 #include <cmath>
 #include <functional>
+#include <string>
 
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/parser/netlist_parser.hpp"
@@ -83,4 +84,19 @@ TEST(GateCapacitances, SicMosfetChargesThroughTheGateResistor) {
         "M1 d g 0 m\n.model m nmos level=10 cgso=1e-3 cgdo=1e-3\n.end\n");
     ASSERT_NE(parsed.circuit, nullptr);
     expect_gate_follows(*parsed.circuit, 0.0, 1e3 * 2e-8);
+}
+
+TEST(GateCapacitances, MesfetChargesThroughTheGateResistor) {
+    // The defaults CGS = 1 pF and CGD = 0.5 pF, for both polarities; CDS sits
+    // between two sources
+    for (const char* type : {"NMF", "PMF"}) {
+        parser::NetlistParser parser;
+        auto parsed = parser.parse_string(
+            std::string("mesfet gate\nVD d 0 DC 2\nVG in 0 DC 0 PULSE(0 1 0 1f 1f 1 2)\n"
+                        "RG in g 1k\nZ1 d g 0 m\n.model m ") +
+            type + "\n.end\n");
+        ASSERT_NE(parsed.circuit, nullptr);
+        SCOPED_TRACE(type);
+        expect_gate_follows(*parsed.circuit, 0.0, 1e3 * 1.5e-12);
+    }
 }

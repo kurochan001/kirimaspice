@@ -6,6 +6,7 @@
 #pragma once
 #include "kirimaspice/devices/device.hpp"
 #include "kirimaspice/core/matrix_types.hpp"
+#include "kirimaspice/core/device_utils.hpp"
 #include <spdlog/spdlog.h>
 #include <cmath>
 #include <algorithm>
@@ -177,113 +178,29 @@ public:
         const NodeId g = nodes_[1];
         const NodeId s = nodes_[2];
 
-        const Real vd = (d > 0) ? node_voltages[d - 1] : 0.0;
-        const Real vg = (g > 0) ? node_voltages[g - 1] : 0.0;
-        const Real vs = (s > 0) ? node_voltages[s - 1] : 0.0;
-
-        Real v_gs, v_gd, v_ds;
-        if constexpr (Pol == MESFETPolarity::N) {
-            v_gs = vg - vs;
-            v_gd = vg - vd;
-            v_ds = vd - vs;
-        } else {
-            v_gs = vs - vg;  // Vsg
-            v_gd = vd - vg;  // Vdg
-            v_ds = vs - vd;  // Vsd
-        }
-
-        Real geq_gs = 0.0, ieq_gs = 0.0;
-        Real geq_gd = 0.0, ieq_gd = 0.0;
-        Real geq_ds = 0.0, ieq_ds = 0.0;
-
-        auto compute_stage = [&](Real C, Real v_now, Real v_prev, Real v_prev2,
-                                 Real& geq, Real& ieq) {
-            if (tr_bdf2_coef != nullptr) {
-                if (tr_bdf2_coef->stage == 1) {
-                    Real dt = tr_bdf2_coef->stage_dt;
-                    geq = 2.0 * C / dt;
-                    ieq = -geq * v_prev;
-                } else if (tr_bdf2_coef->stage == 2) {
-                    Real dt = tr_bdf2_coef->full_dt;
-                    const auto& c = *tr_bdf2_coef;
-                    geq = C * c.alpha0 / (c.beta0 * dt);
-                    ieq = C * (c.alpha1 * v_prev + c.alpha2 * v_prev2) / (c.beta0 * dt);
-                } else {
-                    geq = C / timestep;
-                    ieq = geq * v_prev;
-                }
-            } else {
-                geq = C / timestep;
-                ieq = geq * v_prev;
+        // CGS, CGD and CDS by backward Euler, whatever the method: the current
+        // C / dt (V - V_prev) from the first node to the second, with V_prev
+        // accepted at the last time point (accept_solution). For the
+        // P-channel device the voltages are S-G, D-G and S-D.
+        (void)tr_bdf2_coef;
+        const int di = (d > 0) ? static_cast<int>(d - 1) : -1;
+        const int gi = (g > 0) ? static_cast<int>(g - 1) : -1;
+        const int si = (s > 0) ? static_cast<int>(s - 1) : -1;
+        auto companion = [&](Real c, int n1, int n2, Real v_prev) {
+            if (c <= 0.0) {
+                return;
             }
+            const Real geq = c / timestep;
+            device_utils::stamp_capacitor_companion(mna, n1, n2, geq, -geq * v_prev, 1.0);
         };
-
-        compute_stage(cgs_, v_gs, v_gs_prev_, v_gs_prev2_, geq_gs, ieq_gs);
-        compute_stage(cgd_, v_gd, v_gd_prev_, v_gd_prev2_, geq_gd, ieq_gd);
-        compute_stage(cds_, v_ds, v_ds_prev_, v_ds_prev2_, geq_ds, ieq_ds);
-
-        // Gate-source capacitance
         if constexpr (Pol == MESFETPolarity::N) {
-            if (g > 0 && s > 0) {
-                mna.G.add_entry(g - 1, g - 1, geq_gs);
-                mna.G.add_entry(g - 1, s - 1, -geq_gs);
-                mna.G.add_entry(s - 1, g - 1, -geq_gs);
-                mna.G.add_entry(s - 1, s - 1, geq_gs);
-            }
-            if (g > 0) mna.b[g - 1] -= ieq_gs;
-            if (s > 0) mna.b[s - 1] += ieq_gs;
+            companion(cgs_, gi, si, v_gs_prev_);
+            companion(cgd_, gi, di, v_gd_prev_);
+            companion(cds_, di, si, v_ds_prev_);
         } else {
-            // P-channel: S-G
-            if (s > 0 && g > 0) {
-                mna.G.add_entry(s - 1, s - 1, geq_gs);
-                mna.G.add_entry(s - 1, g - 1, -geq_gs);
-                mna.G.add_entry(g - 1, s - 1, -geq_gs);
-                mna.G.add_entry(g - 1, g - 1, geq_gs);
-            }
-            if (s > 0) mna.b[s - 1] -= ieq_gs;
-            if (g > 0) mna.b[g - 1] += ieq_gs;
-        }
-
-        // Gate-drain capacitance
-        if constexpr (Pol == MESFETPolarity::N) {
-            if (g > 0 && d > 0) {
-                mna.G.add_entry(g - 1, g - 1, geq_gd);
-                mna.G.add_entry(g - 1, d - 1, -geq_gd);
-                mna.G.add_entry(d - 1, g - 1, -geq_gd);
-                mna.G.add_entry(d - 1, d - 1, geq_gd);
-            }
-            if (g > 0) mna.b[g - 1] -= ieq_gd;
-            if (d > 0) mna.b[d - 1] += ieq_gd;
-        } else {
-            if (d > 0 && g > 0) {
-                mna.G.add_entry(d - 1, d - 1, geq_gd);
-                mna.G.add_entry(d - 1, g - 1, -geq_gd);
-                mna.G.add_entry(g - 1, d - 1, -geq_gd);
-                mna.G.add_entry(g - 1, g - 1, geq_gd);
-            }
-            if (d > 0) mna.b[d - 1] -= ieq_gd;
-            if (g > 0) mna.b[g - 1] += ieq_gd;
-        }
-
-        // Drain-source capacitance
-        if constexpr (Pol == MESFETPolarity::N) {
-            if (d > 0 && s > 0) {
-                mna.G.add_entry(d - 1, d - 1, geq_ds);
-                mna.G.add_entry(d - 1, s - 1, -geq_ds);
-                mna.G.add_entry(s - 1, d - 1, -geq_ds);
-                mna.G.add_entry(s - 1, s - 1, geq_ds);
-            }
-            if (d > 0) mna.b[d - 1] -= ieq_ds;
-            if (s > 0) mna.b[s - 1] += ieq_ds;
-        } else {
-            if (s > 0 && d > 0) {
-                mna.G.add_entry(s - 1, s - 1, geq_ds);
-                mna.G.add_entry(s - 1, d - 1, -geq_ds);
-                mna.G.add_entry(d - 1, s - 1, -geq_ds);
-                mna.G.add_entry(d - 1, d - 1, geq_ds);
-            }
-            if (s > 0) mna.b[s - 1] -= ieq_ds;
-            if (d > 0) mna.b[d - 1] += ieq_ds;
+            companion(cgs_, si, gi, v_gs_prev_);
+            companion(cgd_, di, gi, v_gd_prev_);
+            companion(cds_, si, di, v_ds_prev_);
         }
 
         (void)method;
