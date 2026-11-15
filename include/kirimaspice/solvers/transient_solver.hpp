@@ -109,6 +109,17 @@ private:
     // Current simulation time (for time-varying sources)
     Real current_time_ = 0.0;  ///< Current simulation time in transient analysis
 
+    /// How the devices were stamped for the Newton iteration in progress
+    /// (stamp_devices_transient), so that check_convergence stamps them the
+    /// same way at the new solution
+    struct StampContext {
+        Real timestep = 0.0;
+        IntegrationMethod method = IntegrationMethod::BACKWARD_EULER;
+        std::optional<BDFCoefficients> bdf;
+        std::optional<TR_BDF2_Coefficients> tr_bdf2;
+    };
+    StampContext stamp_context_;
+
     /// Initialize operating point using DC solver
     bool initialize_dc_operating_point(DenseVector& solution);
 

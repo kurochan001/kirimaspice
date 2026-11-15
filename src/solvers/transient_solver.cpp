@@ -278,6 +278,11 @@ void TransientSolver::stamp_devices_transient(const DenseVector& node_voltages,
         spdlog::trace("stamp_devices_transient: method={}, dt={:.3e}, using variable-timestep BDF coefficients",
                      (method == IntegrationMethod::GEAR2) ? "GEAR2" : "GEAR3", timestep);
     }
+    stamp_context_.timestep = timestep;
+    stamp_context_.method = method;
+    stamp_context_.bdf = bdf_coef ? std::optional<BDFCoefficients>(*bdf_coef) : std::nullopt;
+    stamp_context_.tr_bdf2 =
+        tr_bdf2_coef ? std::optional<TR_BDF2_Coefficients>(*tr_bdf2_coef) : std::nullopt;
 
     // Before the parallel stamping, which must not change device state
     set_device_time(current_time_);
@@ -804,25 +809,42 @@ ConvergenceStatus TransientSolver::solve_timestep_tr_bdf2(DenseVector& solution,
 
 bool TransientSolver::check_convergence(const DenseVector& x_new,
                                        const DenseVector& x_old) const {
-    // Delegate to ConvergenceChecker
     const auto& tran_config = config_.transient;
-
-    // Build ConvergenceConfig from SimulationConfig (Transient mode)
-    ConvergenceConfig conv_config;
-    conv_config.abstol = tran_config.abstol;
-    conv_config.reltol = tran_config.reltol;
-    conv_config.vntol = tran_config.vntol;
-    conv_config.check_residual = false;  // Transient mode: no residual check
 
     // An iterate from a stamp with a limited junction is not a solution yet
     if (any_device_limited(circuit_)) {
         return false;
     }
 
-    // Create checker with current num_nodes
+    // The step: |dx| <= RELTOL max(|x_new|, |x_old|) + VNTOL (ABSTOL for
+    // branch currents)
+    ConvergenceConfig conv_config;
+    conv_config.abstol = tran_config.abstol;
+    conv_config.reltol = tran_config.reltol;
+    conv_config.vntol = tran_config.vntol;
+    conv_config.check_residual = false;
     ConvergenceChecker checker(mna_.num_nodes);
+    if (!checker.check(x_new, x_old, conv_config, nullptr)) {
+        return false;
+    }
 
-    return checker.check(x_new, x_old, conv_config, nullptr);
+    // KCL at x_new, with each device's stamp of this step there
+    // (kirchhoff_current_law_holds), as for the DC iterations
+    const StampContext& context = stamp_context_;
+    const BDFCoefficients* bdf = context.bdf ? &*context.bdf : nullptr;
+    const TR_BDF2_Coefficients* tr_bdf2 = context.tr_bdf2 ? &*context.tr_bdf2 : nullptr;
+    std::vector<std::function<void(MNASystem&)>> contributions;
+    for (const auto& device : circuit_.get_devices()) {
+        const devices::Device* dev = device.get();
+        contributions.emplace_back([dev, &x_new, &context, bdf, tr_bdf2](MNASystem& mna) {
+            dev->stamp_transient(mna, x_new, context.timestep, context.method, bdf, tr_bdf2);
+        });
+    }
+    if (!kirchhoff_current_law_holds(x_new, mna_.num_nodes, mna_.num_branches, contributions,
+                                     tran_config.reltol, tran_config.abstol, tran_config.vntol)) {
+        return false;
+    }
+    return !any_device_limited(circuit_);
 }
 
 void TransientSolver::save_device_states() {
