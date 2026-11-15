@@ -5,7 +5,7 @@
 """Checks the repository for content that must not be published.
 
   tools/check_banned.py                       # tracked files of the work tree
-  tools/check_banned.py --history             # every commit: patches, messages, authors
+  tools/check_banned.py --history             # every commit: files, messages, authors
   tools/check_banned.py --private FILE        # also look for the patterns in FILE
 
 Checks, each reported as <file>:<line>: <check>:
@@ -40,7 +40,7 @@ EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 EMAIL_OK = re.compile(r"@users\.noreply\.github\.com$|@example\.(com|org|net)$", re.I)
 EMAIL_FREE_FILES = re.compile(r"(^|[/ ])(THIRD_PARTY_NOTICES|CODE_OF_CONDUCT)(\.ja)?\.md$")
 CONTACT_FILES = re.compile(r"(^|[/ ])CODE_OF_CONDUCT(\.ja)?\.md$")
-FOUNDRY = re.compile(r"\b(TSMC|UMC|SMIC|GlobalFoundries|GLOBALFOUNDRIES|Samsung Foundry|TowerJazz|X-FAB)\b")
+FOUNDRY = re.compile(r"\b(TSMC|UMC|SMIC|GlobalFoundries|GLOBALFOUNDRIES|Samsung Foundry|TowerJazz|X-FAB)\b", re.I)
 MAX_BYTES = 5 * 1024 * 1024
 
 
@@ -76,39 +76,52 @@ def check_text(name: str, lineno: int, text: str, private, out):
             out.append(f"{name}:{lineno}: private pattern {i}")
 
 
+def check_file(name: str, path: str, data: bytes, private, out):
+    check_text(name, 0, path, private, out)
+    if len(data) > MAX_BYTES:
+        out.append(f"{name}:0: large ({len(data)} bytes)")
+    if b"\0" in data:
+        out.append(f"{name}:0: binary")
+        return
+    for n, line in enumerate(data.decode("utf-8", "replace").splitlines(), 1):
+        check_text(name, n, line, private, out)
+
+
 def scan_tree(root: Path, private, out):
     for path in git(root, "ls-files", "-z").decode().split("\0"):
         if not path or not (root / path).is_file():
             continue
         data = (root / path).read_bytes()
-        if len(data) > MAX_BYTES:
-            out.append(f"{path}:0: large ({len(data)} bytes)")
-        if b"\0" in data:
-            out.append(f"{path}:0: binary")
-            continue
-        check_text(path, 0, path, private, out)
-        for n, line in enumerate(data.decode("utf-8", "replace").splitlines(), 1):
-            check_text(path, n, line, private, out)
+        check_file(path, path, data, private, out)
 
 
 def scan_history(root: Path, private, out):
-    for line in git(root, "log", "--all", "--format=%H %ae %ce").decode().splitlines():
-        sha, ae, ce = line.split()
+    seen_files = set()
+    for sha in git(root, "rev-list", "--all").decode().splitlines():
+        name = f"commit {sha[:12]}"
+        metadata = git(root, "show", "-s", "--format=%ae%x00%ce%x00%an%x00%cn%x00%B", sha)
+        ae, ce, author, committer, message = metadata.decode("utf-8", "replace").split("\0", 4)
         for e in (ae, ce):
             if not e.endswith("@users.noreply.github.com"):
-                out.append(f"commit {sha[:12]}:0: author")
-    log = git(root, "log", "--all", "-p", "--format=commit %H%n%B").decode("utf-8", "replace")
-    sha, current = "?", "?"
-    for n, line in enumerate(log.splitlines(), 1):
-        if line.startswith("commit ") and len(line) == 47:
-            sha = line[7:19]
-            current = f"commit {sha}"
-            continue
-        if line.startswith("+++ b/"):
-            current = f"commit {sha} {line[6:]}"
-        if "\0" in line:
-            out.append(f"{current}:0: binary")
-        check_text(current, 0, line, private, out)
+                out.append(f"{name}:0: author")
+        check_text(name, 0, author, private, out)
+        check_text(name, 0, committer, private, out)
+        for n, line in enumerate(message.splitlines(), 1):
+            check_text(name, n, line, private, out)
+
+        # Snapshot traversal includes binary blobs and changes made only by a
+        # merge resolution. Patch output does not contain all of that data.
+        for entry in git(root, "ls-tree", "-r", "-z", sha).split(b"\0"):
+            if not entry:
+                continue
+            metadata, raw_path = entry.split(b"\t", 1)
+            _, kind, oid = metadata.split()
+            if kind != b"blob" or (raw_path, oid) in seen_files:
+                continue
+            seen_files.add((raw_path, oid))
+            path = raw_path.decode("utf-8", "replace")
+            data = git(root, "cat-file", "blob", oid.decode())
+            check_file(f"{name} {path}", path, data, private, out)
 
 
 def main() -> int:

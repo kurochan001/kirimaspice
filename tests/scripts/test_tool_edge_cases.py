@@ -129,6 +129,60 @@ class ToolEdgeCases(unittest.TestCase):
         self.assertEqual(repl.state.derived, {})
 
 
+class HistoryScannerTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.git("init", "-b", "main")
+        self.git("config", "user.name", "Test Author")
+        self.git("config", "user.email", "test@users.noreply.github.com")
+        self.git("config", "commit.gpgsign", "false")
+        self.git("config", "core.hooksPath", str(self.root / "no-hooks"))
+
+    def git(self, *args):
+        return subprocess.run(["git", *args], cwd=self.root, check=True, capture_output=True)
+
+    def commit(self, message):
+        self.git("add", "-A")
+        self.git("commit", "--allow-empty", "-m", message)
+
+    def test_history_finds_deleted_binary_and_large_files(self):
+        (self.root / "deleted.bin").write_bytes(b"sample\0data")
+        (self.root / "oversize.txt").write_bytes(b"x" * 33)
+        self.commit("Add files")
+        (self.root / "deleted.bin").unlink()
+        (self.root / "oversize.txt").unlink()
+        self.commit("Remove files")
+        findings = []
+        with patch.object(check_banned, "MAX_BYTES", 32):
+            check_banned.scan_history(self.root, [], findings)
+        self.assertTrue(any("deleted.bin:0: binary" in item for item in findings), findings)
+        self.assertTrue(any("oversize.txt:0: large" in item for item in findings), findings)
+
+    def test_history_finds_content_introduced_by_a_merge(self):
+        (self.root / "file.txt").write_text("base\n")
+        self.commit("Base")
+        self.git("checkout", "-b", "side")
+        (self.root / "file.txt").write_text("side\n")
+        self.commit("Side")
+        self.git("checkout", "main")
+        (self.root / "file.txt").write_text("main\n")
+        self.commit("Main")
+        merge = subprocess.run(["git", "merge", "--no-commit", "side"], cwd=self.root, capture_output=True)
+        self.assertEqual(merge.returncode, 1)
+        (self.root / "file.txt").write_text("confidential-model\n")
+        self.commit("Resolve merge")
+        findings = []
+        check_banned.scan_history(self.root, ["confidential-model"], findings)
+        self.assertTrue(any("file.txt:1: private pattern 1" in item for item in findings), findings)
+
+    def test_foundry_check_ignores_case(self):
+        findings = []
+        check_banned.check_text("model.txt", 1, "t" + "Sm" + "c", [], findings)
+        self.assertEqual(findings, ["model.txt:1: foundry"])
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary", required=True, type=Path)
