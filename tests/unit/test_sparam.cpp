@@ -361,10 +361,13 @@ O1 in 0 out 0 R=200 L=1e-6 C=1e-12 G=1e-3 TD=5e-9
 }
 
 TEST(SParam, LossyTLine_MatchedSmallLoss) {
-    // Small losses: expect |S11| small, |S21| slightly below 1
+    // Small losses: expect |S11| small, |S21| slightly below 1. L and C give
+    // Zc = sqrt(L/C) = 50 Ohm, matched to the ports, and TD a length of
+    // TD / sqrt(L C) = 0.2 m (telegrapher's two-port: |S11| = 9.3e-4,
+    // |S21| = 0.999 at 100 MHz)
     std::string netlist = R"(
 * Lossy O-line matched small loss
-O1 in 0 out 0 R=0.5 L=500e-9 C=1e-12 G=0 TD=1e-9
+O1 in 0 out 0 R=0.5 L=250e-9 C=100e-12 G=0 TD=1e-9
 .PORT 1 in 0 Z=50
 .PORT 2 out 0 Z=50
 .AC LIN 1 100Meg 100Meg
