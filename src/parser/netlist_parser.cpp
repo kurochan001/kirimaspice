@@ -3864,7 +3864,11 @@ static void parse_model_directive(const std::vector<std::string>& tokens, ParseS
 
             // Case 1: token contains '=' (e.g., "vth0=0.7" or "vth0=")
             size_t eq_pos = current.find('=');
-            if (eq_pos != std::string::npos && current.size() > 1) {
+            if (eq_pos == 0 && current.size() > 1 && i >= 1) {
+                // "key =value": the key is the token before
+                key = param_tokens[i - 1];
+                value_str = current.substr(1);
+            } else if (eq_pos != std::string::npos && current.size() > 1) {
                 key = current.substr(0, eq_pos);
                 value_str = current.substr(eq_pos + 1);
 

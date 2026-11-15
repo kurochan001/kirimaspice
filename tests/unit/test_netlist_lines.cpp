@@ -119,3 +119,19 @@ TEST(NetlistLines, SubcircuitWithoutEnds) {
                                      "R2 in 0 1\nX1 in 0 load\n.op\n.end\n"),
                  parser::ParseError);
 }
+
+// A .MODEL parameter may have blanks on either side of its '='
+// (parse_model_directive)
+TEST(NetlistLines, ModelParameterSpacing) {
+    for (const std::string vto : {"vto=0.3", "vto= 0.3", "vto =0.3", "vto = 0.3"}) {
+        parser::NetlistParser parser;
+        const auto parsed = parser.parse_string("t\n.model nch nmos (kp=1e-4 " + vto +
+                                                ")\nVD d 0 1\nVG g 0 1\n"
+                                                "M1 d g 0 0 nch W=10u L=1u\n.op\n.end\n");
+        ASSERT_NE(parsed.circuit, nullptr) << vto;
+        const auto m1 = device_as<devices::MOSFET_N_Level1>(parsed, "M1");
+        ASSERT_NE(m1, nullptr) << vto;
+        EXPECT_DOUBLE_EQ(m1->threshold_voltage(), 0.3) << vto;
+        EXPECT_DOUBLE_EQ(m1->process_transconductance(), 1e-4) << vto;
+    }
+}
