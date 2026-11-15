@@ -134,6 +134,14 @@ says otherwise.
   junction voltage), which shows below the threshold: for the card of
   `tests/unit/test_bsim4_reference.cpp` at V<sub>GS</sub> = 0.2 V the
   channel currents agree and `i(vd)` is larger by GMIN·V<sub>DB</sub>.
+- **BSIM1 (`LEVEL` 9) is a simplified model whose P device is not the
+  mirror of its N device.** With VFB = −0.8 V (N) or +0.8 V (P), PHI = 0.7,
+  K1 = 0.5, TOX = 0.02 µm, MUZ = 600 and W/L = 10 µm / 1 µm at
+  |VD| = |VG| = 1 V, the N device carries 1.033e-4 A, ngspice-47's BSIM1 (its
+  LEVEL 4) 2.087e-4 A, and the P device 0 A (run on 2026-11-15). The P
+  device's stamp does not linearize its current, its threshold takes |VFB|
+  and PHI + V<sub>SB</sub>, and the junction capacitances take a negative
+  V<sub>BD</sub> of the N device for forward bias (read in the code).
 - **BSIM3 (`LEVEL` 8 and 49) is a simplified model, not BSIM3v3**
   (`src/devices/bsim3_core.cpp`, about 450 lines). For TOX = 3 nm,
   VTH0 = 0.5 V, U0 = 670 cm²/Vs, VSAT = 8e4 m/s and W/L = 10 µm / 1 µm at

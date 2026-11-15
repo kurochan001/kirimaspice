@@ -303,7 +303,7 @@ For `NMOS` and `PMOS`, `LEVEL` selects the device:
 | --- | --- | --- | --- | --- |
 | 1 (default) | level 1 (square law) | ignored without a message | `KP`, `W`, `L`, `VTH`, `KF`, `AF`, `EF`, `GAMMA` | yes, four terminals |
 | 3 | SPICE's level 3 | warning | `W`, `L` | no |
-| 9 | BSIM1 | warning | `W`, `L` | no |
+| 9 | BSIM1, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W`, `L` | no |
 | 8, 49 | BSIM3, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W`, `L` | no |
 | 14, 54 | BSIM4 (a model card with a `VERSION` other than 4.83 gives a warning) | ignored without a message | `W` (the width of all `NF` fingers), `L`, `NF`, `M`, `AS`, `AD`, `PS`, `PD`, `NRD`, `NRS`, `MULT_I`, `MULT_Q`, `MULT_FN` | yes, four terminals, `W` and `L` only |
 | 10 | SiC MOSFET | warning | all, by name | no |

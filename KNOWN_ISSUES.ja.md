@@ -102,6 +102,12 @@ ngspice について書いていることは、それぞれのマニュアルに
   GMIN の電流（10<sup>−12</sup> S と接合の電圧の積）も含むので、しきい値より下で差が見えます。
   `tests/unit/test_bsim4_reference.cpp` のカードで V<sub>GS</sub> = 0.2 V のとき、チャネルの電流は
   一致し、`i(vd)` は GMIN·V<sub>DB</sub> だけ大きくなります。
+- **BSIM1（`LEVEL` 9）は簡略化したモデルで、P のデバイスが N のデバイスの鏡像になっていません。**
+  VFB = −0.8 V（N）または +0.8 V（P）、PHI = 0.7、K1 = 0.5、TOX = 0.02 µm、MUZ = 600、
+  W/L = 10 µm / 1 µm、|VD| = |VG| = 1 V で、N のデバイスは 1.033e-4 A、ngspice-47 の BSIM1（その
+  LEVEL 4）は 2.087e-4 A、P のデバイスは 0 A です（2026-11-15 に実行）。P のデバイスのスタンプは電流を
+  線形化しておらず、しきい値は |VFB| と PHI + V<sub>SB</sub> を使い、接合の容量は N のデバイスの負の
+  V<sub>BD</sub> を順バイアスとして扱います（コードで読みました）。
 - **BSIM3（`LEVEL` 8 と 49）は簡略化したモデルで、BSIM3v3 ではありません**（`src/devices/bsim3_core.cpp`、
   約 450 行）。TOX = 3 nm、VTH0 = 0.5 V、U0 = 670 cm²/Vs、VSAT = 8e4 m/s、W/L = 10 µm / 1 µm、
   VD = VG = 1 V で 6.230e-4 A になりますが、ngspice-47 の BSIM3 は 3.151e-4 A です（2026-11-15 に実行）。
