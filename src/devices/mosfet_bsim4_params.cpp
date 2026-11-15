@@ -505,7 +505,36 @@ BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_par
         bsim4_params.uc1 = uc_per_volt ? -0.056 : -0.056e-9;
     }
 
-    // Override with instance parameters (W, L from tokens)
+    // The junctions: each drain parameter that the card does not give takes
+    // the value of its source parameter (ngspice-47 does so: a card with
+    // only CJS, MJS and PBS gives the drain junction the same capacitance)
+    struct Junction {
+        const char* source_key;
+        Real BSIM4Params::*source;
+        const char* drain_key;
+        Real BSIM4Params::*drain;
+    };
+    static const Junction junctions[] = {
+        {"cjs", &BSIM4Params::cjs, "cjd", &BSIM4Params::cjd},
+        {"mjs", &BSIM4Params::mjs, "mjd", &BSIM4Params::mjd},
+        {"pbs", &BSIM4Params::pbs, "pbd", &BSIM4Params::pbd},
+        {"cjsws", &BSIM4Params::cjsws, "cjswd", &BSIM4Params::cjswd},
+        {"mjsws", &BSIM4Params::mjsws, "mjswd", &BSIM4Params::mjswd},
+        {"pbsws", &BSIM4Params::pbsws, "pbswd", &BSIM4Params::pbswd},
+        {"cjswgs", &BSIM4Params::cjswgs, "cjswgd", &BSIM4Params::cjswgd},
+        {"mjswgs", &BSIM4Params::mjswgs, "mjswgd", &BSIM4Params::mjswgd},
+        {"pbswgs", &BSIM4Params::pbswgs, "pbswgd", &BSIM4Params::pbswgd},
+    };
+    for (const auto& j : junctions) {
+        if (auto it = model_params.find(j.source_key); it != model_params.end()) {
+            bsim4_params.*j.source = it->second;
+        }
+        if (auto it = model_params.find(j.drain_key); it != model_params.end()) {
+            bsim4_params.*j.drain = it->second;
+        } else {
+            bsim4_params.*j.drain = bsim4_params.*j.source;
+        }
+    }
 
     const Real target_bsim4_version = 4.83;
     if (bsim4_params.version <= 0.0) {

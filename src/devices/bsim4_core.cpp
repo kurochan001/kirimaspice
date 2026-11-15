@@ -196,7 +196,10 @@ BSIM4Capacitances BSIM4Core::compute_capacitances(Real vg, Real vd, Real vs, Rea
     Real cox = epsilon_ox / params_.toxe;   // [F/m²]
     Real cgate = cox * weff * leff;         // total gate cap
 
-    // Gate capacitances (Meyer-style) using unified vgs/vds (already polarity-adjusted)
+    // Gate capacitances (Meyer-style) using unified vgs/vds (already polarity-adjusted).
+    // vth comes with the device's sign, as evaluate() returns it (-0.5 V for
+    // a P device of VTH0 -0.5 V); in the device's own terms it is polarity * vth
+    vth = polarity_ * vth;
     Real vgs = bias.vgs;
     Real vds = bias.vds;
     Real vbs = bias.vbs;
@@ -234,9 +237,11 @@ BSIM4Capacitances BSIM4Core::compute_capacitances(Real vg, Real vd, Real vs, Rea
     cgd += params_.cgdo * weff;
     cgb += params_.cgbo * leff;
 
-    // Junction capacitances use physical vbs/vbd (not polarity-flipped)
-    Real vbs_raw = vb - vs;
-    Real vbd_raw = vb - vd;
+    // The junctions belong to the physical source and drain (not swapped),
+    // and their voltages are positive in the forward direction: Vbs and Vbd
+    // for N, Vsb and Vdb for P, whose bulk is n-type
+    const Real vbs_raw = polarity_ * (vb - vs);
+    const Real vbd_raw = polarity_ * (vb - vd);
 
     // Guard against pb=0 division in junction capacitance
     auto compute_cj = [](Real cj0, Real vj, Real pb, Real mj) {
@@ -255,7 +260,7 @@ BSIM4Capacitances BSIM4Core::compute_capacitances(Real vg, Real vd, Real vs, Rea
     Real cj0_d = params_.cjd * params_.ad;
     Real cj0_sw_d = params_.cjswd * params_.pd;
     Real cj0_swg_d = params_.cjswgd * params_.pd;
-    cbd += compute_cj(cj0_d, vbd_raw, params_.pbd, params_.mjs);
+    cbd += compute_cj(cj0_d, vbd_raw, params_.pbd, params_.mjd);
     cbd += compute_cj(cj0_sw_d, vbd_raw, params_.pbswd, params_.mjswd);
     cbd += compute_cj(cj0_swg_d, vbd_raw, params_.pbswgd, params_.mjswgd);
     // Source side

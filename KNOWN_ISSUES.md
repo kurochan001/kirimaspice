@@ -134,6 +134,15 @@ says otherwise.
   junction voltage), which shows below the threshold: for the card of
   `tests/unit/test_bsim4_reference.cpp` at V<sub>GS</sub> = 0.2 V the
   channel currents agree and `i(vd)` is larger by GMIN·V<sub>DB</sub>.
+- **BSIM4's capacitances are a simplified Meyer model with BSIM4's
+  junctions,** not BSIM4's charge model (`BSIM4Core::compute_capacitances`).
+  The junctions take their perimeters from `PS` and `PD` alone, 0 when the
+  element line does not give them, where ngspice-47 takes a perimeter
+  then: with no junction parameters on the card and AS = 1e-10 m², it gives
+  a source capacitance of 4.331e-14 F at 1 V reverse, where the bottom
+  junction alone is 3.536e-14 F; the rest fits the default sidewall
+  capacitance over a perimeter of 2 W (run on 2026-11-15; ngspice's rule
+  not read). The outer fringe capacitance CF is not modelled.
 - **BSIM4's MOBMOD 3 (the high-k mobility model) to 6 are computed as
   MOBMOD 0,** without a warning. MOBMOD 0, 1 and 2 follow the BSIM4 4.8.3
   code.

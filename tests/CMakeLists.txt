@@ -1163,6 +1163,10 @@ add_executable(test_bsim4_fingers unit/test_bsim4_fingers.cpp)
 target_link_libraries(test_bsim4_fingers PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_bsim4_fingers PROPERTIES TIMEOUT 1200)
 
+add_executable(test_bsim4_junctions unit/test_bsim4_junctions.cpp)
+target_link_libraries(test_bsim4_junctions PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_bsim4_junctions PROPERTIES TIMEOUT 1200)
+
 add_executable(test_source_waveforms unit/test_source_waveforms.cpp)
 target_link_libraries(test_source_waveforms PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_source_waveforms PROPERTIES TIMEOUT 1200)

@@ -111,7 +111,9 @@ public:
 
     /// Compute small-signal capacitances (Meyer + junction) for the current bias.
     /// Uses the same polarity handling as evaluate(): vgs/vds are internally
-    /// transformed to positive values for P-channel.
+    /// transformed to positive values for P-channel. vth is the threshold as
+    /// evaluate() returns it, with the device's sign; the junction voltages
+    /// are positive in each junction's forward direction.
     BSIM4Capacitances compute_capacitances(Real vg, Real vd, Real vs, Real vb,
                                            Real vth, Real temperature) const;
 
