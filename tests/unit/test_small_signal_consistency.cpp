@@ -82,3 +82,15 @@ TEST(SmallSignalConsistency, SicMosfet) {
     expect_ac_gain_is_the_dc_slope({"P, linear region", "M1 d g 0 m", p_card, -5.0, 1e3, -4.0});
     expect_ac_gain_is_the_dc_slope({"P, saturation", "M1 d g 0 m", p_card, -10.0, 1e3, -2.5});
 }
+
+TEST(SmallSignalConsistency, GanHemt) {
+    // LAMBDA, RS and RD all act; VTH is that of the effective device, so the
+    // P stage, with the voltages mirrored, takes the same card values
+    const std::string values = " level=11 beta=0.01 vth=-2 lambda=0.05 rs=2 rd=3 cgs=0 cgd=0 cds=0";
+    const std::string n_card = ".model m nmos" + values;
+    const std::string p_card = ".model m pmos" + values;
+    expect_ac_gain_is_the_dc_slope({"N, linear region", "M1 d g 0 m", n_card, 5.0, 200.0, 0.0});
+    expect_ac_gain_is_the_dc_slope({"N, saturation", "M1 d g 0 m", n_card, 20.0, 200.0, -1.5});
+    expect_ac_gain_is_the_dc_slope({"P, linear region", "M1 d g 0 m", p_card, -5.0, 200.0, 0.0});
+    expect_ac_gain_is_the_dc_slope({"P, saturation", "M1 d g 0 m", p_card, -20.0, 200.0, 1.5});
+}

@@ -118,6 +118,21 @@ public:
     [[nodiscard]] std::vector<NoiseSource> get_noise_sources(
         const DenseVector& dc_solution, Real frequency) const override;
 
+    /// The current of the effective device and its derivatives
+    struct DrainCurrent {
+        Real id = 0.0;   ///< From drain to source for N, from source to drain for P [A]
+        Real gm = 0.0;   ///< d id / d Vgs_eff [S]
+        Real gds = 0.0;  ///< d id / d Vds_eff [S]
+    };
+
+    /// The drain current at the effective voltages (VGS and VDS for N, VSG
+    /// and VSD for P) at the device's temperature: the square law with
+    /// LAMBDA, divided by 1 + gds_i (RS + RD) for the series resistances
+    /// (gds_i that of the square law), times the trapping factor; gm and gds
+    /// are forward differences of it, and above VBD gds has 1 mS more. The
+    /// DC, AC and noise stamps all take it from here.
+    [[nodiscard]] DrainCurrent drain_current(Real vgs_eff, Real vds_eff) const;
+
     [[nodiscard]] Real get_physical_lte(Real /*chgtol*/, const DenseVector& /*node_voltages*/) const override { return 0.0; }
     // The voltages of the capacitances at the accepted time point (node k at
     // element k, ground at element 0)
@@ -242,6 +257,45 @@ using GaN_HEMT_P = GaN_HEMT<GaNPolarity::P>;
 // ============================================================================
 
 template<GaNPolarity Pol>
+typename GaN_HEMT<Pol>::DrainCurrent GaN_HEMT<Pol>::drain_current(Real vgs_eff,
+                                                                  Real vds_eff) const {
+    const Real vth = compute_temperature_scaled_vth();
+    const Real beta_temp = compute_temperature_scaled_beta();
+    const Real r_total = rs_ + rd_;
+    const Real trap_factor = (trap_ > 0.0) ? 1.0 / (1.0 + trap_ * 1e6) : 1.0;
+
+    auto current = [&](Real vgs, Real vds) {
+        const Real vov = vgs - vth;
+        if (vov <= 0.0) {
+            return 0.0;
+        }
+        Real id_i = 0.0, gds_i = 0.0;
+        if (vds < vov) {
+            id_i = beta_temp * (vov * vds - 0.5 * vds * vds) * (1.0 + lambda_ * vds);
+            gds_i = beta_temp * (vov - vds) * (1.0 + lambda_ * vds) +
+                    beta_temp * (vov * vds - 0.5 * vds * vds) * lambda_;
+        } else {
+            id_i = 0.5 * beta_temp * vov * vov * (1.0 + lambda_ * vds);
+            gds_i = 0.5 * beta_temp * vov * vov * lambda_;
+        }
+        return trap_factor * id_i / (1.0 + gds_i * r_total);
+    };
+
+    DrainCurrent dc;
+    if (vgs_eff < vth) {
+        return dc;  // cutoff
+    }
+    constexpr Real delta = 1e-6;
+    dc.id = current(vgs_eff, vds_eff);
+    dc.gm = (current(vgs_eff + delta, vds_eff) - dc.id) / delta;
+    dc.gds = (current(vgs_eff, vds_eff + delta) - dc.id) / delta;
+    if (vds_eff > vbd_) {
+        dc.gds += 1e-3;
+    }
+    return dc;
+}
+
+template<GaNPolarity Pol>
 void GaN_HEMT<Pol>::stamp_dc_nonlinear(MNASystem& mna,
                                         const DenseVector& node_voltages) const {
     NodeId drain = nodes_[0], gate = nodes_[1], source = nodes_[2];
@@ -255,53 +309,17 @@ void GaN_HEMT<Pol>::stamp_dc_nonlinear(MNASystem& mna,
     Real vgs_eff = polarity_sign * (vg - vs);
     Real vds_eff = polarity_sign * (vd - vs);
 
-    Real vth = compute_temperature_scaled_vth();
-    Real beta_temp = compute_temperature_scaled_beta();
-
     // Cutoff region
-    if (vgs_eff < vth) {
+    if (vgs_eff < compute_temperature_scaled_vth()) {
         stamp_gmin(mna);
         return;
     }
-
-    Real vov = vgs_eff - vth;  // Overdrive voltage
-    Real vds_sat = vov;
-
-    Real id_intrinsic = 0.0, gm_intrinsic = 0.0, gds_intrinsic = 0.0;
-
-    if (vds_eff < vds_sat) {
-        // Linear region
-        id_intrinsic = beta_temp * (vov * vds_eff - 0.5 * vds_eff * vds_eff) * (1.0 + lambda_ * vds_eff);
-        gm_intrinsic = beta_temp * vds_eff * (1.0 + lambda_ * vds_eff);
-        gds_intrinsic = beta_temp * (vov - vds_eff) * (1.0 + lambda_ * vds_eff)
-                      + beta_temp * (vov * vds_eff - 0.5 * vds_eff * vds_eff) * lambda_;
-    } else {
-        // Saturation region
-        id_intrinsic = 0.5 * beta_temp * vov * vov * (1.0 + lambda_ * vds_eff);
-        gm_intrinsic = beta_temp * vov * (1.0 + lambda_ * vds_eff);
-        gds_intrinsic = 0.5 * beta_temp * vov * vov * lambda_;
-    }
-
-    // Series resistance correction
-    Real r_total = rs_ + rd_;
-    Real id = id_intrinsic / (1.0 + gds_intrinsic * r_total);
-    Real gm = gm_intrinsic / (1.0 + gds_intrinsic * r_total);
-    Real gds = gds_intrinsic / (1.0 + gds_intrinsic * r_total);
-
-    // Breakdown handling
     if (vds_eff > vbd_) {
         spdlog::warn("{} {} exceeds breakdown: Vds={:.2f}V > Vbd={:.2f}V",
                      device_name, name_, vds_eff, vbd_);
-        gds += 1e-3;
     }
-
-    // Trapping effect
-    if (trap_ > 0.0) {
-        Real trap_factor = 1.0 / (1.0 + trap_ * 1e6);
-        id *= trap_factor;
-        gm *= trap_factor;
-        gds *= trap_factor;
-    }
+    const DrainCurrent dc = drain_current(vgs_eff, vds_eff);
+    const Real id = dc.id, gm = dc.gm, gds = dc.gds;
 
     // Equivalent current source
     Real id_eq = id - gm * vgs_eff - gds * vds_eff;
@@ -384,8 +402,6 @@ void GaN_HEMT<Pol>::stamp_ac(ComplexMNASystem& sys, Real omega,
     Real vgs_eff = polarity_sign * (vg - vs);
     Real vds_eff = polarity_sign * (vd - vs);
 
-    Real vth = compute_temperature_scaled_vth();
-    Real beta_temp = compute_temperature_scaled_beta();
 
     auto nd_idx = (drain == NODE_GND) ? -1 : static_cast<int>(drain - 1);
     auto ng_idx = (gate == NODE_GND) ? -1 : static_cast<int>(gate - 1);
@@ -397,38 +413,17 @@ void GaN_HEMT<Pol>::stamp_ac(ComplexMNASystem& sys, Real omega,
     Complex y_cds(0.0, omega * cds_);
 
     // Cutoff region - only capacitances
-    if (vgs_eff < vth) {
+    if (vgs_eff < compute_temperature_scaled_vth()) {
         device_utils::stamp_complex_capacitor(sys.Y, ng_idx, ns_idx, y_cgs, polarity_sign);
         device_utils::stamp_complex_capacitor(sys.Y, ng_idx, nd_idx, y_cgd, 1.0);
         device_utils::stamp_complex_capacitor(sys.Y, nd_idx, ns_idx, y_cds, polarity_sign);
         return;
     }
 
-    // Active region - compute small-signal parameters
-    Real vov = vgs_eff - vth;
-    Real vds_sat = vov;
-
-    Real gm = 0.0, gds = 0.0;
-    if (vds_eff < vds_sat) {
-        gm = beta_temp * vds_eff * (1.0 + lambda_ * vds_eff);
-        gds = beta_temp * (vov - vds_eff) * (1.0 + lambda_ * vds_eff)
-            + beta_temp * (vov * vds_eff - 0.5 * vds_eff * vds_eff) * lambda_;
-    } else {
-        gm = beta_temp * vov * (1.0 + lambda_ * vds_eff);
-        gds = 0.5 * beta_temp * vov * vov * lambda_;
-    }
-
-    // Series resistance correction
-    Real r_total = rs_ + rd_;
-    gm = gm / (1.0 + gds * r_total);
-    gds = gds / (1.0 + gds * r_total);
-
-    // Trapping effect
-    if (trap_ > 0.0) {
-        Real trap_factor = 1.0 / (1.0 + trap_ * 1e6);
-        gm *= trap_factor;
-        gds *= trap_factor;
-    }
+    // Active region: the small-signal current from drain to source, as in
+    // the DC stamp
+    const DrainCurrent dc = drain_current(vgs_eff, vds_eff);
+    const Real gm = dc.gm, gds = dc.gds;
 
     // Stamp transconductance and output conductance
     device_utils::stamp_complex_vccs_3terminal(sys.Y, nd_idx, ng_idx, ns_idx,
@@ -455,23 +450,9 @@ std::vector<NoiseSource> GaN_HEMT<Pol>::get_noise_sources(
     Real vgs_eff = polarity_sign * (vg - vs);
     Real vds_eff = polarity_sign * (vd - vs);
 
-    Real vth = compute_temperature_scaled_vth();
-    Real beta_temp = compute_temperature_scaled_beta();
-
-    if (vgs_eff < vth) return sources;
-
-    Real vov = vgs_eff - vth;
-    Real vds_sat = vov;
-
-    Real gm = 0.0;
-    if (vds_eff < vds_sat) {
-        gm = beta_temp * vds_eff * (1.0 + lambda_ * vds_eff);
-    } else {
-        gm = beta_temp * vov * (1.0 + lambda_ * vds_eff);
-    }
-
-    Real r_total = rs_ + rd_;
-    gm = std::abs(gm / (1.0 + gm * r_total * 0.1));
+    if (vgs_eff < compute_temperature_scaled_vth()) return sources;
+    const DrainCurrent dc = drain_current(vgs_eff, vds_eff);
+    const Real gm = std::abs(dc.gm);
 
     // Thermal noise: 4kT × (8/3) × gm
     Real thermal_psd = device_utils::thermal_noise_psd(temperature_, gm, 8.0 / 3.0);
@@ -479,8 +460,8 @@ std::vector<NoiseSource> GaN_HEMT<Pol>::get_noise_sources(
 
     // Flicker noise
     if (kf_ > 0.0 && frequency > 0.0) {
-        Real id = 0.5 * beta_temp * vov * vov * (1.0 + lambda_ * vds_eff);
-        Real flicker_psd = device_utils::flicker_noise_psd(kf_, af_, ef_, std::abs(id), frequency);
+        Real flicker_psd =
+            device_utils::flicker_noise_psd(kf_, af_, ef_, std::abs(dc.id), frequency);
         sources.push_back({name_ + "_flicker", drain, source, flicker_psd, true});
     }
 
