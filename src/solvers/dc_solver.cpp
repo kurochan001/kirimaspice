@@ -1190,21 +1190,35 @@ bool DCSolver::set_source_value(const std::string& source_name, Real value) {
     return false;  // Source not found
 }
 
-Real DCSolver::get_original_source_value(const std::string& source_name) const {
-    // Search for voltage or current source by name
+DCSolver::SourceSetting DCSolver::save_source_setting(const std::string& source_name) const {
+    // A missing source gives an empty setting; the sweep reports it
+    SourceSetting saved;
     for (const auto& device : circuit_.get_devices()) {
-        if (device->name() == source_name) {
-            // Check if it's a voltage source
-            if (auto* vsrc = dynamic_cast<devices::VoltageSource*>(device.get())) {
-                return vsrc->dc_value();
-            }
-            // Check if it's a current source
-            if (auto* isrc = dynamic_cast<devices::CurrentSource*>(device.get())) {
-                return isrc->dc_value();
-            }
+        if (device->name() != source_name) {
+            continue;
         }
+        if (auto* vsrc = dynamic_cast<devices::VoltageSource*>(device.get())) {
+            saved.voltage = vsrc;
+            const auto setting = vsrc->dc_setting();
+            saved.value = setting.value;
+            saved.given = setting.given;
+        } else if (auto* isrc = dynamic_cast<devices::CurrentSource*>(device.get())) {
+            saved.current = isrc;
+            const auto setting = isrc->dc_setting();
+            saved.value = setting.value;
+            saved.given = setting.given;
+        }
+        break;
     }
-    return 0.0;  // Source not found, return 0
+    return saved;
+}
+
+void DCSolver::restore_source_setting(const SourceSetting& saved) {
+    if (saved.voltage) {
+        saved.voltage->restore_dc_setting({saved.value, saved.given});
+    } else if (saved.current) {
+        saved.current->restore_dc_setting({saved.value, saved.given});
+    }
 }
 
 void DCSolver::set_initial_guess_override(const DenseVector& guess) {
@@ -1235,8 +1249,8 @@ ConvergenceStatus DCSolver::solve_sweep(const DCSweepConfig& config, DCSweepResu
                     config.nested_sweep->start_value, config.nested_sweep->stop_value, config.nested_sweep->step_value);
 
         // Save original source values
-        Real original_primary = get_original_source_value(config.source_name);
-        Real original_nested = get_original_source_value(config.nested_sweep->source_name);
+        const SourceSetting original_primary = save_source_setting(config.source_name);
+        const SourceSetting original_nested = save_source_setting(config.nested_sweep->source_name);
 
         // Initialize result
         result.points.clear();
@@ -1348,8 +1362,8 @@ ConvergenceStatus DCSolver::solve_sweep(const DCSweepConfig& config, DCSweepResu
         }
 
         // Restore original source values
-        set_source_value(config.source_name, original_primary);
-        set_source_value(config.nested_sweep->source_name, original_nested);
+        restore_source_setting(original_primary);
+        restore_source_setting(original_nested);
 
         auto end_time = high_resolution_clock::now();
         std::chrono::duration<Real> elapsed = end_time - start_time;
@@ -1366,7 +1380,7 @@ ConvergenceStatus DCSolver::solve_sweep(const DCSweepConfig& config, DCSweepResu
                 config.source_name, config.start_value, config.stop_value, config.step_value);
 
     // Save original source value
-    Real original_value = get_original_source_value(config.source_name);
+    const SourceSetting original_value = save_source_setting(config.source_name);
 
     // Initialize result
     result.points.clear();
@@ -1543,7 +1557,7 @@ ConvergenceStatus DCSolver::solve_sweep(const DCSweepConfig& config, DCSweepResu
 #endif
 
     // Restore original source value
-    set_source_value(config.source_name, original_value);
+    restore_source_setting(original_value);
 
     auto end_time = high_resolution_clock::now();
     std::chrono::duration<Real> elapsed = end_time - start_time;

@@ -158,10 +158,16 @@ private:
     /// @return true if source found and set successfully
     bool set_source_value(const std::string& source_name, Real value);
 
-    /// Get original source value before sweep
-    /// @param source_name Name of source
-    /// @return Original DC value [V or A], or 0.0 if not found
-    Real get_original_source_value(const std::string& source_name) const;
+    /// The swept source's DC setting before a sweep (its value and whether
+    /// the netlist gave one), and putting it back
+    struct SourceSetting {
+        devices::VoltageSource* voltage = nullptr;
+        devices::CurrentSource* current = nullptr;
+        Real value = 0.0;
+        bool given = true;
+    };
+    SourceSetting save_source_setting(const std::string& source_name) const;
+    static void restore_source_setting(const SourceSetting& saved);
 
     bool use_initial_guess_override_ = false;
     DenseVector initial_guess_override_;

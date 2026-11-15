@@ -91,6 +91,18 @@ public:
         dc_given_ = true;
     }
 
+    /// The DC value and whether the netlist gave one, to put back exactly
+    /// after a sweep has set the value (DCSolver::solve_sweep)
+    struct DcSetting {
+        Real value = 0.0;
+        bool given = true;
+    };
+    DcSetting dc_setting() const { return {dc_value_, dc_given_}; }
+    void restore_dc_setting(const DcSetting& setting) {
+        dc_value_ = setting.value;
+        dc_given_ = setting.given;
+    }
+
 private:
     std::vector<NodeId> nodes_;  // [np, nn]
     Real dc_value_;       // DC voltage value (V)

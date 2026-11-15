@@ -184,3 +184,17 @@ TEST(SourceWaveforms, MalformedWaveformsAreErrors) {
             << line;
     }
 }
+
+// A DC sweep puts the swept source back as it was: a waveform source written
+// without a DC value takes the waveform's value at time 0 again (0.7 V for
+// SIN(0.7 0.1 1k)), not the last swept value or 0. ngspice-47 gives the same
+// AC result with and without the sweep.
+TEST(SourceWaveforms, DcSweepRestoresTheSourceSetting) {
+    const auto parsed = parse("sweep restore\nV1 in 0 SIN(0.7 0.1 1k) AC 1\nR1 in 0 1k\n"
+                              ".dc V1 0 1 0.5\n.end\n");
+    ASSERT_NE(parsed.circuit, nullptr);
+    DCSolver dc(*parsed.circuit, parsed.config);
+    DCSweepResult sweep;
+    ASSERT_EQ(dc.solve_sweep(parsed.config.dc_sweep, sweep), ConvergenceStatus::SUCCESS);
+    EXPECT_NEAR(operating_point(parsed, "in"), 0.7, 1e-12);
+}
