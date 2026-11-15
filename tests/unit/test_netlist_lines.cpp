@@ -7,8 +7,11 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <cctype>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/devices/mosfet_level1.hpp"
@@ -18,6 +21,18 @@
 using namespace kirimaspice;
 
 namespace {
+
+std::vector<std::string> device_names(const parser::NetlistParseResult& parsed) {
+    std::vector<std::string> names;
+    for (const auto& device : parsed.circuit->get_devices()) {
+        std::string name = device->name();
+        std::transform(name.begin(), name.end(), name.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+        names.push_back(name);
+    }
+    std::sort(names.begin(), names.end());
+    return names;
+}
 
 template <typename T>
 std::shared_ptr<T> device_as(const parser::NetlistParseResult& parsed, const std::string& name) {
@@ -72,4 +87,26 @@ TEST(NetlistLines, ContinuationOfTheTitle) {
         parser.parse_string("my title\n+ R9 a 0 1\nV1 a 0 1\nR1 a 0 1k\n.op\n.end\n");
     ASSERT_NE(parsed.circuit, nullptr);
     EXPECT_EQ(parsed.circuit->get_devices().size(), 2u);
+}
+
+// A .ELSE is taken only when no branch of its .IF was taken and the branch
+// that holds the .IF is taken (preprocess_conditionals): inside a branch
+// not taken, neither branch of a nested .IF is
+TEST(NetlistLines, ElseInsideABranchNotTaken) {
+    parser::NetlistParser parser;
+    const auto parsed = parser.parse_string(
+        "t\nV1 a 0 1\nR1 a 0 1k\n.if (0)\n.if (0)\nR2 a 0 1k\n.else\nR3 a 0 1\n.endif\n"
+        ".endif\n.op\n.end\n");
+    ASSERT_NE(parsed.circuit, nullptr);
+    EXPECT_EQ(device_names(parsed), (std::vector<std::string>{"R1", "V1"}));
+}
+
+// ... and inside a branch taken, the .ELSE of a false .IF is
+TEST(NetlistLines, ElseInsideABranchTaken) {
+    parser::NetlistParser parser;
+    const auto parsed = parser.parse_string(
+        "t\nV1 a 0 1\nR1 a 0 1k\n.if (1)\n.if (0)\nR2 a 0 1k\n.else\nR3 a 0 1\n.endif\n"
+        ".endif\n.op\n.end\n");
+    ASSERT_NE(parsed.circuit, nullptr);
+    EXPECT_EQ(device_names(parsed), (std::vector<std::string>{"R1", "R3", "V1"}));
 }

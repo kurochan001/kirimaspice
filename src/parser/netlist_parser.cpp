@@ -491,8 +491,11 @@ std::string preprocess_conditionals(
 
             cond_stack.back().else_taken = true;
 
-            // Enter .ELSE branch only if no condition was met
-            cond_stack.back().inside_true_branch = !cond_stack.back().condition_met;
+            // Enter .ELSE branch only if no condition was met and the
+            // enclosing branch is active
+            const bool parent_active =
+                cond_stack.size() == 1 || cond_stack[cond_stack.size() - 2].inside_true_branch;
+            cond_stack.back().inside_true_branch = parent_active && !cond_stack.back().condition_met;
             continue;  // Don't output .ELSE directive itself
 
         } else if (directive_upper == ".ENDIF") {
