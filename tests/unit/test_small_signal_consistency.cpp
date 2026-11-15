@@ -16,6 +16,7 @@
 #include "kirimaspice/parser/netlist_parser.hpp"
 #include "kirimaspice/solvers/ac_solver.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
+#include "kirimaspice/solvers/transient_solver.hpp"
 
 using namespace kirimaspice;
 using namespace kirimaspice::solvers;
@@ -161,4 +162,48 @@ TEST(SmallSignalConsistency, Level1MosfetConductsBackwards) {
     ASSERT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS);
     const Real vs = (1.86 - std::sqrt(1.86 * 1.86 - 0.4)) / 0.2;
     EXPECT_NEAR(solution[parsed.circuit->get_node_id("s") - 1], vs, 1e-6);
+}
+
+// The AC solver passes the angular frequency omega to stamp_ac; a device's
+// capacitance C then has the admittance j omega C. A gate driven through R
+// has H = 1 / (1 + j omega R C), so Im(1/H) / (omega R) is the gate
+// capacitance at the operating point, the same at every frequency and the
+// same as the time constant of a small step in the transient gives. BSIM4
+// took omega for a frequency and multiplied it by 2 pi again.
+TEST(SmallSignalConsistency, Bsim4GateCapacitanceInAcAndTransient) {
+    const std::string card =
+        ".model m nmos level=14 version=4.8.3 toxe=3e-9 vth0=0.5 u0=0.067 vsat=8e4\n";
+    const Real r = 1e5;
+    auto ac_capacitance = [&](Real f) {
+        parser::NetlistParser parser;
+        auto parsed = parser.parse_string("cg\nVG in 0 DC 0 AC 1\nRG in g 100k\nM1 0 g 0 0 m L=1u W=10u\n" +
+                                          card + ".ac lin 1 " + std::to_string(f) + " " +
+                                          std::to_string(f) + "\n.end\n");
+        EXPECT_NE(parsed.circuit, nullptr);
+        ACSolver solver(*parsed.circuit, parsed.config);
+        const ACResult result = solver.solve();
+        EXPECT_EQ(result.status, ConvergenceStatus::SUCCESS);
+        const Complex h = result.frequency_points[0].solution[parsed.circuit->get_node_id("g") - 1];
+        return (1.0 / h).imag() / (2.0 * 3.14159265358979323846 * f * r);
+    };
+    const Real c_low = ac_capacitance(1e3);
+    const Real c_high = ac_capacitance(1e5);
+    EXPECT_GT(c_low, 1e-15);
+    EXPECT_NEAR(c_high, c_low, 1e-3 * c_low);
+
+    // A 1 mV step charges the gate with tau = R C: at t = tau the gate is at
+    // 1 - e^-1 of the step (backward Euler with dt = tau / 200)
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "cg tran\nVG in 0 DC 0 PULSE(0 1m 0 1f 1f 1 2)\nRG in g 100k\nM1 0 g 0 0 m L=1u W=10u\n" +
+        card + ".options method=euler\n.end\n");
+    ASSERT_NE(parsed.circuit, nullptr);
+    SimulationConfig config = parsed.config;
+    config.transient.use_adaptive_timestep = false;
+    TransientSolver solver(*parsed.circuit, config);
+    const Real tau = r * c_low;
+    const TransientResult result = solver.solve(0.0, tau, tau / 200.0);
+    ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
+    const Real vg = result.timepoints.back().node_voltages[parsed.circuit->get_node_id("g") - 1];
+    EXPECT_NEAR(vg / 1e-3, 1.0 - std::exp(-1.0), 0.01);
 }

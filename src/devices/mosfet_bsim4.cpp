@@ -315,7 +315,7 @@ void MOSFET_BSIM4<P>::stamp_transient(MNASystem& mna, const DenseVector& node_vo
 //==============================================================================
 
 template<Polarity P>
-void MOSFET_BSIM4<P>::stamp_ac(ComplexMNASystem& mna, Real frequency,
+void MOSFET_BSIM4<P>::stamp_ac(ComplexMNASystem& mna, Real omega,
                                 const DenseVector& dc_solution) const {
     Real vg = (gate_ != NODE_GND) ? dc_solution[gate_ - 1] : 0.0;
     Real vd = (drain_ != NODE_GND) ? dc_solution[drain_ - 1] : 0.0;
@@ -341,15 +341,15 @@ void MOSFET_BSIM4<P>::stamp_ac(ComplexMNASystem& mna, Real frequency,
     spdlog::trace("{} {} stamp_ac: Vgs={:.6f}V, Vds={:.6f}V, Vbs={:.6f}V, "
                   "Gm={:.6e}S, Gds={:.6e}S, Gmb={:.6e}S, "
                   "Cgs={:.6e}F, Cgd={:.6e}F, Cgb={:.6e}F, Cbd={:.6e}F, Cbs={:.6e}F, ω={:.3e}rad/s",
-                  polarity_name(), name_, vgs, vds, vbs, gm, gds, gmb, cgs, cgd, cgb, cbd, cbs, frequency);
+                  polarity_name(), name_, vgs, vds, vbs, gm, gds, gmb, cgs, cgd, cgb, cbd, cbs, omega);
 
     const int nd_idx = (drain_ == NODE_GND) ? -1 : static_cast<int>(drain_ - 1);
     const int ng_idx = (gate_ == NODE_GND) ? -1 : static_cast<int>(gate_ - 1);
     const int ns_idx = (source_ == NODE_GND) ? -1 : static_cast<int>(source_ - 1);
     const int nb_idx = (bulk_ == NODE_GND) ? -1 : static_cast<int>(bulk_ - 1);
 
-    Real omega = 2.0 * M_PI * frequency;
-
+    // omega is the angular frequency [rad/s], as Device::stamp_ac and the
+    // AC solver pass it
     Complex ygs(0.0, omega * cgs);
     Complex ygd(0.0, omega * cgd);
     Complex ygb(0.0, omega * cgb);
