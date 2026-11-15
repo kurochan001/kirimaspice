@@ -235,8 +235,9 @@ Inside a subcircuit, an element marked "no" is dropped with the warning
 
 ### Behavioural sources
 
-`B` takes the first token that starts with `V=` or `I=`; the expression may
-be in braces (`V={2*V(in)}`), and without braces it must have no spaces.
+`B` takes the first token that starts with `V=` or `I=`; the expression
+is in braces (`V={2*V(in)}`) or, without braces, runs to the end of the
+line, blanks and all (`V=V(a) + 1`), as in ngspice.
 It can use `V(<node>)` or `v(<node>)`, `TIME`, `pi` (not `e`) and
 ExprTk's built-in functions; `.PARAM` names and `I(<source>)` are not
 available. `TIME` is the time of the transient, and 0 in the operating

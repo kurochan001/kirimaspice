@@ -20,6 +20,7 @@
 #include "kirimaspice/devices/mosfet_level1.hpp"
 #include "kirimaspice/devices/resistor.hpp"
 #include "kirimaspice/parser/netlist_parser.hpp"
+#include "kirimaspice/solvers/dc_solver.hpp"
 
 using namespace kirimaspice;
 
@@ -239,4 +240,19 @@ TEST(NetlistLines, ModelExpressionWithBlanks) {
     const auto m1 = device_as<devices::MOSFET_N_Level1>(parsed, "M1");
     ASSERT_NE(m1, nullptr);
     EXPECT_DOUBLE_EQ(m1->threshold_voltage(), 0.5);
+}
+
+// A B source's expression without braces runs to the end of the line
+// (parse_behavioral_source_device); ngspice-47 gives V(o) = 2 V for both
+TEST(NetlistLines, BehavioralExpressionWithBlanks) {
+    for (const std::string b : {"B1 o 0 V=V(a) + 1", "B1 o 0 V = V(a) >= 0.5 ? 2 : 0"}) {
+        parser::NetlistParser parser;
+        auto parsed = parser.parse_string("t\nV1 a 0 1\n" + b + "\nR1 o 0 1k\n.op\n.end\n");
+        ASSERT_NE(parsed.circuit, nullptr) << b;
+        solvers::DCSolver solver(*parsed.circuit, parsed.config);
+        DenseVector x;
+        SolverStats stats;
+        ASSERT_EQ(solver.solve(x, stats), ConvergenceStatus::SUCCESS) << b;
+        EXPECT_NEAR(x[parsed.circuit->get_node_id("o") - 1], 2.0, 1e-9) << b;
+    }
 }

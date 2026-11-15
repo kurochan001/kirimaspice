@@ -4117,11 +4117,15 @@ static void parse_behavioral_source_device(const std::vector<std::string>& token
                 continue;  // Not V= or I=, try next token
             }
 
-            // Extract expression (remove V= or I= prefix)
+            // The expression follows V= or I=: a brace group, or, without
+            // braces, the rest of the line, blanks and all, as in ngspice
             expression = token.substr(2);
-            // Remove surrounding braces if present
             if (!expression.empty() && expression.front() == '{' && expression.back() == '}') {
                 expression = expression.substr(1, expression.size() - 2);
+            } else {
+                for (size_t j = i + 1; j < tokens.size(); ++j) {
+                    expression += " " + tokens[j];
+                }
             }
 
             found = true;
