@@ -282,9 +282,10 @@ off by default).
   more than four unknowns, the whole Newton step is scaled to at most 5 V
   (unless dynamic gmin is on). The diode and the NPN transistor also limit
   how far a junction voltage moves from one iteration to the next
-  (`core::limit_junction_step`, as SPICE does), and an iterate that a
-  limited stamp produced is not accepted as converged
-  (`any_device_limited`).
+  (`core::limit_junction_step`, as SPICE does), the IGBT limits its V<sub>CE</sub>
+  by SPICE3's rule for a FET's V<sub>DS</sub> (`core::limit_fet_drain_step`),
+  and an iterate that a limited stamp produced is not accepted as
+  converged (`any_device_limited`).
 - **DC sweep.** A nested `.DC` has the first source as the inner loop
   ([NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.md), rule 4). The points
   are solved one after another; each starts from the initial guess, not
@@ -372,9 +373,7 @@ lists the directives the program parses but does not run.
   evaluate it through `BSIM4Core`; `MOSFET_BSIM4::get_noise_sources` uses
   simplified functions instead, and so does `BSIM4ParameterExtractor`.
   The SiC MOSFET, the GaN HEMT and the VDMOS evaluate their current in one
-  `drain_current` for DC, AC and noise.
-- **The IGBT's transient stamp is a second copy of its DC stamp**, with
-  its own handling of cutoff and the tail current.
+  `drain_current` for DC, AC and noise, and the IGBT in `collector_current`.
 - **The analyses are chosen in two places**: by the parser's
   configuration (`.DC`, `.AC`) and by the regular expressions of
   `main.cpp` (`.op`, `.dc`, `.tran`). The second holds simulation logic in

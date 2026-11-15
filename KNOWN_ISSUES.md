@@ -36,7 +36,7 @@ and SuiteSparse 7.6.1 unless an entry says otherwise.
 - `BSIM4Transient.InverterChain_MatchesNgspiceReference` is disabled
   (`DISABLED_` in its name); its comment says that the BSIM4 transient
   does not converge near 1 ns (not checked again).
-- At commit `bbb8555` on macOS, CTest has 1185 tests: 1155 pass, 22 are
+- At commit `8e8318f` on macOS, CTest has 1187 tests: 1157 pass, 22 are
   skipped (the twenty comparison tests above, `TemperatureSweepValidation`
   and `VdsatBranchSelection`), 7 fail and 1 is disabled.
 - Some tests find their data relative to the build directory and pass only
@@ -124,21 +124,10 @@ says otherwise.
   The noise sources (`MOSFET_BSIM4::get_noise_sources`) and
   `BSIM4ParameterExtractor` instead use `compute_drain_current` and
   `compute_threshold_voltage` in `src/devices/mosfet_bsim4.cpp`.
-- **The IGBT's operating point does not converge at a strong drive.**
-  With its default card (KP = 50 A/V², 5000 A at VGE = 15 V), VCC =
-  100 V and RL = 100 Ω, the DC iteration swings between cutoff and the
-  active region and stops after 100 iterations (measured at `6e985c5`);
-  the solution of its equations is V(c) = 100/250001 V. Before `6e985c5`
-  the iteration "converged" at V(c) = −1404.7 V, where KCL does not hold.
-  `compute_output_conductance` returns AREA·KP·V<sub>ov</sub><sup>2</sup>/VCE_SAT
-  also below V<sub>CE</sub> = 0, where the current is 0; making it the
-  derivative needs a limit on the V<sub>CE</sub> step of each iteration,
-  which the IGBT does not have, or `IGBT_N.TemperatureDependence_VGE_TH`
-  stops converging (tried at `6e985c5`).
-- **The IGBT's transient stamp is a second copy of its DC stamp,** with
-  its own cutoff branch and tail current (`IGBT::stamp_transient`, read in
-  the code). In a turn-off run (VCC 100 V, RL 100 Ω, TAU 2 µs) the tail
-  current does not show; why is not confirmed.
+- **The IGBT has two sets of defaults.** A netlist's IGBT takes those of
+  `CircuitGraph::add_igbt_n` and `add_igbt_p` (for example KP = 2 A/V²);
+  the IGBT class's constructor has others (KP = 50 A/V²), which only code
+  that builds the class itself gets (read in the code).
 - **BSIM4 has no DC model of its source and drain junctions.** ngspice-47's
   `i(vd)` holds their GMIN currents as well (10<sup>−12</sup> S times the
   junction voltage), which shows below the threshold: for the card of

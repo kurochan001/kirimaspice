@@ -28,7 +28,7 @@
   参照の電流 2.1 A は確かめられていないと書いてあります。
 - `BSIM4Transient.InverterChain_MatchesNgspiceReference` は無効です（名前に `DISABLED_` があります）。
   そのコメントには、BSIM4 の過渡解析が 1 ns 付近で収束しないと書いてあります（確かめ直していません）。
-- コミット `bbb8555` の macOS では、CTest のテストは 1185 件です。1155 件が合格、22 件がスキップ
+- コミット `8e8318f` の macOS では、CTest のテストは 1187 件です。1157 件が合格、22 件がスキップ
   （上の比較のテスト 20 件、`TemperatureSweepValidation`、`VdsatBranchSelection`）、7 件が失敗、
   1 件が無効です。
 - テストの一部は、ビルドディレクトリからの相対位置でデータを探すので、ビルドディレクトリが
@@ -95,16 +95,9 @@ ngspice について書いていることは、それぞれのマニュアルに
   DC、過渡、AC の解析は `BSIM4Core`（`src/devices/bsim4_core.cpp`）を通して BSIM4 を評価します。
   ノイズ源（`MOSFET_BSIM4::get_noise_sources`）と `BSIM4ParameterExtractor` は、代わりに
   `src/devices/mosfet_bsim4.cpp` の `compute_drain_current` と `compute_threshold_voltage` を使います。
-- **IGBT の動作点は、強く駆動すると収束しません。** 既定のカード（KP = 50 A/V²。VGE = 15 V で
-  5000 A）で VCC = 100 V、RL = 100 Ω とすると、DC の反復が遮断と能動領域の間を行き来し、100 回で
-  止まります（コミット `6e985c5` で測りました）。その式の解は V(c) = 100/250001 V です。`6e985c5` より
-  前は、KCL が成り立たない V(c) = −1404.7 V で「収束」していました。`compute_output_conductance` は、
-  電流が 0 である V<sub>CE</sub> = 0 より下でも AREA·KP·V<sub>ov</sub><sup>2</sup>/VCE_SAT を返します。
-  これを微分に直すには、反復ごとの V<sub>CE</sub> の変化の制限が要りますが、IGBT にはそれがなく、
-  直すと `IGBT_N.TemperatureDependence_VGE_TH` が収束しなくなります（コミット `6e985c5` で試しました）。
-- **IGBT の過渡解析のスタンプは、DC のスタンプの 2 つ目のコピーで、** 独自の遮断の分岐とテール電流を
-  持っています（`IGBT::stamp_transient`。コードで読みました）。ターンオフの実行（VCC 100 V、RL 100 Ω、
-  TAU 2 µs）では、テール電流が現れません。理由は未確認です。
+- **IGBT の既定値は 2 組あります。** ネットリストの IGBT は `CircuitGraph::add_igbt_n` と `add_igbt_p`
+  の既定値（たとえば KP = 2 A/V²）を取ります。IGBT のクラスのコンストラクターには別の既定値
+  （KP = 50 A/V²）があり、それはクラスを自分で作るコードだけが使います（コードで読みました）。
 - **BSIM4 には、ソースとドレインの接合の DC モデルがありません。** ngspice-47 の `i(vd)` は、これらの
   GMIN の電流（10<sup>−12</sup> S と接合の電圧の積）も含むので、しきい値より下で差が見えます。
   `tests/unit/test_bsim4_reference.cpp` のカードで V<sub>GS</sub> = 0.2 V のとき、チャネルの電流は
