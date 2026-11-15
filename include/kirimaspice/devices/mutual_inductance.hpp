@@ -63,6 +63,12 @@ public:
                        const TR_BDF2_Coefficients* tr_bdf2_coef = nullptr) const override;
     void accept_solution(const DenseVector& node_voltages) override;
 
+    /// The coupled inductors take their DC currents themselves; the coupling
+    /// integrates nothing at the operating point
+    void accept_operating_point(const DenseVector& node_voltages) override {
+        (void)node_voltages;
+    }
+
     // AC analysis: Add jωM cross-coupling
     void stamp_ac(ComplexMNASystem& sys,
                   Real omega,

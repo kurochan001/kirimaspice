@@ -31,7 +31,7 @@ public:
         // Note: Too large values (>1e9) cause numerical conditioning issues
         // and prevent Newton-Raphson convergence (max_change=0 symptom)
         // 1e6 provides good balance: small voltage drop (<0.1μV) + stable convergence
-        Real g_large = 1e6;  // Large conductance (1μΩ resistance)
+        const Real g_large = kDcConductance;
 
         NodeId np = nodes_[0];
         NodeId nn = nodes_[1];
@@ -60,6 +60,15 @@ public:
                            const DenseVector& node_voltages) const override {
         // Inductor is linear
     }
+
+    /// The conductance of the inductor's DC model, a short of 1 µΩ: larger
+    /// values (> 1e9) spoil the conditioning, and 1e6 S keeps the voltage
+    /// drop below 0.1 µV for currents up to 0.1 A
+    static constexpr Real kDcConductance = 1e6;
+
+    /// The transient starts with the current of the DC short (Device::
+    /// accept_operating_point)
+    void accept_operating_point(const DenseVector& node_voltages) override;
 
     // Transient analysis: Backward Euler companion model
     void stamp_transient(MNASystem& mna,

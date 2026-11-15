@@ -309,6 +309,22 @@ void Inductor::reset_state() {
     spdlog::trace("[{}] reset_state: all state variables reset to initial values", name_);
 }
 
+void Inductor::accept_operating_point(const DenseVector& node_voltages) {
+    const Real v_np = (nodes_[0] == NODE_GND) ? 0.0 : node_voltages[nodes_[0]];
+    const Real v_nn = (nodes_[1] == NODE_GND) ? 0.0 : node_voltages[nodes_[1]];
+    const Real voltage = v_np - v_nn;
+
+    // The current of the DC model, I = G_dc V, with no history before it
+    current_prev_ = kDcConductance * voltage;
+    current_prev2_ = current_prev_;
+    current_prev3_ = current_prev_;
+    voltage_prev_ = voltage;
+    flux_ = inductance_ * current_prev_;
+    flux_prev_ = flux_;
+    first_accept_ = false;
+    spdlog::trace("{} accept_operating_point: I = {:.6e} A", name_, current_prev_);
+}
+
 void Inductor::accept_solution(const DenseVector& node_voltages) {
     // Update current and voltage for next timestep
 

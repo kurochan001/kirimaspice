@@ -112,6 +112,15 @@ public:
     /// hold node k at element k - 1.
     virtual void accept_solution(const DenseVector& node_voltages) {}
 
+    /// Record the operating point that starts a transient (not with UIC),
+    /// in the same layout as accept_solution. A device whose transient
+    /// state follows from its DC model takes it from there: an inductor's
+    /// current is the current of its DC short. By default it is an accepted
+    /// point like any other.
+    virtual void accept_operating_point(const DenseVector& node_voltages) {
+        accept_solution(node_voltages);
+    }
+
     /// Get charge/flux (for error estimation, dynamic elements only)
     virtual Real get_charge() const { return 0.0; }
     virtual Real get_flux() const { return 0.0; }

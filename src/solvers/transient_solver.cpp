@@ -1426,8 +1426,17 @@ bool TransientSolver::initialize_dc_mode(TransientResult& result, Real t_start,
         node_voltages[i + 1] = solution[i];  // MNA index → Node ID
     }
 
-    // Initialize device states with DC solution
-    accept_devices(node_voltages);
+    // Initialize device states with DC solution (Device::accept_operating_point)
+    for (const auto& device : circuit_.get_devices()) {
+        if (device->type() != DeviceType::MUTUAL_INDUCTANCE) {
+            device->accept_operating_point(node_voltages);
+        }
+    }
+    for (const auto& device : circuit_.get_devices()) {
+        if (device->type() == DeviceType::MUTUAL_INDUCTANCE) {
+            device->accept_operating_point(node_voltages);
+        }
+    }
 
     // Save initial state (t=t_start) with DC operating point
     TimePoint initial_tp;

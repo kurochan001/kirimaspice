@@ -736,3 +736,25 @@ TEST(TransientSolver, TstartKeepsThePointsFromTstartOn) {
         EXPECT_NEAR(from_tstart[k].second, from_zero[100 + k].second, 1e-12) << k;
     }
 }
+
+// A transient starts from the operating point with the inductor carrying its
+// DC current: a 1 V source through 1 kOhm into 1 mH to ground keeps 1 mA,
+// and V(a) stays at the DC short's I / G_dc = 1 nV (ngspice-47: V(a) = 0,
+// i(V1) = -1 mA). The inductor used to start from 0 A, putting 0.5 V on it
+// after 1 us.
+TEST(TransientSolver, InductorStartsWithItsDcCurrent) {
+    CircuitGraph circuit;
+    circuit.add_voltage_source("V1", "in", "0", 1.0, 0.0);
+    circuit.add_resistor("R1", "in", "a", 1e3);
+    circuit.add_inductor("L1", "a", "0", 1e-3);
+    SimulationConfig config;
+    config.transient.use_adaptive_timestep = false;
+    TransientSolver solver(circuit, config);
+    const TransientResult result = solver.solve(0.0, 5e-6, 1e-6);
+    ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
+    const NodeId a = circuit.get_node_id("a");
+    for (const auto& tp : result.timepoints) {
+        EXPECT_NEAR(tp.node_voltages[a - 1], 0.0, 1e-8) << "t=" << tp.time;
+        EXPECT_NEAR(tp.branch_currents[0], -1e-3, 1e-9) << "t=" << tp.time;
+    }
+}
