@@ -23,6 +23,8 @@
 // Reference: BSIM4.8.3 User's Manual (UC Berkeley, 2025)
 #pragma once
 
+#include <optional>
+
 #include "kirimaspice/devices/device.hpp"
 #include "kirimaspice/devices/polarity.hpp"
 #include "kirimaspice/devices/mosfet_bsim4_params.hpp"
@@ -112,6 +114,8 @@ public:
 
     // Convergence helpers
     void accept_solution(const DenseVector& node_voltages) override;
+    /// Back to the state before any transient: no voltage or current history
+    void reset_state() override;
 
     // Physical LTE estimation
     Real get_physical_lte(Real chgtol, const DenseVector& node_voltages) const override;
@@ -175,6 +179,14 @@ private:
     mutable Real vbs_prev_ = 0.0;   ///< V_BS(t-Δt)
     mutable Real vbs_prev2_ = 0.0;  ///< V_BS(t-2Δt) - for BDF2
     mutable Real vbs_prev3_ = 0.0;  ///< V_BS(t-3Δt) - for BDF3
+
+    // The capacitances' currents at the last accepted point (cgs, cgd, cgb,
+    // cbd, cbs), for the trapezoidal rule, and the step they were
+    // integrated with (device_utils::capacitor_companion)
+    mutable Real icap_prev_[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
+    mutable Real cap_dt_ = 0.0;
+    mutable IntegrationMethod cap_method_ = IntegrationMethod::BACKWARD_EULER;
+    mutable std::optional<BDFCoefficients> cap_bdf_;
 
     // Integration method state (for accept_solution)
     mutable Real timestep_ = 0.0;

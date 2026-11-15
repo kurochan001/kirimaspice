@@ -6,6 +6,7 @@
 // Reference: BSIM3v3.3 User's Manual (UC Berkeley, 2005)
 
 #include "kirimaspice/devices/mosfet_bsim3.hpp"
+#include "kirimaspice/core/device_utils.hpp"
 #include "kirimaspice/core/constants.hpp"
 #include <spdlog/spdlog.h>
 #include <cmath>
@@ -166,22 +167,14 @@ void MOSFET_BSIM3<P>::stamp_transient(MNASystem& mna, const DenseVector& node_vo
     Real vs = (s == 0) ? 0.0 : node_voltages[s - 1];
     Real vb = (b == 0) ? 0.0 : node_voltages[b - 1];
 
-    // Polarity-aware voltage extraction
-    Real vgs, vgd, vgb, vbd, vbs;
-    if constexpr (P == Polarity::N) {
-        vgs = vg - vs;
-        vgd = vg - vd;
-        vgb = vg - vb;
-        vbd = vb - vd;
-        vbs = vb - vs;
-    } else {
-        // P-channel uses source-referenced voltages
-        vgs = vs - vg;  // vsg for P-channel
-        vgd = vs - vd;  // effectively vsd (for Cgd)
-        vgb = vg - vb;
-        vbd = vd - vb;  // vdb for P-channel
-        vbs = vs - vb;  // vsb for P-channel
-    }
+    // The voltages across the capacitances, in the order they are stamped
+    // (first node minus second), for both polarities; the capacitance values
+    // follow from the effective voltages
+    const Real vgs = vg - vs;
+    const Real vgd = vg - vd;
+    const Real vgb = vg - vb;
+    const Real vbd = vb - vd;
+    const Real vbs = vb - vs;
 
     // Get effective voltages for capacitance calculation
     Real v_gs_eff, v_ds_eff, v_bs_eff;
@@ -196,65 +189,16 @@ void MOSFET_BSIM3<P>::stamp_transient(MNASystem& mna, const DenseVector& node_vo
     Real v_bs_eff_junc = (P == Polarity::N) ? vbs : -vbs;
     get_junction_capacitances(v_bd_eff, v_bs_eff_junc, cbd, cbs);
 
-    // Companion model calculation based on integration method
-    auto calc_companion = [&](Real cap, Real v_now, Real v_prev, Real v_prev2, Real v_prev3)
-        -> std::pair<Real, Real> {
-        Real g_eq = 0.0;
-        Real i_eq = 0.0;
-
-        if (cap <= 0.0 || timestep <= 0.0) {
-            return {0.0, 0.0};
-        }
-
-        switch (method) {
-            case IntegrationMethod::BACKWARD_EULER:
-                g_eq = cap / timestep;
-                i_eq = -g_eq * v_prev;
-                break;
-
-            case IntegrationMethod::TRAPEZOIDAL:
-                g_eq = 2.0 * cap / timestep;
-                i_eq = -g_eq * v_prev;
-                break;
-
-            case IntegrationMethod::GEAR2:
-                if (bdf_coef) {
-                    // Variable timestep BDF2
-                    g_eq = cap * bdf_coef->alpha0 / (bdf_coef->beta0 * timestep);
-                    i_eq = -cap * (bdf_coef->alpha1 * v_prev + bdf_coef->alpha2 * v_prev2) / (bdf_coef->beta0 * timestep);
-                } else {
-                    // Fixed timestep BDF2
-                    g_eq = 1.5 * cap / timestep;
-                    i_eq = -cap * (2.0 * v_prev - 0.5 * v_prev2) / timestep;
-                }
-                break;
-
-            case IntegrationMethod::GEAR3:
-                if (bdf_coef) {
-                    // Variable timestep BDF3
-                    g_eq = cap * bdf_coef->alpha0 / (bdf_coef->beta0 * timestep);
-                    i_eq = -cap * (bdf_coef->alpha1 * v_prev + bdf_coef->alpha2 * v_prev2 + bdf_coef->alpha3 * v_prev3) / (bdf_coef->beta0 * timestep);
-                } else {
-                    // Fixed timestep BDF3
-                    g_eq = (11.0 / 6.0) * cap / timestep;
-                    i_eq = -cap * (3.0 * v_prev - 1.5 * v_prev2 + (1.0/3.0) * v_prev3) / timestep;
-                }
-                break;
-
-            case IntegrationMethod::TR_BDF2:
-                if (tr_bdf2_coef) {
-                    // Use alpha0 from TR-BDF2 coefficients
-                    g_eq = cap * tr_bdf2_coef->alpha0 / timestep;
-                    i_eq = -tr_bdf2_coef->beta0 * cap * v_prev;
-                } else {
-                    // Fallback to Trapezoidal
-                    g_eq = 2.0 * cap / timestep;
-                    i_eq = -g_eq * v_prev;
-                }
-                break;
-        }
-
-        return {g_eq, i_eq};
+    // The companion of each capacitance (device_utils::capacitor_companion)
+    cap_dt_ = timestep;
+    cap_method_ = method;
+    cap_bdf_ = bdf_coef ? std::optional<BDFCoefficients>(*bdf_coef) : std::nullopt;
+    (void)tr_bdf2_coef;
+    auto calc_companion = [&](Real cap, Real v_prev, Real v_prev2, Real v_prev3,
+                              Real i_prev) -> std::pair<Real, Real> {
+        const auto cc = device_utils::capacitor_companion(method, cap, timestep, v_prev, v_prev2,
+                                                          v_prev3, i_prev, bdf_coef);
+        return {cc.g, cc.i_eq};
     };
 
     // Stamp capacitor helper
@@ -274,17 +218,20 @@ void MOSFET_BSIM3<P>::stamp_transient(MNASystem& mna, const DenseVector& node_vo
     };
 
     // Calculate and stamp gate capacitances
-    auto [g_gs, i_gs] = calc_companion(cgs, vgs, vgs_prev_, vgs_prev2_, vgs_prev3_);
-    auto [g_gd, i_gd] = calc_companion(cgd, vgd, vgd_prev_, vgd_prev2_, vgd_prev3_);
-    auto [g_gb, i_gb] = calc_companion(cgb, vgb, vgb_prev_, vgb_prev2_, vgb_prev3_);
+    (void)vgs;
+    (void)vgd;
+    (void)vgb;
+    auto [g_gs, i_gs] = calc_companion(cgs, vgs_prev_, vgs_prev2_, vgs_prev3_, icap_prev_[0]);
+    auto [g_gd, i_gd] = calc_companion(cgd, vgd_prev_, vgd_prev2_, vgd_prev3_, icap_prev_[1]);
+    auto [g_gb, i_gb] = calc_companion(cgb, vgb_prev_, vgb_prev2_, vgb_prev3_, icap_prev_[2]);
 
     stamp_capacitor(g, s, g_gs, i_gs);
     stamp_capacitor(g, d, g_gd, i_gd);
     stamp_capacitor(g, b, g_gb, i_gb);
 
     // Calculate and stamp junction capacitances
-    auto [g_bd, i_bd] = calc_companion(cbd, vbd, vbd_prev_, vbd_prev2_, vbd_prev3_);
-    auto [g_bs, i_bs] = calc_companion(cbs, vbs, vbs_prev_, vbs_prev2_, vbs_prev3_);
+    auto [g_bd, i_bd] = calc_companion(cbd, vbd_prev_, vbd_prev2_, vbd_prev3_, icap_prev_[3]);
+    auto [g_bs, i_bs] = calc_companion(cbs, vbs_prev_, vbs_prev2_, vbs_prev3_, icap_prev_[4]);
 
     stamp_capacitor(b, d, g_bd, i_bd);
     stamp_capacitor(b, s, g_bs, i_bs);
@@ -453,20 +400,33 @@ void MOSFET_BSIM3<P>::accept_solution(const DenseVector& node_voltages) {
     Real vs = core::accepted_node_voltage(node_voltages, s);
     Real vb = core::accepted_node_voltage(node_voltages, b);
 
-    // Calculate voltages (polarity-aware)
-    Real vgs_new, vgd_new, vgb_new, vbd_new, vbs_new;
-    if constexpr (P == Polarity::N) {
-        vgs_new = vg - vs;
-        vgd_new = vg - vd;
-        vgb_new = vg - vb;
-        vbd_new = vb - vd;
-        vbs_new = vb - vs;
-    } else {
-        vgs_new = vs - vg;
-        vgd_new = vs - vd;
-        vgb_new = vg - vb;
-        vbd_new = vd - vb;
-        vbs_new = vs - vb;
+    // The voltages across the capacitances, as stamp_transient takes them
+    const Real vgs_new = vg - vs;
+    const Real vgd_new = vg - vd;
+    const Real vgb_new = vg - vb;
+    const Real vbd_new = vb - vd;
+    const Real vbs_new = vb - vs;
+
+    // The capacitances' currents at this point, with the companion of the
+    // step just accepted (none at the operating point)
+    {
+        Real ve_gs, ve_ds, ve_bs;
+        compute_effective_voltages(vd, vg, vs, vb, ve_gs, ve_ds, ve_bs);
+        Real c_gs, c_gd, c_gb, c_bd, c_bs;
+        get_gate_capacitances(ve_gs, ve_ds, ve_bs, c_gs, c_gd, c_gb);
+        get_junction_capacitances((P == Polarity::N) ? vbd_new : -vbd_new,
+                                  (P == Polarity::N) ? vbs_new : -vbs_new, c_bd, c_bs);
+        const Real c[5] = {c_gs, c_gd, c_gb, c_bd, c_bs};
+        const Real v_new[5] = {vgs_new, vgd_new, vgb_new, vbd_new, vbs_new};
+        const Real v1[5] = {vgs_prev_, vgd_prev_, vgb_prev_, vbd_prev_, vbs_prev_};
+        const Real v2[5] = {vgs_prev2_, vgd_prev2_, vgb_prev2_, vbd_prev2_, vbs_prev2_};
+        const Real v3[5] = {vgs_prev3_, vgd_prev3_, vgb_prev3_, vbd_prev3_, vbs_prev3_};
+        const BDFCoefficients* bdf = cap_bdf_ ? &*cap_bdf_ : nullptr;
+        for (int k = 0; k < 5; ++k) {
+            const auto cc = device_utils::capacitor_companion(cap_method_, c[k], cap_dt_, v1[k], v2[k],
+                                                              v3[k], icap_prev_[k], bdf);
+            icap_prev_[k] = (cap_dt_ > 0.0) ? cc.g * v_new[k] + cc.i_eq : 0.0;
+        }
     }
 
     // Shift history

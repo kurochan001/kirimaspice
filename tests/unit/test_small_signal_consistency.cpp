@@ -207,3 +207,54 @@ TEST(SmallSignalConsistency, Bsim4GateCapacitanceInAcAndTransient) {
     const Real vg = result.timepoints.back().node_voltages[parsed.circuit->get_node_id("g") - 1];
     EXPECT_NEAR(vg / 1e-3, 1.0 - std::exp(-1.0), 0.01);
 }
+
+namespace {
+
+// The gate of a MOSFET card charged through 100 kOhm by a 1 mV step, with
+// the integration method given: at t = tau = R C (C from AC at 1 kHz) the
+// gate is at 1 - e^-1 of the step, whichever method (within 1 %).
+void expect_gate_step_follows_tau(const std::string& card, const std::string& element) {
+    const Real r = 1e5;
+    parser::NetlistParser ac_parser;
+    auto ac_parsed = ac_parser.parse_string("cg\nVG in 0 DC 0 AC 1\nRG in g 100k\n" + element +
+                                            "\n" + card + "\n.ac lin 1 1000 1000\n.end\n");
+    ASSERT_NE(ac_parsed.circuit, nullptr);
+    ACSolver ac(*ac_parsed.circuit, ac_parsed.config);
+    const ACResult ac_result = ac.solve();
+    ASSERT_EQ(ac_result.status, ConvergenceStatus::SUCCESS);
+    const Complex h =
+        ac_result.frequency_points[0].solution[ac_parsed.circuit->get_node_id("g") - 1];
+    const Real c = (1.0 / h).imag() / (2.0 * 3.14159265358979323846 * 1e3 * r);
+    ASSERT_GT(c, 1e-16);
+    for (const char* method : {"euler", "trap", "gear"}) {
+        SCOPED_TRACE(method);
+        parser::NetlistParser parser;
+        auto parsed = parser.parse_string("cg tran\nVG in 0 DC 0 PULSE(0 1m 0 1f 1f 1 2)\nRG in g 100k\n" +
+                                          element + "\n" + card + "\n.options method=" + method +
+                                          "\n.end\n");
+        ASSERT_NE(parsed.circuit, nullptr);
+        SimulationConfig config = parsed.config;
+        config.transient.use_adaptive_timestep = false;
+        TransientSolver solver(*parsed.circuit, config);
+        const Real tau = r * c;
+        const TransientResult result = solver.solve(0.0, tau, tau / 200.0);
+        ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
+        const Real vg =
+            result.timepoints.back().node_voltages[parsed.circuit->get_node_id("g") - 1];
+        EXPECT_NEAR(vg / 1e-3, 1.0 - std::exp(-1.0), 0.01);
+    }
+}
+
+}  // namespace
+
+// The capacitances of BSIM3 and BSIM4 integrate as a capacitor does: the
+// trapezoidal rule with its history current, BDF2 with the step in beta0.
+TEST(SmallSignalConsistency, BsimGateCapacitanceUnderEachMethod) {
+    expect_gate_step_follows_tau(
+        ".model m nmos level=14 version=4.8.3 toxe=3e-9 vth0=0.5 u0=0.067 vsat=8e4",
+        "M1 0 g 0 0 m L=1u W=10u");
+    expect_gate_step_follows_tau(".model m nmos level=8 tox=3e-9 vth0=0.5 u0=0.067 vsat=8e4",
+                                 "M1 0 g 0 0 m L=1u W=10u");
+    expect_gate_step_follows_tau(".model m pmos level=8 tox=3e-9 vth0=-0.5 u0=0.025 vsat=8e4",
+                                 "M1 0 g 0 0 m L=1u W=10u");
+}

@@ -590,6 +590,58 @@ inline void stamp_capacitor_companion(MNA& mna, int n1_idx, int n2_idx,
     if (n2_idx >= 0) mna.b[n2_idx] += ieq;
 }
 
+/// The companion of a capacitance C over one time step of the given method:
+/// the current g v + i_eq from its first node to its second for the voltage
+/// v at the end of the step. v1, v2, v3 are the voltages accepted at the last
+/// three time points and i1 the capacitor's current at the last one, which
+/// the trapezoidal rule needs (i = 2C/dt (v - v1) - i1). BDF2 and BDF3 take
+/// the variable-step coefficients when given, as Capacitor does (g = C
+/// alpha0 / beta0 and i_eq = C / beta0 sum alpha_k v_k, beta0 being the
+/// step), and the fixed-step formulas otherwise. TR-BDF2 is taken as
+/// backward Euler. The same function gives the current at an accepted
+/// point (g v + i_eq), which becomes i1 of the next step.
+struct CapacitorCompanion {
+    Real g = 0.0;
+    Real i_eq = 0.0;
+};
+inline CapacitorCompanion capacitor_companion(IntegrationMethod method, Real c, Real dt, Real v1,
+                                              Real v2, Real v3, Real i1,
+                                              const BDFCoefficients* bdf) {
+    CapacitorCompanion cc;
+    if (c <= 0.0 || dt <= 0.0) {
+        return cc;
+    }
+    switch (method) {
+        case IntegrationMethod::TRAPEZOIDAL:
+            cc.g = 2.0 * c / dt;
+            cc.i_eq = -cc.g * v1 - i1;
+            break;
+        case IntegrationMethod::GEAR2:
+            if (bdf) {
+                cc.g = c * bdf->alpha0 / bdf->beta0;
+                cc.i_eq = (c / bdf->beta0) * (bdf->alpha1 * v1 + bdf->alpha2 * v2);
+            } else {
+                cc.g = 1.5 * c / dt;
+                cc.i_eq = (c / dt) * (-2.0 * v1 + 0.5 * v2);
+            }
+            break;
+        case IntegrationMethod::GEAR3:
+            if (bdf) {
+                cc.g = c * bdf->alpha0 / bdf->beta0;
+                cc.i_eq = (c / bdf->beta0) * (bdf->alpha1 * v1 + bdf->alpha2 * v2 + bdf->alpha3 * v3);
+            } else {
+                cc.g = (11.0 / 6.0) * c / dt;
+                cc.i_eq = (c / dt) * (-3.0 * v1 + 1.5 * v2 - v3 / 3.0);
+            }
+            break;
+        default:  // backward Euler, and TR-BDF2 taken as it
+            cc.g = c / dt;
+            cc.i_eq = -cc.g * v1;
+            break;
+    }
+    return cc;
+}
+
 /// Stamp complex VCCS for AC analysis: the small-signal current gm × (vg - vs)
 /// from drain to source, the same for both polarities (stamp_vccs_3terminal)
 template<typename ComplexMatrix>

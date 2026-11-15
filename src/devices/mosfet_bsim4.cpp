@@ -23,6 +23,7 @@
 // Reference: BSIM4.8.3 User's Manual (UC Berkeley, 2025)
 
 #include "kirimaspice/devices/mosfet_bsim4.hpp"
+#include "kirimaspice/core/device_utils.hpp"
 #include <spdlog/spdlog.h>
 #include <cmath>
 #include <limits>
@@ -235,77 +236,24 @@ void MOSFET_BSIM4<P>::stamp_transient(MNASystem& mna, const DenseVector& node_vo
     const int ns_idx = (source_ == NODE_GND) ? -1 : static_cast<int>(source_ - 1);
     const int nb_idx = (bulk_ == NODE_GND) ? -1 : static_cast<int>(bulk_ - 1);
 
-    // Helper lambda: Stamp companion model for a junction capacitance
+    // The companion of each capacitance (device_utils::capacitor_companion),
+    // the current g v + i_eq from the first node to the second
+    cap_dt_ = timestep;
+    cap_method_ = method;
+    cap_bdf_ = bdf_coef ? std::optional<BDFCoefficients>(*bdf_coef) : std::nullopt;
     auto stamp_capacitance = [&](Real c_now, Real v_prev, Real v_prev2, Real v_prev3,
-                                  int node_p_idx, int node_n_idx) {
-        Real g_eq = 0.0;
-        Real i_eq = 0.0;
-
-        switch (method) {
-            case IntegrationMethod::BACKWARD_EULER:
-                g_eq = c_now / timestep;
-                i_eq = -g_eq * v_prev;
-                break;
-
-            case IntegrationMethod::TRAPEZOIDAL:
-                g_eq = 2.0 * c_now / timestep;
-                i_eq = -g_eq * v_prev;
-                break;
-
-            case IntegrationMethod::GEAR2:
-                g_eq = 1.5 * c_now / timestep;
-                i_eq = -(2.0 * c_now / timestep) * v_prev + (0.5 * c_now / timestep) * v_prev2;
-                break;
-
-            case IntegrationMethod::GEAR3:
-                g_eq = (11.0 / 6.0) * c_now / timestep;
-                i_eq = -(3.0 * c_now / timestep) * v_prev
-                      + (1.5 * c_now / timestep) * v_prev2
-                      - (c_now / (3.0 * timestep)) * v_prev3;
-                break;
-
-            case IntegrationMethod::TR_BDF2:
-                if (tr_bdf2_coef) {
-                    g_eq = tr_bdf2_coef->alpha0 * c_now;
-                    i_eq = -tr_bdf2_coef->beta0 * c_now * v_prev;
-                } else {
-                    g_eq = 2.0 * c_now / timestep;
-                    i_eq = -g_eq * v_prev;
-                }
-                break;
-
-            default:
-                g_eq = c_now / timestep;
-                i_eq = -g_eq * v_prev;
-                break;
-        }
-
-        if (node_p_idx >= 0) {
-            if (node_n_idx >= 0) {
-                mna.G.add_entry(node_p_idx, node_p_idx, g_eq);
-                mna.G.add_entry(node_p_idx, node_n_idx, -g_eq);
-            } else {
-                mna.G.add_entry(node_p_idx, node_p_idx, g_eq);
-            }
-            mna.b[node_p_idx] -= i_eq;
-        }
-        if (node_n_idx >= 0) {
-            if (node_p_idx >= 0) {
-                mna.G.add_entry(node_n_idx, node_n_idx, g_eq);
-                mna.G.add_entry(node_n_idx, node_p_idx, -g_eq);
-            } else {
-                mna.G.add_entry(node_n_idx, node_n_idx, g_eq);
-            }
-            mna.b[node_n_idx] += i_eq;
-        }
+                                 Real i_prev, int node_p_idx, int node_n_idx) {
+        const auto cc = device_utils::capacitor_companion(method, c_now, timestep, v_prev,
+                                                          v_prev2, v_prev3, i_prev, bdf_coef);
+        device_utils::stamp_capacitor_companion(mna, node_p_idx, node_n_idx, cc.g, cc.i_eq, 1.0);
     };
 
     // Stamp each capacitance
-    stamp_capacitance(cgs, vgs_prev_, vgs_prev2_, vgs_prev3_, ng_idx, ns_idx);
-    stamp_capacitance(cgd, vgd_prev_, vgd_prev2_, vgd_prev3_, ng_idx, nd_idx);
-    stamp_capacitance(cgb, vgb_prev_, vgb_prev2_, vgb_prev3_, ng_idx, nb_idx);
-    stamp_capacitance(cbd, vbd_prev_, vbd_prev2_, vbd_prev3_, nb_idx, nd_idx);
-    stamp_capacitance(cbs, vbs_prev_, vbs_prev2_, vbs_prev3_, nb_idx, ns_idx);
+    stamp_capacitance(cgs, vgs_prev_, vgs_prev2_, vgs_prev3_, icap_prev_[0], ng_idx, ns_idx);
+    stamp_capacitance(cgd, vgd_prev_, vgd_prev2_, vgd_prev3_, icap_prev_[1], ng_idx, nd_idx);
+    stamp_capacitance(cgb, vgb_prev_, vgb_prev2_, vgb_prev3_, icap_prev_[2], ng_idx, nb_idx);
+    stamp_capacitance(cbd, vbd_prev_, vbd_prev2_, vbd_prev3_, icap_prev_[3], nb_idx, nd_idx);
+    stamp_capacitance(cbs, vbs_prev_, vbs_prev2_, vbs_prev3_, icap_prev_[4], nb_idx, ns_idx);
 
     (void)bdf_coef;
 }
@@ -457,6 +405,25 @@ void MOSFET_BSIM4<P>::accept_solution(const DenseVector& node_voltages) {
     Real vbd_new = vb - vd;
     Real vbs_new = vb - vs;
 
+    // The capacitances' currents at this point, with the companion of the
+    // step just accepted (none at the operating point)
+    {
+        const BSIM4OperatingPoint op_now = core_.evaluate(vg, vd, vs, vb, temperature_, theta0vb0_);
+        const BSIM4Capacitances c_now =
+            core_.compute_capacitances(vg, vd, vs, vb, op_now.vth, temperature_);
+        const Real c[5] = {c_now.cgs, c_now.cgd, c_now.cgb, c_now.cbd, c_now.cbs};
+        const Real v_new[5] = {vgs_new, vgd_new, vgb_new, vbd_new, vbs_new};
+        const Real v1[5] = {vgs_prev_, vgd_prev_, vgb_prev_, vbd_prev_, vbs_prev_};
+        const Real v2[5] = {vgs_prev2_, vgd_prev2_, vgb_prev2_, vbd_prev2_, vbs_prev2_};
+        const Real v3[5] = {vgs_prev3_, vgd_prev3_, vgb_prev3_, vbd_prev3_, vbs_prev3_};
+        const BDFCoefficients* bdf = cap_bdf_ ? &*cap_bdf_ : nullptr;
+        for (int k = 0; k < 5; ++k) {
+            const auto cc = device_utils::capacitor_companion(cap_method_, c[k], cap_dt_, v1[k], v2[k],
+                                                              v3[k], icap_prev_[k], bdf);
+            icap_prev_[k] = (cap_dt_ > 0.0) ? cc.g * v_new[k] + cc.i_eq : 0.0;
+        }
+    }
+
     // Shift voltage history for each junction (BDF3 requires 3 past timesteps)
     vgs_prev3_ = vgs_prev2_;
     vgs_prev2_ = vgs_prev_;
@@ -490,6 +457,19 @@ void MOSFET_BSIM4<P>::accept_solution(const DenseVector& node_voltages) {
 
     // Legacy DC analysis state
     vds_prev_ = vd - vs;
+}
+
+template<Polarity P>
+void MOSFET_BSIM4<P>::reset_state() {
+    vgs_prev_ = vgs_prev2_ = vgs_prev3_ = 0.0;
+    vgd_prev_ = vgd_prev2_ = vgd_prev3_ = 0.0;
+    vgb_prev_ = vgb_prev2_ = vgb_prev3_ = 0.0;
+    vbd_prev_ = vbd_prev2_ = vbd_prev3_ = 0.0;
+    vbs_prev_ = vbs_prev2_ = vbs_prev3_ = 0.0;
+    for (Real& i : icap_prev_) i = 0.0;
+    cap_dt_ = 0.0;
+    cap_method_ = IntegrationMethod::BACKWARD_EULER;
+    cap_bdf_.reset();
 }
 
 //==============================================================================

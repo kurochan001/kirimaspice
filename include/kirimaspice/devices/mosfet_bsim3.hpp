@@ -6,6 +6,8 @@
 // Reference: BSIM3v3.3 User's Manual (UC Berkeley, 2005)
 #pragma once
 
+#include <optional>
+
 #include "kirimaspice/devices/device.hpp"
 #include "kirimaspice/devices/polarity.hpp"
 #include "kirimaspice/devices/mosfet_bsim3_params.hpp"
@@ -105,6 +107,19 @@ public:
     // Record an accepted time point (Device::accept_solution: ground at
     // element 0, node k at element k)
     void accept_solution(const DenseVector& node_voltages) override;
+    /// Back to the state before any transient: no voltage or current history
+    void reset_state() override {
+        vgs_prev_ = vgs_prev2_ = vgs_prev3_ = 0.0;
+        vgd_prev_ = vgd_prev2_ = vgd_prev3_ = 0.0;
+        vgb_prev_ = vgb_prev2_ = vgb_prev3_ = 0.0;
+        vbd_prev_ = vbd_prev2_ = vbd_prev3_ = 0.0;
+        vbs_prev_ = vbs_prev2_ = vbs_prev3_ = 0.0;
+        for (Real& i : icap_prev_) i = 0.0;
+        cap_dt_ = 0.0;
+        cap_method_ = IntegrationMethod::BACKWARD_EULER;
+        cap_bdf_.reset();
+        first_accept_ = true;
+    }
     void accept_solution(const DenseVector& node_voltages, Real time) {
         (void)time;
         accept_solution(node_voltages);
@@ -228,6 +243,14 @@ private:
     mutable bool first_accept_ = true;  ///< First accept flag
 
     // Integration state (for companion model)
+    // The capacitances' currents at the last accepted point (cgs, cgd, cgb,
+    // cbd, cbs), for the trapezoidal rule, and the step they were
+    // integrated with (device_utils::capacitor_companion)
+    mutable Real icap_prev_[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
+    mutable Real cap_dt_ = 0.0;
+    mutable IntegrationMethod cap_method_ = IntegrationMethod::BACKWARD_EULER;
+    mutable std::optional<BDFCoefficients> cap_bdf_;
+
     mutable Real timestep_ = 0.0;
     mutable IntegrationMethod last_method_ = IntegrationMethod::BACKWARD_EULER;
 
