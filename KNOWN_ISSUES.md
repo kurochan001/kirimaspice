@@ -53,9 +53,8 @@ running ngspice-47 and removed by following ngspice, as
 [NETLIST_CONVENTIONS.md](docs/spec/NETLIST_CONVENTIONS.md) sets out; that
 document also lists differences not decided there.
 
-- **`B` sources have no AC model and no `I(<source>)`.** In AC analysis a
-  `B` source contributes nothing and logs `AC analysis not yet supported`;
-  an expression with `I(...)` is an error.
+- **`B` sources have no `I(<source>)`:** an expression with `I(...)` is an
+  error.
 - **Scale factors are not accepted inside braces or in `.OPTIONS`
   values** (there the option is ignored with a warning).
 - **Inside `.SUBCKT`, only `R`, `C`, `L`, `V` and `I` (DC and AC values,

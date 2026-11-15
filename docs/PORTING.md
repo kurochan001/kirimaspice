@@ -94,8 +94,7 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
   arguments that ngspice defaults from `.TRAN` (`TR`, `TF`, `PW`, `PER` of
   `PULSE`, `FREQ` of `SIN`, the `EXP` times, `FC` of `SFFM`) must be given.
   Anything after the waveform other than `DC` or `AC` is an error.
-- [ ] **`B` sources only in DC and transient.** They have no AC model,
-  and their expressions cannot use `I(...)` or `.PARAM` names
+- [ ] **`B` expressions cannot use `I(...)` or `.PARAM` names**
   ([KNOWN_ISSUES](../KNOWN_ISSUES.md#netlist-input)).
 
 ### Subcircuits and parameters

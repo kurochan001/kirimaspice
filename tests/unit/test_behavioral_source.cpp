@@ -3,6 +3,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cmath>
 #include <string>
 
 #include "kirimaspice/devices/behavioral_source.hpp"
@@ -10,6 +11,7 @@
 #include "kirimaspice/core/types.hpp"
 #include "kirimaspice/parser/netlist_parser.hpp"
 #include "kirimaspice/circuit/circuit_graph.hpp"
+#include "kirimaspice/solvers/ac_solver.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
 #include "kirimaspice/solvers/transient_solver.hpp"
 
@@ -205,4 +207,40 @@ TEST(BehavioralSource, NodeNamesInVoltages) {
                 2.0, 1e-9);
     EXPECT_NEAR(b_output("t\nV1 n.1 0 1\nV2 n-2 0 2\nB1 o 0 V=V(n.1)+V(n-2)\nR1 o 0 1k\n.op\n.end\n"),
                 3.0, 1e-9);
+}
+
+// Newton's linearization of a B source takes the derivatives of its
+// expression (BehavioralSource::linearize): I1 feeds 1 mA into o, and B1
+// draws 1e-3 V(o)^2 out of it across 1 MOhm, so V^2 + 1e-3 V - 1 = 0. With
+// the value alone, each iteration would move V by 1e6 times the change of
+// the current. ngspice-47 gives V(o) = 0.9995001 V.
+TEST(BehavioralSource, NewtonTakesTheDerivatives) {
+    const Real expected = (-1e-3 + std::sqrt(1e-6 + 4.0)) / 2.0;
+    kirimaspice::parser::NetlistParser parser;
+    auto result = parser.parse_string(
+        "t\nI1 0 o 1m\nB1 o 0 I=1e-3*V(o)*V(o)\nR1 o 0 1Meg\n.op\n.end\n");
+    kirimaspice::solvers::DCSolver solver(*result.circuit, result.config);
+    DenseVector x;
+    kirimaspice::SolverStats stats;
+    ASSERT_EQ(solver.solve(x, stats), kirimaspice::ConvergenceStatus::SUCCESS);
+    EXPECT_NEAR(x[result.circuit->get_node_id("o") - 1], expected, 1e-6);
+}
+
+// In AC a B source is its linearization at the operating point: V(out) =
+// 2 V(in)^2 + V(in) has the slope 5 at V(in) = 1 V, and 1e-3 V(in)^2 drawn
+// from o2 across 1 kOhm gives -2; ngspice-47 gives the same
+TEST(BehavioralSource, AcIsTheSlopeAtTheOperatingPoint) {
+    kirimaspice::parser::NetlistParser parser;
+    auto result = parser.parse_string(
+        "t\nV1 in 0 DC 1 AC 1\nB1 out 0 V=2*V(in)*V(in)+V(in)\nR1 out 0 1k\n"
+        "B2 o2 0 I=1e-3*V(in)*V(in)\nR2 o2 0 1k\n.ac lin 1 1k 1k\n.end\n");
+    kirimaspice::solvers::ACSolver solver(*result.circuit, result.config);
+    const auto ac = solver.solve();
+    ASSERT_EQ(ac.status, kirimaspice::ConvergenceStatus::SUCCESS);
+    ASSERT_EQ(ac.frequency_points.size(), 1u);
+    const auto& v = ac.frequency_points[0].solution;
+    EXPECT_NEAR(std::abs(v[result.circuit->get_node_id("out") - 1] - kirimaspice::Complex(5.0, 0.0)),
+                0.0, 1e-6);
+    EXPECT_NEAR(std::abs(v[result.circuit->get_node_id("o2") - 1] - kirimaspice::Complex(-2.0, 0.0)),
+                0.0, 1e-6);
 }

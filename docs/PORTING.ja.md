@@ -83,7 +83,7 @@ ngspice-47 は、kirimaspice が書く ASCII とバイナリの raw ファイル
   電流源でも使えますが、ngspice が `.TRAN` から既定値を決める引数（`PULSE` の `TR`、`TF`、`PW`、`PER`、
   `SIN` の `FREQ`、`EXP` の時刻、`SFFM` の `FC`）は書かなければなりません。波形の後に `DC` か `AC` 以外の
   ものがあるとエラーです。
-- [ ] **`B` 電源は DC と過渡解析だけ。** AC のモデルはなく、式に `I(...)` も `.PARAM` の名前も使えません
+- [ ] **`B` 電源の式には `I(...)` も `.PARAM` の名前も使えません**
   （[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#ネットリストの入力)）。
 
 ### サブ回路とパラメータ

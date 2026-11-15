@@ -332,89 +332,52 @@ void CircuitGraph::add_behavioral_source(const std::string& name,
     std::vector<std::string> referenced_nodes;
     const std::string processed_expr = rewrite_node_voltages(expression, referenced_nodes);
 
-    // Compile the expression once now, so that one that cannot be compiled is
-    // an error in the netlist rather than a source of 0 at every evaluation.
-    {
-        exprtk::symbol_table<Real> symbol_table;
+    // The nodes the expression reads. A node that no element names is still
+    // a node of the circuit, as in ngspice-47, which reports it as singular.
+    std::vector<NodeId> referenced_ids;
+    for (const auto& node : referenced_nodes) {
+        referenced_ids.push_back(add_node(node));
+    }
+
+    // The expression, compiled once; each evaluation sets TIME and the node
+    // voltages and evaluates it. An expression that cannot be compiled is an
+    // error in the netlist rather than a source of 0 at every evaluation.
+    struct Compiled {
         Real time = 0.0;
-        symbol_table.add_variable("TIME", time);
-        symbol_table.add_constants();
-        std::vector<Real> voltages(referenced_nodes.size(), 0.0);
-        for (std::size_t i = 0; i < referenced_nodes.size(); ++i) {
-            symbol_table.add_variable(node_voltage_variable(i), voltages[i]);
-        }
+        std::vector<Real> voltages;
+        exprtk::symbol_table<Real> symbol_table;
         exprtk::expression<Real> expr;
-        expr.register_symbol_table(symbol_table);
+    };
+    auto compiled = std::make_shared<Compiled>();
+    compiled->voltages.assign(referenced_nodes.size(), 0.0);
+    compiled->symbol_table.add_variable("TIME", compiled->time);
+    compiled->symbol_table.add_constants();
+    for (std::size_t i = 0; i < referenced_nodes.size(); ++i) {
+        compiled->symbol_table.add_variable(node_voltage_variable(i), compiled->voltages[i]);
+    }
+    compiled->expr.register_symbol_table(compiled->symbol_table);
+    {
         exprtk::parser<Real> parser;
-        if (!parser.compile(processed_expr, expr)) {
+        if (!parser.compile(processed_expr, compiled->expr)) {
             throw std::runtime_error(fmt::format(
                 "cannot compile the expression '{}': {}", expression, parser.error()));
         }
     }
 
-    // Create evaluator with V(node) support
-    auto evaluator = [this, processed_expr, name, referenced_nodes](Real time, const DenseVector& node_voltages) -> Real {
-        // Create symbol table with TIME variable
-        exprtk::symbol_table<Real> symbol_table;
-        symbol_table.add_variable("TIME", const_cast<Real&>(time));
-        symbol_table.add_constants();
-
-        // Add V(node) variables to symbol table
-        // We create mutable copies to satisfy ExprTk's API
-        std::vector<Real> node_voltage_values(referenced_nodes.size());
-        for (size_t i = 0; i < referenced_nodes.size(); ++i) {
-            const std::string& node_name = referenced_nodes[i];
-
-            // Get voltage value for this node
-            Real voltage = 0.0;
-            try {
-                NodeId node_id = get_node_id(node_name);
-                if (node_id == NODE_GND) {
-                    voltage = 0.0;
-                } else {
-                    size_t idx = static_cast<size_t>(node_id - 1);  // 0-indexed
-                    if (idx < node_voltages.size()) {
-                        voltage = node_voltages[idx];
-                    }
-                }
-            } catch (const std::exception& e) {
-                spdlog::warn("BehavioralSource '{}': Unknown node '{}' in expression: {}",
-                           name, node_name, e.what());
-                voltage = 0.0;
-            } catch (...) {
-                spdlog::warn("BehavioralSource '{}': Unknown node '{}' in expression (unknown exception)",
-                           name, node_name);
-                voltage = 0.0;
-            }
-
-            node_voltage_values[i] = voltage;
-
-            symbol_table.add_variable(node_voltage_variable(i), node_voltage_values[i]);
+    auto evaluator = [compiled, referenced_ids](Real time, const DenseVector& node_voltages) -> Real {
+        compiled->time = time;
+        for (std::size_t i = 0; i < referenced_ids.size(); ++i) {
+            const NodeId node = referenced_ids[i];
+            const auto k = static_cast<std::size_t>(node) - 1;
+            compiled->voltages[i] = (node == NODE_GND || k >= node_voltages.size())
+                                        ? 0.0
+                                        : node_voltages[k];
         }
-
-        // TODO +: Add I(source) support (requires accessing branch currents during evaluation)
-        // Placeholder implementation - I(source) currently evaluates to 0
-        // Full implementation requires:
-        //   1. Storing previous solution vector in CircuitGraph
-        //   2. Extracting branch current by device name
-        //   3. Preprocessing I(source) -> I_source in expression
-        // Example: I(Vin) would be replaced with I_Vin variable
-
-        exprtk::expression<Real> expr;
-        expr.register_symbol_table(symbol_table);
-
-        exprtk::parser<Real> parser;
-        if (!parser.compile(processed_expr, expr)) {
-            spdlog::error("BehavioralSource '{}': Failed to compile expression '{}'",
-                         name, processed_expr);
-            return 0.0;
-        }
-
-        return expr.value();
+        return compiled->expr.value();
     };
 
     auto bsource = std::make_shared<devices::BehavioralSource>(
-        id, name, np_id, nn_id, type, expression, evaluator);
+        id, name, np_id, nn_id, type, expression, evaluator, referenced_ids);
 
     // If voltage source, add to voltage_sources_ and assign branch_id
     if (type == BehavioralSourceType::VOLTAGE) {

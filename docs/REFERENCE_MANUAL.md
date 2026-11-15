@@ -247,8 +247,9 @@ ExprTk's built-in functions; `.PARAM` names and `I(<source>)` are not
 available. `TIME` is the time of the transient, and 0 in the operating
 point (also in the one that starts a transient). An expression that
 cannot be compiled is an error at the `B` line. Both forms work in the
-operating point and the transient; in AC analysis a `B` source contributes
-nothing and logs `AC analysis not yet supported`.
+operating point, the transient and AC; in AC analysis a `B` source is its
+linearization at the operating point, with no AC input of its own. Newton's
+method and AC take the derivatives of the expression by central differences.
 
 ### Parameters of the simpler devices
 

@@ -478,7 +478,7 @@ A node has no DC path to ground, or two voltage sources form a loop.
 
 The expression uses something ExprTk does not know. Common causes: a scale
 suffix (write `0.001`, not `1m`) and `I(<source>)`, which is not
-available. In AC analysis a `B` source contributes nothing.
+available.
 
 ### A value is far too small
 

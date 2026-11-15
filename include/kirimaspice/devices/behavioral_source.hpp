@@ -6,6 +6,8 @@
 #include "kirimaspice/devices/device.hpp"
 #include "kirimaspice/core/types.hpp"
 #include <functional>
+#include <utility>
+#include <vector>
 
 namespace kirimaspice::devices {
 
@@ -13,24 +15,22 @@ namespace kirimaspice::devices {
 /// B{name} n+ n- V={expression}  (voltage source)
 /// B{name} n+ n- I={expression}  (current source)
 ///
-/// Expressions can reference:
-/// - TIME: current simulation time
-/// - V(node): voltage at node
-/// - I(source): current through voltage source
-/// - .PARAM parameters
-/// - .FUNC user-defined functions
-/// - Math functions: sin, cos, exp, log, sqrt, etc.
-///
-/// Basic implementation
+/// Expressions can reference TIME, V(node) and ExprTk's constants and
+/// functions; not I(source), .PARAM names or .FUNC functions
+/// (REFERENCE_MANUAL, Behavioural sources). Every stamp linearizes the
+/// expression at the present voltages (linearize).
 class BehavioralSource : public Device {
 public:
     using ExpressionEvaluator = std::function<Real(Real time, const DenseVector& node_voltages)>;
 
+    /// @param controlling_nodes the nodes whose voltages the expression
+    ///        reads; the stamps take its derivatives with respect to them
     BehavioralSource(DeviceId id, const std::string& name,
                      NodeId np, NodeId nn,
                      BehavioralSourceType type,
                      const std::string& expression,
-                     ExpressionEvaluator evaluator);
+                     ExpressionEvaluator evaluator,
+                     std::vector<NodeId> controlling_nodes = {});
 
     ~BehavioralSource() override = default;
 
@@ -51,7 +51,7 @@ public:
                         const BDFCoefficients* bdf_coef = nullptr,
                         const TR_BDF2_Coefficients* tr_bdf2_coef = nullptr) const override;
 
-    // AC analysis: small-signal linearization (not supported yet)
+    // AC analysis: the source linearized at the operating point
     void stamp_ac(ComplexMNASystem& sys,
                   Real omega,
                   const DenseVector& dc_solution) const override;
@@ -77,9 +77,23 @@ private:
     ExpressionEvaluator evaluator_;   // Expression evaluator function
     BranchId branch_id_;              // Branch current variable (for voltage source)
     mutable Real current_time_ = 0.0; // Current simulation time (for TIME variable)
+    std::vector<NodeId> controlling_nodes_;  // Nodes the expression reads, ground left out
 
     // Helper: evaluate expression at current state
     Real evaluate_expression(Real time, const DenseVector& node_voltages) const;
+
+    /// The value of the expression at the present voltages and its derivative
+    /// with respect to each controlling node's voltage (central differences),
+    /// for Newton's linearization. Every stamp takes the source from here.
+    struct Linearization {
+        Real value = 0.0;
+        std::vector<std::pair<int, Real>> derivatives;  // (MNA column, d value / dV)
+        Real norton = 0.0;  // value - sum of derivative * V
+    };
+    Linearization linearize(Real time, const DenseVector& node_voltages) const;
+
+    /// The DC and transient stamp, at the given TIME
+    void stamp_at(MNASystem& mna, const DenseVector& node_voltages, Real time) const;
 };
 
 } // namespace kirimaspice::devices
