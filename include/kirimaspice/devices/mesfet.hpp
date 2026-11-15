@@ -99,71 +99,23 @@ public:
     }
 
     void stamp_dc_nonlinear(MNASystem& mna, const DenseVector& node_voltages) const override {
-        const NodeId d = nodes_[0];
-        const NodeId g = nodes_[1];
-        const NodeId s = nodes_[2];
-
-        const Real vd = (d > 0) ? node_voltages[d - 1] : 0.0;
-        const Real vg = (g > 0) ? node_voltages[g - 1] : 0.0;
-        const Real vs = (s > 0) ? node_voltages[s - 1] : 0.0;
-
-        Real v_ctrl, v_ds;
-        compute_effective_voltages(vd, vg, vs, v_ctrl, v_ds);
-
-        const Real id = compute_drain_current(v_ctrl, v_ds);
-        const Real gm = compute_transconductance(v_ctrl, v_ds);
-        const Real gds = compute_output_conductance(v_ctrl, v_ds);
-
-        const Real i_norton = id - gm * v_ctrl - gds * v_ds;
-
-        if constexpr (Pol == MESFETPolarity::N) {
-            // N-channel: D-S conductance, gm from G-S, current D→S
-            if (d > 0 && s > 0) {
-                mna.G.add_entry(d - 1, d - 1, gds);
-                mna.G.add_entry(d - 1, s - 1, -gds);
-                mna.G.add_entry(s - 1, d - 1, -gds);
-                mna.G.add_entry(s - 1, s - 1, gds);
-            } else if (d > 0) {
-                mna.G.add_entry(d - 1, d - 1, gds);
-            } else if (s > 0) {
-                mna.G.add_entry(s - 1, s - 1, gds);
+        // Newton's linearization of the channel current, each entry on its
+        // own: a grounded terminal drops its row and column, nothing else
+        const Channel ch = channel_at(node_voltages);
+        const int cols[3] = {ch.d, ch.g, ch.s};
+        const Real derivs[3] = {ch.dd, ch.dg, ch.ds};
+        for (int k = 0; k < 3; ++k) {
+            if (cols[k] < 0) {
+                continue;
             }
-
-            if (d > 0 && g > 0 && s > 0) {
-                mna.G.add_entry(d - 1, g - 1, gm);
-                mna.G.add_entry(d - 1, s - 1, -gm);
-                mna.G.add_entry(s - 1, g - 1, -gm);
-                mna.G.add_entry(s - 1, s - 1, gm);
-            }
-
-            if (d > 0) mna.b[d - 1] -= i_norton;
-            if (s > 0) mna.b[s - 1] += i_norton;
-        } else {
-            // P-channel: S-D conductance, gm from G-S (inverted), current S→D
-            if (s > 0 && d > 0) {
-                mna.G.add_entry(s - 1, s - 1, gds);
-                mna.G.add_entry(s - 1, d - 1, -gds);
-                mna.G.add_entry(d - 1, s - 1, -gds);
-                mna.G.add_entry(d - 1, d - 1, gds);
-            } else if (s > 0) {
-                mna.G.add_entry(s - 1, s - 1, gds);
-            } else if (d > 0) {
-                mna.G.add_entry(d - 1, d - 1, gds);
-            }
-
-            if (s > 0 && g > 0 && d > 0) {
-                mna.G.add_entry(s - 1, g - 1, -gm);
-                mna.G.add_entry(s - 1, s - 1, gm);
-                mna.G.add_entry(d - 1, g - 1, gm);
-                mna.G.add_entry(d - 1, s - 1, -gm);
-            }
-
-            if (s > 0) mna.b[s - 1] -= -i_norton;
-            if (d > 0) mna.b[d - 1] -= i_norton;
+            if (ch.from >= 0) mna.G.add_entry(ch.from, cols[k], derivs[k]);
+            if (ch.to >= 0) mna.G.add_entry(ch.to, cols[k], -derivs[k]);
         }
+        if (ch.from >= 0) mna.b[ch.from] -= ch.i_eq;
+        if (ch.to >= 0) mna.b[ch.to] += ch.i_eq;
 
-        spdlog::trace("MESFET_{} {}: DC stamp: V_ctrl={:.3f}V, V_ds={:.3f}V, Id={:.3f}mA, gm={:.6f}S, gds={:.6f}S",
-                      polarity_char(), this->name(), v_ctrl, v_ds, id * 1000, gm, gds);
+        spdlog::trace("MESFET_{} {}: DC stamp: Id={:.3f}mA, dI/dVd={:.6f}S, dI/dVg={:.6f}S, dI/dVs={:.6f}S",
+                      polarity_char(), this->name(), ch.id * 1000, ch.dd, ch.dg, ch.ds);
     }
 
     void stamp_transient(MNASystem& mna,
@@ -212,101 +164,31 @@ public:
 
     void stamp_ac(ComplexMNASystem& sys, Real omega,
                   const DenseVector& dc_solution) const override {
-        const NodeId d = nodes_[0];
-        const NodeId g = nodes_[1];
-        const NodeId s = nodes_[2];
-
-        const Real vd = (d > 0) ? dc_solution[d - 1] : 0.0;
-        const Real vg = (g > 0) ? dc_solution[g - 1] : 0.0;
-        const Real vs = (s > 0) ? dc_solution[s - 1] : 0.0;
-
-        Real v_ctrl, v_ds;
-        compute_effective_voltages(vd, vg, vs, v_ctrl, v_ds);
-
-        const Real gm = compute_transconductance(v_ctrl, v_ds);
-        const Real gds = compute_output_conductance(v_ctrl, v_ds);
-
-        const Complex y_gs(0.0, omega * cgs_);
-        const Complex y_gd(0.0, omega * cgd_);
-        const Complex y_ds(0.0, omega * cds_);
-
-        if constexpr (Pol == MESFETPolarity::N) {
-            // Gate-source capacitance
-            if (g > 0 && s > 0) {
-                sys.Y.add_entry(g - 1, g - 1, y_gs);
-                sys.Y.add_entry(g - 1, s - 1, -y_gs);
-                sys.Y.add_entry(s - 1, g - 1, -y_gs);
-                sys.Y.add_entry(s - 1, s - 1, y_gs);
+        // The channel linearized at the operating point, as in the DC stamp,
+        // and the capacitances CGS, CGD and CDS, each entry on its own
+        const Channel ch = channel_at(dc_solution);
+        const int cols[3] = {ch.d, ch.g, ch.s};
+        const Real derivs[3] = {ch.dd, ch.dg, ch.ds};
+        for (int k = 0; k < 3; ++k) {
+            if (cols[k] < 0) {
+                continue;
             }
-            // Gate-drain capacitance
-            if (g > 0 && d > 0) {
-                sys.Y.add_entry(g - 1, g - 1, y_gd);
-                sys.Y.add_entry(g - 1, d - 1, -y_gd);
-                sys.Y.add_entry(d - 1, g - 1, -y_gd);
-                sys.Y.add_entry(d - 1, d - 1, y_gd);
-            }
-            // Drain-source capacitance
-            if (d > 0 && s > 0) {
-                sys.Y.add_entry(d - 1, d - 1, y_ds);
-                sys.Y.add_entry(d - 1, s - 1, -y_ds);
-                sys.Y.add_entry(s - 1, d - 1, -y_ds);
-                sys.Y.add_entry(s - 1, s - 1, y_ds);
-            }
-            // Transconductance
-            const Complex gm_c(gm, 0.0);
-            if (d > 0 && g > 0 && s > 0) {
-                sys.Y.add_entry(d - 1, g - 1, gm_c);
-                sys.Y.add_entry(d - 1, s - 1, -gm_c);
-                sys.Y.add_entry(s - 1, g - 1, -gm_c);
-                sys.Y.add_entry(s - 1, s - 1, gm_c);
-            }
-            // Output conductance
-            const Complex gds_c(gds, 0.0);
-            if (d > 0 && s > 0) {
-                sys.Y.add_entry(d - 1, d - 1, gds_c);
-                sys.Y.add_entry(d - 1, s - 1, -gds_c);
-                sys.Y.add_entry(s - 1, d - 1, -gds_c);
-                sys.Y.add_entry(s - 1, s - 1, gds_c);
-            }
-        } else {
-            // P-channel: S-G capacitance
-            if (s > 0 && g > 0) {
-                sys.Y.add_entry(s - 1, s - 1, y_gs);
-                sys.Y.add_entry(s - 1, g - 1, -y_gs);
-                sys.Y.add_entry(g - 1, s - 1, -y_gs);
-                sys.Y.add_entry(g - 1, g - 1, y_gs);
-            }
-            // D-G capacitance
-            if (d > 0 && g > 0) {
-                sys.Y.add_entry(d - 1, d - 1, y_gd);
-                sys.Y.add_entry(d - 1, g - 1, -y_gd);
-                sys.Y.add_entry(g - 1, d - 1, -y_gd);
-                sys.Y.add_entry(g - 1, g - 1, y_gd);
-            }
-            // S-D capacitance
-            if (s > 0 && d > 0) {
-                sys.Y.add_entry(s - 1, s - 1, y_ds);
-                sys.Y.add_entry(s - 1, d - 1, -y_ds);
-                sys.Y.add_entry(d - 1, s - 1, -y_ds);
-                sys.Y.add_entry(d - 1, d - 1, y_ds);
-            }
-            // Transconductance (P-channel)
-            const Complex gm_c(gm, 0.0);
-            if (s > 0 && g > 0 && d > 0) {
-                sys.Y.add_entry(s - 1, g - 1, -gm_c);
-                sys.Y.add_entry(s - 1, s - 1, gm_c);
-                sys.Y.add_entry(d - 1, g - 1, gm_c);
-                sys.Y.add_entry(d - 1, s - 1, -gm_c);
-            }
-            // Output conductance (S-D)
-            const Complex gds_c(gds, 0.0);
-            if (s > 0 && d > 0) {
-                sys.Y.add_entry(s - 1, s - 1, gds_c);
-                sys.Y.add_entry(s - 1, d - 1, -gds_c);
-                sys.Y.add_entry(d - 1, s - 1, -gds_c);
-                sys.Y.add_entry(d - 1, d - 1, gds_c);
-            }
+            if (ch.from >= 0) sys.Y.add_entry(ch.from, cols[k], Complex(derivs[k], 0.0));
+            if (ch.to >= 0) sys.Y.add_entry(ch.to, cols[k], Complex(-derivs[k], 0.0));
         }
+        auto admittance = [&](int n1, int n2, Complex y) {
+            if (n1 >= 0) sys.Y.add_entry(n1, n1, y);
+            if (n2 >= 0) sys.Y.add_entry(n2, n2, y);
+            if (n1 >= 0 && n2 >= 0) {
+                sys.Y.add_entry(n1, n2, -y);
+                sys.Y.add_entry(n2, n1, -y);
+            }
+        };
+        admittance(ch.g, ch.s, Complex(0.0, omega * cgs_));
+        admittance(ch.g, ch.d, Complex(0.0, omega * cgd_));
+        admittance(ch.d, ch.s, Complex(0.0, omega * cds_));
+        const Real gm = std::abs(ch.dg);
+        const Real gds = std::abs(ch.dd);
 
         spdlog::trace("MESFET_{} {}: AC stamp: gm={:.6f}S, gds={:.6f}S, Cgs={:.3e}F, Cgd={:.3e}F",
                       polarity_char(), this->name(), gm, gds, cgs_, cgd_);
@@ -543,6 +425,54 @@ public:
 private:
     static constexpr char polarity_char() { return (Pol == MESFETPolarity::N) ? 'N' : 'P'; }
 
+    // The channel current I = id(v_ctrl, v_ds), from the row `from` to the
+    // row `to` (drain to source for N, source to drain for P; -1 is
+    // ground), its derivatives by the voltages of drain, gate and source,
+    // and the Norton current I - dd V(d) - dg V(g) - ds V(s) of Newton's
+    // linearization. The DC, transient and AC stamps all take it from here.
+    struct Channel {
+        int from, to;
+        int d, g, s;
+        Real id;
+        Real dd, dg, ds;
+        Real i_eq;
+    };
+
+    Channel channel_at(const DenseVector& node_voltages) const {
+        auto row = [](NodeId n) { return (n > 0) ? static_cast<int>(n - 1) : -1; };
+        Channel ch;
+        ch.d = row(nodes_[0]);
+        ch.g = row(nodes_[1]);
+        ch.s = row(nodes_[2]);
+        const Real vd = (ch.d >= 0) ? node_voltages[ch.d] : 0.0;
+        const Real vg = (ch.g >= 0) ? node_voltages[ch.g] : 0.0;
+        const Real vs = (ch.s >= 0) ? node_voltages[ch.s] : 0.0;
+
+        Real v_ctrl, v_ds;
+        compute_effective_voltages(vd, vg, vs, v_ctrl, v_ds);
+        ch.id = compute_drain_current(v_ctrl, v_ds);
+        const Real gm = compute_transconductance(v_ctrl, v_ds);
+        const Real gds = compute_output_conductance(v_ctrl, v_ds);
+
+        if constexpr (Pol == MESFETPolarity::N) {
+            // v_ctrl = Vg - Vs, v_ds = Vd - Vs
+            ch.from = ch.d;
+            ch.to = ch.s;
+            ch.dd = gds;
+            ch.dg = gm;
+            ch.ds = -gm - gds;
+        } else {
+            // v_ctrl = Vs - Vg, v_ds = Vs - Vd
+            ch.from = ch.s;
+            ch.to = ch.d;
+            ch.dd = -gds;
+            ch.dg = -gm;
+            ch.ds = gm + gds;
+        }
+        ch.i_eq = ch.id - ch.dd * vd - ch.dg * vg - ch.ds * vs;
+        return ch;
+    }
+
     void compute_effective_voltages(Real vd, Real vg, Real vs, Real& v_ctrl, Real& v_ds) const {
         if constexpr (Pol == MESFETPolarity::N) {
             v_ctrl = vg - vs;  // Vgs
@@ -553,6 +483,11 @@ private:
         }
     }
 
+    // The threshold in the terms of v_ctrl: VTO for N, where v_ctrl is Vgs,
+    // and -VTO for P, where v_ctrl is Vsg and the card gives VTO in the P
+    // device's own sign (+2 V by default, the mirror of -2 V)
+    Real threshold() const { return polarity_sign * vto_; }
+
     Real compute_drain_current(Real v_ctrl, Real v_ds) const {
         return (model_ == MESFETModel::CURTICE) ?
                compute_drain_current_curtice(v_ctrl, v_ds) :
@@ -560,11 +495,11 @@ private:
     }
 
     Real compute_drain_current_curtice(Real v_ctrl, Real v_ds) const {
-        if (v_ctrl < vto_) {
+        if (v_ctrl < threshold()) {
             return 0.0;
         }
 
-        const Real vov = v_ctrl - vto_;
+        const Real vov = v_ctrl - threshold();
         const Real clm_factor = 1.0 + lambda_ * std::max(0.0, v_ds);
         const Real sat_factor = std::tanh(alpha_ * std::max(0.0, v_ds));
         const Real id = beta_ * vov * vov * clm_factor * sat_factor;
@@ -573,11 +508,11 @@ private:
     }
 
     Real compute_drain_current_statz(Real v_ctrl, Real v_ds) const {
-        if (v_ctrl < vto_) {
+        if (v_ctrl < threshold()) {
             return 0.0;
         }
 
-        const Real vov = v_ctrl - vto_;
+        const Real vov = v_ctrl - threshold();
         const Real v_ds_pos = std::max(0.0, v_ds);
         const Real clm_factor = 1.0 + lambda_ * v_ds_pos;
 

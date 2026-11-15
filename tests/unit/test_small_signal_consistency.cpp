@@ -258,3 +258,33 @@ TEST(SmallSignalConsistency, BsimGateCapacitanceUnderEachMethod) {
     expect_gate_step_follows_tau(".model m pmos level=8 tox=3e-9 vth0=-0.5 u0=0.025 vsat=8e4",
                                  "M1 0 g 0 0 m L=1u W=10u");
 }
+
+// The MESFET with its source grounded: the stamps take gm and gds whatever
+// terminal is grounded (MESFET::channel_at). The PMF stage mirrors the NMF
+// one, with VTO +2 V for -2 V.
+TEST(SmallSignalConsistency, Mesfet) {
+    const std::string params = " beta=0.01 lambda=0.05 alpha=2 cgs=0 cgd=0 cds=0";
+    const std::string n = "Z1 d g 0 NMF" + params;
+    const std::string p = "Z1 d g 0 PMF" + params;
+    expect_ac_gain_is_the_dc_slope({"N, linear region", n, "", 5.0, 200.0, 0.0});
+    expect_ac_gain_is_the_dc_slope({"N, saturation", n, "", 10.0, 200.0, -1.0});
+    expect_ac_gain_is_the_dc_slope({"P, linear region", p, "", -5.0, 200.0, 0.0});
+    expect_ac_gain_is_the_dc_slope({"P, saturation", p, "", -10.0, 200.0, 1.0});
+}
+
+// Every voltage of the PMF stage is minus that of the NMF stage, and its
+// drain voltage satisfies KCL with the channel current of the card's
+// formula (Curtice, BETA (Vgs - VTO)^2 (1 + LAMBDA Vds) tanh(ALPHA Vds))
+TEST(SmallSignalConsistency, MesfetPMirrorsN) {
+    const std::string params = " beta=0.01 lambda=0.05 alpha=2 cgs=0 cgd=0 cds=0";
+    for (const Real vg : {0.0, -1.0, -1.5}) {
+        SCOPED_TRACE(vg);
+        const Real vd_n = drain_voltage({"N", "Z1 d g 0 NMF" + params, "", 10.0, 200.0, vg}, vg);
+        const Real vd_p =
+            drain_voltage({"P", "Z1 d g 0 PMF" + params, "", -10.0, 200.0, -vg}, -vg);
+        EXPECT_NEAR(vd_p, -vd_n, 1e-9);
+        const Real vov = vg + 2.0;
+        const Real id = 0.01 * vov * vov * (1.0 + 0.05 * vd_n) * std::tanh(2.0 * vd_n);
+        EXPECT_NEAR((10.0 - vd_n) / 200.0, id, 1e-9);
+    }
+}
