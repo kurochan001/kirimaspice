@@ -180,3 +180,29 @@ TEST(BehavioralSource, TimeIsTheTransientTime) {
         }
     }
 }
+
+namespace {
+
+// V(o) at the operating point of a netlist that drives R1 from o with a B
+// source
+Real b_output(const std::string& netlist) {
+    kirimaspice::parser::NetlistParser parser;
+    auto result = parser.parse_string(netlist);
+    kirimaspice::solvers::DCSolver solver(*result.circuit, result.config);
+    DenseVector x;
+    kirimaspice::SolverStats stats;
+    EXPECT_EQ(solver.solve(x, stats), kirimaspice::ConvergenceStatus::SUCCESS);
+    return x.empty() ? 0.0 : x[result.circuit->get_node_id("o") - 1];
+}
+
+}  // namespace
+
+// V(node) reads a node by its name as every element line does: node names
+// are case-sensitive, and may hold '.' and '-' (rewrite_node_voltages);
+// ngspice-47 gives 3 V for the second netlist
+TEST(BehavioralSource, NodeNamesInVoltages) {
+    EXPECT_NEAR(b_output("t\nV1 a 0 1\nV2 A 0 3\nB1 o 0 V=V(A)-V(a)\nR1 o 0 1k\n.op\n.end\n"),
+                2.0, 1e-9);
+    EXPECT_NEAR(b_output("t\nV1 n.1 0 1\nV2 n-2 0 2\nB1 o 0 V=V(n.1)+V(n-2)\nR1 o 0 1k\n.op\n.end\n"),
+                3.0, 1e-9);
+}

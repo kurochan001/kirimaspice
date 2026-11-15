@@ -280,9 +280,17 @@ void CircuitGraph::add_current_source(const std::string& name,
                  name, np, nn, dc_value, ac_magnitude, ac_phase);
 }
 
-// Rewrite each V(node) of a B source expression as the variable V_node,
-// with V in either case, and list the nodes it names. This is the only place
-// that reads node references in B expressions.
+// The ExprTk variable of the k-th node that a B source expression names. A
+// number, not the node's name: node names are case-sensitive and may hold
+// any character, where ExprTk names are neither.
+static std::string node_voltage_variable(std::size_t k) {
+    return "node_voltage_" + std::to_string(k);
+}
+
+// Rewrite each V(node) of a B source expression, with V in either case, as
+// the variable of its node, and list the distinct nodes it names in the
+// order of the variables. This is the only place that reads node references
+// in B expressions.
 static std::string rewrite_node_voltages(const std::string& expression,
                                          std::vector<std::string>& nodes) {
     std::string out;
@@ -300,8 +308,11 @@ static std::string rewrite_node_voltages(const std::string& expression,
                 node.erase(0, node.find_first_not_of(" \t"));
                 node.erase(node.find_last_not_of(" \t") + 1);
                 if (!node.empty()) {
-                    nodes.push_back(node);
-                    out += "V_" + node;
+                    auto it = std::find(nodes.begin(), nodes.end(), node);
+                    if (it == nodes.end()) {
+                        it = nodes.insert(nodes.end(), node);
+                    }
+                    out += node_voltage_variable(static_cast<std::size_t>(it - nodes.begin()));
                     i = close + 1;
                     continue;
                 }
@@ -335,7 +346,7 @@ void CircuitGraph::add_behavioral_source(const std::string& name,
         symbol_table.add_constants();
         std::vector<Real> voltages(referenced_nodes.size(), 0.0);
         for (std::size_t i = 0; i < referenced_nodes.size(); ++i) {
-            symbol_table.add_variable("V_" + referenced_nodes[i], voltages[i]);
+            symbol_table.add_variable(node_voltage_variable(i), voltages[i]);
         }
         exprtk::expression<Real> expr;
         expr.register_symbol_table(symbol_table);
@@ -383,9 +394,7 @@ void CircuitGraph::add_behavioral_source(const std::string& name,
 
             node_voltage_values[i] = voltage;
 
-            // Register as V_<node_name> variable (e.g., V_in, V_out)
-            std::string var_name = "V_" + node_name;
-            symbol_table.add_variable(var_name, node_voltage_values[i]);
+            symbol_table.add_variable(node_voltage_variable(i), node_voltage_values[i]);
         }
 
         // TODO +: Add I(source) support (requires accessing branch currents during evaluation)
