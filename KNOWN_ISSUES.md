@@ -74,8 +74,8 @@ document also lists differences not decided there.
   `SFFM` at least `VO VA FC` (read in the code). An `SFFM` source without
   a DC value has `VO` in the operating point, where ngspice-47 gives 0 V
   (measured at `eaf0629`).
-- **The diode reads only `IS` and `N`; the bipolar transistor reads `IS`,
-  `BF`, `NF`, `ISE`, `NE`, `ISC`, `NC` and noise parameters; the level-1
+- **The diode reads only `IS` and `N`; the bipolar transistor does not read
+  `RE`, `RC`, `CJS`, `XTF`, `VTF`, `ITF`, `PTF`, `XCJC` and `FC`; the level-1
   MOSFET has no bulk terminal in its equations and no `LAMBDA`, and its
   `GAMMA` is a noise coefficient.** Other parameters on the cards of
   diodes, bipolar transistors, level 1 and BSIM4 are ignored without a
@@ -83,6 +83,13 @@ document also lists differences not decided there.
   ([Reference Manual](docs/REFERENCE_MANUAL.md#models)). Level 3 accepts
   `LAMBDA`, `RS`, `RD`, `CJ`, `CJSW` and `MJSW` without a warning and does
   not use them.
+- **The bipolar transistor is not SPICE's Gummel–Poon model, and its PNP
+  device is not the mirror of its NPN device.** With IS = 1e-15, BF = 100,
+  VAF = 50, BR = 2, IKF = 0.1, ISE = 1e-14 and NE = 1.5 at VBE = 0.7 V and
+  VCE = 2 V, the NPN device carries Ic = 5.805e-4 A where ngspice-47 gives
+  5.785e-4 A (its Early effect and high injection are not SPICE's), and the
+  PNP device at the mirrored bias 5.670e-4 A, with Ib = Ic / BF: it does
+  not use VAF or ISE (run on 2026-11-15).
 - **`S` and `Y` take a model name that is not defined before them without
   a message,** and use their defaults.
 - **`.PRINT`, `.SAVE`, `.STEP`, `.SENS`, `.MC`, `.TF`, `.PZ`, `.DISTO`,

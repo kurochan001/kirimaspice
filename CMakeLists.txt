@@ -292,6 +292,7 @@ add_library(kirimaspice_lib STATIC
     src/devices/behavioral_source.cpp
     src/devices/diode.cpp
     src/devices/bjt_base.cpp    # BJT common base class
+    src/devices/bjt_params.cpp  # BJT parameters from a card
     src/devices/bjt_npn.cpp
     src/devices/bjt_pnp.cpp
     src/devices/mosfet_level1.cpp    # Unified Level 1 template (MOSFET_N/P)

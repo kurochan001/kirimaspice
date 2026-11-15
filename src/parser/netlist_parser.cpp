@@ -4835,97 +4835,41 @@ static void parse_bjt_device(const std::vector<std::string>& tokens, const std::
     std::transform(type_or_model.begin(), type_or_model.end(), type_or_model.begin(), ::toupper);
 
     // Check if it's a model reference
-    std::string bjt_type;
-    Real is = 1e-14;      // Default
-    Real beta_f = 100.0;  // Default
-    Real n = 1.0;         // Default
-    Real kf = 0.0;        // Flicker noise coefficient
-    Real af = 1.0;        // Flicker noise current exponent
-    Real ff = 1.0;        // Flicker noise frequency exponent
-    Real ise = 0.0;       // B-E leakage saturation current
-    Real ne = 1.5;        // B-E leakage emission coefficient
-    Real isc_leak = 0.0;  // B-C leakage saturation current
-    Real nc = 2.0;        // B-C leakage emission coefficient
-
+    // The card's parameters, then the element line's (set_bjt_parameter)
+    bool pnp = false;
+    devices::BJTParams params;
     if (type_or_model == "NPN" || type_or_model == "PNP") {
-        // Direct type specification
-        bjt_type = type_or_model;
+        pnp = type_or_model == "PNP";
     } else {
-        // Model reference
         const ModelDefinition* found_model = state.config->find_model(type_or_model);
         if (found_model == nullptr) {
             throw UnresolvedDefinition(fmt::format("Undefined BJT model: {}", type_or_model), state.line_number);
         }
-
         const ModelDefinition& model = *found_model;
-
-        // Verify model type
         if (model.device_type == DeviceType::BJT_NPN) {
-            bjt_type = "NPN";
+            pnp = false;
         } else if (model.device_type == DeviceType::BJT_PNP) {
-            bjt_type = "PNP";
+            pnp = true;
         } else {
             throw ParseError(fmt::format("Model {} is not a BJT model", type_or_model), state.line_number);
         }
-
-        // Apply model parameters
-        if (model.params.count("is")) is = model.params.at("is");
-        if (model.params.count("bf")) beta_f = model.params.at("bf");
-        if (model.params.count("nf")) n = model.params.at("nf");  // NF = forward emission coefficient
-        if (model.params.count("kf")) kf = model.params.at("kf");
-        if (model.params.count("af")) af = model.params.at("af");
-        if (model.params.count("ff")) ff = model.params.at("ff");
-        if (model.params.count("ise")) ise = model.params.at("ise");
-        if (model.params.count("ne")) ne = model.params.at("ne");
-        if (model.params.count("isc")) isc_leak = model.params.at("isc");  // (note: "isc" in model -> isc_leak in code)
-        if (model.params.count("nc")) nc = model.params.at("nc");
+        params = devices::bjt_params_from_model(model.params);
     }
 
-    // Parse optional parameters
     for (size_t i = 5; i < tokens.size(); ++i) {
         std::string param = tokens[i];
         std::transform(param.begin(), param.end(), param.begin(), ::tolower);
-
-        size_t eq_pos = param.find('=');
+        const size_t eq_pos = param.find('=');
         if (eq_pos != std::string::npos) {
-            std::string key = param.substr(0, eq_pos);
-            std::string value_str = param.substr(eq_pos + 1);
-
-            const Real value = read_element_value(value_str, state);
-
-            if (key == "is") {
-                is = value;
-            } else if (key == "bf" || key == "beta_f") {
-                beta_f = value;
-            } else if (key == "n") {
-                n = value;
-            } else if (key == "kf") {
-                kf = value;
-            } else if (key == "af") {
-                af = value;
-            } else if (key == "ff") {
-                ff = value;
-            } else if (key == "ise") {
-                ise = value;
-            } else if (key == "ne") {
-                ne = value;
-            } else if (key == "isc") {
-                isc_leak = value;  // (note: "isc" in netlist -> isc_leak in code)
-            } else if (key == "nc") {
-                nc = value;
-            }
+            devices::set_bjt_parameter(params, param.substr(0, eq_pos),
+                                       read_element_value(param.substr(eq_pos + 1), state));
         }
     }
 
-    if (bjt_type == "NPN") {
-        state.circuit->add_bjt_npn(dev_name, collector, base, emitter, is, beta_f, n, kf, af, ff, ise, ne, isc_leak, nc);
-        spdlog::debug("Added BJT_NPN: {} C={} B={} E={} Is={:.3e}A βF={:.1f} N={:.3f} ISE={:.3e}A NE={:.2f} ISC={:.3e}A NC={:.2f}",
-                     dev_name, collector, base, emitter, is, beta_f, n, ise, ne, isc_leak, nc);
-    } else {
-        state.circuit->add_bjt_pnp(dev_name, collector, base, emitter, is, beta_f, n, kf, af, ff, ise, ne, isc_leak, nc);
-        spdlog::debug("Added BJT_PNP: {} C={} B={} E={} Is={:.3e}A βF={:.1f} N={:.3f} ISE={:.3e}A NE={:.2f} ISC={:.3e}A NC={:.2f}",
-                     dev_name, collector, base, emitter, is, beta_f, n, ise, ne, isc_leak, nc);
-    }
+    state.circuit->add_bjt(dev_name, collector, base, emitter, pnp, params);
+    spdlog::debug("Added BJT_{}: {} C={} B={} E={} Is={:.3e}A BF={:.1f} VAF={:.3g} IKF={:.3g}",
+                  pnp ? "PNP" : "NPN", dev_name, collector, base, emitter, params.is,
+                  params.beta_f, params.vaf, params.ikf);
 }
 
 // Gives a device the parameters of its card or element line by name

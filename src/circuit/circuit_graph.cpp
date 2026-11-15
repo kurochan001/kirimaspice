@@ -477,6 +477,34 @@ void CircuitGraph::add_diode(const std::string& name,
     spdlog::debug("Added diode: {} {} {} Is={:.3e}A N={:.3f}", name, anode, cathode, is, n);
 }
 
+void CircuitGraph::add_bjt(const std::string& name, const std::string& collector,
+                           const std::string& base, const std::string& emitter, bool pnp,
+                           const devices::BJTParams& p) {
+    const NodeId collector_id = add_node(collector);
+    const NodeId base_id = add_node(base);
+    const NodeId emitter_id = add_node(emitter);
+    const DeviceId id = next_device_id_++;
+    std::shared_ptr<devices::Device> bjt;
+    if (pnp) {
+        bjt = std::make_shared<devices::BJT_PNP>(
+            id, name, collector_id, base_id, emitter_id, p.is, p.beta_f, p.nf, p.isc, p.beta_r,
+            p.nr, p.vaf, p.var, p.ikf, p.ikr, p.rb, p.rbm, p.irb, p.ise, p.ne, p.isc_leak, p.nc,
+            p.cje, p.vje, p.mje, p.cjc, p.vjc, p.mjc, p.tf, p.tr, p.kf, p.af, p.ff, p.xti, p.xtb,
+            p.eg, p.tnom);
+    } else {
+        bjt = std::make_shared<devices::BJT_NPN>(
+            id, name, collector_id, base_id, emitter_id, p.is, p.beta_f, p.nf, p.isc, p.beta_r,
+            p.nr, p.vaf, p.var, p.ikf, p.ikr, p.rb, p.rbm, p.irb, p.ise, p.ne, p.isc_leak, p.nc,
+            p.cje, p.vje, p.mje, p.cjc, p.vjc, p.mjc, p.tf, p.tr, p.kf, p.af, p.ff, p.xti, p.xtb,
+            p.eg, p.tnom);
+    }
+    register_device(name, bjt);
+    auto [edge, success] = boost::add_edge(collector_id, emitter_id, graph_);
+    if (success) {
+        graph_[edge].device_id = id;
+    }
+}
+
 void CircuitGraph::add_bjt_npn(const std::string& name,
                                const std::string& collector,
                                const std::string& base,

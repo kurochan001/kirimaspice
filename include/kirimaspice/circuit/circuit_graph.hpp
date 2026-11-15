@@ -9,6 +9,7 @@
 #include "kirimaspice/devices/mosfet_bsim1_params.hpp"
 #include "kirimaspice/devices/mosfet_bsim3_params.hpp"
 #include "kirimaspice/devices/mosfet_bsim4_params.hpp"
+#include "kirimaspice/devices/bjt_params.hpp"
 #include "kirimaspice/devices/waveform.hpp"
 #include "kirimaspice/devices/igbt.hpp"
 #include <boost/graph/adjacency_list.hpp>
@@ -244,6 +245,12 @@ public:
     /// @param ne B-E leakage emission coefficient (default: 1.5)
     /// @param isc_leak B-C leakage saturation current [A] (default: 0.0)
     /// @param nc B-C leakage emission coefficient (default: 2.0)
+    /// Add a bipolar transistor with all its parameters (BJTParams); the
+    /// parser adds every BJT through this
+    void add_bjt(const std::string& name, const std::string& collector,
+                 const std::string& base, const std::string& emitter, bool pnp,
+                 const devices::BJTParams& params);
+
     void add_bjt_npn(const std::string& name,
                      const std::string& collector,
                      const std::string& base,
