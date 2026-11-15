@@ -9,7 +9,10 @@
 
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
+#include <fstream>
 #include <memory>
+#include <random>
 #include <string>
 #include <vector>
 
@@ -38,6 +41,37 @@ template <typename T>
 std::shared_ptr<T> device_as(const parser::NetlistParseResult& parsed, const std::string& name) {
     return std::dynamic_pointer_cast<T>(parsed.circuit->get_device(name));
 }
+
+// A new directory of its own under the system's temporary directory, removed
+// with everything in it at the end of the test
+class TemporaryDirectory {
+public:
+    TemporaryDirectory() {
+        std::random_device random;
+        for (;;) {
+            path_ = std::filesystem::temp_directory_path() /
+                    ("kirimaspice-netlist-lines-" + std::to_string(random()));
+            if (std::filesystem::create_directory(path_)) {
+                break;
+            }
+        }
+    }
+    ~TemporaryDirectory() {
+        std::error_code ignored;
+        std::filesystem::remove_all(path_, ignored);
+    }
+    TemporaryDirectory(const TemporaryDirectory&) = delete;
+    TemporaryDirectory& operator=(const TemporaryDirectory&) = delete;
+
+    std::filesystem::path write(const std::string& name, const std::string& text) const {
+        const auto file = path_ / name;
+        std::ofstream(file) << text;
+        return file;
+    }
+
+private:
+    std::filesystem::path path_;
+};
 
 }  // namespace
 
@@ -133,5 +167,37 @@ TEST(NetlistLines, ModelParameterSpacing) {
         ASSERT_NE(m1, nullptr) << vto;
         EXPECT_DOUBLE_EQ(m1->threshold_voltage(), 0.3) << vto;
         EXPECT_DOUBLE_EQ(m1->process_transconductance(), 1e-4) << vto;
+    }
+}
+
+// A .LIB section may insert another section of the same file; only a section
+// that is already being inserted is circular (preprocess_lib_sections).
+// ngspice-47 reads the first netlist so and draws 0.5 mA from V1.
+TEST(NetlistLines, LibrarySectionFromTheSameFile) {
+    const TemporaryDirectory directory;
+    directory.write("corners.lib",
+                    "* corners\n.lib tt\n.param rval=2k\n.lib 'corners.lib' common\n.endl tt\n"
+                    ".lib common\nR1 in 0 {rval}\n.endl common\n");
+    const auto netlist =
+        directory.write("top.cir", "t\n.lib 'corners.lib' tt\nV1 in 0 1\n.op\n.end\n");
+    parser::NetlistParser parser;
+    const auto parsed = parser.parse_file(netlist.string());
+    ASSERT_NE(parsed.circuit, nullptr);
+    const auto r1 = device_as<devices::Resistor>(parsed, "R1");
+    ASSERT_NE(r1, nullptr);
+    EXPECT_DOUBLE_EQ(r1->resistance(), 2e3);
+}
+
+TEST(NetlistLines, LibrarySectionThatInsertsItself) {
+    const TemporaryDirectory directory;
+    directory.write("self.lib", "* self\n.lib tt\nR1 in 0 1k\n.lib 'self.lib' tt\n.endl tt\n");
+    const auto netlist =
+        directory.write("top.cir", "t\n.lib 'self.lib' tt\nV1 in 0 1\n.op\n.end\n");
+    parser::NetlistParser parser;
+    try {
+        parser.parse_file(netlist.string());
+        ADD_FAILURE() << "no error";
+    } catch (const std::exception& e) {
+        EXPECT_NE(std::string(e.what()).find("Circular"), std::string::npos) << e.what();
     }
 }

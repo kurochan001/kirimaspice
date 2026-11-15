@@ -1602,11 +1602,16 @@ static std::string extract_lib_section(
     return output.str();
 }
 
+/// The library sections being inserted, each a file and the upper-case name
+/// of its section ("" for a whole file). A section that is already being
+/// inserted would never end; another section of the same file is fine.
+using LibraryChain = std::set<std::pair<std::filesystem::path, std::string>>;
+
 /// Preprocess .LIB directives with optional section selection
 static std::string preprocess_lib_sections(
     const std::string& content,
     const std::filesystem::path& base_path,
-    std::set<std::filesystem::path>& included_files,
+    LibraryChain& inserting,
     int depth = 0)
 {
     // Depth limit: 10 levels max (ngspice-compatible)
@@ -1708,10 +1713,18 @@ static std::string preprocess_lib_sections(
                         line_number);
                 }
 
-                // Check for circular includes
-                if (included_files.count(canonical_path)) {
+                // Check for circular includes: the same section of the same file
+                std::string section_upper = section_name;
+                std::transform(section_upper.begin(), section_upper.end(), section_upper.begin(),
+                               [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+                const auto key = std::make_pair(canonical_path, section_upper);
+                if (inserting.count(key)) {
                     throw ParseError(
-                        fmt::format("Circular library include detected: '{}'", canonical_path.string()),
+                        section_name.empty()
+                            ? fmt::format("Circular library include detected: '{}'",
+                                          canonical_path.string())
+                            : fmt::format("Circular library include detected: section '{}' of '{}'",
+                                          section_name, canonical_path.string()),
                         line_number);
                 }
 
@@ -1759,18 +1772,16 @@ static std::string preprocess_lib_sections(
                                 canonical_path.string(), depth);
                 }
 
-                // Add to included files set
-                included_files.insert(canonical_path);
-
-                // Recursively preprocess library file
+                // Recursively preprocess library file, with this section on
+                // the chain while it is inserted (it may be inserted again in
+                // a different branch)
+                inserting.insert(key);
                 std::string processed_content = preprocess_lib_sections(
                     file_content,
                     canonical_path.parent_path(),
-                    included_files,
+                    inserting,
                     depth + 1);
-
-                // Remove from set after processing (allow re-inclusion in different branches)
-                included_files.erase(canonical_path);
+                inserting.erase(key);
 
                 // Output processed content
                 output << processed_content;
@@ -6381,8 +6392,8 @@ NetlistParser::parse_file(
     std::string after_includes = preprocess_includes(buffer.str(), base_path, included_files);
 
     // Preprocess .LIB directives
-    included_files.clear();  // Reset for .LIB processing
-    std::string after_lib = preprocess_lib_sections(after_includes, base_path, included_files);
+    LibraryChain library_chain;
+    std::string after_lib = preprocess_lib_sections(after_includes, base_path, library_chain);
 
     // Preprocess continuation lines
     std::string preprocessed = preprocess_continuations(after_lib);
@@ -6398,8 +6409,8 @@ NetlistParser::parse_string(
 ) {
     // Preprocess .LIB directives
     std::filesystem::path base_path = std::filesystem::current_path();
-    std::set<std::filesystem::path> included_files;
-    std::string after_lib = preprocess_lib_sections(netlist, base_path, included_files);
+    LibraryChain library_chain;
+    std::string after_lib = preprocess_lib_sections(netlist, base_path, library_chain);
 
     // Preprocess continuation lines
     std::string preprocessed = preprocess_continuations(after_lib);
@@ -6428,8 +6439,8 @@ NetlistParser::parse_file_legacy(const std::string& filepath) {
     std::string after_includes = preprocess_includes(buffer.str(), base_path, included_files);
 
     // Preprocess .LIB directives
-    included_files.clear();  // Reset for .LIB processing
-    std::string after_lib = preprocess_lib_sections(after_includes, base_path, included_files);
+    LibraryChain library_chain;
+    std::string after_lib = preprocess_lib_sections(after_includes, base_path, library_chain);
 
     // Preprocess continuation lines
     std::string preprocessed = preprocess_continuations(after_lib);
@@ -6442,8 +6453,8 @@ std::unique_ptr<circuit::CircuitGraph>
 NetlistParser::parse_string_legacy(const std::string& netlist) {
     // Preprocess .LIB directives
     std::filesystem::path base_path = std::filesystem::current_path();
-    std::set<std::filesystem::path> included_files;
-    std::string after_lib = preprocess_lib_sections(netlist, base_path, included_files);
+    LibraryChain library_chain;
+    std::string after_lib = preprocess_lib_sections(netlist, base_path, library_chain);
 
     // Preprocess continuation lines
     std::string preprocessed = preprocess_continuations(after_lib);
