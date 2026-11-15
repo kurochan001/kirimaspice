@@ -94,11 +94,12 @@ void MOSFET_SiC<P>::set_temperature(Real temp_kelvin) {
 }
 
 template<Polarity P>
-Real MOSFET_SiC<P>::compute_temperature_scaled_vth(Real vbs) const {
-    // Temperature scaling for threshold voltage (SiC-specific)
-    // VTO(T) = VTO(Tnom) + KT1×(T-Tnom) + KT2×(T-Tnom)²
-    Real temp_diff = temperature_ - tnom_;
-    return vth_ + kt1_ * temp_diff + kt2_ * temp_diff * temp_diff;
+Real MOSFET_SiC<P>::compute_temperature_scaled_vth() const {
+    // VTO(T) = VTO(Tnom) + KT1×(T-Tnom) + KT2×(T-Tnom)², of the effective
+    // device: |VTO| for P-channel, so KT1 and KT2 move |VTO| for both
+    const Real vto = (P == Polarity::N) ? vth_ : std::abs(vth_);
+    const Real temp_diff = temperature_ - tnom_;
+    return vto + kt1_ * temp_diff + kt2_ * temp_diff * temp_diff;
 }
 
 template<Polarity P>

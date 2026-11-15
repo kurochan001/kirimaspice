@@ -91,3 +91,21 @@ TEST(NetlistTemperatures, TnomOnAnElementLineIsInCelsius) {
         EXPECT_DOUBLE_EQ(*tnom, 300.15) << name;
     }
 }
+
+// The SiC MOSFET's threshold follows VTO(T) = VTO + KT1 (T - TNOM) +
+// KT2 (T - TNOM)^2, for the P-channel device on |VTO|: with KP = 1 mA/V^2,
+// W = L, VTO = 2 V (-2 V for P), KT1 = -5 mV/K and KT2 = 1e-5 V/K^2, at 127 C
+// the threshold is 2 - 0.5 + 0.1 = 1.6 V, and at VGS = 4 V, VDS = 1 V the
+// linear-region current is KP ((VGS - Vth) VDS - VDS^2 / 2) = 1.9 mA.
+TEST(NetlistTemperatures, SicThresholdFollowsKt1AndKt2) {
+    for (const char* type : {"nmos", "pmos"}) {
+        const bool n = std::string(type) == "nmos";
+        const std::string card = std::string(".model m ") + type +
+                                 " level=10 kp=1e-3 vto=" + (n ? "2" : "-2") +
+                                 " theta=0 rdrift=0 w=1 l=1 kt1=-5e-3 kt2=1e-5 ute=0\n";
+        const Real sign = n ? 1.0 : -1.0;
+        const Real i_vd =
+            drain_current("M1 d g 0 m\n" + card + "{t}", "", sign * 1.0, sign * 4.0, 127.0);
+        EXPECT_NEAR(-sign * i_vd, 1e-3 * ((4.0 - 1.6) * 1.0 - 0.5), 1e-9) << type;
+    }
+}

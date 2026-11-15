@@ -197,14 +197,11 @@ public:
     DrainCurrent drain_current(Real v_gs_eff, Real v_ds_eff) const;
 
 protected:
-    /// Get effective threshold voltage (|Vth| for P-channel)
-    Real get_effective_threshold() const {
-        if constexpr (Traits::use_abs_threshold) {
-            return std::abs(vth_);
-        } else {
-            return vth_;
-        }
-    }
+    /// The threshold of the effective device at the device's temperature:
+    /// VTO(T) = VTO + KT1 (T - TNOM) + KT2 (T - TNOM)^2, with |VTO| for the
+    /// P-channel device, which is the mirror of the N-channel device of the
+    /// same card values (compute_temperature_scaled_vth)
+    Real get_effective_threshold() const { return compute_temperature_scaled_vth(); }
 
     /// Convert terminal voltages to effective Vgs and Vds
     /// For N-channel: vgs = vg - vs, vds = vd - vs
@@ -222,7 +219,7 @@ protected:
 
 private:
     void stamp_gmin(MNASystem& mna) const;
-    Real compute_temperature_scaled_vth(Real vbs = 0.0) const;
+    Real compute_temperature_scaled_vth() const;
     Real compute_temperature_scaled_kp() const;
     Real compute_temperature_scaled_rdrift() const;
 
