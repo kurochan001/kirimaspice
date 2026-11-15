@@ -80,6 +80,14 @@ private:
     mutable Real current_time_ = 0.0;
     mutable Real current_time_saved_ = 0.0;
     mutable Real last_timestep_ = 0.0;
+    /// The filtered delayed port voltages after a step of timestep ending at
+    /// time: a1/b1 after the first pole, a2/b2 after the second, a/b the
+    /// ones the line uses
+    struct FilteredWaves {
+        Real a = 0.0, b = 0.0, a1 = 0.0, b1 = 0.0, a2 = 0.0, b2 = 0.0;
+    };
+    FilteredWaves filtered_waves(Real time, Real timestep) const;
+
     mutable Real filt_a_ = 0.0;   // 1st-pole filtered delayed V_a
     mutable Real filt_b_ = 0.0;   // 1st-pole filtered delayed V_b
     mutable Real filt_a2_ = 0.0;  // 2nd-pole state (optional)

@@ -132,41 +132,12 @@ void TLineLossy::stamp_transient(MNASystem& mna,
 
     last_timestep_ = timestep;
 
-    Real next_time = current_time_ + timestep;
-    Real v_a_delayed, v_b_delayed, i_a_delayed, i_b_delayed;
-    get_delayed_signals(next_time, v_a_delayed, v_b_delayed, i_a_delayed, i_b_delayed);
-
-    // Apply attenuation for one-way propagation over TD
-    Real atten = std::exp(-alpha_ * td_);
-    v_a_delayed *= atten;
-    v_b_delayed *= atten;
-    i_a_delayed *= atten;
-    i_b_delayed *= atten;
-
-    // Low-pass smoothing to emulate frequency-dependent loss
-    Real v_a_eff = v_a_delayed;
-    Real v_b_eff = v_b_delayed;
-    if (tau_filter_ > 0.0) {
-        Real alpha_f = timestep / (tau_filter_ + timestep);
-        // 1st pole
-        filt_a_ = filt_a_ + alpha_f * (v_a_delayed - filt_a_);
-        filt_b_ = filt_b_ + alpha_f * (v_b_delayed - filt_b_);
-        if (use_iir_filter_) {
-            // 2nd pole (same cutoff) for steeper roll-off when enabled
-            filt_a2_ = filt_a2_ + alpha_f * (filt_a_ - filt_a2_);
-            filt_b2_ = filt_b2_ + alpha_f * (filt_b_ - filt_b2_);
-            v_a_eff = filt_a2_;
-            v_b_eff = filt_b2_;
-        } else {
-            v_a_eff = filt_a_;
-            v_b_eff = filt_b_;
-        }
-    } else {
-        filt_a_ = v_a_eff;
-        filt_b_ = v_b_eff;
-        filt_a2_ = v_a_eff;
-        filt_b2_ = v_b_eff;
-    }
+    // The delayed, attenuated and filtered port voltages at the end of this
+    // step, from the state accepted at its start; the stamp does not change
+    // that state (accept_solution advances it once per accepted step)
+    const FilteredWaves waves = filtered_waves(current_time_ + timestep, timestep);
+    const Real v_a_eff = waves.a;
+    const Real v_b_eff = waves.b;
 
     const NodeId ap = nodes_[0];
     const NodeId an = nodes_[1];
@@ -202,6 +173,33 @@ void TLineLossy::stamp_transient(MNASystem& mna,
     Real i_b_hist = g0_ * v_a_eff;
     if (bp_idx >= 0) mna.b[bp_idx] += i_b_hist;
     if (bn_idx >= 0) mna.b[bn_idx] -= i_b_hist;
+}
+
+TLineLossy::FilteredWaves TLineLossy::filtered_waves(Real time, Real timestep) const {
+    Real v_a_delayed, v_b_delayed, i_a_delayed, i_b_delayed;
+    get_delayed_signals(time, v_a_delayed, v_b_delayed, i_a_delayed, i_b_delayed);
+
+    // Attenuation for one-way propagation over TD
+    const Real atten = std::exp(-alpha_ * td_);
+    v_a_delayed *= atten;
+    v_b_delayed *= atten;
+
+    // Low-pass smoothing to emulate frequency-dependent loss: one pole, or
+    // two of the same cutoff when the IIR filter is on
+    FilteredWaves w;
+    if (tau_filter_ > 0.0) {
+        const Real alpha_f = timestep / (tau_filter_ + timestep);
+        w.a1 = filt_a_ + alpha_f * (v_a_delayed - filt_a_);
+        w.b1 = filt_b_ + alpha_f * (v_b_delayed - filt_b_);
+        w.a2 = filt_a2_ + alpha_f * (w.a1 - filt_a2_);
+        w.b2 = filt_b2_ + alpha_f * (w.b1 - filt_b2_);
+        w.a = use_iir_filter_ ? w.a2 : w.a1;
+        w.b = use_iir_filter_ ? w.b2 : w.b1;
+    } else {
+        w.a = w.a1 = w.a2 = v_a_delayed;
+        w.b = w.b1 = w.b2 = v_b_delayed;
+    }
+    return w;
 }
 
 void TLineLossy::save_state() {
@@ -244,23 +242,16 @@ void TLineLossy::accept_solution(const DenseVector& node_voltages) {
     Real v_a = val(ap) - val(an);
     Real v_b = val(bp) - val(bn);
 
-    Real v_a_delayed, v_b_delayed, i_a_delayed, i_b_delayed;
-    get_delayed_signals(current_time_, v_a_delayed, v_b_delayed, i_a_delayed, i_b_delayed);
-    Real atten = std::exp(-alpha_ * td_);
-    v_a_delayed *= atten;
-    v_b_delayed *= atten;
+    // The filter state at the end of the accepted step, as the stamp of
+    // that step computed it
+    const FilteredWaves waves = filtered_waves(current_time_, last_timestep_);
+    filt_a_ = waves.a1;
+    filt_b_ = waves.b1;
+    filt_a2_ = waves.a2;
+    filt_b2_ = waves.b2;
 
-    if (tau_filter_ > 0.0) {
-        Real alpha_f = last_timestep_ / (tau_filter_ + last_timestep_);
-        filt_a_ = filt_a_ + alpha_f * (v_a_delayed - filt_a_);
-        filt_b_ = filt_b_ + alpha_f * (v_b_delayed - filt_b_);
-    } else {
-        filt_a_ = v_a_delayed;
-        filt_b_ = v_b_delayed;
-    }
-
-    Real i_a = g0_ * (v_a - filt_b_);
-    Real i_b = g0_ * (v_b - filt_a_);
+    Real i_a = g0_ * (v_a - waves.b);
+    Real i_b = g0_ * (v_b - waves.a);
 
     HistoryPoint p{current_time_, v_a, v_b, i_a, i_b};
     history_.push_back(p);
