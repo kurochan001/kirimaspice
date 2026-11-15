@@ -4035,13 +4035,7 @@ static void parse_subckt_directive(const std::vector<std::string>& tokens, Parse
             std::string param_name = token.substr(0, eq_pos);
             std::string param_value_str = token.substr(eq_pos + 1);
 
-            Real param_value;
-            if (!param_value_str.empty() && param_value_str[0] == '{') {
-                std::string expr = param_value_str.substr(1, param_value_str.size() - 2);
-                param_value = state.evaluator->evaluate(expr);
-            } else {
-                param_value = parse_value_with_unit(param_value_str);
-            }
+            const Real param_value = read_element_value(param_value_str, state);
 
             // Convert param name to upper case (SPICE convention)
             std::transform(param_name.begin(), param_name.end(), param_name.begin(), ::toupper);
@@ -4098,13 +4092,7 @@ static void parse_resistor_device(const std::vector<std::string>& tokens, const 
     std::string nn = tokens[2];
     std::string value_str = tokens[3];
 
-    Real value;
-    if (value_str[0] == '{') {
-        std::string expr = value_str.substr(1, value_str.size() - 2);
-        value = state.evaluator->evaluate(expr);
-    } else {
-        value = parse_value_with_unit(value_str);
-    }
+    const Real value = read_element_value(value_str, state);
 
     state.circuit->add_resistor(dev_name, np, nn, value);
     spdlog::debug("Added resistor: {} {} {} {}Ω", dev_name, np, nn, value);
@@ -4177,13 +4165,7 @@ static void parse_capacitor_device(const std::vector<std::string>& tokens, const
     std::string nn = tokens[2];
     std::string value_str = tokens[3];
 
-    Real value;
-    if (value_str[0] == '{') {
-        std::string expr = value_str.substr(1, value_str.size() - 2);
-        value = state.evaluator->evaluate(expr);
-    } else {
-        value = parse_value_with_unit(value_str);
-    }
+    const Real value = read_element_value(value_str, state);
 
     state.circuit->add_capacitor(dev_name, np, nn, value);
     spdlog::debug("Added capacitor: {} {} {} {}F", dev_name, np, nn, value);
@@ -4197,13 +4179,7 @@ static void parse_inductor_device(const std::vector<std::string>& tokens, const 
     std::string nn = tokens[2];
     std::string value_str = tokens[3];
 
-    Real value;
-    if (value_str[0] == '{') {
-        std::string expr = value_str.substr(1, value_str.size() - 2);
-        value = state.evaluator->evaluate(expr);
-    } else {
-        value = parse_value_with_unit(value_str);
-    }
+    const Real value = read_element_value(value_str, state);
 
     state.circuit->add_inductor(dev_name, np, nn, value);
     spdlog::debug("Added inductor: {} {} {} {}H", dev_name, np, nn, value);
@@ -4476,13 +4452,7 @@ static void parse_diode_device(const std::vector<std::string>& tokens, const std
             std::string key = param.substr(0, eq_pos);
             std::string value_str = param.substr(eq_pos + 1);
 
-            Real value;
-            if (value_str[0] == '{') {
-                std::string expr = value_str.substr(1, value_str.size() - 2);
-                value = state.evaluator->evaluate(expr);
-            } else {
-                value = parse_value_with_unit(value_str);
-            }
+            const Real value = read_element_value(value_str, state);
 
             if (key == "is") {
                 is = value;
@@ -4564,13 +4534,7 @@ static void parse_scr_device(const std::vector<std::string>& tokens, const std::
             std::string key = param.substr(0, eq_pos);
             std::string value_str = param.substr(eq_pos + 1);
 
-            Real value;
-            if (value_str[0] == '{') {
-                std::string expr = value_str.substr(1, value_str.size() - 2);
-                value = state.evaluator->evaluate(expr);
-            } else {
-                value = parse_value_with_unit(value_str);
-            }
+            const Real value = read_element_value(value_str, state);
 
             if (key == "vbf") {
                 vbf = value;
@@ -4668,13 +4632,7 @@ static void parse_triac_device(const std::vector<std::string>& tokens, const std
             std::string key = param.substr(0, eq_pos);
             std::string value_str = param.substr(eq_pos + 1);
 
-            Real value;
-            if (value_str[0] == '{') {
-                std::string expr = value_str.substr(1, value_str.size() - 2);
-                value = state.evaluator->evaluate(expr);
-            } else {
-                value = parse_value_with_unit(value_str);
-            }
+            const Real value = read_element_value(value_str, state);
 
             if (key == "vbo") {
                 vbo = value;
@@ -4806,13 +4764,7 @@ static void parse_mesfet_device(const std::vector<std::string>& tokens, const st
             std::string key = param.substr(0, eq_pos);
             std::string value_str = param.substr(eq_pos + 1);
 
-            Real value;
-            if (value_str[0] == '{') {
-                std::string expr = value_str.substr(1, value_str.size() - 2);
-                value = state.evaluator->evaluate(expr);
-            } else {
-                value = parse_value_with_unit(value_str);
-            }
+            const Real value = read_element_value(value_str, state);
 
             if (key == "level" || key == "model") {
                 model = static_cast<int>(value);
@@ -4930,13 +4882,7 @@ static void parse_bjt_device(const std::vector<std::string>& tokens, const std::
             std::string key = param.substr(0, eq_pos);
             std::string value_str = param.substr(eq_pos + 1);
 
-            Real value;
-            if (value_str[0] == '{') {
-                std::string expr = value_str.substr(1, value_str.size() - 2);
-                value = state.evaluator->evaluate(expr);
-            } else {
-                value = parse_value_with_unit(value_str);
-            }
+            const Real value = read_element_value(value_str, state);
 
             if (key == "is") {
                 is = value;
@@ -5184,13 +5130,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
             std::string key = param.substr(0, eq_pos);
             std::string value_str = param.substr(eq_pos + 1);
 
-            Real value;
-            if (value_str[0] == '{') {
-                std::string expr = value_str.substr(1, value_str.size() - 2);
-                value = state.evaluator->evaluate(expr);
-            } else {
-                value = parse_value_with_unit(value_str);
-            }
+            const Real value = read_element_value(value_str, state);
             instance_params[key] = value;
 
             if (key == "kp") {
@@ -5707,13 +5647,7 @@ static void parse_vcvs_device(const std::vector<std::string>& tokens, const std:
     std::string ncn = tokens[4];
     std::string gain_str = tokens[5];
 
-    Real gain;
-    if (gain_str[0] == '{') {
-        std::string expr = gain_str.substr(1, gain_str.size() - 2);
-        gain = state.evaluator->evaluate(expr);
-    } else {
-        gain = parse_value_with_unit(gain_str);
-    }
+    const Real gain = read_element_value(gain_str, state);
 
     state.circuit->add_vcvs(dev_name, np, nn, ncp, ncn, gain);
     spdlog::debug("Added VCVS: {} np={} nn={} ncp={} ncn={} gain={}",
@@ -5736,13 +5670,7 @@ static void parse_cccs_device(const std::vector<std::string>& tokens, const std:
         throw ParseError("CCCS control must reference a voltage source (V<name>)", state.line_number);
     }
 
-    Real gain;
-    if (gain_str[0] == '{') {
-        std::string expr = gain_str.substr(1, gain_str.size() - 2);
-        gain = state.evaluator->evaluate(expr);
-    } else {
-        gain = parse_value_with_unit(gain_str);
-    }
+    const Real gain = read_element_value(gain_str, state);
 
     state.circuit->add_cccs(dev_name, np, nn, control_vsource, gain);
     spdlog::debug("Added CCCS: {} np={} nn={} control={} gain={}",
@@ -5761,13 +5689,7 @@ static void parse_vccs_device(const std::vector<std::string>& tokens, const std:
     std::string ncn = tokens[4];
     std::string gm_str = tokens[5];
 
-    Real transconductance;
-    if (gm_str[0] == '{') {
-        std::string expr = gm_str.substr(1, gm_str.size() - 2);
-        transconductance = state.evaluator->evaluate(expr);
-    } else {
-        transconductance = parse_value_with_unit(gm_str);
-    }
+    const Real transconductance = read_element_value(gm_str, state);
 
     state.circuit->add_vccs(dev_name, np, nn, ncp, ncn, transconductance);
     spdlog::debug("Added VCCS: {} np={} nn={} ncp={} ncn={} Gm={}S",
@@ -5790,13 +5712,7 @@ static void parse_ccvs_device(const std::vector<std::string>& tokens, const std:
         throw ParseError("CCVS control must reference a voltage source (V<name>)", state.line_number);
     }
 
-    Real transresistance;
-    if (h_str[0] == '{') {
-        std::string expr = h_str.substr(1, h_str.size() - 2);
-        transresistance = state.evaluator->evaluate(expr);
-    } else {
-        transresistance = parse_value_with_unit(h_str);
-    }
+    const Real transresistance = read_element_value(h_str, state);
 
     state.circuit->add_ccvs(dev_name, np, nn, control_vsource, transresistance);
     spdlog::debug("Added CCVS: {} np={} nn={} control={} H={}Ω",
@@ -5820,13 +5736,7 @@ static void parse_mutual_inductance_device(const std::vector<std::string>& token
         throw ParseError("Mutual inductance second inductor must reference an inductor (L<name>)", state.line_number);
     }
 
-    Real coupling_coefficient;
-    if (k_str[0] == '{') {
-        std::string expr = k_str.substr(1, k_str.size() - 2);
-        coupling_coefficient = state.evaluator->evaluate(expr);
-    } else {
-        coupling_coefficient = parse_value_with_unit(k_str);
-    }
+    const Real coupling_coefficient = read_element_value(k_str, state);
 
     // Validate coupling coefficient range
     if (coupling_coefficient < 0.0 || coupling_coefficient > 1.0) {
@@ -5872,20 +5782,10 @@ static void parse_tline_device(const std::vector<std::string>& tokens, const std
         std::string param_value = token.substr(eq_pos + 1); // Use original token for value (preserve case)
 
         if (param_name == "Z0" || param_name == "ZO") {
-            if (!param_value.empty() && param_value[0] == '{') {
-                std::string expr = param_value.substr(1, param_value.size() - 2);
-                z0 = state.evaluator->evaluate(expr);
-            } else {
-                z0 = parse_value_with_unit(param_value);
-            }
+            z0 = read_element_value(param_value, state);
             has_z0 = true;
         } else if (param_name == "TD") {
-            if (!param_value.empty() && param_value[0] == '{') {
-                std::string expr = param_value.substr(1, param_value.size() - 2);
-                td = state.evaluator->evaluate(expr);
-            } else {
-                td = parse_value_with_unit(param_value);
-            }
+            td = read_element_value(param_value, state);
             has_td = true;
         }
     }
@@ -5976,13 +5876,7 @@ static void parse_subcircuit_instance_device(const std::vector<std::string>& tok
 
     std::map<std::string, Real> instance_params;
     for (const auto& [param_name, param_value_str] : parts.assignments) {
-        Real param_value;
-        if (!param_value_str.empty() && param_value_str[0] == '{') {
-            std::string expr = param_value_str.substr(1, param_value_str.size() - 2);
-            param_value = state.evaluator->evaluate(expr);
-        } else {
-            param_value = parse_value_with_unit(param_value_str);
-        }
+        const Real param_value = read_element_value(param_value_str, state);
         instance_params[param_name] = param_value;
     }
 
