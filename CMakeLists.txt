@@ -291,10 +291,8 @@ add_library(kirimaspice_lib STATIC
     src/devices/current_source.cpp
     src/devices/behavioral_source.cpp
     src/devices/diode.cpp
-    src/devices/bjt_base.cpp    # BJT common base class
+    src/devices/bjt.cpp         # BJT: one Gummel-Poon device for NPN and PNP
     src/devices/bjt_params.cpp  # BJT parameters from a card
-    src/devices/bjt_npn.cpp
-    src/devices/bjt_pnp.cpp
     src/devices/mosfet_level1.cpp    # Unified Level 1 template (MOSFET_N/P)
     src/devices/mosfet_level3.cpp    # Unified Level 3 template (MOSFET_Level3_N/P)
     src/devices/mosfet_bsim1.cpp    # Unified BSIM1 template (MOSFET_BSIM1_N/P)

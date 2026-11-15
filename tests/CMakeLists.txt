@@ -1171,6 +1171,10 @@ add_executable(test_bjt_card unit/test_bjt_card.cpp)
 target_link_libraries(test_bjt_card PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_bjt_card PROPERTIES TIMEOUT 1200)
 
+add_executable(test_bjt_gummel_poon unit/test_bjt_gummel_poon.cpp)
+target_link_libraries(test_bjt_gummel_poon PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_bjt_gummel_poon PROPERTIES TIMEOUT 1200)
+
 add_executable(test_source_waveforms unit/test_source_waveforms.cpp)
 target_link_libraries(test_source_waveforms PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_source_waveforms PROPERTIES TIMEOUT 1200)

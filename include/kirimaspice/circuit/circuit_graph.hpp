@@ -9,7 +9,9 @@
 #include "kirimaspice/devices/mosfet_bsim1_params.hpp"
 #include "kirimaspice/devices/mosfet_bsim3_params.hpp"
 #include "kirimaspice/devices/mosfet_bsim4_params.hpp"
+#include "kirimaspice/devices/bjt_npn.hpp"
 #include "kirimaspice/devices/bjt_params.hpp"
+#include "kirimaspice/devices/bjt_pnp.hpp"
 #include "kirimaspice/devices/waveform.hpp"
 #include "kirimaspice/devices/igbt.hpp"
 #include <boost/graph/adjacency_list.hpp>
@@ -29,8 +31,6 @@ class Inductor;
 class VoltageSource;
 class CurrentSource;
 class Diode;
-class BJT_NPN;
-class BJT_PNP;
 // MOSFET_N and MOSFET_P are type aliases defined in mosfet_level1.hpp
 class TLineLossless;
 class TLineLossy;
