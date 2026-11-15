@@ -288,3 +288,14 @@ TEST(SmallSignalConsistency, MesfetPMirrorsN) {
         EXPECT_NEAR((10.0 - vd_n) / 200.0, id, 1e-9);
     }
 }
+
+// BSIM4 above 10 V: the model's equations hold for any terminal voltage, and
+// the stamp takes them at the voltages it has (no clamp). ngspice-47 gives
+// V(d) = 13.06208 V for this stage (run on 2026-11-15).
+TEST(SmallSignalConsistency, Bsim4AboveTenVolts) {
+    const std::string card =
+        ".model m nmos level=14 version=4.8.3 toxe=3e-9 vth0=0.5 u0=0.067 vsat=8e4";
+    const Stage stage{"N, V(d) above 10 V", "M1 d g 0 0 m L=1u W=10u", card, 40.0, 1e3, 1.0};
+    EXPECT_NEAR(drain_voltage(stage, stage.vg), 13.06208, 1e-4);
+    expect_ac_gain_is_the_dc_slope(stage);
+}

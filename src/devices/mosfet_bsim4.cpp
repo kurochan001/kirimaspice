@@ -158,11 +158,11 @@ void MOSFET_BSIM4<P>::stamp_dc_nonlinear(MNASystem& mna, const DenseVector& node
     const Real gmb = std::isfinite(op.gmb) ? op.gmb : 0.0;
     Real ids = std::isfinite(op.ids) ? op.ids : 0.0;
 
-    // Clamp terminal voltages for id_eq calculation
-    const Real vmax = params_.vmax_clamp;
-    const Real vgs = std::clamp(vg - vs, -vmax, vmax);
-    const Real vds = std::clamp(vd - vs, -vmax, vmax);
-    const Real vbs = std::clamp(vb - vs, -vmax, vmax);
+    // The Norton current of Newton's linearization, at the voltages that the
+    // model was evaluated at
+    const Real vgs = vg - vs;
+    const Real vds = vd - vs;
+    const Real vbs = vb - vs;
     const Real id_eq = ids - gm * vgs - gds * vds - gmb * vbs;
 
     // DEBUG: Log BSIM4 operating point values

@@ -302,16 +302,6 @@ BSIM4BiasState BSIM4Core::compute_bias(Real vg, Real vd, Real vs, Real vb, Real 
     bias.vbs = type * (vb - vs_eff);
     bias.vdb = type * (vd_eff - vb);
 
-    // Clamp terminal voltages to prevent extreme values that break Newton-Raphson
-    // vmax_clamp is configurable via BSIM4Params (default: 10V for standard circuits)
-    // Higher values allow high-voltage circuits; lower values may improve convergence
-    const Real vmax = params_.vmax_clamp;
-    bias.vgs = std::clamp(bias.vgs, -vmax, vmax);
-    bias.vgd = std::clamp(bias.vgd, -vmax, vmax);
-    bias.vds = std::clamp(bias.vds, -vmax, vmax);
-    bias.vbs = std::clamp(bias.vbs, -vmax, vmax);
-    bias.vdb = std::clamp(bias.vdb, -vmax, vmax);
-
     // Effective gate voltage (ngspice: no additional phin shift; phin is already in phi)
     bias.vgs_eff = bias.vgs;
     bias.dVgs_eff_dVg = 1.0;

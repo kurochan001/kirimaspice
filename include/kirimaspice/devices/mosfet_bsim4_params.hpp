@@ -495,10 +495,6 @@ struct BSIM4Params {
     // Numerical Control Parameters (数値制御パラメータ - KirimaSpice拡張)
     //==========================================================================
 
-    /// Maximum terminal voltage for Newton-Raphson clamping [V]
-    /// Used to prevent numerical overflow during DC convergence
-    /// Higher values allow high-voltage circuits; lower values improve convergence
-    Real vmax_clamp = 10.0;
 
     //==========================================================================
     // Helper Methods
