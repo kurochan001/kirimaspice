@@ -8,6 +8,19 @@ and SuiteSparse 7.6.1 unless an entry says otherwise.
 
 ## Tests
 
+The groups below summarize the exceptions described in detail after the
+table. They are not an additional set of tests.
+
+| Group | State | Main obstacle |
+| --- | --- | --- |
+| Manufacturer models and common-emitter test (6) | known failures | model files are absent |
+| CMOS high-input assertion (1) | known failure on arm64 | a tiny negative output is checked against zero |
+| Reference comparisons (20) | skipped | data paths point to the wrong directory |
+| BSIM4 temperature reference (1) | skipped | generated reference file is absent |
+| BSIM4 VDSAT branch (1) | skipped | the reference current is not verified |
+| BSIM4 transient inverter chain (1) | disabled | reported convergence issue, not checked again |
+| Live ngspice comparison | conditional | runs only when ngspice is installed |
+
 - **Seven tests fail** and are listed in `tests/known_failures.txt`:
   - `ManufacturerModels.*` (five tests) and `BJTModelTest.SimpleCommonEmitter`
     include `tests/models/2N3904.lib` and `tests/models/1N4148.lib`, which are

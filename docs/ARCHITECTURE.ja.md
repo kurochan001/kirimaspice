@@ -221,6 +221,24 @@ MESFET、SCR、VDMOS は、それぞれ自分の極性の列挙型（`GaNPolarit
 
 ## DC 解析
 
+図は `solve_standard` の主な反復です。この経路とステッピング・継続法への振り分けは後述し、
+ほかの経路の内部の反復は図には示していません。一歩の制限と動的 gmin は省略していますが、
+収束判定には変化量とデバイス電流の釣り合いを含みます。
+
+```mermaid
+flowchart TD
+    I["初期推定値 x_old"] --> Q{"反復回数が残っているか"}
+    Q -->|はい| S["デバイスを G と b に書き込む"]
+    Q -->|いいえ| F["MAX_ITERATIONS"]
+    S --> L["分解して G x_new = b を解く"]
+    L --> V{"分解と求解に成功したか"}
+    V -->|いいえ| E["SINGULAR_MATRIX / NUMERICAL_ERROR"]
+    V -->|はい| C{"check_convergence"}
+    C -->|はい| R["解を保存: SUCCESS"]
+    C -->|いいえ| U["x_old = x_new として次の反復へ"]
+    U --> Q
+```
+
 `DCSolver::solve`（`src/solvers/dc_solver.cpp`）は、オプションで求められていれば、この優先順で電源
 ステッピング、gmin ステッピング、継続法を行い、そうでなければ Newton 法のループ `solve_standard` を行います。
 `PSEUDO_TRANSIENT=1` のときは、それが失敗すると疑似過渡法に切り替えます（既定では切り替えません）。
@@ -280,6 +298,24 @@ MESFET、SCR、VDMOS は、それぞれ自分の極性の列挙型（`GaNPolarit
 - **TR-BDF2** は、γ·Δt（γ = 2 − √2）の台形則の段と、Δt までの BDF2 の段を進めます。
 
 ## AC 解析
+
+動作点は全周波数で共通です。枠の中は周波数ごとに独立して実行し、OpenMP があれば分担できます。
+
+```mermaid
+flowchart TD
+    D["DC 動作点を解く"] --> Q{"DC が収束したか"}
+    Q -->|いいえ| E["AC 解析は失敗"]
+    Q -->|はい| L["linearize_at: 動作点でデバイスを線形化"]
+    L --> F["周波数の点を生成"]
+    subgraph EACH["周波数ごとの処理"]
+        S["stamp_ac: 大きさ n の複素数の系"]
+        S --> C["大きさ 2n の実数の系へ変換"]
+        C --> K["ISparseLinearSolver を通して解く"]
+        K --> P["その周波数の複素数の解を得る"]
+    end
+    F --> S
+    P --> R["点と失敗状態を ACResult にまとめる"]
+```
 
 `ACSolver::solve`（`src/solvers/ac_solver.cpp`）は、動作点を解き、そこでデバイスを線形化し
 （`linearize_at`）、周波数ごとに `stamp_ac` を複素数の系に書き込みます。大きさ n の複素数の系は、

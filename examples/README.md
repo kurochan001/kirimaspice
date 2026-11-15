@@ -21,6 +21,19 @@ digits. Run the examples from the top of the source tree after
 
 ## Voltage divider
 
+Connections of `test_simple_divider.sp`. The lines show electrical
+connections; they do not define current direction.
+
+```mermaid
+flowchart LR
+    N1["n1: 3.3 V"] --- R1["R1: 1 kΩ"]
+    R1 --- N2["n2: 1.65 V"]
+    N2 --- R2["R2: 1 kΩ"]
+    R2 --- G["0: GND"]
+    N1 --- V["VDD: 3.3 V"]
+    V --- G
+```
+
 ```sh
 build/kirimaspice examples/test_simple_divider.sp
 ```

@@ -158,6 +158,16 @@ C1 out 0 1u
 
 ## Choose the analyses
 
+Choose the main question first; the detailed syntax and the directives
+for temperature runs and harmonics follow below.
+
+| What do you want to inspect? | Main analysis |
+| --- | --- |
+| Bias voltages and currents | operating point: `.OP` |
+| Response to a changing source value | source sweep: `.DC` |
+| A waveform over time | transient: `.TRAN` |
+| Small-signal magnitude and phase over frequency | AC: `.AC` |
+
 The program runs these analyses:
 
 | You write | The program runs |

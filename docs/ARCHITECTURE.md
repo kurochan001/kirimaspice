@@ -268,6 +268,25 @@ parser has no `J` element.
 
 ## DC analysis
 
+The diagram shows the main loop of `solve_standard`. Selection of this
+path or a stepping/continuation path is described below; the internal
+loops of the other paths are not shown. Step limiting and dynamic gmin
+are omitted, but convergence includes the step test and current balance.
+
+```mermaid
+flowchart TD
+    I["Initial guess x_old"] --> Q{"Iterations left?"}
+    Q -->|yes| S["Stamp devices into G and b"]
+    Q -->|no| F["MAX_ITERATIONS"]
+    S --> L["Factorize and solve G x_new = b"]
+    L --> V{"Factorization and solve succeeded?"}
+    V -->|no| E["SINGULAR_MATRIX / NUMERICAL_ERROR"]
+    V -->|yes| C{"check_convergence"}
+    C -->|yes| R["Store solution: SUCCESS"]
+    C -->|no| U["x_old = x_new; next iteration"]
+    U --> Q
+```
+
 `DCSolver::solve` (`src/solvers/dc_solver.cpp`) runs, in this order of
 preference, source stepping, gmin stepping or continuation when an option
 asks for it, and otherwise `solve_standard`, the Newton loop; with
@@ -347,6 +366,25 @@ temperature, finds the starting point, and steps in time.
   stage to Δt.
 
 ## AC analysis
+
+The operating point is shared by all frequencies. The boxed part runs
+independently for each frequency; OpenMP can distribute those solves.
+
+```mermaid
+flowchart TD
+    D["Solve DC operating point"] --> Q{"DC converged?"}
+    Q -->|no| E["AC analysis fails"]
+    Q -->|yes| L["linearize_at: devices at the DC bias"]
+    L --> F["Generate frequency points"]
+    subgraph EACH["For each frequency"]
+        S["stamp_ac: complex system of size n"]
+        S --> C["Convert to a real system of size 2n"]
+        C --> K["Solve through ISparseLinearSolver"]
+        K --> P["Recover the complex frequency point"]
+    end
+    F --> S
+    P --> R["Collect points and failure status in ACResult"]
+```
 
 `ACSolver::solve` (`src/solvers/ac_solver.cpp`) solves an operating point,
 linearises the devices there (`linearize_at`), and for each frequency

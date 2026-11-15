@@ -139,6 +139,21 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
 
 ## Compare the results
 
+A comparison checks the conditions of that run. Use the following order
+to distinguish input differences from a numerical or model discrepancy.
+
+```mermaid
+flowchart TD
+    N["Check directives, names, units and model parameters"]
+    N --> O["Check the operating point first"]
+    O --> S["Run the requested DC, AC or transient analysis"]
+    S --> C["Compare saved values and any analytic solution"]
+    C --> Q{"Unexplained difference?"}
+    Q -->|yes| M["Minimize the circuit and inspect known limits"]
+    M --> R["Report the discrepancy with evidence and versions"]
+    Q -->|no| V["Record the versions and verified conditions"]
+```
+
 Run the same netlist with both, and record the ngspice version
 (`ngspice -v`). Compare node voltages from the raw files rather than
 printed values, which are rounded differently. Where an analytic solution

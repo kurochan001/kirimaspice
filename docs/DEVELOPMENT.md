@@ -168,6 +168,25 @@ before reading it ([CLAUDE.md](../CLAUDE.md#code-under-the-gpl-or-lgpl)).
 
 ## Fix a bug
 
+Use the following flow together with the existing rules. A protected
+change means a specification, existing expected value, known-failure list,
+CI policy, published text, dependency or tool installation covered by
+CLAUDE.md; the approval step happens before making that change.
+
+```mermaid
+flowchart TD
+    R["Minimal reproduction"] --> G["Establish the expected result and its grounds"]
+    G --> Q{"Protected change needed?"}
+    Q -->|no| I["Fix the shared implementation"]
+    Q -->|yes| P["Present the proposal and diff"]
+    P --> A{"Human approval?"}
+    A -->|revise| P
+    A -->|approved| I
+    I --> T["Add regression tests for the affected paths"]
+    T --> C["Run relevant checks and local CI"]
+    C --> V["Review changes and commit by purpose"]
+```
+
 Do not make the shape of a symptom a condition: no test circuit, node
 name, file name or issue number in an `if`. A commit that fixes a bug
 states
