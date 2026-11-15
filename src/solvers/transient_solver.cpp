@@ -131,8 +131,10 @@ TransientResult TransientSolver::solve(Real t_start, Real t_stop, Real timestep)
     }
     apply_voltage_limiting_option(circuit_, config_);
 
-    // Step 1: Initialize simulation (DC operating point / UIC mode / Pure DC)
-    auto result = initialize_simulation(t_start, timestep);
+    // Step 1: Initialize simulation (DC operating point / UIC mode / Pure DC),
+    // at time 0 whatever t_start is: as in SPICE, the transient is simulated
+    // from 0 and only the points from t_start on are kept
+    auto result = initialize_simulation(0.0, timestep);
     if (result.status != ConvergenceStatus::SUCCESS) {
         return result;
     }
@@ -1735,7 +1737,7 @@ void TransientSolver::run_fixed_timestepping(TransientResult& result, DenseVecto
 
 bool TransientSolver::run_timestepping_loop(TransientResult& result, Real t_start,
                                              Real t_stop, Real timestep) {
-    // Get solution from initial timepoint
+    // Get solution from initial timepoint (time 0)
     DenseVector solution(result.timepoints[0].node_voltages.size() +
                         result.timepoints[0].branch_currents.size());
     for (std::size_t i = 0; i < result.timepoints[0].node_voltages.size(); ++i) {
@@ -1746,10 +1748,13 @@ bool TransientSolver::run_timestepping_loop(TransientResult& result, Real t_star
             result.timepoints[0].branch_currents[i];
     }
 
-    // Time-stepping loop initialization
-    Real t = t_start;
-    current_time_ = t_start;  // Initialize current time
+    // Time-stepping loop initialization: from 0 to t_start, whose points are
+    // dropped, and on to t_stop. The first part ends on t_start (step_toward),
+    // so a point lies on it.
+    Real t = 0.0;
+    current_time_ = 0.0;
     std::uint32_t step_count = 0;
+    const Real t_first = std::min(std::max(t_start, 0.0), t_stop);
 
     // Determine timestep strategy
     bool use_adaptive = config_.transient.use_adaptive_timestep;
@@ -1759,14 +1764,22 @@ bool TransientSolver::run_timestepping_loop(TransientResult& result, Real t_star
                  use_adaptive ? "adaptive" : "fixed", dt);
 
     // Run appropriate timestepping loop
-    if (use_adaptive) {
-        run_adaptive_timestepping(result, solution, t, t_stop, dt, step_count);
-    } else {
-        run_fixed_timestepping(result, solution, t, t_stop, dt, step_count);
+    for (const Real segment_stop : {t_first, t_stop}) {
+        if (use_adaptive) {
+            run_adaptive_timestepping(result, solution, t, segment_stop, dt, step_count);
+        } else {
+            run_fixed_timestepping(result, solution, t, segment_stop, dt, step_count);
+        }
+        if (result.status != ConvergenceStatus::SUCCESS) {
+            return false;
+        }
     }
 
-    // Check if loop completed successfully
-    return result.status == ConvergenceStatus::SUCCESS;
+    if (t_first > 0.0) {
+        std::erase_if(result.timepoints,
+                      [t_first](const TimePoint& tp) { return tp.time < t_first; });
+    }
+    return true;
 }
 
 // Transient temperature sweep implementation

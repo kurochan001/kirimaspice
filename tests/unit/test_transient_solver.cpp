@@ -702,3 +702,37 @@ TEST(TransientSolver, StepsEndOnTstop) {
         }
     }
 }
+
+// As in SPICE, a transient with tstart is simulated from 0 and keeps only the
+// points from tstart on: with an RC (tau = 1 ms) charged by a step at 0,
+// .TRAN 10u 2m 1m gives the points of .TRAN 10u 2m from 1 ms on, the first
+// at 1 ms with V(out) = 1 - e^-1 (within the trapezoidal error).
+TEST(TransientSolver, TstartKeepsThePointsFromTstartOn) {
+    auto run = [](Real t_start) {
+        CircuitGraph circuit;
+        circuit.add_pulse_voltage_source("V1", "in", "0", 0.0, 1.0, 0.0, 1e-15, 1e-15, 1.0, 2.0);
+        circuit.add_resistor("R1", "in", "out", 1e3);
+        circuit.add_capacitor("C1", "out", "0", 1e-6);
+        SimulationConfig config;
+        config.transient.use_adaptive_timestep = false;
+        TransientSolver solver(circuit, config);
+        TransientResult result = solver.solve(t_start, 2e-3, 10e-6);
+        EXPECT_EQ(result.status, ConvergenceStatus::SUCCESS);
+        const NodeId out = circuit.get_node_id("out");
+        std::vector<std::pair<Real, Real>> points;
+        for (const auto& tp : result.timepoints) {
+            points.emplace_back(tp.time, tp.node_voltages[out - 1]);
+        }
+        return points;
+    };
+    const auto from_zero = run(0.0);
+    const auto from_tstart = run(1e-3);
+    ASSERT_EQ(from_zero.size(), 201u);
+    ASSERT_EQ(from_tstart.size(), 101u);
+    EXPECT_EQ(from_tstart.front().first, 1e-3);
+    EXPECT_NEAR(from_tstart.front().second, 1.0 - std::exp(-1.0), 1e-4);
+    for (std::size_t k = 0; k < from_tstart.size(); ++k) {
+        EXPECT_NEAR(from_tstart[k].first, from_zero[100 + k].first, 1e-15) << k;
+        EXPECT_NEAR(from_tstart[k].second, from_zero[100 + k].second, 1e-12) << k;
+    }
+}
