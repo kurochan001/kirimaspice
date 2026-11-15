@@ -206,6 +206,14 @@ protected:
     Real calculate_weff() const { return params_.get_weff(); }
 
 private:
+    /// The channel current: from the node `from` to the node `to`, and its
+    /// derivatives by the voltages of drain, gate, source and bulk
+    struct ChannelDerivatives {
+        NodeId from = 0, to = 0;
+        Real dd = 0.0, dg = 0.0, ds = 0.0, db = 0.0;
+    };
+    ChannelDerivatives channel_derivatives(Real gm, Real gds, Real gmb) const;
+
     std::vector<NodeId> nodes_;  ///< [Drain, Gate, Source, Bulk]
     BSIM3Params params_;         ///< Model parameters
     BSIM3Core core_;             ///< DC core evaluator (NMOS-oriented)

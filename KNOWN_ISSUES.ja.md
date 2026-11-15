@@ -102,6 +102,14 @@ ngspice について書いていることは、それぞれのマニュアルに
   GMIN の電流（10<sup>−12</sup> S と接合の電圧の積）も含むので、しきい値より下で差が見えます。
   `tests/unit/test_bsim4_reference.cpp` のカードで V<sub>GS</sub> = 0.2 V のとき、チャネルの電流は
   一致し、`i(vd)` は GMIN·V<sub>DB</sub> だけ大きくなります。
+- **BSIM3（`LEVEL` 8 と 49）は簡略化したモデルで、BSIM3v3 ではありません**（`src/devices/bsim3_core.cpp`、
+  約 450 行）。TOX = 3 nm、VTH0 = 0.5 V、U0 = 670 cm²/Vs、VSAT = 8e4 m/s、W/L = 10 µm / 1 µm、
+  VD = VG = 1 V で 6.230e-4 A になりますが、ngspice-47 の BSIM3 は 3.151e-4 A です（2026-11-15 に実行）。
+  U0 は大きさにかかわらず cm²/Vs として読みます。ngspice-47 は 1 以下の U0 を m²/Vs として読みます
+  （`u0=0.067` と `u0=670` で同じ電流）。V<sub>DS</sub> < 0 では電流が流れません（逆方向のモードも
+  接合のダイオードもありません。VD = −1 V、VG = 1 V で 0 A）。現実的な移動度では、動作点が収束しない
+  ことがあります。VDD = 1.8 V を 10 kΩ を通して、VG = 1 V、L = 0.18 µm、W = 1 µm、U0 = 670 では
+  100 回の反復で止まります。ngspice-47 では V(d) = 0.6291 V です。
 - **BSIM4 の容量は、BSIM4 の接合を持つ簡略化した Meyer のモデルで、** BSIM4 の電荷のモデルではありません
   （`BSIM4Core::compute_capacitances`）。接合の周囲長は `PS` と `PD` だけから取り、素子の行に書かなければ 0 です。
   ngspice-47 はそのとき周囲長を取ります。カードに接合のパラメーターがなく AS = 1e-10 m² のとき、

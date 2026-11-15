@@ -19,13 +19,27 @@ namespace kirimaspice::devices {
 // Constructor
 //==============================================================================
 
+namespace {
+
+// The card gives VTH0 with the device's sign (-0.5 V for an enhancement P
+// device, +0.5 V for a depletion one); the core works in the device's own
+// terms, NMOS-like, where that is VTH0 times the polarity
+constexpr Real polarity_sign(Polarity p) { return p == Polarity::N ? 1.0 : -1.0; }
+
+BSIM3Params in_device_terms(BSIM3Params params, Polarity p) {
+    params.vth0 *= polarity_sign(p);
+    return params;
+}
+
+}  // namespace
+
 template<Polarity P>
 MOSFET_BSIM3<P>::MOSFET_BSIM3(DeviceId id, const std::string& name,
                                NodeId drain, NodeId gate, NodeId source, NodeId bulk,
                                const BSIM3Params& params)
     : Device(id, name, device_type),
       nodes_{drain, gate, source, bulk},
-      params_(params),
+      params_(in_device_terms(params, P)),
       core_(params_) {
 
     // Validate parameters
@@ -45,13 +59,7 @@ MOSFET_BSIM3<P>::MOSFET_BSIM3(DeviceId id, const std::string& name,
         spdlog::info("Created BSIM3 P-channel MOSFET: {} (D={}, G={}, S={}, B={}), "
                      "W={:.3e}m, L={:.3e}m, TOX={:.3e}m, VTH0={:.3f}V",
                      name, drain, gate, source, bulk,
-                     params_.w, params_.l, params_.tox, params_.vth0);
-
-        // For P-channel, vth0 should be negative
-        if (params_.vth0 > 0.0) {
-            spdlog::warn("BSIM3 P-channel {} has positive vth0={:.3f}V, should be negative",
-                         name, params_.vth0);
-        }
+                     params_.w, params_.l, params_.tox, params.vth0);
     }
 }
 
@@ -93,55 +101,49 @@ void MOSFET_BSIM3<P>::stamp_dc_nonlinear(MNASystem& mna,
     Real gds = get_output_conductance(v_gs_eff, v_ds_eff, v_bs_eff);
     Real gmb = get_bulk_transconductance(v_gs_eff, v_ds_eff, v_bs_eff);
 
-    if constexpr (P == Polarity::N) {
-        // N-channel: Current flows from drain to source
-        // Newton-Raphson linearization: I = Ieq + g*(V - Vold)
-        Real vgs = vg - vs;
-        Real vds = vd - vs;
-        Real vbs = vb - vs;
-        Real ieq_d = ids - gm * vgs - gds * vds - gmb * vbs;
-
-        // Drain node (positive current flows out of drain)
-        if (d != 0) {
-            mna.G.add_entry(d - 1, d - 1, gds);
-            if (g != 0) mna.G.add_entry(d - 1, g - 1, gm);
-            if (s != 0) mna.G.add_entry(d - 1, s - 1, -gm - gds - gmb);
-            if (b != 0) mna.G.add_entry(d - 1, b - 1, gmb);
-            mna.b[d - 1] -= ieq_d;
+    // Newton's linearization of the channel current, the same for both
+    // polarities (channel_derivatives): each entry on its own, a grounded
+    // terminal dropping its row and column
+    const ChannelDerivatives ch = channel_derivatives(gm, gds, gmb);
+    const NodeId terminal[4] = {d, g, s, b};
+    const Real derivs[4] = {ch.dd, ch.dg, ch.ds, ch.db};
+    const Real v[4] = {vd, vg, vs, vb};
+    Real i_eq = ids;
+    for (int k = 0; k < 4; ++k) {
+        i_eq -= derivs[k] * v[k];
+        if (terminal[k] == 0) {
+            continue;
         }
-
-        // Source node (current flows into source)
-        if (s != 0) {
-            mna.G.add_entry(s - 1, s - 1, gm + gds + gmb);
-            if (d != 0) mna.G.add_entry(s - 1, d - 1, -gds);
-            if (g != 0) mna.G.add_entry(s - 1, g - 1, -gm);
-            if (b != 0) mna.G.add_entry(s - 1, b - 1, -gmb);
-            mna.b[s - 1] += ieq_d;
-        }
-    } else {
-        // P-channel: Current flows from source to drain (vsg, vsd, vsb convention)
-        // The effective voltages already represent vsg, vsd, vsb
-        Real vsg = v_gs_eff;  // vs - vg
-        Real vsd = v_ds_eff;  // vs - vd
-
-        // Linearized current: I_lin = ids - gm×Vg + gds×(Vs-Vd) - gmb×Vs
-        Real i_linear = ids - gm * vg + gds * (vs - vd) - gmb * vs;
-
-        // Stamp currents (source → drain flow)
-        if (s != 0) mna.b[s - 1] -= i_linear;
-        if (d != 0) mna.b[d - 1] += i_linear;
-
-        // Stamp conductances
-        if (s != 0) mna.G.add_entry(s - 1, s - 1, gds + gmb);
-        if (d != 0) mna.G.add_entry(d - 1, d - 1, gds);
-        if (s != 0 && d != 0) {
-            mna.G.add_entry(s - 1, d - 1, -gds);
-            mna.G.add_entry(d - 1, s - 1, -gds);
-        }
-        if (s != 0 && g != 0) mna.G.add_entry(s - 1, g - 1, gm);
-        if (d != 0 && g != 0) mna.G.add_entry(d - 1, g - 1, -gm);
-        if (s != 0 && b != 0) mna.G.add_entry(s - 1, b - 1, -gmb);
+        if (ch.from != 0) mna.G.add_entry(ch.from - 1, terminal[k] - 1, derivs[k]);
+        if (ch.to != 0) mna.G.add_entry(ch.to - 1, terminal[k] - 1, -derivs[k]);
     }
+    if (ch.from != 0) mna.b[ch.from - 1] -= i_eq;
+    if (ch.to != 0) mna.b[ch.to - 1] += i_eq;
+}
+
+template<Polarity P>
+typename MOSFET_BSIM3<P>::ChannelDerivatives MOSFET_BSIM3<P>::channel_derivatives(
+    Real gm, Real gds, Real gmb) const {
+    // The core's current flows from drain to source of the NMOS-like device:
+    // drain to source for N, source to drain for P, whose effective voltages
+    // are Vsg, Vsd and Vsb. gm, gds and gmb are its derivatives by those.
+    ChannelDerivatives ch;
+    if constexpr (P == Polarity::N) {
+        ch.from = nodes_[0];
+        ch.to = nodes_[2];
+        ch.dd = gds;
+        ch.dg = gm;
+        ch.ds = -(gm + gds + gmb);
+        ch.db = gmb;
+    } else {
+        ch.from = nodes_[2];
+        ch.to = nodes_[0];
+        ch.dd = -gds;
+        ch.dg = -gm;
+        ch.ds = gm + gds + gmb;
+        ch.db = -gmb;
+    }
+    return ch;
 }
 
 //==============================================================================
@@ -285,36 +287,18 @@ void MOSFET_BSIM3<P>::stamp_ac(ComplexMNASystem& sys, Real omega,
     std::complex<Real> y_bd = jw * cbd;
     std::complex<Real> y_bs = jw * cbs;
 
-    // Stamp transconductance and output conductance
-    if constexpr (P == Polarity::N) {
-        // N-channel AC stamp
-        if (d != 0) {
-            sys.Y.add_entry(d - 1, d - 1, std::complex<Real>(gds, 0));
-            if (g != 0) sys.Y.add_entry(d - 1, g - 1, std::complex<Real>(gm, 0));
-            if (s != 0) sys.Y.add_entry(d - 1, s - 1, std::complex<Real>(-gm - gds - gmb, 0));
-            if (b != 0) sys.Y.add_entry(d - 1, b - 1, std::complex<Real>(gmb, 0));
+    // The channel linearized at the operating point, as in the DC stamp
+    {
+        const ChannelDerivatives ch = channel_derivatives(gm, gds, gmb);
+        const NodeId terminal[4] = {d, g, s, b};
+        const Real derivs[4] = {ch.dd, ch.dg, ch.ds, ch.db};
+        for (int k = 0; k < 4; ++k) {
+            if (terminal[k] == 0) {
+                continue;
+            }
+            if (ch.from != 0) sys.Y.add_entry(ch.from - 1, terminal[k] - 1, std::complex<Real>(derivs[k], 0));
+            if (ch.to != 0) sys.Y.add_entry(ch.to - 1, terminal[k] - 1, std::complex<Real>(-derivs[k], 0));
         }
-        if (s != 0) {
-            sys.Y.add_entry(s - 1, s - 1, std::complex<Real>(gm + gds + gmb, 0));
-            if (d != 0) sys.Y.add_entry(s - 1, d - 1, std::complex<Real>(-gds, 0));
-            if (g != 0) sys.Y.add_entry(s - 1, g - 1, std::complex<Real>(-gm, 0));
-            if (b != 0) sys.Y.add_entry(s - 1, b - 1, std::complex<Real>(-gmb, 0));
-        }
-    } else {
-        // P-channel AC stamp (source-drain current flow)
-        if (s != 0) {
-            sys.Y.add_entry(s - 1, s - 1, std::complex<Real>(gds + gmb, 0));
-            if (g != 0) sys.Y.add_entry(s - 1, g - 1, std::complex<Real>(gm, 0));
-        }
-        if (d != 0) {
-            sys.Y.add_entry(d - 1, d - 1, std::complex<Real>(gds, 0));
-            if (g != 0) sys.Y.add_entry(d - 1, g - 1, std::complex<Real>(-gm, 0));
-        }
-        if (s != 0 && d != 0) {
-            sys.Y.add_entry(s - 1, d - 1, std::complex<Real>(-gds, 0));
-            sys.Y.add_entry(d - 1, s - 1, std::complex<Real>(-gds, 0));
-        }
-        if (s != 0 && b != 0) sys.Y.add_entry(s - 1, b - 1, std::complex<Real>(-gmb, 0));
     }
 
     // Stamp capacitive admittances (same for both polarities)
@@ -536,7 +520,7 @@ std::optional<Real> MOSFET_BSIM3<P>::get_parameter(const std::string& param_name
 
     if (lower_name == "w" || lower_name == "width") return params_.w;
     if (lower_name == "l" || lower_name == "length") return params_.l;
-    if (lower_name == "vth0") return params_.vth0;
+    if (lower_name == "vth0") return polarity_sign(P) * params_.vth0;  // the card's sign
     if (lower_name == "u0") return params_.u0;
     if (lower_name == "tox") return params_.tox;
     if (lower_name == "vsat") return params_.vsat;
@@ -560,7 +544,7 @@ bool MOSFET_BSIM3<P>::set_parameter(const std::string& param_name, Real value) {
         return true;
     }
     if (lower_name == "vth0") {
-        params_.vth0 = value;
+        params_.vth0 = polarity_sign(P) * value;  // value with the card's sign
         return true;
     }
 

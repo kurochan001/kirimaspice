@@ -299,3 +299,20 @@ TEST(SmallSignalConsistency, Bsim4AboveTenVolts) {
     EXPECT_NEAR(drain_voltage(stage, stage.vg), 13.06208, 1e-4);
     expect_ac_gain_is_the_dc_slope(stage);
 }
+
+// BSIM3: the P device is the mirror of the N one, VTH0 given with each
+// device's sign (MOSFET_BSIM3::channel_derivatives); its AC gain is the
+// slope of its DC transfer curve as the N device's is
+TEST(SmallSignalConsistency, Bsim3PMirrorsN) {
+    const std::string values = " level=8 tox=3e-9 u0=670 vsat=8e4 cgso=0 cgdo=0 cgbo=0";
+    const std::string n_card = ".model m nmos" + values + " vth0=0.5";
+    const std::string p_card = ".model m pmos" + values + " vth0=-0.5";
+    expect_ac_gain_is_the_dc_slope({"N, saturation", "M1 d g 0 0 m L=1u W=1u", n_card, 5.0, 2e3, 1.0});
+    expect_ac_gain_is_the_dc_slope({"P, saturation", "M1 d g 0 0 m L=1u W=1u", p_card, -5.0, 2e3, -1.0});
+    for (const Real vg : {0.8, 1.0, 1.5}) {
+        SCOPED_TRACE(vg);
+        const Real vd_n = drain_voltage({"N", "M1 d g 0 0 m L=1u W=1u", n_card, 5.0, 2e3, vg}, vg);
+        const Real vd_p = drain_voltage({"P", "M1 d g 0 0 m L=1u W=1u", p_card, -5.0, 2e3, -vg}, -vg);
+        EXPECT_NEAR(vd_p, -vd_n, 1e-9);
+    }
+}

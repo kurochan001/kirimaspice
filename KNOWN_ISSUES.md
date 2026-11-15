@@ -134,6 +134,17 @@ says otherwise.
   junction voltage), which shows below the threshold: for the card of
   `tests/unit/test_bsim4_reference.cpp` at V<sub>GS</sub> = 0.2 V the
   channel currents agree and `i(vd)` is larger by GMIN·V<sub>DB</sub>.
+- **BSIM3 (`LEVEL` 8 and 49) is a simplified model, not BSIM3v3**
+  (`src/devices/bsim3_core.cpp`, about 450 lines). For TOX = 3 nm,
+  VTH0 = 0.5 V, U0 = 670 cm²/Vs, VSAT = 8e4 m/s and W/L = 10 µm / 1 µm at
+  VD = VG = 1 V it gives 6.230e-4 A, where ngspice-47's BSIM3 gives
+  3.151e-4 A (run on 2026-11-15). It takes U0 in cm²/Vs whatever its size,
+  where ngspice-47 takes a U0 up to 1 in m²/Vs (`u0=0.067` and `u0=670`
+  give it the same current). It carries no current when V<sub>DS</sub> < 0
+  (no reverse mode and no junction diodes: 0 A at VD = −1 V, VG = 1 V).
+  With a realistic mobility its operating point does not always converge:
+  VDD = 1.8 V through 10 kΩ, VG = 1 V, L = 0.18 µm, W = 1 µm and U0 = 670
+  stop after 100 iterations, where ngspice-47 gives V(d) = 0.6291 V.
 - **BSIM4's capacitances are a simplified Meyer model with BSIM4's
   junctions,** not BSIM4's charge model (`BSIM4Core::compute_capacitances`).
   The junctions take their perimeters from `PS` and `PD` alone, 0 when the
