@@ -53,11 +53,10 @@ TEST(MOSFET_P, ConstructionWithInvalidParameters) {
     // Zero L should throw
     EXPECT_THROW(MOSFET_P(1, "M1", 1, 2, 3, 2e-5, 10e-6, 0.0, -0.7), std::runtime_error);
 
-    // PMOS-specific: Positive Vth should throw (Vth must be negative for P-channel)
-    EXPECT_THROW(MOSFET_P(1, "M1", 1, 2, 3, 2e-5, 10e-6, 1e-6, 0.7), std::runtime_error);
-
-    // PMOS-specific: Zero Vth should throw (Vth must be negative for P-channel)
-    EXPECT_THROW(MOSFET_P(1, "M1", 1, 2, 3, 2e-5, 10e-6, 1e-6, 0.0), std::runtime_error);
+    // A positive or zero Vth is a depletion P-channel device, as in SPICE
+    // (ngspice-47 takes VTO = 0.5 V and conducts at Vsg = 0): not an error
+    EXPECT_NO_THROW(MOSFET_P(1, "M1", 1, 2, 3, 2e-5, 10e-6, 1e-6, 0.7));
+    EXPECT_NO_THROW(MOSFET_P(1, "M1", 1, 2, 3, 2e-5, 10e-6, 1e-6, 0.0));
 }
 
 //==============================================================================
