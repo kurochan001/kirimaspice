@@ -98,3 +98,33 @@ TEST(SubcircuitInstances, NestedInstanceParameterInLowerCase) {
     ASSERT_NE(r, nullptr);
     EXPECT_DOUBLE_EQ(r->resistance(), 2e3);
 }
+
+// A .PARAM line in the body replaces a global value of the same name in
+// another case, for the lines after it (SubcircuitDefinition::
+// substitute_parameters); ngspice-47 draws 1 mA from V1
+TEST(SubcircuitInstances, LocalParameterOverAGlobalOneInAnotherCase) {
+    const auto op = solve(
+        "t\n.param RV=5k\n.subckt load a b\n.param rv=1k\nR1 a b {rv}\n.ends load\n"
+        "V1 in 0 1\nX1 in 0 load\n.op\n.end\n");
+    ASSERT_EQ(op.status, ConvergenceStatus::SUCCESS);
+    const auto r = std::dynamic_pointer_cast<devices::Resistor>(op.parsed.circuit->get_device("X1.R1"));
+    ASSERT_NE(r, nullptr);
+    EXPECT_DOUBLE_EQ(r->resistance(), 1e3);
+}
+
+// Braces know the constants pi and e wherever they are: in a .PARAM line, in
+// an element value and in a subcircuit (REFERENCE_MANUAL, Expressions)
+TEST(SubcircuitInstances, ConstantsInEveryExpression) {
+    const auto op = solve(
+        "t\n.param re={1000*e}\n.subckt load a b\nR1 a b {1000*e}\nR2 a b {1000*pi}\n"
+        ".ends load\nV1 in 0 1\nX1 in 0 load\nR3 in 0 {re}\nR4 in 0 {1000*e}\n.op\n.end\n");
+    ASSERT_EQ(op.status, ConvergenceStatus::SUCCESS);
+    const auto resistance = [&](const std::string& name) {
+        const auto r = std::dynamic_pointer_cast<devices::Resistor>(op.parsed.circuit->get_device(name));
+        return r ? r->resistance() : 0.0;
+    };
+    EXPECT_DOUBLE_EQ(resistance("X1.R1"), 1000 * 2.718281828459045);
+    EXPECT_DOUBLE_EQ(resistance("X1.R2"), 1000 * 3.141592653589793);
+    EXPECT_DOUBLE_EQ(resistance("R3"), 1000 * 2.718281828459045);
+    EXPECT_DOUBLE_EQ(resistance("R4"), 1000 * 2.718281828459045);
+}

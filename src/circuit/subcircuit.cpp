@@ -4,6 +4,7 @@
 // src/circuit/subcircuit.cpp
 #include "kirimaspice/circuit/subcircuit.hpp"
 #include "kirimaspice/core/constants.hpp"
+#include "kirimaspice/util/expression_constants.hpp"
 #include "kirimaspice/util/string_utils.hpp"
 #include "kirimaspice/util/units.hpp"
 #include <algorithm>
@@ -211,21 +212,33 @@ std::vector<std::string> SubcircuitDefinition::substitute_parameters(
     // Scope, from the lowest priority: the global .PARAM values, the defaults
     // on the .SUBCKT line, the values on the X line. A .PARAM line inside the
     // body adds or replaces values for the lines after it, in this instance
-    // only.
-    std::map<std::string, Real> scope = global_params;
+    // only. Names are not case-sensitive, as in ExprTk, so each is kept in
+    // upper case: RV and rv are one parameter.
+    std::map<std::string, Real> scope;
+    auto set = [&scope](std::string param_name, Real value) {
+        std::transform(param_name.begin(), param_name.end(), param_name.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+        scope[param_name] = value;
+    };
+    for (const auto& [key, value] : global_params) {
+        set(key, value);
+    }
     for (const auto& [key, value] : default_params) {
-        scope[key] = value;
+        set(key, value);
     }
     for (const auto& [key, value] : instance_params) {
-        scope[key] = value;
+        set(key, value);
     }
 
+    // The same constants as at the top level, added first as there
     auto evaluate = [&](const std::string& expression) -> Real {
         exprtk::symbol_table<Real> symbol_table;
+        for (const auto& constant : util::kExpressionConstants) {
+            symbol_table.add_constant(constant.name, constant.value);
+        }
         for (const auto& [param_name, value] : scope) {
             symbol_table.add_constant(param_name, value);
         }
-        symbol_table.add_constants();
 
         exprtk::expression<Real> expr;
         expr.register_symbol_table(symbol_table);
@@ -265,9 +278,9 @@ std::vector<std::string> SubcircuitDefinition::substitute_parameters(
                 const std::string param_name = (*it)[1].str();
                 const std::string value_str = (*it)[2].str();
                 try {
-                    scope[param_name] = (value_str.front() == '{')
+                    set(param_name, (value_str.front() == '{')
                         ? evaluate(value_str.substr(1, value_str.size() - 2))
-                        : util::parse_value_with_unit(value_str);
+                        : util::parse_value_with_unit(value_str));
                 } catch (const std::exception& e) {
                     throw std::runtime_error(fmt::format(
                         "Error evaluating .PARAM {} in subcircuit '{}': {}",

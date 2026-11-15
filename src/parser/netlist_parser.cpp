@@ -28,6 +28,7 @@
 #include <set>
 
 #include "kirimaspice/util/units.hpp"
+#include "kirimaspice/util/expression_constants.hpp"
 #include "kirimaspice/util/string_utils.hpp"
 #include "kirimaspice/util/source_syntax.hpp"
 
@@ -2733,15 +2734,18 @@ static void parse_param_directive(const std::vector<std::string>& tokens, ParseS
                         state.line_number);
     }
 
-    // Setup ExprTk symbol table with existing global parameters
+    // Setup ExprTk symbol table with the constants of every expression and
+    // the existing global parameters
     exprtk::symbol_table<Real> symbol_table;
+    for (const auto& constant : util::kExpressionConstants) {
+        symbol_table.add_constant(constant.name, constant.value);
+    }
     for (const auto& [name, value] : state.config->global_params) {
         // Check ExprTk return value
         if (!symbol_table.add_constant(name, value)) {
             spdlog::warn(".PARAM: Failed to add constant '{}' to symbol table", name);
         }
     }
-    symbol_table.add_constants();
 
     // Register user-defined functions from .FUNC directives
     // Store function objects (must persist while symbol_table is in use)
@@ -6235,11 +6239,10 @@ public:
         // This causes variable name conflicts (e.g., "sum", "min", "max" are built-in functions)
         // Only add explicitly needed constants
         // Check ExprTk return values
-        if (!symbol_table_.add_constant("pi", 3.141592653589793)) {
-            spdlog::warn("ExpressionEvaluator: Failed to add constant 'pi'");
-        }
-        if (!symbol_table_.add_constant("e", 2.718281828459045)) {
-            spdlog::warn("ExpressionEvaluator: Failed to add constant 'e'");
+        for (const auto& constant : util::kExpressionConstants) {
+            if (!symbol_table_.add_constant(constant.name, constant.value)) {
+                spdlog::warn("ExpressionEvaluator: Failed to add constant '{}'", constant.name);
+            }
         }
     }
 

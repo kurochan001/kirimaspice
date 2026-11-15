@@ -135,6 +135,8 @@ flowchart TD
 パラメータ（`SubcircuitDefinition::substitute_parameters`。グローバルの `.PARAM` の値の上に、サブ回路の既定値、
 インスタンスの値、本体の `.PARAM` の行が重なります）、
 `B` 電源（`CircuitGraph`）です。
+はじめの 3 つは同じ定数 `pi` と `e`（`util::kExpressionConstants`）を知っていて、ExprTk と同じく、名前の
+大文字と小文字を区別しません。
 
 結果は `NetlistParseResult { std::unique_ptr<CircuitGraph>, SimulationConfig }` です。`SimulationConfig`
 （`include/kirimaspice/core/types.hpp`）は、解析、オプション、モデルを持ちます。`find_model` は大文字と

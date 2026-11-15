@@ -159,6 +159,9 @@ defined so far), subcircuit parameters
 (`SubcircuitDefinition::substitute_parameters`, which sees the global
 `.PARAM` values below the subcircuit's defaults, the instance values and
 the `.PARAM` lines of the body), and `B` sources (`CircuitGraph`).
+The first three know the same constants, `pi` and `e`
+(`util::kExpressionConstants`), and, as ExprTk, compare names without
+case.
 
 The result is `NetlistParseResult { std::unique_ptr<CircuitGraph>,
 SimulationConfig }`. `SimulationConfig` (`include/kirimaspice/core/types.hpp`)
