@@ -57,6 +57,17 @@ on a small netlist on the same day. The manual is summarized, not quoted.
 
 ## 4. Nested DC sweep
 
+Order of the example `.dc V1 0 1 0.5 V2 0 1 1` used below:
+
+| Point | V2, outer loop (V) | V1, inner loop (V) |
+| --- | --- | --- |
+| 1 | 0 | 0 |
+| 2 | 0 | 0.5 |
+| 3 | 0 | 1 |
+| 4 | 1 | 0 |
+| 5 | 1 | 0.5 |
+| 6 | 1 | 1 |
+
 - **Rule:** in `.DC src1 start1 stop1 step1 src2 start2 stop2 step2`,
   `src1` is swept over its range for each value of `src2`: `src1` is the
   inner loop. Points are computed and written in that order.
