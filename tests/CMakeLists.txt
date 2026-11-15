@@ -83,6 +83,15 @@ foreach(example_case divider params_subckt rc_step rc_discharge rc_lowpass_ac di
     )
 endforeach()
 
+# .TEMP with one value and with several (tests/scripts/test_cli_temperature.py)
+foreach(temperature_case single list)
+    add_test(NAME cli_temperature_${temperature_case}
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/scripts/test_cli_temperature.py
+            --binary $<TARGET_FILE:kirimaspice>
+            --case ${temperature_case}
+    )
+endforeach()
+
 #==============================================================================
 # Unit Tests
 #==============================================================================
