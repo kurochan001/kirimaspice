@@ -61,6 +61,7 @@ OpenMP が見つかった場合は、コンパイラの OpenMP ランタイム�
 | `src/devices/bjt_pnp.cpp` | PNP のモデルは「type multiplier」の方式を使うと書き、ngspice の `src/spicelib/devices/bjt/bjtload.c` を参照している | ngspice のこの部分は Modified BSD（ngspice の `COPYING`、2026-11-13 に読んだもの）。コードを取り込んだかどうかは未確認 |
 | `src/devices/capacitor.cpp`、`src/devices/inductor.cpp` | 打ち切り誤差の見積もりの電荷と磁束のスケールについて、ngspice の `src/spicelib/analysis/cktdump.c` と Berkeley SPICE3f5 を参照している | 同上 |
 | 上の BSIM4 の 6 ファイル | ngspice が持つ `b4ld.c` と `b4temp.c` の行番号を参照している | それらのファイルには BSIM4 の表示（ECL-2.0）があり、ngspice による変更は ngspice の Modified BSD に従う |
+| `include/kirimaspice/core/device_utils.hpp`（`limit_fet_drain_step`） | V<sub>DS</sub> の一歩の制限は、ngspice の `src/spicelib/devices/devsup.c` にある SPICE3 の `DEVlimvds` と、`src/spicelib/devices/mos1/mos1load.c` での逆向きの使い方に従い、それらから規則を書き起こした | ngspice の両ファイルとも Modified BSD、Copyright 1990 Regents of the University of California（ngspice の `COPYING`、2026-11-15 に読んだもの） |
 
 ## テストだけで使うもの
 

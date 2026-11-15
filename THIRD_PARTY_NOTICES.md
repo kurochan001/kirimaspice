@@ -64,6 +64,7 @@ license is that of the compiler's runtime library and was not checked here.
 | `src/devices/bjt_pnp.cpp` | The PNP model uses the "type multiplier" approach, with a reference to ngspice's `src/spicelib/devices/bjt/bjtload.c` | ngspice: Modified BSD for this part (ngspice `COPYING`, read on 2026-11-13). Whether code was taken from it is not confirmed |
 | `src/devices/capacitor.cpp`, `src/devices/inductor.cpp` | The charge and flux scaling of the truncation-error estimate refers to ngspice's `src/spicelib/analysis/cktdump.c` and Berkeley SPICE3f5 | As above |
 | The six BSIM4 files above | Line references to ngspice's copies of `b4ld.c` and `b4temp.c` | Those files carry the BSIM4 notice (ECL-2.0); changes made by ngspice are under its Modified BSD license |
+| `include/kirimaspice/core/device_utils.hpp` (`limit_fet_drain_step`) | The VDS step limit follows SPICE3's `DEVlimvds` in ngspice's `src/spicelib/devices/devsup.c`, and its reverse-mode use in `src/spicelib/devices/mos1/mos1load.c`; the rule was written anew from them | ngspice: Modified BSD for both files, Copyright 1990 Regents of the University of California (ngspice `COPYING`, read on 2026-11-15) |
 
 ## Used only by the tests
 
