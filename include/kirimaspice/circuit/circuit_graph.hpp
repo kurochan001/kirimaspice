@@ -10,6 +10,7 @@
 #include "kirimaspice/devices/mosfet_bsim3_params.hpp"
 #include "kirimaspice/devices/mosfet_bsim4_params.hpp"
 #include "kirimaspice/devices/waveform.hpp"
+#include "kirimaspice/devices/igbt.hpp"
 #include <boost/graph/adjacency_list.hpp>
 #include <string>
 #include <vector>
@@ -784,20 +785,20 @@ public:
                     const std::string& collector,
                     const std::string& gate,
                     const std::string& emitter,
-                    Real vge_th = 5.0,
-                    Real kp = 2.0,  // Reduced from 50.0 for numerical stability
-                    Real vce_sat = 2.0,
-                    Real tau = 1e-6,
-                    Real area = 1.0,
-                    Real cge = 5e-9,
-                    Real cce = 5e-10,
-                    Real kf = 0.0,
-                    Real af = 1.0,
-                    Real kt1 = -2e-3,
-                    Real kt2 = 0.0,
-                    Real ute = -1.5,
-                    Real tcv = 1e-3,
-                    Real tnom = 300.15);
+                    Real vge_th = devices::IGBTDefaults::vge_th,
+                    Real kp = devices::IGBTDefaults::kp,
+                    Real vce_sat = devices::IGBTDefaults::vce_sat,
+                    Real tau = devices::IGBTDefaults::tau,
+                    Real area = devices::IGBTDefaults::area,
+                    Real cge = devices::IGBTDefaults::cge,
+                    Real cce = devices::IGBTDefaults::cce,
+                    Real kf = devices::IGBTDefaults::kf,
+                    Real af = devices::IGBTDefaults::af,
+                    Real kt1 = devices::IGBTDefaults::kt1,
+                    Real kt2 = devices::IGBTDefaults::kt2,
+                    Real ute = devices::IGBTDefaults::ute,
+                    Real tcv = devices::IGBTDefaults::tcv,
+                    Real tnom = devices::IGBTDefaults::tnom);
 
     /// Add IGBT P-channel power transistor (LEVEL=21)
     /// Netlist: Q<name> <collector> <gate> <emitter> <model> [parameters]
@@ -823,20 +824,20 @@ public:
                     const std::string& collector,
                     const std::string& gate,
                     const std::string& emitter,
-                    Real veg_th = 5.0,
-                    Real kp = 2.0,  // Reduced from 50.0 for numerical stability
-                    Real vce_sat = 2.0,
-                    Real tau = 1e-6,
-                    Real area = 1.0,
-                    Real ceg = 5e-9,
-                    Real cec = 5e-10,
-                    Real kf = 0.0,
-                    Real af = 1.0,
-                    Real kt1 = -2e-3,
-                    Real kt2 = 0.0,
-                    Real ute = -1.5,
-                    Real tcv = 1e-3,
-                    Real tnom = 300.15);
+                    Real veg_th = devices::IGBTDefaults::vge_th,
+                    Real kp = devices::IGBTDefaults::kp,
+                    Real vce_sat = devices::IGBTDefaults::vce_sat,
+                    Real tau = devices::IGBTDefaults::tau,
+                    Real area = devices::IGBTDefaults::area,
+                    Real ceg = devices::IGBTDefaults::cge,
+                    Real cec = devices::IGBTDefaults::cce,
+                    Real kf = devices::IGBTDefaults::kf,
+                    Real af = devices::IGBTDefaults::af,
+                    Real kt1 = devices::IGBTDefaults::kt1,
+                    Real kt2 = devices::IGBTDefaults::kt2,
+                    Real ute = devices::IGBTDefaults::ute,
+                    Real tcv = devices::IGBTDefaults::tcv,
+                    Real tnom = devices::IGBTDefaults::tnom);
 
     // ========== SCR (Silicon Controlled Rectifier / Thyristor) ==========
 

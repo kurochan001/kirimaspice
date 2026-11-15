@@ -102,10 +102,9 @@ TEST(IGBT_N, ActiveRegion) {
     NodeId collector_id = circuit.get_node_id("collector");
     Real v_collector = solution[collector_id - 1];
 
-    // Active region: Ic = KP × (Vge - Vth)²
-    // Expected: Ic = 50 × (7 - 5)² = 50 × 4 = 200 A
-    // V_collector = VCC - Ic × RC = 20 - 200 × 1 = -180V (clamped to reasonable range)
-    // In practice, circuit will converge to a stable operating point
+    // In the active region Ic = KP (Vge - Vth)^2 = 2 x 4 = 8 A would need 80 V
+    // across RC, so the IGBT saturates: Ic = 8 VCE / VCE_SAT = 4 VCE, and
+    // (20 - V) / 10 = 4 V puts the collector at 20/41 V
     EXPECT_LT(v_collector, 20.0) << "Collector voltage should drop significantly";
 }
 
@@ -502,4 +501,20 @@ TEST(IGBTNetlist, TailCurrentDecaysAfterTurnOff) {
         }
     }
     EXPECT_GT(checked, 10);
+}
+
+// The IGBT has one set of defaults (IGBTDefaults): the class built with its
+// default arguments and a netlist's LEVEL=21 card without parameters have
+// the same parameters.
+TEST(IGBTNetlist, ClassAndNetlistShareTheDefaults) {
+    IGBT_N direct(1, "Q1", 1, 2, 0);
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string("defaults\nM1 c g 0 m\n.model m nmos level=21\n.end\n");
+    ASSERT_NE(parsed.circuit, nullptr);
+    auto from_netlist = parsed.circuit->get_device("M1");
+    for (const char* name : {"vge_th", "kp", "vce_sat", "tau", "area", "cge", "cce"}) {
+        ASSERT_TRUE(direct.get_parameter(name).has_value()) << name;
+        EXPECT_EQ(direct.get_parameter(name), from_netlist->get_parameter(name)) << name;
+    }
+    EXPECT_EQ(direct.get_parameter("kp"), IGBTDefaults::kp);
 }

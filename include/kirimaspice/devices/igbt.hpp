@@ -15,6 +15,26 @@ namespace kirimaspice::devices {
 /// IGBT polarity enumeration for N/P-channel selection
 enum class IGBTPolarity { N, P };
 
+/// The default parameters of the IGBT, the one set that the class and
+/// CircuitGraph::add_igbt_n and add_igbt_p (and so a netlist's LEVEL=21
+/// card) take; for the P-channel device VGE_TH is the magnitude of VEG_TH
+struct IGBTDefaults {
+    static constexpr Real vge_th = 5.0;     ///< Gate-emitter threshold voltage [V]
+    static constexpr Real kp = 2.0;         ///< Transconductance parameter [A/V²]
+    static constexpr Real vce_sat = 2.0;    ///< Collector-emitter saturation voltage [V]
+    static constexpr Real tau = 1e-6;       ///< Tail current time constant [s]
+    static constexpr Real area = 1.0;       ///< Area factor
+    static constexpr Real cge = 5e-9;       ///< Gate-emitter capacitance [F]
+    static constexpr Real cce = 5e-10;      ///< Collector-emitter capacitance [F]
+    static constexpr Real kf = 0.0;         ///< Flicker noise coefficient
+    static constexpr Real af = 1.0;         ///< Flicker noise current exponent
+    static constexpr Real kt1 = -2e-3;      ///< VGE_TH temperature coefficient [V/K]
+    static constexpr Real kt2 = 0.0;        ///< Second-order VGE_TH coefficient [V/K²]
+    static constexpr Real ute = -1.5;       ///< Mobility temperature exponent
+    static constexpr Real tcv = 1e-3;       ///< VCE_SAT temperature coefficient [1/K]
+    static constexpr Real tnom = 300.15;    ///< Nominal temperature [K] (27 °C)
+};
+
 /// IGBT: Insulated Gate Bipolar Transistor (Unified Template)
 /// Simplified Hefner model for power switching applications
 ///
@@ -69,24 +89,24 @@ public:
 
     IGBT(DeviceId id, const std::string& name,
          NodeId collector, NodeId gate, NodeId emitter,
-         // Basic IGBT parameters
-         Real vge_th = 5.0,       // Gate-emitter threshold voltage [V] (4-6V typical)
-         Real kp = 50.0,          // Transconductance parameter [A/V²] (10-100 typical)
-         Real vce_sat = 2.0,      // Collector-emitter saturation voltage [V] (1.5-3V)
-         Real tau = 1e-6,         // Carrier lifetime / tail current time constant [s] (1-10 μs)
-         Real area = 1.0,         // Device area scaling factor
+         // Basic IGBT parameters (IGBTDefaults)
+         Real vge_th = IGBTDefaults::vge_th,
+         Real kp = IGBTDefaults::kp,
+         Real vce_sat = IGBTDefaults::vce_sat,
+         Real tau = IGBTDefaults::tau,
+         Real area = IGBTDefaults::area,
          // Capacitance parameters
-         Real cge = 5e-9,         // Gate-emitter capacitance [F] (1-10nF typical)
-         Real cce = 5e-10,        // Collector-emitter capacitance [F] (100-1000pF typical)
+         Real cge = IGBTDefaults::cge,
+         Real cce = IGBTDefaults::cce,
          // Noise parameters
-         Real kf = 0.0,           // Flicker noise coefficient
-         Real af = 1.0,           // Flicker noise current exponent
+         Real kf = IGBTDefaults::kf,
+         Real af = IGBTDefaults::af,
          // Temperature parameters
-         Real kt1 = -2e-3,        // VGE_TH temperature coefficient [V/K] (-2 to -5 mV/K)
-         Real kt2 = 0.0,          // VGE_TH second-order temperature coefficient [V/K²]
-         Real ute = -1.5,         // Mobility temperature exponent (-1.0 to -1.8)
-         Real tcv = 1e-3,         // VCE_SAT temperature coefficient [1/K] (+1 mV/K typical)
-         Real tnom = 300.15)      // Nominal temperature [K] (27°C)
+         Real kt1 = IGBTDefaults::kt1,
+         Real kt2 = IGBTDefaults::kt2,
+         Real ute = IGBTDefaults::ute,
+         Real tcv = IGBTDefaults::tcv,
+         Real tnom = IGBTDefaults::tnom)
         : Device(id, name, is_n_channel ? DeviceType::IGBT_N : DeviceType::IGBT_P),
           nodes_{collector, gate, emitter},
           collector_(collector), gate_(gate), emitter_(emitter),
