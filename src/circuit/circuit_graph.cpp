@@ -443,7 +443,7 @@ void CircuitGraph::add_voltage_source_with_waveform(
     bool dc_given, Real ac_magnitude, Real ac_phase,
     std::shared_ptr<const devices::Waveform> waveform) {
     add_voltage_source(name, np, nn, dc_value, ac_magnitude, ac_phase);
-    std::dynamic_pointer_cast<devices::VoltageSource>(device_map_.at(name))
+    std::dynamic_pointer_cast<devices::VoltageSource>(get_device(name))
         ->set_waveform(std::move(waveform), dc_given);
 }
 
@@ -452,7 +452,7 @@ void CircuitGraph::add_current_source_with_waveform(
     bool dc_given, Real ac_magnitude, Real ac_phase,
     std::shared_ptr<const devices::Waveform> waveform) {
     add_current_source(name, np, nn, dc_value, ac_magnitude, ac_phase);
-    std::dynamic_pointer_cast<devices::CurrentSource>(device_map_.at(name))
+    std::dynamic_pointer_cast<devices::CurrentSource>(get_device(name))
         ->set_waveform(std::move(waveform), dc_given);
 }
 
@@ -1812,13 +1812,23 @@ void CircuitGraph::add_tline_lumped(const std::string& name,
                   name, num_sections, z0, td);
 }
 
+namespace {
+
+// The key of an element name in the circuit's map: element names are not
+// case-sensitive, as in SPICE (node names are)
+std::string device_key(const std::string& name) {
+    return util::to_upper_copy(name);
+}
+
+}  // namespace
+
 void CircuitGraph::register_device(const std::string& name,
                                    const std::shared_ptr<devices::Device>& device) {
-    if (device_map_.contains(name)) {
+    if (device_map_.contains(device_key(name))) {
         throw std::runtime_error(fmt::format("Element '{}' is already defined", name));
     }
     devices_.push_back(device);
-    device_map_.emplace(name, device);
+    device_map_.emplace(device_key(name), device);
 }
 
 std::uint32_t CircuitGraph::num_devices() const {
@@ -1830,7 +1840,7 @@ const std::vector<std::shared_ptr<devices::Device>>& CircuitGraph::get_devices()
 }
 
 std::shared_ptr<devices::Device> CircuitGraph::get_device(const std::string& name) const {
-    auto it = device_map_.find(name);
+    auto it = device_map_.find(device_key(name));
     if (it == device_map_.end()) {
         throw std::runtime_error(fmt::format("Device not found: {}", name));
     }

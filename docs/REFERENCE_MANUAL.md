@@ -169,9 +169,9 @@ have spaces inside braces.
 `<n+>` and `<n->` are nodes; `<value>` is a number or an expression in
 braces. Parameters written `NAME=value` may appear in any order; names are
 not case-sensitive. Blanks may stand on either side of the `=`, on any line
-(`W = 10u`, `.param rv ={2*1000}`). An element name, `X` instances
-included, is used once: a second element of the same name, as written, is
-an error.
+(`W = 10u`, `.param rv ={2*1000}`). Element names are not case-sensitive,
+and an element name, `X` instances included, is used once: `R1` and `r1`
+are the same element, and a second is an error.
 
 | Element | Syntax | Notes |
 | --- | --- | --- |

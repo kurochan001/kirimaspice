@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 // src/solvers/pole_zero_solver.cpp
+#include "kirimaspice/util/string_utils.hpp"
 #include "kirimaspice/solvers/pole_zero_solver.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
 #include "kirimaspice/solvers/ac_solver.hpp"
@@ -222,7 +223,7 @@ Real PoleZeroSolver::compute_dc_gain(
         // Get actual input source DC voltage from circuit
         Real v_in = 1.0;  // Default: 1V normalization (SPICE standard)
         for (const auto& device : circuit.get_devices()) {
-            if (device->name() == input_source) {
+            if (util::equals_icase(device->name(), input_source)) {
                 if (auto vsrc = std::dynamic_pointer_cast<devices::VoltageSource>(device)) {
                     Real dc_value = vsrc->dc_value();
                     if (std::abs(dc_value) > 1e-12) {

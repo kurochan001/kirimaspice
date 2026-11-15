@@ -128,8 +128,8 @@ surprise someone who has used another SPICE simulator; the
   it. Comment lines and empty lines between the two do not end that line,
   and a `;` comment on it ends at the end of its own line.
 - **Ground is `0`,** and a node named `gnd` in any case is ground too.
-- **Node names are case-sensitive;** model names, keywords such as `DC`,
-  `AC`, `PULSE` and directive names are not.
+- **Node names are case-sensitive;** element names, model names, keywords
+  such as `DC`, `AC`, `PULSE` and directive names are not.
 - **Numbers** take the scale factors `T`, `G`, `MEG`, `K`, `MIL`, `M`, `U`,
   `N`, `P`, `F` and `A` in either case, as in ngspice. **`M` is milli
   whatever its case**: write `1MEG` for 10⁶. Letters after a number or a

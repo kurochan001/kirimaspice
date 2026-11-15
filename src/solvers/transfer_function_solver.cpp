@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 // src/solvers/transfer_function_solver.cpp
+#include "kirimaspice/util/string_utils.hpp"
 #include "kirimaspice/solvers/transfer_function_solver.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
 #include "kirimaspice/devices/device.hpp"
@@ -132,7 +133,7 @@ bool TransferFunctionSolver::extract_source_device_id(const std::string& source_
     const auto& devices = circuit_.get_devices();
     for (size_t i = 0; i < devices.size(); ++i) {
         const auto& device = devices[i];
-        if (device->name() == source_name) {
+        if (util::equals_icase(device->name(), source_name)) {
             // Check if it's a voltage source
             if (device->type() != DeviceType::VSOURCE) {
                 spdlog::error("Input source must be a voltage source: {}", source_name);

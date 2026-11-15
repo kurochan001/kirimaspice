@@ -316,3 +316,29 @@ TEST(NetlistLines, LossyLineValuesInBraces) {
     EXPECT_DOUBLE_EQ(o1->l(), 2e-9);
     EXPECT_DOUBLE_EQ(o1->td(), 2e-9);
 }
+
+// Element names are not case-sensitive (CircuitGraph's device_key): R1 and
+// r1 are one name, and F names its control in any case. ngspice-47 stops on
+// the first ("device already exists") and gives V(out) = 2 V for the second.
+TEST(NetlistLines, ElementNamesWithoutCase) {
+    {
+        parser::NetlistParser parser;
+        EXPECT_THROW(parser.parse_string("t\nV1 in 0 1\nR1 in 0 1k\nr1 in 0 1k\n.op\n.end\n"),
+                     parser::ParseError);
+    }
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "t\nV1 in 0 1\nVsense in n1 0\nR1 n1 0 1k\nF1 0 out vsense 2\nR2 out 0 1k\n"
+        ".dc v1 0 1 0.5\n.end\n");
+    solvers::DCSolver solver(*parsed.circuit, parsed.config);
+    DenseVector x;
+    SolverStats stats;
+    ASSERT_EQ(solver.solve(x, stats), ConvergenceStatus::SUCCESS);
+    EXPECT_NEAR(x[parsed.circuit->get_node_id("out") - 1], 2.0, 1e-9);
+    EXPECT_NE(parsed.circuit->get_device("vSENSE"), nullptr);
+    // .DC names its source in another case, and sweeps it
+    DCSweepResult sweep;
+    ASSERT_EQ(solver.solve_sweep(parsed.config.dc_sweep, sweep), ConvergenceStatus::SUCCESS);
+    ASSERT_EQ(sweep.points.size(), 3u);
+    EXPECT_NEAR(sweep.points.back().node_voltages[parsed.circuit->get_node_id("out") - 1], 2.0, 1e-9);
+}

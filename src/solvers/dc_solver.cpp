@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 // src/solvers/dc_solver.cpp
+#include "kirimaspice/util/string_utils.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
 
 // Only the device headers used directly here are included
@@ -1174,7 +1175,7 @@ ConvergenceStatus DCSolver::solve_with_pseudo_transient(DenseVector& solution, S
 bool DCSolver::set_source_value(const std::string& source_name, Real value) {
     // Search for voltage or current source by name
     for (const auto& device : circuit_.get_devices()) {
-        if (device->name() == source_name) {
+        if (util::equals_icase(device->name(), source_name)) {
             // Check if it's a voltage source
             if (auto* vsrc = dynamic_cast<devices::VoltageSource*>(device.get())) {
                 vsrc->set_dc_value(value);
@@ -1194,7 +1195,7 @@ DCSolver::SourceSetting DCSolver::save_source_setting(const std::string& source_
     // A missing source gives an empty setting; the sweep reports it
     SourceSetting saved;
     for (const auto& device : circuit_.get_devices()) {
-        if (device->name() != source_name) {
+        if (!util::equals_icase(device->name(), source_name)) {
             continue;
         }
         if (auto* vsrc = dynamic_cast<devices::VoltageSource*>(device.get())) {
