@@ -2,7 +2,7 @@
 
 [English](ARCHITECTURE.md) · [プロジェクトの README](../README.ja.md) · この文書は英語版を正とします。日本語版はその訳で、両者が食い違う場合は英語版に従います。
 
-**2026-11-15 更新**、コミット `db0fef6` に合わせています。この文書は、kirimaspice の作りを説明します。
+**2026-11-15 更新**、コミット `eaf0629` に合わせています。この文書は、kirimaspice の作りを説明します。
 ライブラリの部品、ネットリストがそれらを通る道筋、設計がまだ意図どおりになっていない箇所です。コードを
 読んで書きました。実行しても確かめたものは、そう書いています。場所は行番号ではなく、ファイルと関数で
 示します。コードに手を入れるときは [DEVELOPMENT](DEVELOPMENT.ja.md) を、用語は[用語集](GLOSSARY.ja.md)を
@@ -78,18 +78,21 @@ flowchart LR
    （[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#コマンドラインと出力)）。DC スイープはパーサーが `.DC` を見つけた
    ときに、AC 解析は `.AC` の周波数を見つけたときに実行します。`.op` や `.dc` が求める動作点は、DC スイープに
    置き換わります。
-5. それぞれの解析を実行し、結果を書き出します。
+5. `run_analyses` を通して解析を実行し、結果を書き出します。`.TEMP` の値ごとに、その温度を入れた
+   `SimulationConfig` で 1 回ずつ実行します（`.TEMP` がなければ 1 回です）。
 
 | ネットリストにあるもの | 実行するもの | 標準出力 | ファイル |
 | --- | --- | --- | --- |
-| 完全な `.DC`（パーサーが読む） | DC スイープ。`.OPTIONS TEMP`（既定は 27 °C）で | 要約 | raw（ASCII、バイナリ） |
-| `.op` か `.dc`（文字列の検索）で、スイープなし | 動作点。`.TEMP` の値ごとに 1 回 | `V(...)` と `I(...)` | SSF、raw（ASCII、バイナリ）。`.TEMP` があるときはなし |
-| `.tran a b`（文字列の検索） | 過渡解析。`.TEMP` の値ごとに 1 回、その後に `.FOUR` | 表。`.TEMP` があるときはログの行だけ | SSF、raw（ASCII、バイナリ）、WAV。`.TEMP` があるときはなし |
-| `.AC`（パーサーが読む） | AC。`.OPTIONS TEMP`（既定は 27 °C）で | なし | 必ず `<base>_ac.csv` |
-| どれもない | 既定の設定での動作点（`DCSolver(*circuit)` なので、`.OPTIONS` と `.TEMP` は効かない） | `V(...)` だけ | なし |
+| 完全な `.DC`（パーサーが読む） | DC スイープ | 要約 | raw（ASCII、バイナリ） |
+| `.op` か `.dc`（文字列の検索）で、スイープなし | 動作点 | `V(...)` と `I(...)` | SSF、raw（ASCII、バイナリ） |
+| `.tran a b`（文字列の検索） | 過渡解析。その後に `.FOUR` を、その行の信号ごとに | 表 | SSF、raw（ASCII、バイナリ）、WAV |
+| `.AC`（パーサーが読む） | AC | なし | 必ず `<base>_ac.csv` |
+| どれもない | 動作点 | `V(...)` だけ | なし |
 
 複数の解析が raw ファイルを書くと、それぞれがプロットを後ろに足します。SSF ファイルは、それぞれが
-書き直します。`.FOUR` の行は、過渡解析のソルバーの中で評価します。
+書き直します。`.TEMP` に複数の値を並べると、raw ファイルにはすべての実行のプロットが入り、各実行の
+SSF、WAV、AC の CSV の名前には、その温度が付きます（`out_27C.ssf`、`out_ac_27C.csv`）。`.FOUR` の行は、
+過渡解析のソルバーの中で評価します。
 
 ## パーサー
 
@@ -186,7 +189,7 @@ MESFET、SCR、TRIAC、受動素子はそこに入っておらず、この関数
 | 種類 | ファイル |
 | --- | --- |
 | 受動素子、結合、線路 | resistor、capacitor、inductor、mutual_inductance、tline_lossless、tline_lossy |
-| 電源 | voltage_source、current_source、time_varying_voltage_source（`waveform.hpp` と一緒に）、behavioral_source、vcvs、vccs、cccs、ccvs |
+| 電源 | voltage_source、current_source（どちらも `waveform.hpp` の波形と一緒に）、behavioral_source、vcvs、vccs、cccs、ccvs |
 | ダイオードとバイポーラ | diode、bjt_base、bjt_npn、bjt_pnp |
 | MOSFET | mosfet_base、mosfet_level1、mosfet_level3、mosfet_bsim1、mosfet_bsim3（bsim3_core と一緒に）、mosfet_bsim4（bsim4_core とそのパラメータと一緒に）、mosfet_sic、finfet |
 | パワー素子とそのほか | gan_hemt、vdmos、igbt、jfet、mesfet、scr、triac |
@@ -237,8 +240,8 @@ MESFET、SCR、VDMOS は、それぞれ自分の極性の列挙型（`GaNPolarit
   過渡解析ではそれを外します。
 - **方法**（`IntegrationMethod`）。後退オイラー法、台形則（既定）、BDF2（`gear`、`gear2`、`bdf2`）、
   BDF3（`gear3`、`bdf3`）、TR-BDF2 で、`.OPTIONS METHOD=` で選びます。各デバイスの `stamp_transient` が、
-  その方法のコンパニオンモデルを書きます。ただし、SiC MOSFET、GaN HEMT、VDMOS、FinFET は方法にかかわらず
-  容量を後退オイラー法で積分し、IGBT は台形則のときにそうします
+  その方法のコンパニオンモデルを書きます。ただし、SiC MOSFET、GaN HEMT、VDMOS、FinFET、MESFET は方法に
+  かかわらず容量を後退オイラー法で積分し、IGBT は台形則のときにそうします
   （[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#デバイスモデル)）。
 - **固定刻み。プログラムが使う経路です。** `run_fixed_timestepping` は `tstep` で刻み、`tmax` は使いません。
   最初のステップ（BDF2 では最初の 2 ステップ）は後退オイラー法で進み、BDF3 は、履歴が 1 点か 2 点の間は
@@ -275,7 +278,7 @@ MESFET、SCR、VDMOS は、それぞれ自分の極性の列挙型（`GaNPolarit
 | 解析 | 場所 | ネットリストから使えるか |
 | --- | --- | --- |
 | フーリエ（`.FOUR`） | 過渡解析のソルバーが呼ぶ `FourierAnalyzer` | 使える。`.TRAN` と一緒に |
-| 温度スイープ（`.TEMP`） | DC と過渡解析のソルバーの `solve_temp_sweep` | 使える |
+| 温度スイープ（`.TEMP`） | DC と過渡解析のソルバーの `solve_temp_sweep` | `.TEMP` は使えるが、これらの関数は通らない。プログラムが `.TEMP` の値ごとに自分で解析を実行する（`main.cpp` の `run_analyses`） |
 | ノイズ | `NoiseSolver`。`get_noise_sources` についての随伴法 | 使えない。`.NOISE` がない |
 | 感度 | `SensitivityAnalyzer`。`set_parameter` による差分 | 使えない。`.SENS` は解析する |
 | 伝達関数 | `TransferFunctionSolver`。入力の電源についての差分 | 使えない。`.TF` は解析する |
@@ -292,14 +295,15 @@ MESFET、SCR、VDMOS は、それぞれ自分の極性の列挙型（`GaNPolarit
 
 ## 設計がまだ意図どおりでない箇所
 
-- **いくつかのデバイスは、電流をもう一度計算します。** デバイスの式は 1 か所にだけ書くという決まりに
-  反しています（[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#デバイスモデル)）。
-  - BSIM4。ほかの解析は `BSIM4Core` を通して BSIM4 を評価しますが、`MOSFET_BSIM4::get_noise_sources` は
-    代わりに簡略化した関数を使い、`BSIM4ParameterExtractor` も同じです。
-  - SiC MOSFET は、`stamp_ac` と `get_noise_sources` で二乗則をもう一度、RDRIFT なしで書いています。
-    `stamp_ac` は g<sub>ds</sub> を独自の式から求めます。
-  - GaN HEMT は、DC、AC、ノイズの書き込みで、それぞれ違うやり方で RS と RD を補正します。
-  - IGBT のノイズはバイアスによりません。その g<sub>m</sub> は 2·AREA·KP·5 です。
+- **BSIM4 は、ノイズのために電流をもう一度計算します。** デバイスの式は 1 か所にだけ書くという決まりに
+  反しています（[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#デバイスモデル)）。ほかの解析は `BSIM4Core` を通して
+  BSIM4 を評価しますが、`MOSFET_BSIM4::get_noise_sources` は代わりに簡略化した関数を使い、
+  `BSIM4ParameterExtractor` も同じです。SiC MOSFET、GaN HEMT、VDMOS は、DC、AC、ノイズのどれでも、
+  電流を 1 つの `drain_current` で評価します。
+- **IGBT の過渡解析の書き込みは、DC の書き込みの 2 つ目の写しです。** 遮断とテール電流を、それ独自に
+  扱います。
+- **DC の収束判定は電流を調べません。** その残差は今解いた線形の系の残差なので、大きな電圧の RELTOL 倍
+  より小さな一歩で、KCL が成り立たない所でも反復が終わります（[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#解析)）。
 - **解析を 2 か所で選びます。** パーサーの設定（`.DC`、`.AC`）と、`main.cpp` の正規表現（`.op`、`.dc`、
   `.tran`）です。後者は、プログラムにシミュレーションの論理を持たせ、ネットリストの意味をもう一度決めて
   います。
@@ -317,5 +321,6 @@ MESFET、SCR、VDMOS は、それぞれ自分の極性の列挙型（`GaNPolarit
   `mutual_inductance.cpp` のいくつかの関数は、OpenMP が並列に実行しうる経路で関数内の静的変数を持ちます。
 - **使われていない部分。** `CircuitGraph` の Boost.Graph、BSIM4 が `extra_node_count` で宣言する内部ノード
   （ソルバーは 0 個として扱います）、SuperLU_DIST のバックエンド、止めてある DC スイープの並列化、`BJT_Base`、
-  `BSIM4Core::compute_cdrain` の解析的な微分、パーサーが呼ばない `CircuitGraph::add_sin_voltage_source` と
-  `add_pwl_voltage_source` です。
+  `BSIM4Core::compute_cdrain` の解析的な微分、テストだけが呼ぶ `CircuitGraph::add_sin_voltage_source`、
+  `add_pulse_voltage_source`、`add_pwl_voltage_source` です（パーサーは `add_voltage_source_with_waveform`
+  を使います）。

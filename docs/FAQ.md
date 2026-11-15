@@ -2,7 +2,7 @@
 
 [日本語](FAQ.ja.md) · [Project README](../README.md) · This English text is the main version; the Japanese version follows it, and where they differ, this text holds.
 
-**Updated 2026-11-15** for commit `db0fef6`. These answers describe what
+**Updated 2026-11-15** for commit `eaf0629`. These answers describe what
 kirimaspice does today; the [User Manual](USER_MANUAL.md) and the
 [Reference Manual](REFERENCE_MANUAL.md) give the details,
 [KNOWN_ISSUES](../KNOWN_ISSUES.md) the known problems, and the
@@ -60,8 +60,8 @@ It reads SPICE netlists, and where SPICE dialects differ it follows
 source currents, the order of a nested `.DC` and `gnd`
 ([NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.md)); each of these was
 checked by running ngspice-47. Other differences remain: node and element
-names are case-sensitive, a source needs a DC value before `PULSE`,
-`PULSE` is the only waveform, analyses inside `.control` are not run as
+names are case-sensitive, waveform arguments that ngspice defaults from
+`.TRAN` must be written, analyses inside `.control` are not run as
 ngspice runs them, a `.DC` sweep replaces `.OP`, and the parser reads only
 part of the device parameters. [Moving from ngspice](PORTING.md) and
 [KNOWN_ISSUES](../KNOWN_ISSUES.md) list them.
@@ -93,7 +93,7 @@ Only sources written with `AC` are inputs of an AC analysis. Write
 ### Why does an element inside my subcircuit disappear?
 
 Inside a subcircuit only `R`, `C`, `L`, `V` and `I` (DC and AC values, no
-`PULSE`), `M` (with four terminals, level 1 or BSIM4) and `X` are
+waveform), `M` (with four terminals, level 1 or BSIM4) and `X` are
 expanded; other elements are skipped with a warning. Place diodes, bipolar transistors and
 controlled sources at the top level for now.
 
@@ -138,7 +138,7 @@ The default, `trap`, is second order. On an RC discharge from 1 V
 
 Set the method with `.OPTIONS METHOD=<name>`
 ([examples](../examples/README.md#rc-discharge-and-the-integration-methods)). The SiC MOSFET, GaN
-HEMT, VDMOS and FinFET integrate their own capacitances by backward Euler
+HEMT, VDMOS, FinFET and MESFET integrate their own capacitances by backward Euler
 whatever the method, and the IGBT does so under `trap` ([KNOWN_ISSUES](../KNOWN_ISSUES.md#device-models)).
 
 ### Is the time step adaptive?
@@ -186,7 +186,7 @@ their results are not confirmed; see the
 
 ### Why are some comparison tests skipped?
 
-At commit `db0fef6`, 22 tests are skipped on macOS: twenty comparison
+At commit `eaf0629`, 22 tests are skipped on macOS: twenty comparison
 tests look for reference data in a directory where it is not,
 `BSIM4TemperatureValidationTest.TemperatureSweepValidation` reads a file
 that a script writes to `/tmp`, and

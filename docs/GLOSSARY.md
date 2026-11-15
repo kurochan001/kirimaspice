@@ -4,7 +4,7 @@
 
 Terms used in the [README](../README.md), the [User Manual](USER_MANUAL.md),
 the [Reference Manual](REFERENCE_MANUAL.md) and the other documents, with
-what they mean in kirimaspice. **Updated 2026-11-15** for commit `db0fef6`.
+what they mean in kirimaspice. **Updated 2026-11-15** for commit `eaf0629`.
 For practical questions see the [FAQ](FAQ.md).
 
 - [Netlists](#netlists) · [Sources and devices](#sources-and-devices) ·
@@ -33,10 +33,10 @@ For practical questions see the [FAQ](FAQ.md).
 
 | Term | Meaning |
 | --- | --- |
-| independent source | A voltage (`V`) or current (`I`) source whose value does not depend on the circuit. It has a DC value and may have an AC input and, for `V`, a `PULSE` waveform |
+| independent source | A voltage (`V`) or current (`I`) source whose value does not depend on the circuit. It has a DC value and may have an AC input and a transient waveform (`PULSE`, `SIN`, `EXP`, `PWL`, `SFFM`) ([Reference Manual](REFERENCE_MANUAL.md#sources)) |
 | <a id="ac-input"></a>AC input | A source whose line has `AC [<magnitude> [<phase>]]`; only such sources drive an AC analysis |
 | controlled source | A source whose value depends on a voltage (`E` gives a voltage, `G` a current) or on the current of a voltage source (`H` gives a voltage, `F` a current) |
-| <a id="behavioural-source"></a>behavioural source | A `B` element whose voltage or current is an expression of node voltages and `TIME`. In the program `TIME` is always 0 ([KNOWN_ISSUES](../KNOWN_ISSUES.md#netlist-input)) |
+| <a id="behavioural-source"></a>behavioural source | A `B` element whose voltage or current is an expression of node voltages and `TIME`, the time of the transient |
 | <a id="branch-current"></a>branch current | The current of a voltage source, `E`, `H` or voltage-form `B` source, solved as its own unknown. It is positive when it flows into the `+` terminal through the source, so a source delivering current has a negative current |
 | level-1 MOSFET | The square-law MOSFET model: parameters `KP`, `W`, `L`, `VTO` and noise parameters; no bulk effect and no channel-length modulation |
 | BSIM3, BSIM4 | The Berkeley short-channel MOSFET models. The BSIM4 code is based on BSIM4 4.8.3 and keeps its ECL-2.0 notice ([THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md)) |
@@ -52,7 +52,7 @@ For practical questions see the [FAQ](FAQ.md).
 | <a id="dc-sweep"></a>DC sweep | Operating points while a source steps through a range (`.DC`). With two sources, the first is swept for each value of the second |
 | <a id="transient"></a>transient analysis | The solution over time (`.TRAN`), from an operating point or, with `UIC`, from the values of `.IC` |
 | <a id="ac-analysis"></a>AC analysis | The small-signal response over frequency (`.AC`), linearized at the operating point and driven by the AC inputs |
-| temperature sweep | The operating point or transient at each temperature of `.TEMP`. No files are written then, and a DC sweep and AC analysis take `.OPTIONS TEMP` instead ([Reference Manual](REFERENCE_MANUAL.md#directives)) |
+| temperature sweep | Every analysis at each temperature of a `.TEMP` list; one value is `.OPTIONS TEMP` ([Reference Manual](REFERENCE_MANUAL.md#directives)) |
 | <a id="fourier"></a>Fourier analysis | The harmonics and the THD of a signal over the last period of a transient (`.FOUR`), printed after the transient |
 | <a id="uic"></a>`UIC` | "Use initial conditions": on a `.TRAN` line, start the transient from the `.IC` values instead of from an operating point. Without `UIC`, the operating point holds the `.IC` nodes at their values |
 | library-only analysis | Noise, transfer function, pole-zero, distortion, sensitivity, S-parameters, Monte Carlo, worst case and optimization: implemented in the library and its tests, not run by the program ([Architecture](ARCHITECTURE.md#other-analyses-in-the-library)) |

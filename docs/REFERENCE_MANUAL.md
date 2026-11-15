@@ -4,9 +4,10 @@
 
 This is a reference to the command line, the netlist language and the
 output files of the program `kirimaspice`. It was written on
-**2026-11-14** from the source at commit `91af284` and reviewed again on
-**2026-11-15** at commit `db0fef6`; the behaviour it describes was checked
-by running those builds (macOS 27.2, arm64, GCC 16.2.0, `kirimaspice
+**2026-11-14** from the source at commit `91af284`, reviewed again on
+**2026-11-15** at commit `db0fef6` and updated the same day for the fixes
+up to commit `eaf0629`; the behaviour it describes was checked by running
+those builds (macOS 27.2, arm64, GCC 16.2.0, `kirimaspice
 v0.0.0`). Where an entry was read in the code but not run, it says so. For a guided first run, use
 the [User Manual](USER_MANUAL.md); for what is wrong or missing, see
 [KNOWN_ISSUES.md](../KNOWN_ISSUES.md).
@@ -157,9 +158,9 @@ built-in functions, and, in `.PARAM` only, functions defined by `.FUNC`.
 Scale suffixes are not accepted inside braces (`{1m}` is an error). A brace
 group is one token even if it contains spaces, and one that follows `=`
 stays in the same token, so `IS={ISAT}` is one parameter. In a `.MODEL`
-line and inside `PULSE(...)`, however, the text is split again at spaces,
-so an expression there must have none (`IS={a * 2}` stops with `Invalid
-number format`).
+line, however, the text is split again at spaces, so an expression there
+must have none (`IS={a * 2}` stops with `Invalid number format`). The
+arguments of a source waveform may have spaces inside braces.
 
 ## Elements
 
@@ -173,8 +174,8 @@ not case-sensitive.
 | Capacitor | `C<name> <n+> <n-> <value>` | further tokens (such as `IC=`) are ignored | yes |
 | Inductor | `L<name> <n+> <n-> <value>` | further tokens are ignored | yes |
 | Mutual inductance | `K<name> <L1> <L2> <k>` | `<L1>`, `<L2>` are inductor names; `<k>` outside 0 to 1 is an error | no |
-| Voltage source | `V<name> <n+> <n-> [DC] <value> [AC <mag> [<phase>]] [PULSE(<v1> <v2> <td> <tr> <tf> <pw> <per>)]` | see below | DC and AC, not `PULSE` |
-| Current source | `I<name> <n+> <n-> [DC] <value> [AC <mag> [<phase>]]` | no waveforms | DC and AC |
+| Voltage source | `V<name> <n+> <n-> [[DC] <value>] [AC [<mag> [<phase>]]] [<waveform>]` | see below | DC and AC, no waveform |
+| Current source | `I<name> <n+> <n-> [[DC] <value>] [AC [<mag> [<phase>]]] [<waveform>]` | see below | DC and AC, no waveform |
 | VCVS | `E<name> <n+> <n-> <nc+> <nc-> <gain>` | | no |
 | CCCS | `F<name> <n+> <n-> <Vcontrol> <gain>` | `<Vcontrol>` must be a `V` source | no |
 | VCCS | `G<name> <n+> <n-> <nc+> <nc-> <gm>` | | no |
@@ -195,18 +196,31 @@ Inside a subcircuit, an element marked "no" is dropped with the warning
 
 ### Sources
 
-- A voltage source needs a value: `V1 a b` alone, and `V1 a b AC 1`, are
-  errors; `V1 a b DC` without a number is accepted as 0 V. `DC` before
-  the value is optional.
-- `PULSE(...)` must come after the DC value and needs all seven arguments.
-  A comma may follow an argument only when a space comes after it
-  (`PULSE(0, 1, ...)`); `PULSE(0,1,...)` is an error. With `PULSE`, the DC
-  value and `AC` are ignored: the operating point takes the pulse's value
-  at t = 0, and the source is not an AC input. A source with `PULSE`
-  cannot be swept by `.DC`.
-- There are no `SIN`, `EXP`, `PWL` or `SFFM` waveforms: they are dropped
-  without a message, and the source keeps its DC value. `PULSE` on a
-  current source is dropped in the same way.
+- The DC value, the AC input and the waveform may come in any order, and
+  each may be left out (`V1 a b` alone is an error). `DC` before the value
+  is optional; `V1 a b DC` and `V1 a b AC 1` have 0 V DC. Anything else on
+  the line is an error.
+- As in SPICE (and ngspice-47), the operating point and `.DC` take the DC
+  value, or the waveform's value at time 0 when the line has no DC value;
+  a transient starts from the waveform at time 0 and follows it; AC takes
+  the AC input. `.DC` sweeps the DC value of a source with a waveform too.
+- The waveforms, for voltage and current sources alike:
+
+  | Waveform | Arguments | Value |
+  | --- | --- | --- |
+  | `PULSE` | `V1 V2 TD TR TF PW PER`, all seven | `V1` before `TD`, then the rise, `V2` for `PW`, the fall, repeating every `PER` |
+  | `SIN` | `VO VA FREQ [TD [THETA [PHASE]]]` | `VO + VA sin(PHASE)` before `TD`, then `VO + VA e^(−THETA (t − TD)) sin(2π FREQ (t − TD) + PHASE)`; `PHASE` in degrees |
+  | `EXP` | `V1 V2 TD1 TAU1 TD2 TAU2`, all six | `V1` before `TD1`, then `V1 + (V2 − V1)(1 − e^(−(t − TD1)/TAU1))`, from `TD2` on plus `(V1 − V2)(1 − e^(−(t − TD2)/TAU2))` |
+  | `PWL` | `T1 V1 T2 V2 ...` | linear between the points, `V1` before `T1`, the last value after the last point; times must not decrease |
+  | `SFFM` | `VO VA FC [MDI FS]` | `VO + VA sin(2π FC t + MDI sin(2π FS t))` |
+
+  The arguments are in parentheses, or follow the keyword without them,
+  separated by spaces or commas; each may be an expression in braces. The
+  defaults that SPICE derives from `.TRAN` (for example `TR` and `TF` of
+  `PULSE`, or `FREQ` of `SIN`) are not taken: those arguments must be
+  given, and a wrong number of arguments is an error. ngspice-47 gives an
+  `SFFM` source without a DC value 0 V in the operating point, where
+  kirimaspice takes `VO` (its value at time 0).
 - Only a source whose line has `AC` is an input of AC analysis; `AC`
   without a magnitude means 1, and the phase, in degrees, defaults to 0. A
   source without `AC` has magnitude 0. Inside subcircuits the same holds.
@@ -222,8 +236,8 @@ Inside a subcircuit, an element marked "no" is dropped with the warning
 be in braces (`V={2*V(in)}`), and without braces it must have no spaces.
 It can use `V(<node>)` or `v(<node>)`, `TIME`, `pi` (not `e`) and
 ExprTk's built-in functions; `.PARAM` names and `I(<source>)` are not
-available. In the program, `TIME` is always 0, also in a transient
-([KNOWN_ISSUES](../KNOWN_ISSUES.md#netlist-input)). An expression that
+available. `TIME` is the time of the transient, and 0 in the operating
+point (also in the one that starts a transient). An expression that
 cannot be compiled is an error at the `B` line. Both forms work in the
 operating point and the transient; in AC analysis a `B` source contributes
 nothing and logs `AC analysis not yet supported`.
@@ -278,7 +292,7 @@ For `NMOS` and `PMOS`, `LEVEL` selects the device:
 
 | `LEVEL` | Device | Unknown card parameters | Element-line parameters | In `.SUBCKT` |
 | --- | --- | --- | --- | --- |
-| 1 (default), and any value not listed below | level 1 (square law) | ignored without a message | `KP`, `W`, `L`, `VTH`, `KF`, `AF`, `EF`, `GAMMA` | yes, four terminals |
+| 1 (default) | level 1 (square law) | ignored without a message | `KP`, `W`, `L`, `VTH`, `KF`, `AF`, `EF`, `GAMMA` | yes, four terminals |
 | 3 | SPICE's level 3 | warning | `W`, `L` | no |
 | 9 | BSIM1 | warning | `W`, `L` | no |
 | 8, 49 | BSIM3 | warning | `W`, `L` | no |
@@ -289,7 +303,8 @@ For `NMOS` and `PMOS`, `LEVEL` selects the device:
 | 20 | VDMOS | warning | all, by name | no |
 | 21 | IGBT (`M` terminals are collector, gate, emitter) | warning | all, by name | no |
 
-A `LEVEL` that is not listed gives level 1 without a message. `AD`, `AS`,
+Any other `LEVEL` is an error at the `.MODEL` line, as in ngspice-47.
+`AD`, `AS`,
 `PD`, `PS`, `NRD` and `NRS` on the element line are ignored without a
 message (read in the code).
 
@@ -364,9 +379,9 @@ parser stores it, but the program does not use it (the library can).
 | --- | --- | --- |
 | `.OP` | `.OP` | used: operating point (found by a text search, see [below](#how-the-program-chooses-analyses)) |
 | `.DC` | `.DC <src> <start> <stop> <step> [<src2> <start2> <stop2> <step2>]` | used; `<src>` is a voltage or current source and is swept for each value of `<src2>`; a zero step is an error |
-| `.TRAN` | `.TRAN <tstep> <tstop> [<tstart> [<tmax>]] [UIC]` | used; the program steps by `tstep`, and `tmax` is read but has no effect; unlike SPICE, the simulation starts at `tstart` from the operating point (it does not simulate from 0 and save from `tstart`) |
+| `.TRAN` | `.TRAN <tstep> <tstop> [<tstart> [<tmax>]] [UIC]` | used; the program steps by `tstep`, and `tmax` is read but has no effect; as in SPICE, the simulation runs from 0 and keeps the points from `tstart` on, with a point on `tstart` |
 | `.AC` | `.AC DEC\|OCT\|LIN <n> <fstart> <fstop>` | used; `DEC`, `OCT`: round(`<n>` × the number of decades or octaves) + 1 points, evenly spaced in log from `<fstart>` to `<fstop>`, both included (`.AC DEC 3 10 50` gives 10, 22.36, 50 Hz, where ngspice-47 gives 10, 21.54, 46.42 Hz); `LIN`: `<n>` points in all |
-| `.TEMP` | `.TEMP <t1> [<t2> ...]` (°C) | used for the operating point and transient, which run once per value; a DC sweep and AC run at 27 °C (use `.OPTIONS TEMP=<t>` for them) |
+| `.TEMP` | `.TEMP <t1> [<t2> ...]` (°C) | used; one value is `.OPTIONS TEMP=<t1>` (as in ngspice-47, which takes one value only); with several, every analysis runs at each value (see [below](#how-the-program-chooses-analyses)) |
 | `.OPTIONS`, `.OPTION` | `.OPTIONS <name>=<value> ...` | used; see [Options](#options) |
 | `.IC` | `.IC V(<node>)=<value> ...` | used by a transient: with `UIC` it starts from these values, without `UIC` its operating point holds the nodes at them; `V` must be upper case |
 | `.NODESET` | `.NODESET V(<node>)=<value> ...` | used as the initial guess; `V` must be upper case |
@@ -380,7 +395,7 @@ parser stores it, but the program does not use it (the library can).
 | `.IF` / `.ELIF` / `.ELSE` / `.ENDIF` | `.IF (<expr>)` | used, but `.PARAM` values are not visible; an expression that cannot be evaluated keeps all branches |
 | `.END` | `.END` | ignored; lines after it are read |
 | `.PRINT`, `.SAVE` | `.PRINT DC\|TRAN\|AC <signals>`, `.SAVE <signals>` | read only |
-| `.FOUR` | `.FOUR <frequency> v(<node>)\|i(<source>)` | used with `.TRAN`: prints the harmonics and the THD of the last period of the first signal after the transient; further signals are ignored |
+| `.FOUR` | `.FOUR <frequency> <signal> ...`, each `v(<node>)` or `i(<source>)` | used with `.TRAN`: prints the harmonics and the THD of the last period of each signal after the transient |
 | `.STEP`, `.SENS`, `.MC`, `.TF`, `.PZ`, `.DISTO`, `.PORT`, `.WCASE`, `.OPTIMIZE` | | read only |
 | `.CONTROL` / `.ENDC` | | taken out and run by the parser; the program does not take its analyses from it (see [KNOWN_ISSUES.md](../KNOWN_ISSUES.md)) |
 | `.TITLE`, `.MEASURE`, others | | ignored |
@@ -395,9 +410,13 @@ parser stores it, but the program does not use it (the library can).
   comments included. A `.OPTIONS` line therefore selects the operating
   point. A `.DC` line selects the sweep instead of the operating point,
   also when `.OP` is there too.
-- With none of these, the program computes the operating point with the
-  default settings (`.OPTIONS` and `.TEMP` are not applied), prints the
-  node voltages only and writes no file.
+- With none of these, the program computes the operating point, prints
+  the node voltages only and writes no file.
+- With a `.TEMP` list of several values, all of this runs once per value,
+  after a line `=== Temperature <t> °C ===`. The raw files hold the plots
+  of every run, one after another; the SSF, WAV and AC CSV files of a run
+  carry its temperature before their extension (`out_27C.ssf`,
+  `out_ac_27C.csv`).
 
 ```mermaid
 flowchart TD
@@ -409,7 +428,7 @@ flowchart TD
   TS -- yes --> TR["transient, then .FOUR"]
   N --> A{"parser: .AC?"}
   A -- yes --> AC["AC"]
-  S -- "no, and no .tran or .AC" --> DEF["operating point with default settings"]
+  S -- "no, and no .tran or .AC" --> DEF["operating point, voltages only"]
 ```
 
 They run in this order: DC sweep, operating point, transient, AC. What
@@ -419,9 +438,7 @@ each run prints and writes:
 | --- | --- | --- | --- | --- | --- |
 | DC sweep | a summary | — | yes | — | — |
 | operating point | voltages and currents | yes, replaced by a later transient | yes | — | — |
-| operating point under `.TEMP` | one block per temperature | — | — | — | — |
 | transient | the table, then `.FOUR` | yes | yes | yes | — |
-| transient under `.TEMP` | log lines only | — | — | — | — |
 | AC | nothing | — | — | — | always, named after `-o` or the netlist |
 | default operating point | voltages only | — | — | — | — |
 
@@ -479,13 +496,14 @@ written to standard output. The results are:
 - operating point: `=== DC Operating Point ===`, then `V(0) = 0 V`, one
   `V(<node>) = <value> V` per node and one `I(<source>) = <value> A` per
   voltage, `E`, `H` and voltage-form `B` source;
-- under `.TEMP`: the same block per temperature, headed
-  `=== DC Operating Point @ <t> °C ===`;
 - DC sweep: a summary only;
 - transient: `=== Transient Analysis Results ===` and a tab-separated table
   with a `Time (s)` column and one `V(<node>)` column per node, `V(0)`
-  included, one row per time point; under `.TEMP`, log lines only;
+  included, one row per time point;
 - AC: nothing.
+
+Under a `.TEMP` list of several values, each run's results follow a line
+`=== Temperature <t> °C ===`.
 
 ### SPICE3 raw, ASCII (`--raw-out`)
 
@@ -528,7 +546,8 @@ published in this repository; the writer is `src/output/ssf_writer.cpp`.
 ### AC CSV
 
 The file `<base>_ac.csv`, where `<base>` is the `-o` path, or the netlist
-path, without the part from its last dot. Lines that start with `#` give
+path, without the extension of its last component (`_ac_<t>C.csv` under a
+`.TEMP` list). Lines that start with `#` give
 `AC Analysis Result`, the title, date, simulator, analysis type, number of
 points and nodes, frequency range, status, number of linear solves and
 time. Then a header and one row per

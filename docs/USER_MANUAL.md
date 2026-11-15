@@ -4,10 +4,11 @@
 
 This manual covers building kirimaspice, writing a netlist, running the
 analyses the program offers and reading the results. It was checked on
-**2026-11-14** against commit `91af284` and reviewed again on
-**2026-11-15** at commit `db0fef6`, built on macOS 27.2 (arm64) with GCC
-16.2.0; the program reported `kirimaspice v0.0.0`. Every example below was
-run with those builds.
+**2026-11-14** against commit `91af284`, reviewed again on **2026-11-15**
+at commit `db0fef6` and updated the same day for the fixes up to commit
+`eaf0629`, built on macOS 27.2 (arm64) with GCC 16.2.0; the program
+reported `kirimaspice v0.0.0`. Every example below was run with those
+builds.
 
 For lookup by option, element, directive or output format, use the
 [Reference Manual](REFERENCE_MANUAL.md). For what is known to be wrong or
@@ -133,8 +134,11 @@ surprise someone who has used another SPICE simulator; the
   expressions or in `.OPTIONS` values.
 - **A `.MODEL` line may stand anywhere** in the netlist, before or after
   the elements that use it.
-- **A source with a waveform needs a DC value first:**
-  `V1 in 0 DC 0 PULSE(0 1 0 1n 1n 1 2)`. `PULSE` is the only waveform.
+- **A source takes a DC value, an AC input and a waveform** (`PULSE`,
+  `SIN`, `EXP`, `PWL` or `SFFM`), each optional:
+  `V1 in 0 DC 0 AC 1 PULSE(0 1 0 1n 1n 1 2)`. The arguments that SPICE
+  defaults from `.TRAN` must be given
+  ([Reference Manual](REFERENCE_MANUAL.md#sources)).
 - `.END` does not end the file: lines after it are read too.
 
 A transient example, an RC circuit charged through a step:
@@ -159,14 +163,13 @@ The program runs these analyses:
 | `.DC <src1> ... <src2> <start2> <stop2> <step2>` | nested sweep; the first source is swept for each value of the second |
 | `.TRAN <tstep> <tstop> [<tstart> [<tmax>]] [UIC]` | transient |
 | `.AC DEC\|OCT\|LIN <n> <fstart> <fstop>` | small-signal AC |
-| `.TEMP <t1> <t2> ...` (°C) | the operating point or transient at each temperature (see below) |
-| `.FOUR <f> v(<node>)` | the harmonics of one signal, after the transient |
+| `.TEMP <t1> <t2> ...` (°C) | every analysis at each temperature (see below) |
+| `.FOUR <f> v(<node>) ...` | the harmonics of each signal, after the transient |
 
 A netlist can ask for more than one; they run in the order DC sweep or
 operating point, transient, AC. With both `.OP` and `.DC`, only the sweep
-runs. A netlist that asks for none gets an operating point computed with
-the default settings (its `.OPTIONS` and `.TEMP` are not applied), whose
-node voltages are printed, without source currents and without any file.
+runs. A netlist that asks for none gets an operating point, whose node
+voltages are printed, without source currents and without any file.
 
 The program decides whether to run the operating point and the transient
 by searching each line of the netlist file, but not of included files, for
@@ -179,10 +182,10 @@ words out of comments, and keep the analysis lines in the netlist file.
 The [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-analyses)
 draws these rules as a chart.
 
-Under `.TEMP`, the operating point is printed once per temperature, but
-the transient prints only log lines, no table, and neither writes files; a
-DC sweep and AC run at 27 °C. For one temperature other than 27 °C, write
-`.OPTIONS TEMP=<t>` instead: every analysis then uses it.
+`.TEMP` with one value means `.OPTIONS TEMP` with that value. With several
+values, every analysis runs at each of them, each run after a line
+`=== Temperature <t> °C ===`, and its SSF, WAV and AC CSV files carry the
+temperature in their names (see [Save the results](#save-the-results)).
 
 The other analyses in the library (noise, transfer function, pole-zero,
 distortion, sensitivity, S-parameters, Monte Carlo, worst case,
@@ -209,10 +212,9 @@ build/kirimaspice examples/diode_iv.sp --raw-out diode_iv.raw
 
 The program prints a table with one row per time point and one column per
 node, including `V(0)`. The program steps by `tstep`; `tmax` is read but
-has no effect ([KNOWN_ISSUES](../KNOWN_ISSUES.md#analyses)). `tstart` is
-not as in SPICE: the program starts the simulation at `tstart` from the
-operating point, instead of simulating from 0 and saving the results from
-`tstart`. With `UIC`,
+has no effect ([KNOWN_ISSUES](../KNOWN_ISSUES.md#analyses)). As in SPICE,
+the simulation runs from 0 and the results are kept from `tstart` on, with
+a point on `tstart`. With `UIC`,
 the transient starts from the values in `.IC` instead of from an operating
 point; `.IC` must be written with an upper-case `V`, as in
 `.IC V(out)=1`. Without `UIC`, the operating point that starts the
@@ -250,15 +252,20 @@ Not every run writes every file:
 | DC sweep | yes | — | — | — |
 | transient | yes | yes | yes | — |
 | AC | — | — | — | yes |
-| operating point or transient under `.TEMP` | — | — | — | — |
 | no analysis line (default operating point) | — | — | — | — |
+
+Under a `.TEMP` list of several values, the raw files hold the plots of
+every temperature in turn, and the other files are written once per
+temperature, with `_<t>C` before the extension: `out_27C.ssf`,
+`out_100C.ssf`, `out_ac_27C.csv`.
 
 - When a netlist runs more than one analysis, the raw file holds one plot
   per analysis, one after another. The SSF file holds one analysis: with
   both an operating point and a transient, the transient replaces the
   operating point.
 - The AC CSV is named by taking the `-o` path, or the netlist path if there
-  is no `-o`, removing the part from its last dot, and adding `_ac.csv`.
+  is no `-o`, removing the extension of its last component, and adding
+  `_ac.csv`.
   `circuit.cir` gives `circuit_ac.csv` next to it.
 - The WAV file has one channel per node. A node voltage of ±1 V is full
   scale, and voltages outside that range are clipped. `--wav-sample-rate`
@@ -387,7 +394,7 @@ X1 in out DIV RTOP=3k
   `.PARAM` written inside a `.SUBCKT` is local to the subcircuit and is
   evaluated for each instance.
 - Inside a subcircuit, only `R`, `C`, `L`, `V` and `I` (DC and AC values,
-  no `PULSE`), `M` (four terminals, level 1 or BSIM4) and `X` are
+  no waveform), `M` (four terminals, level 1 or BSIM4) and `X` are
   expanded. Other elements are skipped with a warning, so put diodes,
   bipolar transistors and the other MOSFET levels at the top level.
 - `.GLOBAL <node> ...` makes a node visible inside every subcircuit.
@@ -430,9 +437,8 @@ options are listed in the
 | 1 | no netlist was given, the file could not be read, the netlist could not be parsed, an analysis failed, or an option value was rejected |
 | other | the program was stopped by an uncaught error, for example a non-numeric `--wav-sample-rate` |
 
-Two cases return 0 without a result: a netlist that asks for no analysis,
-whose operating point does not converge, and a transient under `.TEMP`,
-which prints only log lines.
+One case returns 0 without a result: a netlist that asks for no analysis,
+whose operating point does not converge.
 
 A parse error names a line: `Parse error at line 3: ...`. The number counts
 lines after `.INCLUDE` and `.LIB` files have been inserted, continuation
@@ -454,10 +460,11 @@ matter), and check that the file holding the model is read with
 defined, the parser takes the line as three-terminal, so the message names
 the bulk node instead: `M1 a a 0 0 NOM` gives `Undefined MOSFET model: 0`.
 
-### `Invalid number format: missing digits` on a source
+### `PULSE takes 7 arguments` (or `SIN`, `EXP`, `SFFM`)
 
-A `PULSE(...)` source needs a DC value before the waveform:
-`V1 in 0 DC 0 PULSE(...)`.
+The waveform has fewer or more arguments than it takes. The arguments
+that SPICE derives from `.TRAN` when they are left out must be written
+([Reference Manual](REFERENCE_MANUAL.md#sources)).
 
 ### `Matrix is singular` or `KLU numeric factorization failed`
 

@@ -2,7 +2,7 @@
 
 [English](FAQ.md) · [プロジェクトの README](../README.ja.md) · この文書は英語版を正とします。日本語版はその訳で、両者が食い違う場合は英語版に従います。
 
-**2026-11-15 更新**（コミット `db0fef6`）。ここでの答えは、今の kirimaspice の振る舞いです。詳しくは
+**2026-11-15 更新**（コミット `eaf0629`）。ここでの答えは、今の kirimaspice の振る舞いです。詳しくは
 [ユーザーマニュアル](USER_MANUAL.ja.md)と[リファレンスマニュアル](REFERENCE_MANUAL.ja.md)に、分かっている
 問題は [KNOWN_ISSUES](../KNOWN_ISSUES.ja.md) に、用語は[用語集](GLOSSARY.ja.md)にあります。
 
@@ -50,9 +50,9 @@
 SPICE のネットリストを読みます。SPICE の方言が違うところのうち、倍率、AC の入力、電源の電流の符号、
 入れ子の `.DC` の順、`gnd` では [ngspice](GLOSSARY.ja.md#ngspice) に合わせています
 （[NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.ja.md)）。どれも ngspice-47 を動かして確かめました。
-ほかの違いは残っています。ノード名と素子名は大文字と小文字を区別すること、`PULSE` の前に DC の値が
-必要なこと、波形は `PULSE` だけなこと、`.control` の中の解析は ngspice のようには実行しないこと、
-`.DC` のスイープが `.OP` に代わること、パーサーが読むデバイスのパラメーターが一部なことです。
+ほかの違いは残っています。ノード名と素子名は大文字と小文字を区別すること、ngspice が `.TRAN` から
+既定値を決める波形の引数を書かなければならないこと、`.control` の中の解析は ngspice のようには実行
+しないこと、`.DC` のスイープが `.OP` に代わること、パーサーが読むデバイスのパラメーターが一部なことです。
 [ngspice からの移行](PORTING.ja.md)と [KNOWN_ISSUES](../KNOWN_ISSUES.ja.md) に並べてあります。
 
 ### HSPICE や Spectre 向けに書いたネットリストを読めますか？
@@ -78,7 +78,7 @@ AC 解析の入力になるのは、`AC` を書いた電源だけです。回路
 
 ### サブサーキットの中の素子が消えるのはなぜですか？
 
-サブサーキットの中で展開するのは、`R`、`C`、`L`、`V` と `I`（DC と AC の値。`PULSE` はなし）、`M`
+サブサーキットの中で展開するのは、`R`、`C`、`L`、`V` と `I`（DC と AC の値。波形はなし）、`M`
 （4 端子、レベル 1 または BSIM4）、`X` だけで、ほかの素子は警告を出して飛ばします。今は、ダイオード、
 バイポーラトランジスタ、制御電源はトップレベルに置いてください。
 
@@ -117,8 +117,8 @@ RC の充電（厳密な値 0.632121 に対して 0.632105）です。
 | `euler` | 後退オイラー法 | 1 | 0.369711 | 1.8·10⁻³ |
 
 方法は `.OPTIONS METHOD=<名前>` で選びます（[例題](../examples/README.ja.md#rc-の放電と積分法)）。
-SiC MOSFET、GaN HEMT、VDMOS、FinFET は、方法にかかわらず自分の容量を後退オイラー法で積分し、IGBT も
-`trap` のもとではそうします（[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#デバイスモデル)）。
+SiC MOSFET、GaN HEMT、VDMOS、FinFET、MESFET は、方法にかかわらず自分の容量を後退オイラー法で積分し、
+IGBT も `trap` のもとではそうします（[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#デバイスモデル)）。
 
 ### 時間刻みは可変ですか？
 
@@ -155,7 +155,7 @@ SiC MOSFET、GaN HEMT、VDMOS、FinFET は、方法にかかわらず自分の�
 
 ### スキップされる比較のテストがあるのはなぜですか？
 
-コミット `db0fef6` の macOS では、22 件のテストがスキップされます。比較のテスト 20 件は参照データが
+コミット `eaf0629` の macOS では、22 件のテストがスキップされます。比較のテスト 20 件は参照データが
 ない場所を探し、`BSIM4TemperatureValidationTest.TemperatureSweepValidation` はスクリプトが `/tmp` に
 書き出すファイルを読み、`BSIM4ComprehensiveTest.VdsatBranchSelection` は参照の値が確かめられていない
 ので自分でスキップします。`BSIM4ComprehensiveTest.NgspiceComparison` も、ngspice が入っていなければ

@@ -2,7 +2,7 @@
 
 [日本語](ARCHITECTURE.ja.md) · [Project README](../README.md) · This English text is the main version; the Japanese version follows it, and where they differ, this text holds.
 
-**Updated 2026-11-15** for commit `db0fef6`. This document describes how
+**Updated 2026-11-15** for commit `eaf0629`. This document describes how
 kirimaspice is built: the parts of the library, the path a netlist takes
 through them, and the places where the design is not yet as intended. It
 was written by reading the code; what was also run says so. Places are
@@ -87,19 +87,23 @@ and the second half of `core/device_utils.hpp` is in
    A DC sweep runs when the parser found `.DC`, and an AC analysis when it
    found `.AC` frequencies. A DC sweep replaces the operating point that
    `.op` or `.dc` asks for.
-5. Runs each analysis and writes its results:
+5. Runs the analyses through `run_analyses`, once per `.TEMP` value with
+   that temperature in its `SimulationConfig` (once without `.TEMP`), and
+   writes their results:
 
 | Netlist has | Runs | Standard output | Files |
 | --- | --- | --- | --- |
-| a complete `.DC` (parsed) | DC sweep, at `.OPTIONS TEMP` (27 °C by default) | a summary | raw (ASCII, binary) |
-| `.op` or `.dc` (text), no sweep | operating point, once per `.TEMP` value | `V(...)` and `I(...)` | SSF, raw (ASCII, binary); none under `.TEMP` |
-| `.tran a b` (text) | transient, once per `.TEMP` value, then `.FOUR` | a table; log lines only under `.TEMP` | SSF, raw (ASCII, binary), WAV; none under `.TEMP` |
-| `.AC` (parsed) | AC, at `.OPTIONS TEMP` (27 °C by default) | nothing | always `<base>_ac.csv` |
-| none of these | operating point with the default settings (`DCSolver(*circuit)`, so `.OPTIONS` and `.TEMP` do not apply) | `V(...)` only | none |
+| a complete `.DC` (parsed) | DC sweep | a summary | raw (ASCII, binary) |
+| `.op` or `.dc` (text), no sweep | operating point | `V(...)` and `I(...)` | SSF, raw (ASCII, binary) |
+| `.tran a b` (text) | transient, then `.FOUR` for each of its signals | a table | SSF, raw (ASCII, binary), WAV |
+| `.AC` (parsed) | AC | nothing | always `<base>_ac.csv` |
+| none of these | operating point | `V(...)` only | none |
 
 When more than one analysis writes a raw file, each appends a plot to it;
-the SSF file is rewritten by each. A `.FOUR` line is evaluated inside the
-transient solver.
+the SSF file is rewritten by each. Under a `.TEMP` list of several values
+the raw files hold the plots of every run, and the SSF, WAV and AC CSV
+names of a run carry its temperature (`out_27C.ssf`, `out_ac_27C.csv`).
+A `.FOUR` line is evaluated inside the transient solver.
 
 ## Parser
 
@@ -219,7 +223,7 @@ them, and the function skips them.
 | Family | Files |
 | --- | --- |
 | passive, coupling, lines | resistor, capacitor, inductor, mutual_inductance, tline_lossless, tline_lossy |
-| sources | voltage_source, current_source, time_varying_voltage_source (with `waveform.hpp`), behavioral_source, vcvs, vccs, cccs, ccvs |
+| sources | voltage_source, current_source (both with a waveform of `waveform.hpp`), behavioral_source, vcvs, vccs, cccs, ccvs |
 | diodes and bipolar | diode, bjt_base, bjt_npn, bjt_pnp |
 | MOSFET | mosfet_base, mosfet_level1, mosfet_level3, mosfet_bsim1, mosfet_bsim3 (with bsim3_core), mosfet_bsim4 (with bsim4_core and its parameters), mosfet_sic, finfet |
 | power and others | gan_hemt, vdmos, igbt, jfet, mesfet, scr, triac |
@@ -289,8 +293,9 @@ temperature, finds the starting point, and steps in time.
   default), BDF2 (`gear`, `gear2`, `bdf2`), BDF3 (`gear3`, `bdf3`), and
   TR-BDF2, chosen with `.OPTIONS METHOD=`. Each device's
   `stamp_transient` writes the companion model of the method, except that
-  the SiC MOSFET, GaN HEMT, VDMOS and FinFET integrate their capacitances
-  by backward Euler whatever the method, and the IGBT does so under the
+  the SiC MOSFET, GaN HEMT, VDMOS, FinFET and MESFET integrate their
+  capacitances by backward Euler whatever the method, and the IGBT does so
+  under the
   trapezoidal method ([KNOWN_ISSUES](../KNOWN_ISSUES.md#device-models)).
 - **Fixed steps, the path the program uses.** `run_fixed_timestepping`
   steps by `tstep`; `tmax` is not used. Backward Euler takes the first
@@ -334,7 +339,7 @@ its own solver. The inputs are the sources written with `AC`
 | Analysis | Where | Reached from a netlist |
 | --- | --- | --- |
 | Fourier (`.FOUR`) | `FourierAnalyzer`, called by the transient solver | yes, with `.TRAN` |
-| Temperature sweep (`.TEMP`) | `solve_temp_sweep` of the DC and transient solvers | yes |
+| Temperature sweep (`.TEMP`) | `solve_temp_sweep` of the DC and transient solvers | `.TEMP` is, but not through these functions: the program runs the analyses once per `.TEMP` value itself (`run_analyses` in `main.cpp`) |
 | Noise | `NoiseSolver`, adjoint method over `get_noise_sources` | no; there is no `.NOISE` |
 | Sensitivity | `SensitivityAnalyzer`, finite differences through `set_parameter` | no; `.SENS` is parsed |
 | Transfer function | `TransferFunctionSolver`, finite differences on the input source | no; `.TF` is parsed |
@@ -351,19 +356,19 @@ lists the directives the program parses but does not run.
 
 ## Where the design is not yet as intended
 
-- **Some devices compute their current a second time**, against the rule
-  that a device's equations are written once
-  ([KNOWN_ISSUES](../KNOWN_ISSUES.md#device-models)):
-  - BSIM4: the other analyses evaluate it through `BSIM4Core`;
-    `MOSFET_BSIM4::get_noise_sources` uses simplified functions instead,
-    and so does `BSIM4ParameterExtractor`.
-  - The SiC MOSFET writes its square law again in `stamp_ac` and
-    `get_noise_sources`, without RDRIFT; `stamp_ac` takes g<sub>ds</sub>
-    from a formula of its own.
-  - The GaN HEMT corrects for RS and RD in a different way in each of its
-    DC, AC and noise stamps.
-  - The IGBT's noise does not depend on the bias: its g<sub>m</sub> is
-    2·AREA·KP·5.
+- **BSIM4 computes its current a second time for noise**, against the
+  rule that a device's equations are written once
+  ([KNOWN_ISSUES](../KNOWN_ISSUES.md#device-models)): the other analyses
+  evaluate it through `BSIM4Core`; `MOSFET_BSIM4::get_noise_sources` uses
+  simplified functions instead, and so does `BSIM4ParameterExtractor`.
+  The SiC MOSFET, the GaN HEMT and the VDMOS evaluate their current in one
+  `drain_current` for DC, AC and noise.
+- **The IGBT's transient stamp is a second copy of its DC stamp**, with
+  its own handling of cutoff and the tail current.
+- **The DC convergence test does not check the currents.** Its residual
+  is that of the linear system just solved, so a step below RELTOL of a
+  large voltage ends the iteration even where KCL does not hold
+  ([KNOWN_ISSUES](../KNOWN_ISSUES.md#analyses)).
 - **The analyses are chosen in two places**: by the parser's
   configuration (`.DC`, `.AC`) and by the regular expressions of
   `main.cpp` (`.op`, `.dc`, `.tran`). The second holds simulation logic in
@@ -390,5 +395,6 @@ lists the directives the program parses but does not run.
   nodes that BSIM4 declares through `extra_node_count` (the solvers take
   none), the SuperLU_DIST backend, the parallel DC sweep, which is
   disabled, `BJT_Base`, the analytic derivatives of
-  `BSIM4Core::compute_cdrain`, and `CircuitGraph::add_sin_voltage_source`
-  and `add_pwl_voltage_source`, which the parser does not call.
+  `BSIM4Core::compute_cdrain`, and `CircuitGraph::add_sin_voltage_source`,
+  `add_pulse_voltage_source` and `add_pwl_voltage_source`, which only
+  tests call (the parser uses `add_voltage_source_with_waveform`).

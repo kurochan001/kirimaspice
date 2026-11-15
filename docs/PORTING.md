@@ -2,7 +2,7 @@
 
 [日本語](PORTING.ja.md) · [Project README](../README.md) · This English text is the main version; the Japanese version follows it, and where they differ, this text holds.
 
-**Updated 2026-11-15** for commit `db0fef6`. This guide is for running with
+**Updated 2026-11-15** for commit `eaf0629`. This guide is for running with
 kirimaspice a netlist written for ngspice. It says what is the same, how
 the commands map, and what to check in the netlist, in the order in which
 it is usually met. Each difference was found by running kirimaspice and
@@ -68,17 +68,15 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
 
   | Status | Directives |
   | --- | --- |
-  | run | `.OP`, `.DC`, `.TRAN`, `.AC`, `.FOUR` (first signal only) |
+  | run | `.OP`, `.DC`, `.TRAN`, `.AC`, `.FOUR` |
   | read, not used | `.SENS`, `.TF`, `.PZ`, `.DISTO`, `.STEP`, `.MC`, `.WCASE`, `.OPTIMIZE`, `.PORT`, `.PRINT`, `.SAVE` |
   | ignored | `.NOISE`, `.MEASURE`, `.TITLE`, `.END` (lines after it are read) |
 
-- [ ] **`.TEMP`.** The operating point and the transient run once per
-  value, but then write no files and the transient prints no table; a DC
-  sweep and AC run at 27 °C. For one temperature, write
-  `.OPTIONS TEMP=<t>` instead.
+- [ ] **`.TEMP`.** One value is `.OPTIONS TEMP`, as in ngspice. A list of
+  values, which ngspice-47 rejects, runs every analysis at each value and
+  names the SSF, WAV and AC CSV files after the temperature.
 - [ ] **A netlist without analyses.** ngspice does nothing; kirimaspice
-  computes an operating point with the default settings, without the
-  netlist's `.OPTIONS`.
+  computes an operating point and prints its node voltages.
 
 ### Names and numbers
 
@@ -91,21 +89,19 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
 
 ### Sources
 
-- [ ] **`PULSE` only, on a voltage source, after a DC value.** Write
-  `V1 in 0 DC 0 PULSE(0 1 ...)`, with spaces between the arguments (or a
-  space after each comma). There are no `SIN`, `EXP`, `PWL` or `SFFM`
-  waveforms: they are dropped without a message, as is `PULSE` on a
-  current source. A `PULSE` source is not an AC input and cannot be swept
-  by `.DC`.
+- [ ] **All waveform arguments written out.** `PULSE`, `SIN`, `EXP`, `PWL`
+  and `SFFM` work on voltage and current sources as in ngspice, but the
+  arguments that ngspice defaults from `.TRAN` (`TR`, `TF`, `PW`, `PER` of
+  `PULSE`, `FREQ` of `SIN`, the `EXP` times, `FC` of `SFFM`) must be given.
+  Anything after the waveform other than `DC` or `AC` is an error.
 - [ ] **`B` sources only in DC and transient.** They have no AC model,
-  their expressions cannot use `I(...)` or `.PARAM` names, and `TIME` is
-  0 throughout a transient
+  and their expressions cannot use `I(...)` or `.PARAM` names
   ([KNOWN_ISSUES](../KNOWN_ISSUES.md#netlist-input)).
 
 ### Subcircuits and parameters
 
 - [ ] **Elements inside `.SUBCKT`.** Only `R`, `C`, `L`, `V` and `I` (DC
-  and AC values, no `PULSE`), `M` (four terminals, level 1 or BSIM4) and
+  and AC values, no waveform), `M` (four terminals, level 1 or BSIM4) and
   `X` are expanded; others are skipped with a warning
   ([Reference Manual](REFERENCE_MANUAL.md#elements)). Move diodes, bipolar
   transistors and controlled sources to the top level.
@@ -129,8 +125,8 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
   (BSIM4), 20 (VDMOS) and 21 (IGBT)
   ([Reference Manual](REFERENCE_MANUAL.md#models)). Check that each card
   of the netlist means the same device by its number (not compared with
-  ngspice's list of levels here). Any other `LEVEL` gives level 1 without
-  a message.
+  ngspice's list of levels here). Any other `LEVEL` is an error, as in
+  ngspice.
 - [ ] **`S` and `Y` parameters on the element line.** `.MODEL` has no
   SCR or TRIAC type.
 - [ ] **No `J` elements.** The library has a JFET, but the parser has no
@@ -144,16 +140,8 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
   fastest change of the circuit.
 - [ ] **The first step.** With the trapezoidal rule, the first step is a
   backward Euler step.
-- [ ] **`tstart`.** The simulation starts at `tstart` from the operating
-  point; ngspice simulates from 0 and saves from `tstart`. Leave `tstart`
-  at 0 when the circuit's state at `tstart` matters.
 - [ ] **Options of the time step.** `TRTOL`, `CHGTOL`, the `LTE_*`
   options, `ERROR_EST` and `MAXORD` have no effect.
-
-### DC sweeps
-
-- [ ] **`.TEMP` with `.DC`.** The sweep runs at 27 °C, or at
-  `.OPTIONS TEMP`; use that option for a sweep at another temperature.
 
 ## Compare the results
 

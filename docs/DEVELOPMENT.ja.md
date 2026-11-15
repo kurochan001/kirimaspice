@@ -2,7 +2,7 @@
 
 [English](DEVELOPMENT.md) · [プロジェクトの README](../README.ja.md) · この文書は英語版を正とします。日本語版はその訳で、両者が食い違う場合は英語版に従います。
 
-**2026-11-15 更新**、コミット `db0fef6` に合わせています。この手引きは、kirimaspice を変える人のための
+**2026-11-15 更新**、コミット `eaf0629` に合わせています。この手引きは、kirimaspice を変える人のための
 ものです。開発用のビルド、テストの構成と実行、push の前に確かめること、プロジェクトの決まりの中で
 デバイスモデルを足したり不具合を直したりする方法を書きます。受け付ける貢献は
 [CONTRIBUTING](../CONTRIBUTING.ja.md) に、人にもエージェントにも等しく適用される決まりは
@@ -57,9 +57,10 @@ ctest --test-dir build --output-on-failure
 | `tests/debug/`、`tests/debug_*.cpp` | デバッグ用のプログラム | しない |
 
 GoogleTest のプログラムは `gtest_discover_tests` で登録するので、CTest はテストケースを 1 つずつ
-`Suite.Name` として並べます。コマンドラインのテスト（`cli_*`）、例題（`example_*`）、Python のツール
-（`python_tools_*`）、`bsim4_dc_smoke`、`MutualInductanceFixTest` は `add_test` で登録し、それぞれが CTest の
-1 つのテストです。コミット `db0fef6` では、macOS で CTest のテストは 1162 個です。
+`Suite.Name` として並べます。コマンドラインのテスト（`cli_*`。`.TEMP` の実行を調べる `cli_temperature_*`
+もその中にあります）、例題（`example_*`）、Python のツール（`python_tools_*`）、`bsim4_dc_smoke`、
+`MutualInductanceFixTest` は `add_test` で登録し、それぞれが CTest の 1 つのテストです。コミット `eaf0629`
+では、macOS で CTest のテストは 1182 個です。
 
 ### テストの一部を実行する
 
@@ -110,9 +111,10 @@ noreply でないコミットの作者です。出てはいけない名前は、
 
 デバイスの式は 1 か所にだけ書きます。どの解析（動作点、DC スイープ、AC、過渡、ノイズ）も、同じモデルの
 コードを通してデバイスを評価するので、1 つの解析のために式の写しを足さないでください。まだそうなって
-いない箇所（BSIM4 のノイズ源と、SiC MOSFET、GaN HEMT、IGBT の AC とノイズの書き込み）は、
+いない箇所（BSIM4 のノイズ源と、IGBT の過渡解析の書き込み）は、
 [KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#デバイスモデル) に書いてあります。新しいコードで、そのような箇所を
-増やしてはいけません。
+増やしてはいけません。`tests/unit/test_small_signal_consistency.cpp` は、デバイスの AC の利得が DC の
+伝達特性の傾きに等しいことを調べます。新しいデバイスには、そこにケースを足してください。
 
 手順です。クラスとファイルは [ARCHITECTURE](ARCHITECTURE.ja.md#デバイス) で説明しています。
 

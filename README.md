@@ -21,15 +21,15 @@ tests and the review, under the [AI policy](docs/spec/AI_POLICY.md).
 
 ## Status
 
-Measured on 2026-11-15 at commit `db0fef6` on macOS 27.2 (arm64) with GCC
+Measured on 2026-11-15 at commit `eaf0629` on macOS 27.2 (arm64) with GCC
 16.2.0, CMake 4.4.4 and SuiteSparse 7.6.1. Homebrew's clang 23.1.4 and
 Apple clang 21.0.0 gave the same results on 2026-11-14 (not checked again
 at this commit).
 
 | CTest tests | Count |
 | --- | --- |
-| Registered | 1162 |
-| Passed | 1132 |
+| Registered | 1182 |
+| Passed | 1152 |
 | Skipped | 22 |
 | Failed (listed in `tests/known_failures.txt`) | 7 |
 | Disabled | 1 |
@@ -73,10 +73,11 @@ The parser accepts these directives: `.AC`, `.DC`, `.TRAN`, `.OPTIONS`,
 `.OPTIMIZE`. The program finds `.OP` by a text search of the netlist file
 ([Reference Manual](docs/REFERENCE_MANUAL.md#how-the-program-chooses-analyses)).
 
-The program `kirimaspice` runs the operating point and the transient
-analysis (each also over the temperatures of `.TEMP`, then without
-writing files), DC sweeps (also nested), the Fourier analysis of `.FOUR`
-after a transient, and AC analysis. The library also implements noise, transfer function,
+The program `kirimaspice` runs the operating point, DC sweeps (also
+nested), the transient analysis with the Fourier analysis of `.FOUR`, and
+AC analysis, each also at every temperature of a `.TEMP` list. Sources
+take a DC value, an AC input and a `PULSE`, `SIN`, `EXP`, `PWL` or `SFFM`
+waveform. The library also implements noise, transfer function,
 pole-zero, distortion, sensitivity, S-parameter, Monte Carlo, worst-case
 and optimization analyses, which the tests exercise; the program does not
 run them yet.
