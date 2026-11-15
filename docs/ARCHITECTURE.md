@@ -274,7 +274,10 @@ off by default).
   contribution plus `abstol` (`vntol` for branch rows), plus 10<sup>−12</sup>
   of the magnitudes of its terms for rounding. The gmin that the iteration
   solved with (gmin stepping, dynamic gmin) and the held nodes are
-  contributions too.
+  contributions too. The Newton iteration of a transient step takes the
+  same test with each device's `stamp_transient` of that step
+  (`TransientSolver::check_convergence`), so a stamp must not change the
+  device's history; `accept_solution` advances it.
 - **Limiting.** For the first ten iterations of a nonlinear circuit with
   more than four unknowns, the whole Newton step is scaled to at most 5 V
   (unless dynamic gmin is on). The diode and the NPN transistor also limit
@@ -372,9 +375,6 @@ lists the directives the program parses but does not run.
   `drain_current` for DC, AC and noise.
 - **The IGBT's transient stamp is a second copy of its DC stamp**, with
   its own handling of cutoff and the tail current.
-- **The transient step's Newton iteration tests the step only**, where
-  the DC iteration also requires KCL with the devices' own currents
-  (`kirchhoff_current_law_holds`; [KNOWN_ISSUES](../KNOWN_ISSUES.md#analyses)).
 - **The analyses are chosen in two places**: by the parser's
   configuration (`.DC`, `.AC`) and by the regular expressions of
   `main.cpp` (`.op`, `.dc`, `.tran`). The second holds simulation logic in

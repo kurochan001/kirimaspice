@@ -228,7 +228,9 @@ MESFET、SCR、VDMOS は、それぞれ自分の極性の列挙型（`GaNPolarit
   G<sub>d</sub>·x − b<sub>d</sub> はデバイス自身の電流になります。各行の和は、その行で最大の寄与の
   `reltol` 倍に `abstol`（枝の行は `vntol`）と、丸めの分として項の大きさの 10<sup>−12</sup> 倍を加えた
   値より小さくなければなりません。反復で解いた gmin（gmin ステッピング、動的 gmin）と固定したノードも
-  寄与に含めます。
+  寄与に含めます。過渡解析の 1 ステップの Newton 反復も、そのステップの各デバイスの `stamp_transient` で
+  同じ判定をします（`TransientSolver::check_convergence`）。そのため、書き込みはデバイスの履歴を変えては
+  いけません。履歴を進めるのは `accept_solution` です。
 - **制限。** 未知数が 4 個を超える非線形の回路では、最初の 10 回の反復で、Newton 法の一歩全体を 5 V 以下に
   縮めます（動的 gmin を使うときを除きます）。ダイオードと NPN トランジスタは、反復の間に接合電圧が動く幅も
   制限し（`core::limit_junction_step`。SPICE と同じです）、制限した書き込みから得た解は収束と見なしません
@@ -308,8 +310,6 @@ MESFET、SCR、VDMOS は、それぞれ自分の極性の列挙型（`GaNPolarit
   電流を 1 つの `drain_current` で評価します。
 - **IGBT の過渡解析の書き込みは、DC の書き込みの 2 つ目の写しです。** 遮断とテール電流を、それ独自に
   扱います。
-- **過渡解析の 1 ステップの Newton 反復は、変化だけを判定します。** DC の反復は、デバイス自身の電流で
-  KCL が成り立つことも求めます（`kirchhoff_current_law_holds`。[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#解析)）。
 - **解析を 2 か所で選びます。** パーサーの設定（`.DC`、`.AC`）と、`main.cpp` の正規表現（`.op`、`.dc`、
   `.tran`）です。後者は、プログラムにシミュレーションの論理を持たせ、ネットリストの意味をもう一度決めて
   います。

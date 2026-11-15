@@ -36,7 +36,7 @@ and SuiteSparse 7.6.1 unless an entry says otherwise.
 - `BSIM4Transient.InverterChain_MatchesNgspiceReference` is disabled
   (`DISABLED_` in its name); its comment says that the BSIM4 transient
   does not converge near 1 ns (not checked again).
-- At commit `6e985c5` on macOS, CTest has 1184 tests: 1154 pass, 22 are
+- At commit `bbb8555` on macOS, CTest has 1185 tests: 1155 pass, 22 are
   skipped (the twenty comparison tests above, `TemperatureSweepValidation`
   and `VdsatBranchSelection`), 7 fail and 1 is disabled.
 - Some tests find their data relative to the build directory and pass only
@@ -115,12 +115,6 @@ says otherwise.
   no effect**, because they act on the adaptive path that the program
   does not use (read in the code).
 - **`.OP` with `.DC` runs only the sweep.**
-- **The Newton iteration of a transient step tests the step only.** The
-  DC iterations end only where KCL holds with the devices' own currents
-  (`kirchhoff_current_law_holds`), but `TransientSolver::check_convergence`
-  still ends a step when the change falls below RELTOL·|V| + VNTOL (read
-  in the code), so a device whose conductance is not the derivative of
-  its current can end a step away from its solution.
 
 ## Device models
 

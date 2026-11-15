@@ -2,7 +2,7 @@
 
 [English](DEVELOPMENT.md) · [プロジェクトの README](../README.ja.md) · この文書は英語版を正とします。日本語版はその訳で、両者が食い違う場合は英語版に従います。
 
-**2026-11-15 更新**、コミット `6e985c5` に合わせています。この手引きは、kirimaspice を変える人のための
+**2026-11-15 更新**、コミット `bbb8555` に合わせています。この手引きは、kirimaspice を変える人のための
 ものです。開発用のビルド、テストの構成と実行、push の前に確かめること、プロジェクトの決まりの中で
 デバイスモデルを足したり不具合を直したりする方法を書きます。受け付ける貢献は
 [CONTRIBUTING](../CONTRIBUTING.ja.md) に、人にもエージェントにも等しく適用される決まりは
@@ -59,8 +59,8 @@ ctest --test-dir build --output-on-failure
 GoogleTest のプログラムは `gtest_discover_tests` で登録するので、CTest はテストケースを 1 つずつ
 `Suite.Name` として並べます。コマンドラインのテスト（`cli_*`。`.TEMP` の実行を調べる `cli_temperature_*`
 もその中にあります）、例題（`example_*`）、Python のツール（`python_tools_*`）、`bsim4_dc_smoke`、
-`MutualInductanceFixTest` は `add_test` で登録し、それぞれが CTest の 1 つのテストです。コミット `6e985c5`
-では、macOS で CTest のテストは 1184 個です。
+`MutualInductanceFixTest` は `add_test` で登録し、それぞれが CTest の 1 つのテストです。コミット `bbb8555`
+では、macOS で CTest のテストは 1185 個です。
 
 ### テストの一部を実行する
 
