@@ -28,7 +28,7 @@
   参照の電流 2.1 A は確かめられていないと書いてあります。
 - `BSIM4Transient.InverterChain_MatchesNgspiceReference` は無効です（名前に `DISABLED_` があります）。
   そのコメントには、BSIM4 の過渡解析が 1 ns 付近で収束しないと書いてあります（確かめ直していません）。
-- コミット `eaf0629` の macOS では、CTest のテストは 1182 件です。1152 件が合格、22 件がスキップ
+- コミット `6e985c5` の macOS では、CTest のテストは 1184 件です。1154 件が合格、22 件がスキップ
   （上の比較のテスト 20 件、`TemperatureSweepValidation`、`VdsatBranchSelection`）、7 件が失敗、
   1 件が無効です。
 - テストの一部は、ビルドディレクトリからの相対位置でデータを探すので、ビルドディレクトリが
@@ -88,12 +88,11 @@ ngspice について書いていることは、それぞれのマニュアルに
 - **`TRTOL`、`CHGTOL`、`LTE_*` のオプション、`ERROR_EST`、`MAXORD` は効きません。** プログラムが
   使わない可変刻みの経路に働くものだからです（コードで読みました）。
 - **`.OP` と `.DC` があると、スイープだけを実行します。**
-- **DC の収束判定は、電流を確かめません。** `DCSolver::check_convergence` が判定する残差は、いま解いた
-  線形方程式の残差（1 つ前の反復の行列による `compute_residual`）で、解くたびにほぼ 0 になります。
-  そのため、KCL が成り立っていなくても、電圧の変化が RELTOL·|V| + VNTOL を下回ると反復が終わります。
-  電圧が大きいと許容も大きくなります。既定のカードの IGBT で VGE = 15 V、VCC = 100 V、RL = 100 Ω と
-  すると V(c) = −1404.7 V で終わり、負荷には 15 A が流れ、IGBT の電流は 0 です（コミット `eaf0629` で
-  測りました。[デバイスモデル](#デバイスモデル)を参照）。
+- **過渡解析の 1 ステップの Newton 反復は、変化だけを判定します。** DC の反復は、デバイス自身の電流で
+  KCL が成り立つところでだけ終わります（`kirchhoff_current_law_holds`）。しかし
+  `TransientSolver::check_convergence` は、変化が RELTOL·|V| + VNTOL を下回るとステップを終えます
+  （コードで読みました）。そのため、コンダクタンスが電流の微分でないデバイスでは、解から離れた所で
+  ステップが終わることがあります。
 
 ## デバイスモデル
 
@@ -101,12 +100,13 @@ ngspice について書いていることは、それぞれのマニュアルに
   DC、過渡、AC の解析は `BSIM4Core`（`src/devices/bsim4_core.cpp`）を通して BSIM4 を評価します。
   ノイズ源（`MOSFET_BSIM4::get_noise_sources`）と `BSIM4ParameterExtractor` は、代わりに
   `src/devices/mosfet_bsim4.cpp` の `compute_drain_current` と `compute_threshold_voltage` を使います。
-- **IGBT の DC モデルの出力コンダクタンスは、その電流の微分ではありません。**
-  `compute_output_conductance` は、VCE_SAT より下のすべての V<sub>CE</sub> で、電流が 0 である 0 より
-  下も含めて、AREA·KP·V<sub>ov</sub><sup>2</sup>/VCE_SAT を返します。上の収束判定と合わさると、動作点が
-  解から遠く離れた所で終わることがあります（VGE = 15 V、VCC = 100 V、RL = 100 Ω、既定の KP 50 A/V² で
-  V(c) = −1404.7 V）。微分に直すと、その実行は収束しなくなり、`IGBT_N.TemperatureDependence_VGE_TH` と
-  `IGBT_P.ActiveRegion` も失敗するので、そのままにしてあります（コミット `eaf0629` で試しました）。
+- **IGBT の動作点は、強く駆動すると収束しません。** 既定のカード（KP = 50 A/V²。VGE = 15 V で
+  5000 A）で VCC = 100 V、RL = 100 Ω とすると、DC の反復が遮断と能動領域の間を行き来し、100 回で
+  止まります（コミット `6e985c5` で測りました）。その式の解は V(c) = 100/250001 V です。`6e985c5` より
+  前は、KCL が成り立たない V(c) = −1404.7 V で「収束」していました。`compute_output_conductance` は、
+  電流が 0 である V<sub>CE</sub> = 0 より下でも AREA·KP·V<sub>ov</sub><sup>2</sup>/VCE_SAT を返します。
+  これを微分に直すには、反復ごとの V<sub>CE</sub> の変化の制限が要りますが、IGBT にはそれがなく、
+  直すと `IGBT_N.TemperatureDependence_VGE_TH` が収束しなくなります（コミット `6e985c5` で試しました）。
 - **IGBT の過渡解析のスタンプは、DC のスタンプの 2 つ目のコピーで、** 独自の遮断の分岐とテール電流を
   持っています（`IGBT::stamp_transient`。コードで読みました）。ターンオフの実行（VCC 100 V、RL 100 Ω、
   TAU 2 µs）では、テール電流が現れません。理由は未確認です。

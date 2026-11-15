@@ -264,10 +264,17 @@ asks for it, and otherwise `solve_standard`, the Newton loop; with
 off by default).
 
 - **Newton loop.** Build the system from the stamps, factorise, solve,
-  compute the residual G·x − b, and check convergence.
-- **Convergence** (`ConvergenceChecker`): the residual of each node and
-  branch, then the change of the solution, where a node fails only when
-  its change exceeds both `vntol` and `reltol` times its value.
+  and check convergence (`DCSolver::check_convergence`).
+- **Convergence.** First the step: a node fails only when its change
+  exceeds both `vntol` and `reltol` times its value (`abstol` for branch
+  currents). Then Kirchhoff's current law at the new solution
+  (`kirchhoff_current_law_holds`): each device is stamped there into an
+  empty system, its contribution G<sub>d</sub>·x − b<sub>d</sub> is its own
+  current, and each row's sum must be below `reltol` times its largest
+  contribution plus `abstol` (`vntol` for branch rows), plus 10<sup>−12</sup>
+  of the magnitudes of its terms for rounding. The gmin that the iteration
+  solved with (gmin stepping, dynamic gmin) and the held nodes are
+  contributions too.
 - **Limiting.** For the first ten iterations of a nonlinear circuit with
   more than four unknowns, the whole Newton step is scaled to at most 5 V
   (unless dynamic gmin is on). The diode and the NPN transistor also limit
@@ -365,10 +372,9 @@ lists the directives the program parses but does not run.
   `drain_current` for DC, AC and noise.
 - **The IGBT's transient stamp is a second copy of its DC stamp**, with
   its own handling of cutoff and the tail current.
-- **The DC convergence test does not check the currents.** Its residual
-  is that of the linear system just solved, so a step below RELTOL of a
-  large voltage ends the iteration even where KCL does not hold
-  ([KNOWN_ISSUES](../KNOWN_ISSUES.md#analyses)).
+- **The transient step's Newton iteration tests the step only**, where
+  the DC iteration also requires KCL with the devices' own currents
+  (`kirchhoff_current_law_holds`; [KNOWN_ISSUES](../KNOWN_ISSUES.md#analyses)).
 - **The analyses are chosen in two places**: by the parser's
   configuration (`.DC`, `.AC`) and by the regular expressions of
   `main.cpp` (`.op`, `.dc`, `.tran`). The second holds simulation logic in

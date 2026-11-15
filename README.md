@@ -21,15 +21,15 @@ tests and the review, under the [AI policy](docs/spec/AI_POLICY.md).
 
 ## Status
 
-Measured on 2026-11-15 at commit `eaf0629` on macOS 27.2 (arm64) with GCC
+Measured on 2026-11-15 at commit `6e985c5` on macOS 27.2 (arm64) with GCC
 16.2.0, CMake 4.4.4 and SuiteSparse 7.6.1. Homebrew's clang 23.1.4 and
 Apple clang 21.0.0 gave the same results on 2026-11-14 (not checked again
 at this commit).
 
 | CTest tests | Count |
 | --- | --- |
-| Registered | 1182 |
-| Passed | 1152 |
+| Registered | 1184 |
+| Passed | 1154 |
 | Skipped | 22 |
 | Failed (listed in `tests/known_failures.txt`) | 7 |
 | Disabled | 1 |

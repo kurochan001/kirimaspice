@@ -36,7 +36,7 @@ and SuiteSparse 7.6.1 unless an entry says otherwise.
 - `BSIM4Transient.InverterChain_MatchesNgspiceReference` is disabled
   (`DISABLED_` in its name); its comment says that the BSIM4 transient
   does not converge near 1 ns (not checked again).
-- At commit `eaf0629` on macOS, CTest has 1182 tests: 1152 pass, 22 are
+- At commit `6e985c5` on macOS, CTest has 1184 tests: 1154 pass, 22 are
   skipped (the twenty comparison tests above, `TemperatureSweepValidation`
   and `VdsatBranchSelection`), 7 fail and 1 is disabled.
 - Some tests find their data relative to the build directory and pass only
@@ -115,15 +115,12 @@ says otherwise.
   no effect**, because they act on the adaptive path that the program
   does not use (read in the code).
 - **`.OP` with `.DC` runs only the sweep.**
-- **The DC convergence test does not check the currents.** The residual
-  that `DCSolver::check_convergence` tests is that of the linear system
-  just solved (`compute_residual` with the matrix of the previous
-  iterate), which is about 0 after every solve; so the iteration ends
-  when the voltage steps fall below RELTOL·|V| + VNTOL, even where KCL
-  does not hold. With a large voltage the tolerance is large: an IGBT
-  with its default card, VGE = 15 V, VCC = 100 V and RL = 100 Ω ends at
-  V(c) = −1404.7 V, where the load carries 15 A and the IGBT's current is
-  0 (measured at `eaf0629`; see [Device models](#device-models)).
+- **The Newton iteration of a transient step tests the step only.** The
+  DC iterations end only where KCL holds with the devices' own currents
+  (`kirchhoff_current_law_holds`), but `TransientSolver::check_convergence`
+  still ends a step when the change falls below RELTOL·|V| + VNTOL (read
+  in the code), so a device whose conductance is not the derivative of
+  its current can end a step away from its solution.
 
 ## Device models
 
@@ -133,15 +130,17 @@ says otherwise.
   The noise sources (`MOSFET_BSIM4::get_noise_sources`) and
   `BSIM4ParameterExtractor` instead use `compute_drain_current` and
   `compute_threshold_voltage` in `src/devices/mosfet_bsim4.cpp`.
-- **The IGBT's DC model has an output conductance that is not the
-  derivative of its current.** `compute_output_conductance` returns
-  AREA·KP·V<sub>ov</sub><sup>2</sup>/VCE_SAT for every V<sub>CE</sub> below
-  VCE_SAT, also below 0, where the current is 0. With the convergence test
-  above, an operating point can end far from a solution (V(c) = −1404.7 V
-  for VGE = 15 V, VCC = 100 V, RL = 100 Ω and the default KP of 50 A/V²).
-  Making it the derivative turns that run into a non-converging one, and
-  `IGBT_N.TemperatureDependence_VGE_TH` and `IGBT_P.ActiveRegion` then
-  fail too, so it is left as it is (tried at `eaf0629`).
+- **The IGBT's operating point does not converge at a strong drive.**
+  With its default card (KP = 50 A/V², 5000 A at VGE = 15 V), VCC =
+  100 V and RL = 100 Ω, the DC iteration swings between cutoff and the
+  active region and stops after 100 iterations (measured at `6e985c5`);
+  the solution of its equations is V(c) = 100/250001 V. Before `6e985c5`
+  the iteration "converged" at V(c) = −1404.7 V, where KCL does not hold.
+  `compute_output_conductance` returns AREA·KP·V<sub>ov</sub><sup>2</sup>/VCE_SAT
+  also below V<sub>CE</sub> = 0, where the current is 0; making it the
+  derivative needs a limit on the V<sub>CE</sub> step of each iteration,
+  which the IGBT does not have, or `IGBT_N.TemperatureDependence_VGE_TH`
+  stops converging (tried at `6e985c5`).
 - **The IGBT's transient stamp is a second copy of its DC stamp,** with
   its own cutoff branch and tail current (`IGBT::stamp_transient`, read in
   the code). In a turn-off run (VCC 100 V, RL 100 Ω, TAU 2 µs) the tail
