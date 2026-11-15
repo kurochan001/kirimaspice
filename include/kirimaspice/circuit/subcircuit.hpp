@@ -7,6 +7,7 @@
 #include "kirimaspice/core/types.hpp"
 #include <string>
 #include <vector>
+#include <functional>
 #include <map>
 #include <memory>
 #include <utility>
@@ -122,6 +123,29 @@ struct InstanceLineParts {
 /// the type. The main parser, the expansion of a nested instance and the
 /// check for circular references all read an instance line through this.
 InstanceLineParts split_instance_line(const std::vector<std::string>& tokens);
+
+/// Reads the element lines of a subcircuit body as the netlist parser reads
+/// a line of the top level, so that an element means the same in a body as
+/// outside one. The parser gives the circuit one
+/// (CircuitGraph::set_subcircuit_line_reader), and
+/// CircuitGraph::expand_subcircuit_instance passes it each body line, its
+/// parameters replaced, with the instance's name and its mapping of nodes.
+class SubcircuitLineReader {
+public:
+    virtual ~SubcircuitLineReader() = default;
+
+    /// The global .PARAM values that the bodies see
+    virtual const std::map<std::string, Real>& global_params() const = 0;
+
+    /// Read one body line of the instance `instance_name`: rename the element
+    /// and the elements it names into the instance, map its nodes with
+    /// `map_node`, and add the element to `circuit`. A nested instance line
+    /// registers a nested instance.
+    virtual void read(CircuitGraph& circuit, const std::string& line,
+                      const std::string& instance_name,
+                      const std::function<std::string(const std::string&)>& map_node,
+                      std::size_t line_number) = 0;
+};
 
 /// Subcircuit registry
 /// Manages all defined subcircuits and their instances

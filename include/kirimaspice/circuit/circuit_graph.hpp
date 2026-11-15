@@ -42,6 +42,7 @@ namespace circuit {
 
 // Forward declaration
 class SubcircuitRegistry;
+class SubcircuitLineReader;
 
 /// Node properties for Boost.Graph
 struct NodeProperties {
@@ -1148,9 +1149,17 @@ public:
     /// Get Boost.Graph instance (for advanced operations)
     const Graph& graph() const { return graph_; }
 
-    /// Set simulation configuration (for model parameter access during subcircuit expansion)
+    /// Set simulation configuration. Subcircuit expansion no longer reads it:
+    /// the parser's SubcircuitLineReader holds the models and parameters
+    /// (set_subcircuit_line_reader); the callers that still set it are kept.
     /// @param config Pointer to SimulationConfig
     void set_simulation_config(const SimulationConfig* config);
+
+    /// The reader of subcircuit body lines (SubcircuitLineReader), which the
+    /// netlist parser sets; expand_subcircuit_instance needs one
+    void set_subcircuit_line_reader(std::shared_ptr<SubcircuitLineReader> reader) {
+        subcircuit_line_reader_ = std::move(reader);
+    }
 
     // Subcircuit management
     /// Get subcircuit registry
@@ -1187,6 +1196,7 @@ private:
     DeviceId next_device_id_;                              ///< Next device ID counter
     std::unique_ptr<SubcircuitRegistry> subcircuits_;      ///< Subcircuit registry
     const SimulationConfig* config_;                       ///< Simulation config (for model parameter access)
+    std::shared_ptr<SubcircuitLineReader> subcircuit_line_reader_;  ///< Reads subcircuit body lines
 };
 
 } // namespace circuit

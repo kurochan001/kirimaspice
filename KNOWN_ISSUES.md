@@ -57,10 +57,8 @@ document also lists differences not decided there.
   error.
 - **Scale factors are not accepted inside braces or in `.OPTIONS`
   values** (there the option is ignored with a warning).
-- **Inside `.SUBCKT`, only `R`, `C`, `L`, `V` and `I` (DC and AC values,
-  no waveform), `M` (four terminals, level 1 or BSIM4) and `X` are
-  expanded.** Other elements
-  are skipped with a warning. `PARAMS:` is not accepted.
+- **`PARAMS:` is not accepted** on `.SUBCKT` and `X` lines; parameters are
+  written `NAME=value` after the pins.
 - **`E`, `F`, `G` and `H` have no `POLY` form;** a line with `POLY(...)`
   after the output nodes is an error.
 - **`.FUNC` cannot be called in an element value,** only in `.PARAM`

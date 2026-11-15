@@ -84,7 +84,7 @@ CircuitGraph& CircuitGraph::operator=(CircuitGraph&&) noexcept = default;
 
 void CircuitGraph::set_simulation_config(const SimulationConfig* config) {
     config_ = config;
-    spdlog::info("SimulationConfig set for model parameter access during subcircuit expansion");
+    spdlog::debug("SimulationConfig set (subcircuit expansion takes its models from the parser's reader)");
 }
 
 //==============================================================================
@@ -1955,331 +1955,42 @@ void CircuitGraph::expand_subcircuit_instance(const std::string& instance_name) 
     spdlog::debug("Expanding subcircuit instance '{}' of type '{}'",
                   instance_name, definition.name);
 
+    if (!subcircuit_line_reader_) {
+        throw std::runtime_error(fmt::format(
+            "Subcircuit instance '{}': no reader for subcircuit bodies (the netlist parser sets one)",
+            instance_name));
+    }
+
     // Perform parameter substitution
     // Merges instance parameters with default parameters and evaluates {expression} patterns
-    static const std::map<std::string, Real> no_globals;
     std::vector<std::string> expanded_lines = definition.substitute_parameters(
-        instance.instance_params, config_ ? config_->global_params : no_globals);
+        instance.instance_params, subcircuit_line_reader_->global_params());
 
-    // Expand internal netlist
-    // For each internal device line, clone the device with hierarchical node names
-    for (const auto& line : expanded_lines) {
-        if (line.empty() || line[0] == '*') {
-            continue;  // Skip empty lines and comments
+    // The circuit's node for a node of the body: a pin's external node, a
+    // global node, ground, or the node of this instance, X1.n1
+    auto map_node = [&, this](const std::string& node) -> std::string {
+        auto pin_it = pin_mapping.find(node);
+        if (pin_it != pin_mapping.end()) {
+            return pin_it->second;
         }
+        if (subcircuits_->get_global_nodes().count(node) > 0) {
+            return node;
+        }
+        if (is_ground_name(node)) {
+            return std::string(NODE_GND_NAME);
+        }
+        return instance_name + "." + node;
+    };
 
-        // Parse device line and create hierarchical node names
-        // Format: <device_name> <node1> <node2> ... <value>
-        // Example: R1 in out 1k  ->  X1.R1 X1.in X1.out 1k
-        //   But if "in" is a pin, map it to connected node instead
-
-        std::string device_name;
-        const std::vector<std::string> tokens = util::split_netlist_line(line);
-
-        if (tokens.empty()) {
+    // Each element line of the body, as the parser reads a line of the top
+    // level (SubcircuitLineReader)
+    for (const auto& line : expanded_lines) {
+        const auto first = line.find_first_not_of(" \t");
+        if (first == std::string::npos || line[first] == '*') {
             continue;
         }
-
-        device_name = tokens[0];
-        char device_type = std::toupper(device_name[0]);
-
-        // Create hierarchical device name: X1.R1
-        std::string hier_device_name = instance_name + "." + device_name;
-
-        // Map node names (replace pins with external nodes, hierarchize internal nodes)
-        auto map_node = [&, this](const std::string& node) -> std::string {
-            // Check if node is a pin (maps to external connection)
-            auto pin_it = pin_mapping.find(node);
-            if (pin_it != pin_mapping.end()) {
-                return pin_it->second;  // Use external node name
-            }
-
-            // Check if node is a global node
-            // Global nodes are accessible across subcircuit boundaries without hierarchization
-            const auto& global_nodes = subcircuits_->get_global_nodes();
-            if (global_nodes.count(node) > 0) {
-                spdlog::trace("  Node '{}' is global, not hierarchizing", node);
-                return node;  // Use global node name as-is
-            }
-
-            // Ground keeps its name (is_ground_name)
-            if (is_ground_name(node)) {
-                return std::string(NODE_GND_NAME);
-            }
-
-            // Internal node: hierarchize as X1.n1
-            return instance_name + "." + node;
-        };
-
-        // Expand device based on type
-        try {
-            if (device_type == 'R' && tokens.size() >= 4) {
-                // R<name> <n+> <n-> <value>
-                std::string np = map_node(tokens[1]);
-                std::string nn = map_node(tokens[2]);
-                Real value = parse_value_with_unit(tokens[3]);
-                add_resistor(hier_device_name, np, nn, value);
-                spdlog::trace("  Expanded: {} {} {} {}", hier_device_name, np, nn, value);
-
-            } else if (device_type == 'C' && tokens.size() >= 4) {
-                // C<name> <n+> <n-> <value>
-                std::string np = map_node(tokens[1]);
-                std::string nn = map_node(tokens[2]);
-                Real value = parse_value_with_unit(tokens[3]);
-                add_capacitor(hier_device_name, np, nn, value);
-                spdlog::trace("  Expanded: {} {} {} {}", hier_device_name, np, nn, value);
-
-            } else if (device_type == 'L' && tokens.size() >= 4) {
-                // L<name> <n+> <n-> <value>
-                std::string np = map_node(tokens[1]);
-                std::string nn = map_node(tokens[2]);
-                Real value = parse_value_with_unit(tokens[3]);
-                add_inductor(hier_device_name, np, nn, value);
-                spdlog::trace("  Expanded: {} {} {} {}", hier_device_name, np, nn, value);
-
-            } else if (device_type == 'V' && tokens.size() >= 4) {
-                // V<name> <n+> <n-> DC <value>
-                std::string np = map_node(tokens[1]);
-                std::string nn = map_node(tokens[2]);
-                Real dc_value = 0.0;
-
-                // Check if "DC" keyword present
-                size_t value_idx = 3;
-                if (tokens.size() > 4 &&
-                    (tokens[3] == "DC" || tokens[3] == "dc")) {
-                    value_idx = 4;
-                }
-
-                if (value_idx < tokens.size()) {
-                    dc_value = parse_value_with_unit(tokens[value_idx]);
-                }
-
-                // AC input (NETLIST_CONVENTIONS rule 2): only with the keyword AC
-                util::AcInput ac;
-                util::read_ac_input(tokens, value_idx + 1, ac,
-                                    [](const std::string& t) { return parse_value_with_unit(t); });
-
-                add_voltage_source(hier_device_name, np, nn, dc_value, ac.magnitude, ac.phase);
-                spdlog::trace("  Expanded: {} {} {} {}", hier_device_name, np, nn, dc_value);
-
-            } else if (device_type == 'I' && tokens.size() >= 4) {
-                // I<name> <n+> <n-> DC <value>
-                std::string np = map_node(tokens[1]);
-                std::string nn = map_node(tokens[2]);
-                Real dc_value = 0.0;
-
-                // Check if "DC" keyword present
-                size_t value_idx = 3;
-                if (tokens.size() > 4 &&
-                    (tokens[3] == "DC" || tokens[3] == "dc")) {
-                    value_idx = 4;
-                }
-
-                if (value_idx < tokens.size()) {
-                    dc_value = parse_value_with_unit(tokens[value_idx]);
-                }
-
-                // AC input (NETLIST_CONVENTIONS rule 2): only with the keyword AC
-                util::AcInput ac;
-                util::read_ac_input(tokens, value_idx + 1, ac,
-                                    [](const std::string& t) { return parse_value_with_unit(t); });
-
-                add_current_source(hier_device_name, np, nn, dc_value, ac.magnitude, ac.phase);
-                spdlog::trace("  Expanded: {} {} {} {}", hier_device_name, np, nn, dc_value);
-
-            } else if (device_type == 'M' && tokens.size() >= 6) {
-                // M<name> <drain> <gate> <source> <bulk> <model> [W=<width>] [L=<length>]
-                std::string drain = map_node(tokens[1]);
-                std::string gate = map_node(tokens[2]);
-                std::string source = map_node(tokens[3]);
-                // tokens[4] is bulk (not used in simple Level 1 MOSFET)
-                std::string model = tokens[5];
-                std::transform(model.begin(), model.end(), model.begin(), ::toupper);
-
-                // Parse W= and L= parameters
-                Real width = 10e-6;  // Default 10 microns
-                Real length = 1e-6;  // Default 1 micron
-                for (size_t i = 6; i < tokens.size(); ++i) {
-                    if (tokens[i].size() > 2 && tokens[i][0] == 'W' && tokens[i][1] == '=') {
-                        width = parse_value_with_unit(tokens[i].substr(2));
-                    } else if (tokens[i].size() > 2 && tokens[i][0] == 'L' && tokens[i][1] == '=') {
-                        length = parse_value_with_unit(tokens[i].substr(2));
-                    } else if (tokens[i].size() > 2 && tokens[i][0] == 'w' && tokens[i][1] == '=') {
-                        width = parse_value_with_unit(tokens[i].substr(2));
-                    } else if (tokens[i].size() > 2 && tokens[i][0] == 'l' && tokens[i][1] == '=') {
-                        length = parse_value_with_unit(tokens[i].substr(2));
-                    }
-                }
-
-                // Look up model parameters from SimulationConfig
-                Real kp = 2e-5;    // Default transconductance [A/V^2]
-                Real vto = 0.7;    // Default threshold voltage [V] for NMOS
-                Real lambda = 0.0; // Default channel-length modulation [1/V]
-
-                if (config_ != nullptr && config_->find_model(model) != nullptr) {
-                    const auto& model_def = *config_->find_model(model);
-                    const auto& params = model_def.params;
-
-                    // Extract KP parameter (transconductance)
-                    if (params.count("kp") > 0) {
-                        kp = params.at("kp");
-                    } else if (params.count("KP") > 0) {
-                        kp = params.at("KP");
-                    }
-
-                    // Extract VTO parameter (threshold voltage)
-                    if (params.count("vto") > 0) {
-                        vto = params.at("vto");
-                    } else if (params.count("VTO") > 0) {
-                        vto = params.at("VTO");
-                    }
-
-                    // Extract LAMBDA parameter (channel-length modulation)
-                    if (params.count("lambda") > 0) {
-                        lambda = params.at("lambda");
-                    } else if (params.count("LAMBDA") > 0) {
-                        lambda = params.at("LAMBDA");
-                    }
-
-                    spdlog::info("  Model '{}' parameters found: KP={}, VTO={}, LAMBDA={}",
-                                model, kp, vto, lambda);
-                } else {
-                    spdlog::warn("  Model '{}' not found in SimulationConfig, using defaults: KP={}, VTO={}",
-                               model, kp, vto);
-                }
-
-                // Add MOSFET based on model type
-                // Default parameters for Level 1 models
-                Real cgso = 0.0;   // Overlap capacitance G-S
-                Real cgdo = 0.0;   // Overlap capacitance G-D
-                Real cgbo = 0.0;   // Overlap capacitance G-B
-                Real kf = 0.0;     // Flicker noise coefficient
-                Real af = 1.0;     // Flicker noise exponent
-                Real ef = 1.0;     // Flicker noise frequency exponent
-                Real gamma = 0.0;  // Body effect parameter
-                Real kt1 = 0.0;    // Vth temperature coefficient (linear)
-                Real kt2 = 0.0;    // Vth temperature coefficient (quadratic)
-                Real ute = -1.5;   // Mobility temperature exponent
-                Real tnom = 300.15; // Nominal temperature [K]
-
-                // Determine device type from model or fallback to simple NMOS/PMOS
-                bool model_found = false;
-                DeviceType device_type_enum = DeviceType::MOSFET_N;  // Default
-
-                if (config_ != nullptr && config_->find_model(model) != nullptr) {
-                    device_type_enum = config_->find_model(model)->device_type;
-                    model_found = true;
-                    spdlog::info("  [Subcircuit expansion] Model '{}' found with device_type={}",
-                                model, static_cast<int>(device_type_enum));
-                } else if (model == "NMOS") {
-                    device_type_enum = DeviceType::MOSFET_N;
-                    model_found = true;
-                } else if (model == "PMOS") {
-                    device_type_enum = DeviceType::MOSFET_P;
-                    model_found = true;
-                }
-
-                if (model_found) {
-                    if (device_type_enum == DeviceType::MOSFET_N) {
-                        spdlog::info("  [Subcircuit expansion] Adding MOSFET_N: {} D={} G={} S={} W={} L={} KP={} VTO={}",
-                                    hier_device_name, drain, gate, source, width, length, kp, vto);
-                        add_mosfet_n(hier_device_name, drain, gate, source,
-                                     kp, width, length, vto,
-                                     cgso, cgdo, cgbo,
-                                     kf, af, ef, gamma,
-                                     kt1, kt2, ute, tnom);
-                    } else if (device_type_enum == DeviceType::MOSFET_P) {
-                        // For PMOS, negate VTO if it's positive
-                        Real pmos_vto = (vto > 0) ? -vto : vto;
-                        spdlog::info("  [Subcircuit expansion] Adding MOSFET_P: {} D={} G={} S={} W={} L={} KP={} VTO={}",
-                                    hier_device_name, drain, gate, source, width, length, kp, pmos_vto);
-                        add_mosfet_p(hier_device_name, drain, gate, source,
-                                     kp, width, length, pmos_vto,
-                                     cgso, cgdo, cgbo,
-                                     kf, af, ef, gamma,
-                                     kt1, kt2, ute, tnom);
-                    } else if (device_type_enum == DeviceType::MOSFET_BSIM4_N ||
-                               device_type_enum == DeviceType::MOSFET_BSIM4_P) {
-                        // BSIM4 model: create BSIM4Params from model parameters
-                        const auto& model_def = *config_->find_model(model);
-                        const auto& params = model_def.params;
-
-                        devices::BSIM4Params bsim4_params =
-                            devices::bsim4_params_from_model(params, model);
-
-                        // Override with instance parameters (W, L from tokens)
-                        bsim4_params.w = width;
-                        bsim4_params.l = length;
-
-                        // Bulk node from tokens[4] (4-terminal MOSFET syntax)
-                        // CRITICAL FIX: Use tokens[4] instead of hardcoding bulk=source
-                        // This enables vbs != 0 for BSIM4 K1/K2 body effect
-                        std::string bulk = map_node(tokens[4]);
-
-                        if (device_type_enum == DeviceType::MOSFET_BSIM4_N) {
-                            spdlog::info("  [Subcircuit expansion] Adding MOSFET_BSIM4_N: {} D={} G={} S={} B={} W={} L={}",
-                                        hier_device_name, drain, gate, source, bulk, width, length);
-                            add_mosfet_bsim4_n(hier_device_name, drain, gate, source, bulk, bsim4_params);
-                        } else {
-                            spdlog::info("  [Subcircuit expansion] Adding MOSFET_BSIM4_P: {} D={} G={} S={} B={} W={} L={}",
-                                        hier_device_name, drain, gate, source, bulk, width, length);
-                            add_mosfet_bsim4_p(hier_device_name, drain, gate, source, bulk, bsim4_params);
-                        }
-                    } else {
-                        spdlog::warn("Subcircuit expansion: Unsupported MOSFET device type {} for model '{}' in line: '{}'",
-                                   static_cast<int>(device_type_enum), model, line);
-                    }
-                } else {
-                    spdlog::warn("Subcircuit expansion: Unknown MOSFET model '{}' in line: '{}'",
-                               model, line);
-                }
-
-            } else if (device_type == 'X' && tokens.size() >= 2) {
-                // X<name> <node1> <node2> ... <subcircuit_type> [params...]
-                // Handle nested subcircuit instances
-
-                // The braces of the body are already replaced by values
-                const InstanceLineParts parts = split_instance_line(tokens);
-                if (parts.type.empty()) {
-                    throw std::runtime_error(fmt::format(
-                        "Failed to find subcircuit type in nested X device: '{}'", line));
-                }
-                const std::string& nested_subckt_type = parts.type;
-                const std::vector<std::string>& nested_nodes = parts.nodes;
-                std::map<std::string, Real> nested_params;
-                for (const auto& [param_name, value] : parts.assignments) {
-                    nested_params[param_name] = parse_value_with_unit(value);
-                }
-
-                // Map nested nodes using pin_mapping (for hierarchical nesting)
-                std::vector<std::string> mapped_nested_nodes;
-                for (const auto& node : nested_nodes) {
-                    mapped_nested_nodes.push_back(map_node(node));
-                }
-
-                // Register this nested subcircuit instance
-                SubcircuitInstance nested_instance;
-                nested_instance.instance_name = hier_device_name;  // X1.X2 format
-                nested_instance.subcircuit_type = nested_subckt_type;
-                nested_instance.connected_nodes = mapped_nested_nodes;
-                nested_instance.instance_params = nested_params;
-                nested_instance.instance_line = 0;  // Line number not available here
-
-                subcircuits_->add_instance(nested_instance);
-
-                spdlog::debug("  Registered nested subcircuit instance: {} of type '{}' with {} nodes",
-                            hier_device_name, nested_subckt_type, mapped_nested_nodes.size());
-
-            } else {
-                spdlog::warn("Subcircuit expansion: Unsupported device type '{}' in line: '{}'",
-                           device_type, line);
-            }
-
-        } catch (const std::exception& e) {
-            throw std::runtime_error(fmt::format(
-                "Failed to expand device '{}' in subcircuit instance '{}': {}",
-                hier_device_name, instance_name, e.what()));
-        }
+        subcircuit_line_reader_->read(*this, line, instance_name, map_node,
+                                      definition.definition_line);
     }
 
     spdlog::info("Subcircuit instance '{}' expanded successfully ({} internal devices)",
@@ -2352,6 +2063,11 @@ void CircuitGraph::expand_all_subcircuits() {
 
     spdlog::info("Subcircuit expansion completed in {} iteration(s), {} instance(s) expanded",
                 iteration, expanded_instances.size());
+
+    // The controlling sources of F and H and the inductors of K that the
+    // expansion added, as the parser resolves those of the top level
+    resolve_controlled_source_references();
+    resolve_mutual_inductance_references();
 }
 
 } // namespace kirimaspice::circuit

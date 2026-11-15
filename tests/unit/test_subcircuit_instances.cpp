@@ -7,6 +7,8 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <cmath>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -16,6 +18,7 @@
 #include "kirimaspice/devices/resistor.hpp"
 #include "kirimaspice/parser/netlist_parser.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
+#include "kirimaspice/solvers/transient_solver.hpp"
 
 using namespace kirimaspice;
 
@@ -175,4 +178,72 @@ TEST(SubcircuitInstances, InstanceNameUsedTwice) {
         "t\n.subckt load a b\nR1 a b 1k\n.ends load\nV1 in 0 1\nV2 in2 0 1\n"
         "X1 in 0 load\nX1 in2 0 load\n.op\n.end\n");
     EXPECT_NE(message.find("already defined"), std::string::npos) << message;
+}
+
+namespace {
+
+// V(out) at the operating point of a netlist: 1 V at in, 1 kOhm from out to
+// ground, and the given lines either at the top level or as the body of a
+// subcircuit with pins in and out
+Real out_voltage(const std::string& lines, const std::string& models, bool in_subcircuit) {
+    const std::string netlist = in_subcircuit
+        ? "t\n" + models + ".subckt blk in out\n" + lines + ".ends blk\nX1 in out blk\n"
+              "V1 in 0 DC 1\nRL out 0 1k\n.op\n.end\n"
+        : "t\n" + models + lines + "V1 in 0 DC 1\nRL out 0 1k\n.op\n.end\n";
+    const auto op = solve(netlist);
+    EXPECT_EQ(op.status, ConvergenceStatus::SUCCESS);
+    return op.voltage("out");
+}
+
+}  // namespace
+
+// A body is read by the element parsers of the top level (SubcircuitLineReader,
+// BodyLineReader): each element in it means what it means outside one, its
+// own nodes and the elements it names renamed into the instance
+TEST(SubcircuitInstances, BodyMeansWhatTheTopLevelMeans) {
+    struct Case {
+        std::string what, lines, models;
+    };
+    const Case cases[] = {
+        {"diode", "R1 in n1 1k\nD1 n1 out dm\n", ".model dm D IS=1e-14\n"},
+        {"E", "E1 out 0 in 0 2\n", ""},
+        {"G", "G1 0 out in 0 1m\n", ""},
+        {"F, its source in the body", "Vs in n1 0\nR1 n1 0 1k\nF1 0 out Vs 2\n", ""},
+        {"H, its source in the body", "Vs in n1 0\nR1 n1 0 1k\nH1 out 0 Vs 500\n", ""},
+        {"B with V(node)", "B1 out 0 V=2*V(in)\n", ""},
+        {"B with an internal node", "R1 in n1 1k\nR2 n1 0 1k\nB1 out 0 V=4*V(n1)\n", ""},
+        {"BJT", "Vcc n2 0 5\nRc n2 out 10k\nRb in nb 100k\nQ1 out nb 0 qm\n",
+         ".model qm npn BF=100 IS=1e-15\n"},
+        {"K", "L1 in out 1m\nL2 n1 0 1m\nK1 L1 L2 0.5\nR2 n1 0 1\n", ""},
+        {"T", "T1 in 0 out 0 Z0=50 TD=1n\n", ""},
+    };
+    for (const auto& c : cases) {
+        SCOPED_TRACE(c.what);
+        const Real flat = out_voltage(c.lines, c.models, false);
+        EXPECT_NEAR(out_voltage(c.lines, c.models, true), flat, 1e-9 * std::max(1.0, std::abs(flat)));
+    }
+}
+
+// ... a source's waveform too: SIN(0 1 1k) at 0.1 ms is sin(0.2 pi)
+TEST(SubcircuitInstances, WaveformInABody) {
+    const auto parsed = parse(
+        "t\n.subckt src a b\nV1 a b 0 SIN(0 1 1k)\n.ends src\nX1 in 0 src\nR1 in 0 1k\n.end\n");
+    SimulationConfig config = parsed.config;
+    config.transient.use_adaptive_timestep = false;
+    solvers::TransientSolver solver(*parsed.circuit, config);
+    const auto result = solver.solve(0.0, 0.1e-3, 1e-6);
+    ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
+    const auto& last = result.timepoints.back();
+    EXPECT_NEAR(last.time, 0.1e-3, 1e-12);
+    EXPECT_NEAR(last.node_voltages[parsed.circuit->get_node_id("in") - 1],
+                std::sin(2.0 * M_PI * 1e3 * 0.1e-3), 1e-9);
+}
+
+// ... and a model that the netlist does not define is an error, as at the
+// top level (ngspice-47: "could not find a valid modelname")
+TEST(SubcircuitInstances, UndefinedModelInABody) {
+    const std::string message = parse_error(
+        "t\n.model nch nmos (vto=0.5 kp=1e-4)\n.subckt cell d g\nM1 d g 0 0 nhc W=10u L=1u\n"
+        ".ends cell\nVD d 0 1\nVG g 0 1\nX1 d g cell\n.op\n.end\n");
+    EXPECT_FALSE(message.empty());
 }

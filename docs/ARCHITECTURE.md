@@ -143,7 +143,8 @@ flowchart TD
 Directives are handled before the check for a `.SUBCKT` body, so a
 `.MODEL` inside a subcircuit is global; a `.PARAM` there is kept with the
 body and is local to each instance. Inside a `.SUBCKT`,
-element lines are stored as text and parsed at expansion. Nested
+element lines are stored as text and parsed at expansion, by the same
+element parsers (see [Circuit](#circuit)). Nested
 `.SUBCKT` definitions are an error. Unknown directives, `.MEASURE` among
 them, are dropped without a message.
 
@@ -194,9 +195,13 @@ for cycles (`SubcircuitRegistry`), and expands instances until none is
 left, since an expanded `X` line can add more. `expand_subcircuit_instance`
 substitutes the parameters, maps the pins to the outer nodes, keeps ground
 and global nodes, and names the inner nodes and devices `X1.n` and
-`X1.R1`. It parses the stored body lines itself and knows only `R`, `C`,
-`L`, `V`, `I`, `M` and `X`; other lines give a warning
-([KNOWN_ISSUES](../KNOWN_ISSUES.md#netlist-input)).
+`X1.R1`. It hands each body line to the `SubcircuitLineReader` that the
+parser attached to the circuit (`BodyLineReader` in the parser):
+`rename_body_line` renames the element, its nodes and the elements it
+refers to, and `parse_element`, the element parsers of the top level, reads
+the line with the models and parameters of the whole netlist. The
+expansion then resolves the controls of `F` and `H` and the inductors of
+`K` that it added.
 
 ## Devices
 
@@ -385,9 +390,6 @@ lists the directives the program parses but does not run.
 - **Temperature is applied type by type** in
   `apply_temperature_to_devices`, which skips the types it does not list
   (see [Devices](#devices)).
-- **Element lines are parsed in two places**: by the parser at the top
-  level, and by `expand_subcircuit_instance` for subcircuit bodies, which
-  knows fewer elements.
 - **The Newton loop is written several times**: in `solve_standard`, in
   source and gmin stepping, in the transient step, and in the two
   TR-BDF2 stages.

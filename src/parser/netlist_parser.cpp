@@ -2100,6 +2100,15 @@ public:
     using ParseError::ParseError;
 };
 
+// The letter that gives an element's type, in upper case: the first of its
+// name, or of the last part of a name in a subcircuit (X1.Vs is a V); 0 for an
+// empty name
+static char element_letter(const std::string& name) {
+    const auto dot = name.rfind('.');
+    const std::size_t first = (dot == std::string::npos) ? 0 : dot + 1;
+    return first < name.size() ? static_cast<char>(std::toupper(static_cast<unsigned char>(name[first]))) : '\0';
+}
+
 // The value of a token on an element line: a brace expression, evaluated with
 // the parameters read so far, or a number with an optional scale factor.
 static Real read_element_value(const std::string& token, ParseState& state) {
@@ -4938,6 +4947,22 @@ static void set_parameters_by_name(devices::Device& device, const std::map<std::
     }
 }
 
+// The index of the model token of an M line: 5 when the line has four
+// terminals, M<name> <d> <g> <s> <b> <model>, which it has when the sixth token
+// names a model or starts with NMOS or PMOS; 4 otherwise, the bulk then tied to
+// the source. parse_mosfet_device and the renaming of a subcircuit body both
+// read an M line's nodes through this.
+static std::size_t mosfet_model_index(const std::vector<std::string>& tokens,
+                                      const SimulationConfig& config) {
+    if (tokens.size() < 6) {
+        return 4;
+    }
+    std::string candidate = tokens[5];
+    std::transform(candidate.begin(), candidate.end(), candidate.begin(), ::toupper);
+    const bool nmos_or_pmos = candidate.rfind("NMOS", 0) == 0 || candidate.rfind("PMOS", 0) == 0;
+    return (nmos_or_pmos || config.find_model(candidate) != nullptr) ? 5 : 4;
+}
+
 static void parse_mosfet_device(const std::vector<std::string>& tokens, const std::string& dev_name, const std::string& line, ParseState& state) {
     // MOSFET: M<name> <drain> <gate> <source> [<bulk>] <type_or_model> [parameters]
     // 3-terminal: M<name> <drain> <gate> <source> <NMOS|PMOS|model> [params]
@@ -4963,48 +4988,16 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
     std::string type_or_model;
     size_t param_start_idx;  // Index where optional parameters start
 
-    // Determine if 3-terminal or 4-terminal syntax
-    // Strategy: Check if tokens[4] is a known model/type, or try tokens[5]
+    // Determine if 3-terminal or 4-terminal syntax (mosfet_model_index)
     std::string candidate_model_4 = tokens[4];
     std::transform(candidate_model_4.begin(), candidate_model_4.end(), candidate_model_4.begin(), ::toupper);
 
-    bool is_4_terminal = false;
-    if (tokens.size() >= 6) {
-        // Check if tokens[5] is a model name
-        std::string candidate_model_5 = tokens[5];
-        std::transform(candidate_model_5.begin(), candidate_model_5.end(), candidate_model_5.begin(), ::toupper);
-
-        // If tokens[5] is NMOS/PMOS (exact or prefix), or a defined model, treat as 4-terminal
-        // This fixes the bug where "NMOS_BSIM4" was not recognized as 4-terminal
-        bool starts_with_nmos = candidate_model_5.size() >= 4 && candidate_model_5.substr(0, 4) == "NMOS";
-        bool starts_with_pmos = candidate_model_5.size() >= 4 && candidate_model_5.substr(0, 4) == "PMOS";
-        bool in_models = state.config->find_model(candidate_model_5) != nullptr;
-
-        // DEBUG: Log 4-terminal detection
-        thread_local static int debug_count = 0;
-        if (debug_count < 3) {
-            spdlog::debug("MOSFET parser debug [call {}]: tokens[0]={}, tokens[4]={}, tokens[5]={}",
-                        debug_count, tokens[0], tokens[4], tokens[5]);
-            spdlog::debug("  candidate_model_5 (uppercase) = {}", candidate_model_5);
-            spdlog::debug("  starts_with_nmos = {}, starts_with_pmos = {}, in_models = {}",
-                        starts_with_nmos, starts_with_pmos, in_models);
-            debug_count++;
-        }
-
-        if (starts_with_nmos || starts_with_pmos || in_models) {
-            is_4_terminal = true;
-            bulk = tokens[4];
-            type_or_model = candidate_model_5;
-            param_start_idx = 6;
-
-            if (debug_count <= 3) {
-                spdlog::debug("  → Detected as 4-terminal: bulk={}", bulk);
-            }
-        } else {
-            if (debug_count <= 3) {
-                spdlog::debug("  → Detected as 3-terminal (fallback): bulk will be tied to source");
-            }
-        }
+    const bool is_4_terminal = mosfet_model_index(tokens, *state.config) == 5;
+    if (is_4_terminal) {
+        bulk = tokens[4];
+        type_or_model = tokens[5];
+        std::transform(type_or_model.begin(), type_or_model.end(), type_or_model.begin(), ::toupper);
+        param_start_idx = 6;
     }
 
     if (!is_4_terminal) {
@@ -5669,8 +5662,10 @@ static void parse_cccs_device(const std::vector<std::string>& tokens, const std:
     std::string control_vsource = tokens[3];
     std::string gain_str = tokens[4];
 
-    // Validate control voltage source name (should start with 'V')
-    if (control_vsource.empty() || std::toupper(control_vsource[0]) != 'V') {
+    // The control is a voltage source, whose name starts with V (in a
+    // subcircuit its last part does, X1.Vs); resolve_controlled_source_references
+    // checks the device too
+    if (element_letter(control_vsource) != 'V') {
         throw ParseError("CCCS control must reference a voltage source (V<name>)", state.line_number);
     }
 
@@ -5711,8 +5706,10 @@ static void parse_ccvs_device(const std::vector<std::string>& tokens, const std:
     std::string control_vsource = tokens[3];
     std::string h_str = tokens[4];
 
-    // Validate control voltage source name (should start with 'V')
-    if (control_vsource.empty() || std::toupper(control_vsource[0]) != 'V') {
+    // The control is a voltage source, whose name starts with V (in a
+    // subcircuit its last part does, X1.Vs); resolve_controlled_source_references
+    // checks the device too
+    if (element_letter(control_vsource) != 'V') {
         throw ParseError("CCVS control must reference a voltage source (V<name>)", state.line_number);
     }
 
@@ -5732,11 +5729,13 @@ static void parse_mutual_inductance_device(const std::vector<std::string>& token
     std::string inductor2_name = tokens[2];
     std::string k_str = tokens[3];
 
-    // Validate inductor names (should start with 'L')
-    if (inductor1_name.empty() || std::toupper(inductor1_name[0]) != 'L') {
+    // The two are inductors, whose names start with L (in a subcircuit their
+    // last parts do, X1.L1); resolve_mutual_inductance_references checks the
+    // devices too
+    if (element_letter(inductor1_name) != 'L') {
         throw ParseError("Mutual inductance first inductor must reference an inductor (L<name>)", state.line_number);
     }
-    if (inductor2_name.empty() || std::toupper(inductor2_name[0]) != 'L') {
+    if (element_letter(inductor2_name) != 'L') {
         throw ParseError("Mutual inductance second inductor must reference an inductor (L<name>)", state.line_number);
     }
 
@@ -5895,6 +5894,52 @@ static void parse_subcircuit_instance_device(const std::vector<std::string>& tok
                  instance_name, subcircuit_type, connected_nodes.size(), instance_params.size());
 }
 
+// Parse an element line of the given type letter and name: the type is the
+// first letter of the name on a line of the top level, and that of the
+// element as written in a subcircuit body, whose name is then X1.R1
+// (BodyLineReader). A line whose model or subcircuit comes later is deferred.
+static void parse_element(const std::vector<std::string>& tokens, char dev_type,
+                          const std::string& dev_name, const std::string& line,
+                          ParseState& state) {
+    try {
+        switch (dev_type) {
+            case 'R': parse_resistor_device(tokens, dev_name, state); break;
+            case 'B': parse_behavioral_source_device(tokens, dev_name, state); break;
+            case 'C': parse_capacitor_device(tokens, dev_name, state); break;
+            case 'L': parse_inductor_device(tokens, dev_name, state); break;
+            case 'V': parse_voltage_source_device(tokens, dev_name, state); break;
+            case 'I': parse_current_source_device(tokens, dev_name, state); break;
+            case 'D': parse_diode_device(tokens, dev_name, state); break;
+            case 'S': parse_scr_device(tokens, dev_name, state); break;
+            case 'Y': parse_triac_device(tokens, dev_name, state); break;
+            case 'Z': parse_mesfet_device(tokens, dev_name, state); break;
+            case 'Q': parse_bjt_device(tokens, dev_name, state); break;
+            case 'M': parse_mosfet_device(tokens, dev_name, line, state); break;
+            case 'E': parse_vcvs_device(tokens, dev_name, state); break;
+            case 'F': parse_cccs_device(tokens, dev_name, state); break;
+            case 'G': parse_vccs_device(tokens, dev_name, state); break;
+            case 'H': parse_ccvs_device(tokens, dev_name, state); break;
+            case 'K': parse_mutual_inductance_device(tokens, dev_name, state); break;
+            case 'T': parse_tline_device(tokens, dev_name, state); break;
+            case 'O': parse_tline_lumped_device(tokens, dev_name, state); break;
+            case 'X': parse_subcircuit_instance_device(tokens, dev_name, state); break;
+            default:
+                spdlog::warn("Unknown device type: {}", dev_type);
+                break;
+        }
+    } catch (const UnresolvedDefinition& e) {
+        if (!state.resolving_deferred) {
+            state.deferred_elements.emplace_back(line, state.line_number);
+            return;
+        }
+        throw ParseError(fmt::format("Error parsing device '{}': {}", dev_name, e.what()),
+                       state.line_number);
+    } catch (const std::exception& e) {
+        throw ParseError(fmt::format("Error parsing device '{}': {}", dev_name, e.what()),
+                       state.line_number);
+    }
+}
+
 // Helper function to process a single line
 void process_line(const std::string& raw_line, ParseState& state) {
     std::string line = raw_line;
@@ -5975,48 +6020,151 @@ void process_line(const std::string& raw_line, ParseState& state) {
         return;
     }
 
-    std::string dev_type_name = tokens[0];
-    char dev_type = std::toupper(dev_type_name[0]);
-    std::string dev_name = dev_type_name;
+    const char dev_type = static_cast<char>(std::toupper(static_cast<unsigned char>(tokens[0][0])));
+    parse_element(tokens, dev_type, tokens[0], line, state);
+}
 
-    try {
-        switch (dev_type) {
-            case 'R': parse_resistor_device(tokens, dev_name, state); break;
-            case 'B': parse_behavioral_source_device(tokens, dev_name, state); break;
-            case 'C': parse_capacitor_device(tokens, dev_name, state); break;
-            case 'L': parse_inductor_device(tokens, dev_name, state); break;
-            case 'V': parse_voltage_source_device(tokens, dev_name, state); break;
-            case 'I': parse_current_source_device(tokens, dev_name, state); break;
-            case 'D': parse_diode_device(tokens, dev_name, state); break;
-            case 'S': parse_scr_device(tokens, dev_name, state); break;
-            case 'Y': parse_triac_device(tokens, dev_name, state); break;
-            case 'Z': parse_mesfet_device(tokens, dev_name, state); break;
-            case 'Q': parse_bjt_device(tokens, dev_name, state); break;
-            case 'M': parse_mosfet_device(tokens, dev_name, line, state); break;
-            case 'E': parse_vcvs_device(tokens, dev_name, state); break;
-            case 'F': parse_cccs_device(tokens, dev_name, state); break;
-            case 'G': parse_vccs_device(tokens, dev_name, state); break;
-            case 'H': parse_ccvs_device(tokens, dev_name, state); break;
-            case 'K': parse_mutual_inductance_device(tokens, dev_name, state); break;
-            case 'T': parse_tline_device(tokens, dev_name, state); break;
-            case 'O': parse_tline_lumped_device(tokens, dev_name, state); break;
-            case 'X': parse_subcircuit_instance_device(tokens, dev_name, state); break;
-            default:
-                spdlog::warn("Unknown device type: {}", dev_type);
-                break;
+
+// Each V(node) of a B expression with its node renamed by map_node, V in
+// either case (as CircuitGraph's rewrite_node_voltages reads it)
+static std::string map_node_voltages(const std::string& expression,
+                                     const std::function<std::string(const std::string&)>& map_node) {
+    std::string out;
+    std::size_t i = 0;
+    while (i < expression.size()) {
+        const char c = expression[i];
+        const bool starts_name = i == 0 ||
+            !(std::isalnum(static_cast<unsigned char>(expression[i - 1])) || expression[i - 1] == '_');
+        if ((c == 'V' || c == 'v') && starts_name && i + 1 < expression.size() &&
+            expression[i + 1] == '(') {
+            const std::size_t close = expression.find(')', i + 2);
+            if (close != std::string::npos) {
+                std::string node = expression.substr(i + 2, close - i - 2);
+                node.erase(0, node.find_first_not_of(" \t"));
+                node.erase(node.find_last_not_of(" \t") + 1);
+                if (!node.empty()) {
+                    out += c;
+                    out += '(' + map_node(node) + ')';
+                    i = close + 1;
+                    continue;
+                }
+            }
         }
-    } catch (const UnresolvedDefinition& e) {
-        if (!state.resolving_deferred) {
-            state.deferred_elements.emplace_back(line, state.line_number);
+        out += c;
+        ++i;
+    }
+    return out;
+}
+
+// A body line of the instance `instance` in the names of the circuit: the
+// element's name, and those of the elements it names (the controlling source
+// of F and H, the inductors of K), prefixed with the instance's name, X1.R1;
+// each node mapped by map_node; the nodes in the V(node) of a B expression
+// mapped too. Which tokens are nodes is decided as each element parser reads
+// its line.
+static std::vector<std::string> rename_body_line(
+    std::vector<std::string> tokens, const std::string& instance,
+    const std::function<std::string(const std::string&)>& map_node,
+    const SimulationConfig& config, std::size_t line_number) {
+    const std::string prefix = instance + ".";
+    const char type = static_cast<char>(std::toupper(static_cast<unsigned char>(tokens[0][0])));
+    auto nodes = [&](std::size_t first, std::size_t last) {
+        for (std::size_t k = first; k <= last && k < tokens.size(); ++k) {
+            tokens[k] = map_node(tokens[k]);
+        }
+    };
+    auto names = [&](std::size_t first, std::size_t last) {
+        for (std::size_t k = first; k <= last && k < tokens.size(); ++k) {
+            tokens[k] = prefix + tokens[k];
+        }
+    };
+    switch (type) {
+        case 'R': case 'C': case 'L': case 'V': case 'I': case 'D':
+            nodes(1, 2);
+            break;
+        case 'B':
+            nodes(1, 2);
+            for (std::size_t k = 3; k < tokens.size(); ++k) {
+                tokens[k] = map_node_voltages(tokens[k], map_node);
+            }
+            break;
+        case 'E': case 'G': case 'T': case 'O':
+            nodes(1, 4);
+            break;
+        case 'F': case 'H':
+            nodes(1, 2);
+            names(3, 3);
+            break;
+        case 'K':
+            names(1, 2);
+            break;
+        case 'Q': case 'Z': case 'S': case 'Y':
+            nodes(1, 3);
+            break;
+        case 'M':
+            if (tokens.size() < 5) {
+                throw ParseError(fmt::format("Invalid MOSFET line in a subcircuit: '{}'",
+                                             fmt::join(tokens, " ")), line_number);
+            }
+            nodes(1, mosfet_model_index(tokens, config) - 1);
+            break;
+        case 'X': {
+            const circuit::InstanceLineParts parts = circuit::split_instance_line(tokens);
+            nodes(1, parts.nodes.size());
+            break;
+        }
+        default:
+            throw ParseError(fmt::format("Unknown element '{}' in a subcircuit", tokens[0]),
+                             line_number);
+    }
+    tokens[0] = prefix + tokens[0];
+    return tokens;
+}
+
+// The SubcircuitLineReader of the parser: a body line, renamed into its
+// instance (rename_body_line), goes through process_line as a line of the
+// top level does, with the models and parameters of the whole netlist.
+class BodyLineReader : public circuit::SubcircuitLineReader {
+public:
+    explicit BodyLineReader(const SimulationConfig& config) : config_(config) {
+        for (const auto& [name, value] : config_.global_params) {
+            evaluator_.set_variable(name, value);
+        }
+        evaluator_.set_functions(config_.global_funcs);
+    }
+
+    const std::map<std::string, Real>& global_params() const override {
+        return config_.global_params;
+    }
+
+    void read(circuit::CircuitGraph& circuit, const std::string& line,
+              const std::string& instance_name,
+              const std::function<std::string(const std::string&)>& map_node,
+              std::size_t line_number) override {
+        std::vector<std::string> tokens = util::split_netlist_line(line);
+        if (tokens.empty()) {
             return;
         }
-        throw ParseError(fmt::format("Error parsing device '{}': {}", dev_name, e.what()),
-                       state.line_number);
-    } catch (const std::exception& e) {
-        throw ParseError(fmt::format("Error parsing device '{}': {}", dev_name, e.what()),
-                       state.line_number);
+        if (tokens[0][0] == '.') {
+            // .PARAM lines are the parameters' (substitute_parameters); the
+            // other directives of a body are read with the netlist
+            return;
+        }
+        const char type = static_cast<char>(std::toupper(static_cast<unsigned char>(tokens[0][0])));
+        tokens = rename_body_line(std::move(tokens), instance_name, map_node, config_, line_number);
+        ParseState state;
+        state.circuit = &circuit;
+        state.evaluator = &evaluator_;
+        state.config = &config_;
+        state.line_number = line_number;
+        state.resolving_deferred = true;  // every model is known by now
+        parse_element(tokens, type, tokens[0], fmt::format("{}", fmt::join(tokens, " ")), state);
     }
-}
+
+private:
+    SimulationConfig config_;
+    ExpressionEvaluator evaluator_;
+};
 
 // Process each line
 template<>
@@ -6147,6 +6295,9 @@ public:
         if (config.control_block.has_value()) {
             execute_control_commands(config.control_block.value(), eval, config, *circuit);
         }
+
+        // Subcircuit bodies are read as the top level is, at expansion
+        circuit->set_subcircuit_line_reader(std::make_shared<BodyLineReader>(config));
 
         return NetlistParseResult(std::move(circuit), std::move(config));
     }

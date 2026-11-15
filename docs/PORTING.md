@@ -99,11 +99,6 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
 
 ### Subcircuits and parameters
 
-- [ ] **Elements inside `.SUBCKT`.** Only `R`, `C`, `L`, `V` and `I` (DC
-  and AC values, no waveform), `M` (four terminals, level 1 or BSIM4) and
-  `X` are expanded; others are skipped with a warning
-  ([Reference Manual](REFERENCE_MANUAL.md#elements)). Move diodes, bipolar
-  transistors and controlled sources to the top level.
 - [ ] **Parameters of a subcircuit.** Write defaults as `NAME=value` after
   the pins; `PARAMS:` is not accepted. As in ngspice, a subcircuit body
   sees the global `.PARAM` values, and a `.PARAM` inside a `.SUBCKT` is

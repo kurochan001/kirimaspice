@@ -173,31 +173,34 @@ not case-sensitive. Blanks may stand on either side of the `=`, on any line
 included, is used once: a second element of the same name, as written, is
 an error.
 
-| Element | Syntax | Notes | In `.SUBCKT` |
-| --- | --- | --- | --- |
-| Resistor | `R<name> <n+> <n-> <value>` | further tokens are ignored | yes |
-| Capacitor | `C<name> <n+> <n-> <value>` | further tokens (such as `IC=`) are ignored | yes |
-| Inductor | `L<name> <n+> <n-> <value>` | further tokens are ignored | yes |
-| Mutual inductance | `K<name> <L1> <L2> <k>` | `<L1>`, `<L2>` are inductor names; `<k>` outside 0 to 1 is an error | no |
-| Voltage source | `V<name> <n+> <n-> [[DC] <value>] [AC [<mag> [<phase>]]] [<waveform>]` | see below | DC and AC, no waveform |
-| Current source | `I<name> <n+> <n-> [[DC] <value>] [AC [<mag> [<phase>]]] [<waveform>]` | see below | DC and AC, no waveform |
-| VCVS | `E<name> <n+> <n-> <nc+> <nc-> <gain>` | | no |
-| CCCS | `F<name> <n+> <n-> <Vcontrol> <gain>` | `<Vcontrol>` must be a `V` source | no |
-| VCCS | `G<name> <n+> <n-> <nc+> <nc-> <gm>` | | no |
-| CCVS | `H<name> <n+> <n-> <Vcontrol> <r>` | `<Vcontrol>` must be a `V` source | no |
-| Behavioural source | `B<name> <n+> <n-> I=<expr>` or `V=<expr>` | see below | no |
-| Diode | `D<name> <anode> <cathode> [<model>] [IS=<v>] [N=<v>]` | | no |
-| Bipolar transistor | `Q<name> <c> <b> <e> <NPN\|PNP\|model> [parameters]` | | no |
-| MOSFET and related | `M<name> <d> <g> <s> [<b>] <NMOS\|PMOS\|model> [parameters]` | model `LEVEL` selects the device | four terminals, level 1 or BSIM4 |
-| MESFET | `Z<name> <d> <g> <s> [<NMF\|PMF\|model>] [parameters]` | | no |
-| SCR | `S<name> <anode> <cathode> <gate> [parameters]` | | no |
-| TRIAC | `Y<name> <mt2> <mt1> <gate> [parameters]` | | no |
-| Lossless line | `T<name> <a+> <a-> <b+> <b-> Z0=<v> TD=<v>` | both required and positive; `ZO` is accepted for `Z0` | no |
-| Lossy line | `O<name> <a+> <a-> <b+> <b-> R=<v> L=<v> C=<v> G=<v> TD=<v>` | per unit length; `TD`, `L` and `C` above 0; the length is `TD`/√(`L`·`C`); DC and AC use the line's exact two-port, the transient an approximation ([known issues](../KNOWN_ISSUES.md#device-models)) | no |
-| Subcircuit instance | `X<name> <nodes...> <subckt> [NAME=<v> ...]` | | yes |
+| Element | Syntax | Notes |
+| --- | --- | --- |
+| Resistor | `R<name> <n+> <n-> <value>` | further tokens are ignored |
+| Capacitor | `C<name> <n+> <n-> <value>` | further tokens (such as `IC=`) are ignored |
+| Inductor | `L<name> <n+> <n-> <value>` | further tokens are ignored |
+| Mutual inductance | `K<name> <L1> <L2> <k>` | `<L1>`, `<L2>` are inductor names; `<k>` outside 0 to 1 is an error |
+| Voltage source | `V<name> <n+> <n-> [[DC] <value>] [AC [<mag> [<phase>]]] [<waveform>]` | see below |
+| Current source | `I<name> <n+> <n-> [[DC] <value>] [AC [<mag> [<phase>]]] [<waveform>]` | see below |
+| VCVS | `E<name> <n+> <n-> <nc+> <nc-> <gain>` |
+| CCCS | `F<name> <n+> <n-> <Vcontrol> <gain>` | `<Vcontrol>` must be a `V` source |
+| VCCS | `G<name> <n+> <n-> <nc+> <nc-> <gm>` |
+| CCVS | `H<name> <n+> <n-> <Vcontrol> <r>` | `<Vcontrol>` must be a `V` source |
+| Behavioural source | `B<name> <n+> <n-> I=<expr>` or `V=<expr>` | see below |
+| Diode | `D<name> <anode> <cathode> [<model>] [IS=<v>] [N=<v>]` |
+| Bipolar transistor | `Q<name> <c> <b> <e> <NPN\|PNP\|model> [parameters]` |
+| MOSFET and related | `M<name> <d> <g> <s> [<b>] <NMOS\|PMOS\|model> [parameters]` | model `LEVEL` selects the device |
+| MESFET | `Z<name> <d> <g> <s> [<NMF\|PMF\|model>] [parameters]` |
+| SCR | `S<name> <anode> <cathode> <gate> [parameters]` |
+| TRIAC | `Y<name> <mt2> <mt1> <gate> [parameters]` |
+| Lossless line | `T<name> <a+> <a-> <b+> <b-> Z0=<v> TD=<v>` | both required and positive; `ZO` is accepted for `Z0` |
+| Lossy line | `O<name> <a+> <a-> <b+> <b-> R=<v> L=<v> C=<v> G=<v> TD=<v>` | per unit length; `TD`, `L` and `C` above 0; the length is `TD`/√(`L`·`C`); DC and AC use the line's exact two-port, the transient an approximation ([known issues](../KNOWN_ISSUES.md#device-models)) |
+| Subcircuit instance | `X<name> <nodes...> <subckt> [NAME=<v> ...]` |
 
-Inside a subcircuit, an element marked "no" is dropped with the warning
-`Subcircuit expansion: Unsupported device type`.
+An element means the same inside a subcircuit as at the top level: the
+lines of a body are read by the same element parsers, with the element's
+name, its nodes and the names of the elements it refers to (the control of
+`F` and `H`, the inductors of `K`, the nodes of `V(...)` in `B`) renamed into
+the instance, `X1.R1` and `X1.n1`.
 
 ### Sources
 
@@ -299,18 +302,18 @@ instance parameter overrides the model's.
 
 For `NMOS` and `PMOS`, `LEVEL` selects the device:
 
-| `LEVEL` | Device | Unknown card parameters | Element-line parameters | In `.SUBCKT` |
-| --- | --- | --- | --- | --- |
-| 1 (default) | level 1 (square law) | ignored without a message | `KP`, `W`, `L`, `VTH`, `KF`, `AF`, `EF`, `GAMMA` | yes, four terminals |
-| 3 | SPICE's level 3 | warning | `W`, `L` | no |
-| 9 | BSIM1, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W`, `L` | no |
-| 8, 49 | BSIM3, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W`, `L` | no |
-| 14, 54 | BSIM4 (a model card with a `VERSION` other than 4.83 gives a warning) | ignored without a message | `W` (the width of all `NF` fingers), `L`, `NF`, `M`, `AS`, `AD`, `PS`, `PD`, `NRD`, `NRS`, `MULT_I`, `MULT_Q`, `MULT_FN` | yes, four terminals, `W` and `L` only |
-| 10 | SiC MOSFET | warning | all, by name | no |
-| 11 | GaN HEMT | warning | all, by name | no |
-| 12 | FinFET | warning | `L` only (others ignored without a message) | no |
-| 20 | VDMOS | warning | all, by name | no |
-| 21 | IGBT (`M` terminals are collector, gate, emitter) | warning | all, by name | no |
+| `LEVEL` | Device | Unknown card parameters | Element-line parameters |
+| --- | --- | --- | --- |
+| 1 (default) | level 1 (square law) | ignored without a message | `KP`, `W`, `L`, `VTH`, `KF`, `AF`, `EF`, `GAMMA` |
+| 3 | SPICE's level 3 | warning | `W`, `L` |
+| 9 | BSIM1, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W`, `L` |
+| 8, 49 | BSIM3, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W`, `L` |
+| 14, 54 | BSIM4 (a model card with a `VERSION` other than 4.83 gives a warning) | ignored without a message | `W` (the width of all `NF` fingers), `L`, `NF`, `M`, `AS`, `AD`, `PS`, `PD`, `NRD`, `NRS`, `MULT_I`, `MULT_Q`, `MULT_FN` |
+| 10 | SiC MOSFET | warning | all, by name |
+| 11 | GaN HEMT | warning | all, by name |
+| 12 | FinFET | warning | `L` only (others ignored without a message) |
+| 20 | VDMOS | warning | all, by name |
+| 21 | IGBT (`M` terminals are collector, gate, emitter) | warning | all, by name |
 
 Any other `LEVEL` is an error at the `.MODEL` line, as in ngspice-47.
 `AD`, `AS`,
