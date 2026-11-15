@@ -100,8 +100,7 @@ public:
           vge_prev_(0.0), vce_prev_(0.0), ic_prev_(0.0),
           in_tail_mode_(false), tail_current_0_(0.0), tail_start_time_(0.0), current_time_(0.0),
           vge_prev2_(0.0), vge_prev3_(0.0), vce_prev2_(0.0), vce_prev3_(0.0),
-          vge_saved_(0.0), vce_saved_(0.0), ic_saved_(0.0),
-          tail_mode_saved_(false), tail_current_0_saved_(0.0) {
+          vce_last_eval_(0.0) {
         spdlog::trace("IGBT<{}> '{}' created: C={} G={} E={} VGE_TH={:.2f} KP={:.1f} VCE_SAT={:.2f}",
                       is_n_channel ? "N" : "P", name, collector, gate, emitter, vge_th_, kp_, vce_sat_);
     }
@@ -119,79 +118,7 @@ public:
 
     void stamp_dc_nonlinear(MNASystem& mna,
                             const DenseVector& node_voltages) const override {
-        // Get terminal voltages (NodeId is 1-based, node_voltages is 0-based)
-        Real vc = (collector_ != NODE_GND) ? node_voltages[collector_ - 1] : 0.0;
-        Real vg = (gate_ != NODE_GND) ? node_voltages[gate_ - 1] : 0.0;
-        Real ve = (emitter_ != NODE_GND) ? node_voltages[emitter_ - 1] : 0.0;
-
-        // Compute control voltages with polarity
-        // N-channel: vge = vg - ve, vce = vc - ve
-        // P-channel: vge = ve - vg, vce = ve - vc (internally stored as positive)
-        Real vge = polarity_sign * (vg - ve);
-        Real vce = polarity_sign * (vc - ve);
-
-        // Compute collector current and small-signal parameters
-        Real ic = compute_collector_current(vge, vce);
-        Real gm = compute_transconductance(vge, vce);
-        Real gds = compute_output_conductance(vge, vce);
-
-        // Norton equivalent: I = ic - gm×vge - gds×vce
-        Real i_norton = ic - gm * vge - gds * vce;
-
-        // Apply polarity for MNA stamping
-        // N-channel: current flows C→E (positive ic)
-        // P-channel: current flows E→C (negative ic_mna)
-        Real ic_mna = polarity_sign * i_norton;
-
-        // Get node indices for MNA matrix (0-based)
-        auto nc_idx = (collector_ == NODE_GND) ? -1 : static_cast<int>(collector_ - 1);
-        auto ng_idx = (gate_ == NODE_GND) ? -1 : static_cast<int>(gate_ - 1);
-        auto ne_idx = (emitter_ == NODE_GND) ? -1 : static_cast<int>(emitter_ - 1);
-
-        // Stamp transconductance gm (Ic = gm × Vge = gm × (Vg - Ve))
-        // Note: gm stamping pattern is the same for both N and P channel
-        // The polarity is already handled in voltage computation and Norton current
-        if (nc_idx >= 0) {
-            if (ng_idx >= 0) {
-                mna.G.add_entry(nc_idx, ng_idx, gm);
-            }
-            if (ne_idx >= 0) {
-                mna.G.add_entry(nc_idx, ne_idx, -gm);
-            }
-        }
-        if (ne_idx >= 0) {
-            if (ng_idx >= 0) {
-                mna.G.add_entry(ne_idx, ng_idx, -gm);
-            }
-            mna.G.add_entry(ne_idx, ne_idx, gm);
-        }
-
-        // Stamp output conductance gds (C-E)
-        if (gds > 0.0) {
-            if (nc_idx >= 0) {
-                mna.G.add_entry(nc_idx, nc_idx, gds);
-                if (ne_idx >= 0) {
-                    mna.G.add_entry(nc_idx, ne_idx, -gds);
-                }
-            }
-            if (ne_idx >= 0) {
-                mna.G.add_entry(ne_idx, ne_idx, gds);
-                if (nc_idx >= 0) {
-                    mna.G.add_entry(ne_idx, nc_idx, -gds);
-                }
-            }
-        }
-
-        // Norton current source
-        if (nc_idx >= 0) {
-            mna.b[nc_idx] -= ic_mna;
-        }
-        if (ne_idx >= 0) {
-            mna.b[ne_idx] += ic_mna;
-        }
-
-        spdlog::trace("IGBT<{}> '{}' DC: Vge={:.3f} V, Vce={:.3f} V, Ic={:.6f} A, gm={:.6f} S",
-                      is_n_channel ? "N" : "P", name(), vge, vce, ic, gm);
+        stamp_collector_current(mna, node_voltages, false);
     }
 
     // Transient analysis: Nonlinear capacitance with companion model
@@ -206,119 +133,18 @@ public:
 
         Real dt = timestep;
 
-        // Get terminal voltages
+        // The collector current as in DC, with the tail current after a
+        // turn-off (stamp_collector_current)
+        const Real ic = stamp_collector_current(mna, node_voltages, true);
+
         Real vc = (collector_ != NODE_GND) ? node_voltages[collector_ - 1] : 0.0;
         Real vg = (gate_ != NODE_GND) ? node_voltages[gate_ - 1] : 0.0;
         Real ve = (emitter_ != NODE_GND) ? node_voltages[emitter_ - 1] : 0.0;
-
-        // Compute control voltages with polarity
         Real vge = polarity_sign * (vg - ve);
         Real vce = polarity_sign * (vc - ve);
-
-        // Update tail current mode check
-        Real vge_th = compute_temperature_scaled_vge_th();
-        bool was_active = (vge_prev_ >= vge_th);
-        bool is_active = (vge >= vge_th);
-
-        // Detect turn-off transition (active → cutoff)
-        Real ic = 0.0;
-        if (was_active && !is_active && !in_tail_mode_) {
-            // Enter tail current mode
-            in_tail_mode_ = true;
-            tail_current_0_ = ic_prev_;
-            tail_start_time_ = current_time_;
-        }
-
-        // Compute collector current
-        if (in_tail_mode_) {
-            Real delta_t = current_time_ - tail_start_time_;
-            ic = compute_tail_current(delta_t);
-
-            // Exit tail mode when current becomes negligible
-            if (ic < 1e-12) {
-                in_tail_mode_ = false;
-                ic = 0.0;
-            }
-        } else {
-            ic = compute_collector_current(vge, vce);
-        }
-
-        // Compute small-signal parameters
-        Real gm = compute_transconductance(vge, vce);
-        Real gds = compute_output_conductance(vge, vce);
-
-        // Save state for possible rejection
-        vge_saved_ = vge_prev_;
-        vce_saved_ = vce_prev_;
-        ic_saved_ = ic_prev_;
-        tail_mode_saved_ = in_tail_mode_;
-        tail_current_0_saved_ = tail_current_0_;
-
-        // Norton equivalent
-        Real i_norton = polarity_sign * (ic - gm * vge - gds * vce);
-
-        // Get node indices
         auto nc_idx = (collector_ == NODE_GND) ? -1 : static_cast<int>(collector_ - 1);
         auto ng_idx = (gate_ == NODE_GND) ? -1 : static_cast<int>(gate_ - 1);
         auto ne_idx = (emitter_ == NODE_GND) ? -1 : static_cast<int>(emitter_ - 1);
-
-        // Stamp conductances based on operating mode
-        if (vge < vge_th) {
-            // Cutoff: add small conductance for numerical stability
-            constexpr Real gmin = 1e-12;
-            if (nc_idx >= 0) {
-                mna.G.add_entry(nc_idx, nc_idx, gmin);
-                if (ne_idx >= 0) {
-                    mna.G.add_entry(nc_idx, ne_idx, -gmin);
-                }
-            }
-            if (ne_idx >= 0) {
-                mna.G.add_entry(ne_idx, ne_idx, gmin);
-                if (nc_idx >= 0) {
-                    mna.G.add_entry(ne_idx, nc_idx, -gmin);
-                }
-            }
-        } else {
-            // Active/tail mode - stamp transconductance (same for N and P channel)
-            if (nc_idx >= 0) {
-                if (ng_idx >= 0) {
-                    mna.G.add_entry(nc_idx, ng_idx, gm);
-                }
-                if (ne_idx >= 0) {
-                    mna.G.add_entry(nc_idx, ne_idx, -gm);
-                }
-            }
-            if (ne_idx >= 0) {
-                if (ng_idx >= 0) {
-                    mna.G.add_entry(ne_idx, ng_idx, -gm);
-                }
-                mna.G.add_entry(ne_idx, ne_idx, gm);
-            }
-
-            // Stamp output conductance gds
-            if (gds > 0.0) {
-                if (nc_idx >= 0) {
-                    mna.G.add_entry(nc_idx, nc_idx, gds);
-                    if (ne_idx >= 0) {
-                        mna.G.add_entry(nc_idx, ne_idx, -gds);
-                    }
-                }
-                if (ne_idx >= 0) {
-                    mna.G.add_entry(ne_idx, ne_idx, gds);
-                    if (nc_idx >= 0) {
-                        mna.G.add_entry(ne_idx, nc_idx, -gds);
-                    }
-                }
-            }
-        }
-
-        // Norton current source
-        if (nc_idx >= 0) {
-            mna.b[nc_idx] -= i_norton;
-        }
-        if (ne_idx >= 0) {
-            mna.b[ne_idx] += i_norton;
-        }
 
         // Gate-Emitter capacitance companion model
         Real dvge_dt = 0.0;
@@ -405,9 +231,11 @@ public:
         Real vge = polarity_sign * (vg - ve);
         Real vce = polarity_sign * (vc - ve);
 
-        // Small-signal parameters at DC operating point
-        Real gm = compute_transconductance(vge, vce);
-        Real gds = compute_output_conductance(vge, vce);
+        // Small-signal parameters at DC operating point, those of the DC
+        // stamp, with its gmin across C-E
+        const CollectorCurrent cc = collector_current(vge, vce);
+        const Real gm = cc.gm;
+        const Real gds = cc.gds + kGmin;
 
         // Get node indices
         auto nc_idx = (collector_ == NODE_GND) ? -1 : static_cast<int>(collector_ - 1);
@@ -495,8 +323,9 @@ public:
         Real ve = (emitter_ != NODE_GND) ? dc_solution[emitter_ - 1] : 0.0;
         const Real vge = polarity_sign * (vg - ve);
         const Real vce = polarity_sign * (vc - ve);
-        const Real gm = compute_transconductance(vge, vce);
-        const Real ic = compute_collector_current(vge, vce);
+        const CollectorCurrent cc = collector_current(vge, vce);
+        const Real gm = cc.gm;
+        const Real ic = cc.ic;
 
         // Thermal noise: I_n² = 4kT × gm [A²/Hz]
 
@@ -672,6 +501,9 @@ public:
     /// The time since turn-off of the tail current (Device::set_time)
     void set_time(std::optional<Real> time) override { current_time_ = time.value_or(0.0); }
 
+    bool limited_in_last_stamp() const override { return limited_in_last_stamp_; }
+    void set_voltage_limiting(bool enable) override { enable_voltage_limiting_ = enable; }
+
     void reset_state() override {
         vge_prev_ = 0.0;
         vge_prev2_ = 0.0;
@@ -684,6 +516,8 @@ public:
         tail_current_0_ = 0.0;
         tail_start_time_ = 0.0;
         current_time_ = 0.0;
+        vce_last_eval_ = 0.0;
+        limited_in_last_stamp_ = false;
 
         spdlog::trace("IGBT<{}> '{}' reset state", is_n_channel ? "N" : "P", name());
     }
@@ -696,6 +530,20 @@ public:
         Real vge = polarity_sign * (vg - ve);
         Real vce = polarity_sign * (vc - ve);
 
+        // The tail current, once per accepted point: it starts at the first
+        // point with the gate below threshold after one above it, from the
+        // collector current accepted before, and ends when the gate turns
+        // on again or the tail has decayed below 1 pA
+        const Real vge_th = compute_temperature_scaled_vge_th();
+        if (!in_tail_mode_ && vge_prev_ >= vge_th && vge < vge_th && ic_prev_ > 0.0) {
+            in_tail_mode_ = true;
+            tail_current_0_ = ic_prev_;
+            tail_start_time_ = current_time_;
+        } else if (in_tail_mode_ &&
+                   (vge >= vge_th || compute_tail_current(current_time_ - tail_start_time_) < 1e-12)) {
+            in_tail_mode_ = false;
+        }
+
         // Update history
         vge_prev3_ = vge_prev2_;
         vge_prev2_ = vge_prev_;
@@ -705,26 +553,12 @@ public:
         vce_prev2_ = vce_prev_;
         vce_prev_ = vce;
 
-        // Update collector current
-        if (in_tail_mode_) {
-            Real delta_t = current_time_ - tail_start_time_;
-            ic_prev_ = compute_tail_current(delta_t);
-        } else {
-            ic_prev_ = compute_collector_current(vge, vce);
-        }
+        // The collector current at the accepted point
+        ic_prev_ = in_tail_mode_ ? compute_tail_current(current_time_ - tail_start_time_)
+                                 : collector_current(vge, vce).ic;
 
         spdlog::trace("IGBT<{}> '{}' accept: Vge={:.3f} V, Vce={:.3f} V, Ic={:.6f} A",
                       is_n_channel ? "N" : "P", name(), vge, vce, ic_prev_);
-    }
-
-    void reject_solution() {
-        vge_prev_ = vge_saved_;
-        vce_prev_ = vce_saved_;
-        ic_prev_ = ic_saved_;
-        in_tail_mode_ = tail_mode_saved_;
-        tail_current_0_ = tail_current_0_saved_;
-
-        spdlog::trace("IGBT<{}> '{}' reject solution", is_n_channel ? "N" : "P", name());
     }
 
 private:
@@ -772,12 +606,14 @@ private:
     mutable Real vce_prev2_;
     mutable Real vce_prev3_;
 
-    // Saved state for solution rejection
-    mutable Real vge_saved_;
-    mutable Real vce_saved_;
-    mutable Real ic_saved_;
-    mutable bool tail_mode_saved_;
-    mutable Real tail_current_0_saved_;
+    // Newton iteration: the VCE of the last evaluation, for the step limit
+    // (core::limit_fet_drain_step), and whether the last stamp limited it
+    mutable Real vce_last_eval_ = 0.0;
+    mutable bool limited_in_last_stamp_ = false;
+    bool enable_voltage_limiting_ = true;
+
+    /// The conductance across C-E that the DC, transient and AC stamps add
+    static constexpr Real kGmin = 1e-12;
 
     // Helper functions
     Real compute_temperature_scaled_vge_th() const {
@@ -794,29 +630,85 @@ private:
         return vce_sat_ * (1.0 + tcv_ * delta_t);
     }
 
-    Real compute_collector_current(Real vge, Real vce) const {
-        Real vge_th = compute_temperature_scaled_vge_th();
-        Real kp_temp = compute_temperature_scaled_kp();
-        Real vce_sat_temp = compute_temperature_scaled_vce_sat();
+    /// The collector current of the effective device and its derivatives
+    struct CollectorCurrent {
+        Real ic = 0.0;   ///< From collector to emitter for N, emitter to collector for P [A]
+        Real gm = 0.0;   ///< d ic / d Vge_eff [S]
+        Real gds = 0.0;  ///< d ic / d Vce_eff [S]
+    };
 
+    /// Ic = AREA KP(T) (VGE - VGE_TH(T))^2 times VCE / VCE_SAT(T) clamped to
+    /// 0..1, and its derivatives: gm = 2 AREA KP Vov times the same factor,
+    /// gds = AREA KP Vov^2 / VCE_SAT from 0 to VCE_SAT and 0 elsewhere.
+    /// The DC, transient, AC and noise stamps all take it from here.
+    CollectorCurrent collector_current(Real vge, Real vce) const {
+        CollectorCurrent cc;
+        const Real vge_th = compute_temperature_scaled_vge_th();
         if (vge <= vge_th) {
-            // Cutoff region
-            return 0.0;
+            return cc;  // cutoff
         }
-
-        Real vov = vge - vge_th;  // Overdrive voltage
-
-        // Saturation factor
+        const Real kp_temp = compute_temperature_scaled_kp();
+        const Real vce_sat_temp = compute_temperature_scaled_vce_sat();
+        const Real vov = vge - vge_th;
+        // At the two corners of the factor, VCE = 0 and VCE = VCE_SAT, the
+        // slope is taken from the side between them, so that Newton's
+        // iteration from a corner sees the saturation region
         Real sat_factor = 1.0;
-        if (vce < vce_sat_temp && vce_sat_temp > 0.0) {
-            sat_factor = vce / vce_sat_temp;
-            sat_factor = std::max(0.0, std::min(1.0, sat_factor));
+        Real dsat_dvce = 0.0;
+        if (vce_sat_temp > 0.0 && vce <= vce_sat_temp) {
+            if (vce >= 0.0) {
+                sat_factor = vce / vce_sat_temp;
+                dsat_dvce = 1.0 / vce_sat_temp;
+            } else {
+                sat_factor = 0.0;
+            }
+        }
+        cc.ic = area_ * kp_temp * vov * vov * sat_factor;
+        cc.gm = 2.0 * area_ * kp_temp * vov * sat_factor;
+        cc.gds = area_ * kp_temp * vov * vov * dsat_dvce;
+        return cc;
+    }
+
+    /// Stamp the collector current linearized at the present iterate, with
+    /// VCE limited by core::limit_fet_drain_step from its last evaluation,
+    /// and the gmin across C-E. In a transient after a turn-off the current
+    /// is the tail current (accept_solution) instead. Returns the current.
+    Real stamp_collector_current(MNASystem& mna, const DenseVector& node_voltages,
+                                 bool transient) const {
+        const Real vc = (collector_ != NODE_GND) ? node_voltages[collector_ - 1] : 0.0;
+        const Real vg = (gate_ != NODE_GND) ? node_voltages[gate_ - 1] : 0.0;
+        const Real ve = (emitter_ != NODE_GND) ? node_voltages[emitter_ - 1] : 0.0;
+        const Real vge = polarity_sign * (vg - ve);
+        const Real vce_iterate = polarity_sign * (vc - ve);
+
+        const Real vce = enable_voltage_limiting_
+                             ? core::limit_fet_drain_step(vce_iterate, vce_last_eval_)
+                             : vce_iterate;
+        limited_in_last_stamp_ = (vce != vce_iterate);
+        vce_last_eval_ = vce;
+
+        CollectorCurrent cc = collector_current(vge, vce);
+        if (transient && in_tail_mode_) {
+            cc = CollectorCurrent{compute_tail_current(current_time_ - tail_start_time_), 0.0, 0.0};
         }
 
-        // Collector current: Ic = KP × (Vge - Vth)² × sat_factor
-        Real ic = area_ * kp_temp * vov * vov * sat_factor;
+        // The current from collector to emitter is ic for N and -ic for P;
+        // its derivatives with respect to Vg, Vc and Ve are gm, gds and
+        // -(gm + gds) for both (device_utils::stamp_vccs_3terminal,
+        // stamp_conductance_ds), taken at the limited VCE
+        const Real i_ce = polarity_sign * cc.ic;
+        const Real i_eq = i_ce - cc.gm * (vg - ve) - cc.gds * polarity_sign * vce;
+        const auto nc_idx = (collector_ == NODE_GND) ? -1 : static_cast<int>(collector_ - 1);
+        const auto ng_idx = (gate_ == NODE_GND) ? -1 : static_cast<int>(gate_ - 1);
+        const auto ne_idx = (emitter_ == NODE_GND) ? -1 : static_cast<int>(emitter_ - 1);
+        device_utils::stamp_vccs_3terminal(mna.G, nc_idx, ng_idx, ne_idx, cc.gm, 1.0);
+        device_utils::stamp_conductance_ds(mna.G, nc_idx, ne_idx, cc.gds + kGmin);
+        if (nc_idx >= 0) mna.b[nc_idx] -= i_eq;
+        if (ne_idx >= 0) mna.b[ne_idx] += i_eq;
 
-        return ic;
+        spdlog::trace("IGBT<{}> '{}': Vge={:.3f} V, Vce={:.3f} V, Ic={:.6f} A, gm={:.6f} S",
+                      is_n_channel ? "N" : "P", name(), vge, vce, cc.ic, cc.gm);
+        return cc.ic;
     }
 
     Real compute_tail_current(Real delta_t) const {
@@ -824,48 +716,7 @@ private:
         return tail_current_0_ * std::exp(-delta_t / tau_);
     }
 
-    Real compute_transconductance(Real vge, Real vce) const {
-        Real vge_th = compute_temperature_scaled_vge_th();
-        Real kp_temp = compute_temperature_scaled_kp();
-        Real vce_sat_temp = compute_temperature_scaled_vce_sat();
 
-        if (vge <= vge_th) {
-            return 0.0;  // Cutoff
-        }
-
-        Real vov = vge - vge_th;
-
-        // Saturation factor
-        Real sat_factor = 1.0;
-        if (vce < vce_sat_temp && vce_sat_temp > 0.0) {
-            sat_factor = vce / vce_sat_temp;
-            sat_factor = std::max(0.0, std::min(1.0, sat_factor));
-        }
-
-        // gm = dIc/dVge = 2 × KP × (Vge - Vth) × sat_factor
-        return 2.0 * area_ * kp_temp * vov * sat_factor;
-    }
-
-    Real compute_output_conductance(Real vge, Real vce) const {
-        Real vge_th = compute_temperature_scaled_vge_th();
-        Real kp_temp = compute_temperature_scaled_kp();
-        Real vce_sat_temp = compute_temperature_scaled_vce_sat();
-
-        if (vge <= vge_th) {
-            return 0.0;  // Cutoff
-        }
-
-        Real vov = vge - vge_th;
-
-        // In saturation region (Vce < Vce_sat), gds = dIc/dVce
-        if (vce < vce_sat_temp && vce_sat_temp > 0.0) {
-            // gds = KP × (Vge - Vth)² / Vce_sat
-            return area_ * kp_temp * vov * vov / vce_sat_temp;
-        }
-
-        // In active region (Vce >= Vce_sat), small output conductance
-        return 1e-12;  // Small value for numerical stability
-    }
 };
 
 // Type aliases for backward compatibility

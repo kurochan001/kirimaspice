@@ -10,6 +10,7 @@
 #include "kirimaspice/solvers/dc_solver.hpp"
 #include "kirimaspice/solvers/transient_solver.hpp"
 #include "kirimaspice/core/types.hpp"
+#include "kirimaspice/parser/netlist_parser.hpp"
 #include <cmath>
 
 using namespace kirimaspice;
@@ -453,4 +454,52 @@ TEST(IGBT_N, TailCurrentEffect) {
 
     // Full tail current behavior testing requires transient solver
     // This test just verifies the parameter is set correctly
+}
+
+// The DC iteration of a strongly driven stage converges to the solution of
+// the IGBT's equations: with KP = 2 (the netlist default), VGE_TH = 5 and
+// VCE_SAT = 2, VGE = 15 V gives Ic = 2 (10)^2 VCE / 2 = 100 VCE below VCE_SAT,
+// and VCC = 100 V through RL = 100 Ohm puts the collector at 100 / 10001 V.
+// Before the VCE step limit (core::limit_fet_drain_step) and the KCL test of
+// convergence, this run ended at V(c) = -1404.7 V.
+TEST(IGBTNetlist, StronglyDrivenStageConverges) {
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "igbt\nVCC vcc 0 DC 100\nRL vcc c 100\nVG g 0 DC 15\nM1 c g 0 m\n"
+        ".model m nmos level=21\n.end\n");
+    ASSERT_NE(parsed.circuit, nullptr);
+    DCSolver solver(*parsed.circuit, parsed.config);
+    DenseVector solution;
+    SolverStats stats;
+    ASSERT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS);
+    EXPECT_NEAR(solution[parsed.circuit->get_node_id("c") - 1], 100.0 / 10001.0, 1e-9);
+}
+
+// After a turn-off the collector carries the tail current I0 exp(-(t - t0) /
+// TAU) from the first accepted point with the gate below threshold (t0), I0
+// being the current accepted before it. Without CCE and CGE, the collector of
+// the stage above follows V(c) = 100 - 100 I0 exp(-(t - t0) / TAU) after t0.
+TEST(IGBTNetlist, TailCurrentDecaysAfterTurnOff) {
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "tail\nVCC vcc 0 DC 100\nRL vcc c 100\nVG g 0 DC 15 PULSE(15 0 10u 10n 10n 1 2)\n"
+        "M1 c g 0 m\n.model m nmos level=21 tau=2u cge=0 cce=0\n.end\n");
+    ASSERT_NE(parsed.circuit, nullptr);
+    SimulationConfig config = parsed.config;
+    config.transient.use_adaptive_timestep = false;
+    TransientSolver solver(*parsed.circuit, config);
+    const auto result = solver.solve(0.0, 20e-6, 0.5e-6);
+    ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
+    const NodeId c = parsed.circuit->get_node_id("c");
+    const Real i0 = (100.0 - 100.0 / 10001.0) / 100.0;
+    const Real t0 = 10.5e-6;
+    int checked = 0;
+    for (const auto& tp : result.timepoints) {
+        if (tp.time > t0 + 1e-9) {
+            const Real expected = 100.0 - 100.0 * i0 * std::exp(-(tp.time - t0) / 2e-6);
+            EXPECT_NEAR(tp.node_voltages[c - 1], expected, 1e-6) << "t=" << tp.time;
+            ++checked;
+        }
+    }
+    EXPECT_GT(checked, 10);
 }

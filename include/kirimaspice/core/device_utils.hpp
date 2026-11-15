@@ -157,6 +157,30 @@ inline Real limit_junction_step(Real vnew, Real vold, Real nvt, Real vcrit) {
     return (vnew > nvt) ? nvt * std::log(vnew / nvt) : vnew;
 }
 
+/// Limit the step of the drain-source voltage of a FET (here the
+/// collector-emitter voltage of the IGBT) between two Newton iterations, by
+/// SPICE3's rule for VDS (DEVlimvds in ngspice's
+/// src/spicelib/devices/devsup.c, Modified BSD, read 2026-11-15):
+///   from vold >= 3.5 V, a rise stops at 3 vold + 2, and a fall below 3.5 V
+///   stops at 2 V;
+///   from vold < 3.5 V, a rise stops at 4 V and a fall at -0.5 V.
+/// For a negative vold the rule applies to -v, as SPICE3's level 1 MOSFET
+/// does in its reverse mode (mos1load.c, also Modified BSD). A converged
+/// solution (vnew = vold) is returned unchanged.
+/// @param vnew the voltage of the present iterate [V]
+/// @param vold the voltage at which the device was last evaluated [V]
+/// @return the voltage at which to evaluate the device this iteration
+inline Real limit_fet_drain_step(Real vnew, Real vold) {
+    const auto forward = [](Real v_new, Real v_old) {
+        if (v_old >= 3.5) {
+            if (v_new > v_old) return std::min(v_new, 3.0 * v_old + 2.0);
+            return (v_new < 3.5) ? std::max(v_new, 2.0) : v_new;
+        }
+        return (v_new > v_old) ? std::min(v_new, 4.0) : std::max(v_new, -0.5);
+    };
+    return (vold >= 0.0) ? forward(vnew, vold) : -forward(-vnew, -vold);
+}
+
 // ============================================================================
 // Temperature Scaling Utilities
 // ============================================================================

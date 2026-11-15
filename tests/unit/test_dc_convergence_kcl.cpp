@@ -5,10 +5,10 @@
 // with the devices' own currents, not merely where the step has become small
 // (kirchhoff_current_law_holds, DCSolver::check_convergence). A device whose
 // conductance is not the derivative of its current makes the steps small far
-// from the solution: the IGBT below, whose output conductance below VCE = 0 is
-// KP Vov^2 / VCE_SAT = 2500 S while its current there is 0, once "converged"
-// at V(c) = -1404.7 V, where RL carries 15 A into the collector and the IGBT
-// none.
+// from the solution: the IGBT below, whose output conductance below VCE = 0
+// was KP Vov^2 / VCE_SAT = 100 S while its current there is 0, once
+// "converged" at V(c) = -1404.7 V, where RL carries 15 A into the collector
+// and the IGBT none (its solution is V(c) = 100/10001 V, IGBTNetlist tests).
 
 #include <gtest/gtest.h>
 
