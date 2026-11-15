@@ -118,6 +118,9 @@ private:
                             const BDFCoefficients* bdf_coef = nullptr,
                             const TR_BDF2_Coefficients* tr_bdf2_coef = nullptr);
 
+    /// Give every device the time of the next stamps (Device::set_time)
+    void set_device_time(Real time);
+
     /// Stamp all devices for transient analysis
     void stamp_devices_transient(const DenseVector& node_voltages, Real timestep,
                                 IntegrationMethod method,

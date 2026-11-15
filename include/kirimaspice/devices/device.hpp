@@ -94,6 +94,13 @@ public:
     /// apply_voltage_limiting_option).
     virtual void set_voltage_limiting(bool enable) { (void)enable; }
 
+    /// The time of the transient at which the next stamps are evaluated:
+    /// the end of the step being solved, and 0 for the operating point that
+    /// starts a transient (TransientSolver::set_device_time). Devices whose
+    /// equations depend on time (waveforms, the TIME of B sources, the IGBT's
+    /// tail current) override it; the others ignore it.
+    virtual void set_time(Real time) { (void)time; }
+
     /// State save/restore (for dynamic elements)
     virtual void save_state() {}
     virtual void restore_state() {}

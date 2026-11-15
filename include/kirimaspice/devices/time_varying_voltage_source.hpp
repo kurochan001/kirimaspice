@@ -43,7 +43,7 @@ public:
                         const TR_BDF2_Coefficients* tr_bdf2_coef = nullptr) const override;
 
     /// Set current simulation time for transient analysis
-    void set_time(Real time) { current_time_ = time; }
+    void set_time(Real time) override { current_time_ = time; }
 
     /// Get current simulation time
     Real get_time() const { return current_time_; }

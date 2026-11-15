@@ -9,7 +9,6 @@
 // Only the device headers used directly here are included; the
 // temperature-dependent device headers are in temperature_utils.cpp
 #include "kirimaspice/devices/device.hpp"                     // Base class
-#include "kirimaspice/devices/time_varying_voltage_source.hpp" // set_time()
 #include "kirimaspice/solvers/temperature_utils.hpp"
 #include "kirimaspice/solvers/parallel_stamper.hpp"
 #include "kirimaspice/core/constants.hpp"
@@ -272,17 +271,8 @@ void TransientSolver::stamp_devices_transient(const DenseVector& node_voltages,
                      (method == IntegrationMethod::GEAR2) ? "GEAR2" : "GEAR3", timestep);
     }
 
-    // Update time-varying voltage sources with current time
-    // NOTE: This loop must remain sequential as it modifies device state
-    for (const auto& device : circuit_.get_devices()) {
-        if (device->type() == DeviceType::VSOURCE) {
-            // Try to cast to TimeVaryingVoltageSource
-            auto* tv_source = dynamic_cast<TimeVaryingVoltageSource*>(device.get());
-            if (tv_source) {
-                tv_source->set_time(current_time_);
-            }
-        }
-    }
+    // Before the parallel stamping, which must not change device state
+    set_device_time(current_time_);
 
     const auto& devices = circuit_.get_devices();
 
@@ -1469,10 +1459,21 @@ bool TransientSolver::initialize_pure_dc_mode(TransientResult& result, Real t_st
     return true;
 }
 
+void TransientSolver::set_device_time(Real time) {
+    for (const auto& device : circuit_.get_devices()) {
+        device->set_time(time);
+    }
+}
+
 TransientResult TransientSolver::initialize_simulation(Real t_start, Real timestep) {
     TransientResult result;
     result.status = ConvergenceStatus::SUCCESS;
     result.stats = SolverStats{};
+
+    // The operating point that starts a transient is the circuit at time 0,
+    // also after an earlier transient on the same devices (.TEMP)
+    current_time_ = 0.0;
+    set_device_time(0.0);
 
     DenseVector solution;
     solution.resize(mna_.size());

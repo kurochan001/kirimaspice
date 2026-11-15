@@ -2,6 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include <gtest/gtest.h>
+
+#include <string>
+
 #include "kirimaspice/devices/behavioral_source.hpp"
 #include "kirimaspice/core/matrix_types.hpp"
 #include "kirimaspice/core/types.hpp"
@@ -148,5 +151,32 @@ R2 out 0 1k
         FAIL() << "expected a ParseError";
     } catch (const kirimaspice::parser::ParseError& e) {
         EXPECT_EQ(e.line(), 4u);
+    }
+}
+
+// TIME is the time of the transient (as in SPICE's B source): with
+// V(out) = 2 V(in) + 1000 TIME and V(in) = 1 V, V(out) = 2 + 1000 t at every
+// time point, also in a circuit with a capacitor, whose transient starts from
+// an operating point at time 0. A second transient on the same devices starts
+// again from time 0.
+TEST(BehavioralSource, TimeIsTheTransientTime) {
+    for (const char* extra : {"", "C1 out 0 1n\n"}) {
+        kirimaspice::parser::NetlistParser parser;
+        auto result = parser.parse_string(std::string("TIME\nV1 in 0 DC 1\n"
+                                                      "B1 out 0 V={2*V(in)+1000*TIME}\n"
+                                                      "R1 out 0 1k\n") +
+                                          extra + ".end\n");
+        ASSERT_NE(result.circuit, nullptr);
+        const NodeId out = result.circuit->get_node_id("out");
+        for (int run = 0; run < 2; ++run) {
+            kirimaspice::solvers::TransientSolver solver(*result.circuit, result.config);
+            auto tran = solver.solve(0.0, 1e-3, 1e-4);
+            ASSERT_EQ(tran.status, kirimaspice::ConvergenceStatus::SUCCESS) << extra;
+            ASSERT_GE(tran.timepoints.size(), 11u);
+            for (const auto& tp : tran.timepoints) {
+                EXPECT_NEAR(tp.node_voltages[out - 1], 2.0 + 1000.0 * tp.time, 1e-9)
+                    << extra << "run " << run << " t=" << tp.time;
+            }
+        }
     }
 }
