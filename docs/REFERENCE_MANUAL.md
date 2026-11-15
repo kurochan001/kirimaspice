@@ -169,7 +169,8 @@ arguments of a source waveform may have spaces inside braces.
 
 `<n+>` and `<n->` are nodes; `<value>` is a number or an expression in
 braces. Parameters written `NAME=value` may appear in any order; names are
-not case-sensitive.
+not case-sensitive. Blanks may stand on either side of the `=`, on any line
+(`W = 10u`, `.param rv ={2*1000}`).
 
 | Element | Syntax | Notes | In `.SUBCKT` |
 | --- | --- | --- | --- |

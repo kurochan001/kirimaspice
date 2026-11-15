@@ -201,3 +201,29 @@ TEST(NetlistLines, LibrarySectionThatInsertsItself) {
         EXPECT_NE(std::string(e.what()).find("Circular"), std::string::npos) << e.what();
     }
 }
+
+// Blanks may stand on either side of the '=' of an assignment, on any line
+// (util::split_netlist_line); ngspice-47 draws 1/2k + 1/3k + 1/4k from V1
+TEST(NetlistLines, ParameterAssignmentsWithBlanks) {
+    parser::NetlistParser parser;
+    const auto parsed = parser.parse_string(
+        "t\n.param ra ={2*1000} rb= 3000 rc = {4*1000}\nV1 in 0 1\nR1 in 0 {ra}\n"
+        "R2 in 0 {rb}\nR3 in 0 {rc}\n.op\n.end\n");
+    ASSERT_NE(parsed.circuit, nullptr);
+    EXPECT_DOUBLE_EQ(device_as<devices::Resistor>(parsed, "R1")->resistance(), 2e3);
+    EXPECT_DOUBLE_EQ(device_as<devices::Resistor>(parsed, "R2")->resistance(), 3e3);
+    EXPECT_DOUBLE_EQ(device_as<devices::Resistor>(parsed, "R3")->resistance(), 4e3);
+}
+
+// ... on an element line; ngspice-47 draws 1.25 mA from VD
+TEST(NetlistLines, InstanceParametersWithBlanks) {
+    parser::NetlistParser parser;
+    const auto parsed = parser.parse_string(
+        "t\n.model nch nmos (vto=0.5 kp=1e-4)\nVD d 0 1\nVG g 0 1\n"
+        "M1 d g 0 0 nch W = 100u L =1u\n.op\n.end\n");
+    ASSERT_NE(parsed.circuit, nullptr);
+    const auto m1 = device_as<devices::MOSFET_N_Level1>(parsed, "M1");
+    ASSERT_NE(m1, nullptr);
+    EXPECT_DOUBLE_EQ(m1->channel_width(), 100e-6);
+    EXPECT_DOUBLE_EQ(m1->channel_length(), 1e-6);
+}

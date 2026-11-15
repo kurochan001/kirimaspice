@@ -109,7 +109,7 @@ std::vector<std::string> SubcircuitRegistry::check_circular_references() const {
             if (first == std::string::npos || std::toupper(static_cast<unsigned char>(line[first])) != 'X') {
                 continue;
             }
-            std::string type = split_instance_line(util::split_netlist_tokens(line)).type;
+            std::string type = split_instance_line(util::split_netlist_line(line)).type;
             std::transform(type.begin(), type.end(), type.begin(),
                            [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
             if (has_subcircuit(type)) {

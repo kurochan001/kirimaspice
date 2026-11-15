@@ -12,6 +12,7 @@
 #include <string>
 
 #include "kirimaspice/circuit/circuit_graph.hpp"
+#include "kirimaspice/devices/mosfet_level1.hpp"
 #include "kirimaspice/devices/resistor.hpp"
 #include "kirimaspice/parser/netlist_parser.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
@@ -146,4 +147,23 @@ TEST(SubcircuitInstances, InstanceBeforeItsDefinition) {
 TEST(SubcircuitInstances, InstanceOfAnUndefinedSubcircuit) {
     const std::string message = parse_error("t\nV1 in 0 1\nX1 in 0 nosuch\n.op\n.end\n");
     EXPECT_NE(message.find("nosuch"), std::string::npos) << message;
+}
+
+// Blanks may stand on either side of the '=' on an instance line and on the
+// lines of a body (util::split_netlist_line); ngspice-47 draws 0.5 mA from V1
+// and 1.25 mA from VD
+TEST(SubcircuitInstances, AssignmentsWithBlanks) {
+    const auto op = solve(
+        "t\n.model nch nmos (vto=0.5 kp=1e-4)\n.subckt load a b rv=1k\nR1 a b {rv}\n.ends load\n"
+        ".subckt cell d g\nM1 d g 0 0 nch W = 100u L =1u\n.ends cell\nV1 in 0 1\n"
+        "X1 in 0 load rv = 2k\nVD d 0 1\nVG g 0 1\nX2 d g cell\n.op\n.end\n");
+    ASSERT_EQ(op.status, ConvergenceStatus::SUCCESS);
+    const auto r = std::dynamic_pointer_cast<devices::Resistor>(op.parsed.circuit->get_device("X1.R1"));
+    ASSERT_NE(r, nullptr);
+    EXPECT_DOUBLE_EQ(r->resistance(), 2e3);
+    const auto m = std::dynamic_pointer_cast<devices::MOSFET_N_Level1>(
+        op.parsed.circuit->get_device("X2.M1"));
+    ASSERT_NE(m, nullptr);
+    EXPECT_DOUBLE_EQ(m->channel_width(), 100e-6);
+    EXPECT_DOUBLE_EQ(m->channel_length(), 1e-6);
 }

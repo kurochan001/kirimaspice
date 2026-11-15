@@ -2825,13 +2825,6 @@ static void parse_param_directive(const std::vector<std::string>& tokens, ParseS
         value_str.erase(0, value_str.find_first_not_of(" \t"));
         value_str.erase(value_str.find_last_not_of(" \t") + 1);
 
-        // If value_str is empty and next token is an expression, use it
-        if (value_str.empty() && i + 1 < tokens.size() &&
-            !tokens[i + 1].empty() && tokens[i + 1].front() == '{') {
-            value_str = tokens[i + 1];
-            ++i;  // Skip next token since we consumed it
-        }
-
         spdlog::debug(".PARAM parsing: param_name='{}', value_str='{}'", param_name, value_str);
 
         Real value;
@@ -3822,43 +3815,18 @@ static void parse_model_directive(const std::vector<std::string>& tokens, ParseS
         }
     }
 
-    // Parse key=value pairs.
-    // Supports both \"key=value\" and \"key = value\" forms.
+    // Parse key=value pairs. Each is one token, whatever blanks stood around
+    // its '=' (util::split_netlist_line).
     if (!params_content.empty()) {
         std::istringstream iss(params_content);
-        std::vector<std::string> param_tokens;
-        std::string tok;
-        while (iss >> tok) {
-            param_tokens.push_back(tok);
-        }
-
-        for (size_t i = 0; i < param_tokens.size(); ++i) {
-            std::string key;
-            std::string value_str;
-            std::string current = param_tokens[i];
-
-            // Case 1: token contains '=' (e.g., "vth0=0.7" or "vth0=")
-            size_t eq_pos = current.find('=');
-            if (eq_pos == 0 && current.size() > 1 && i >= 1) {
-                // "key =value": the key is the token before
-                key = param_tokens[i - 1];
-                value_str = current.substr(1);
-            } else if (eq_pos != std::string::npos && current.size() > 1) {
-                key = current.substr(0, eq_pos);
-                value_str = current.substr(eq_pos + 1);
-
-                // If value part is empty, use next token as value if available
-                if (value_str.empty() && i + 1 < param_tokens.size()) {
-                    value_str = param_tokens[++i];
-                }
-            }
-            // Case 2: split form "key = value"
-            else if (current == "=" && i >= 1 && i + 1 < param_tokens.size()) {
-                key = param_tokens[i - 1];
-                value_str = param_tokens[++i];
-            } else {
+        std::string current;
+        while (iss >> current) {
+            const size_t eq_pos = current.find('=');
+            if (eq_pos == std::string::npos) {
                 continue;
             }
+            std::string key = current.substr(0, eq_pos);
+            const std::string value_str = current.substr(eq_pos + 1);
 
             if (key.empty() || value_str.empty()) {
                 continue;
@@ -6006,7 +5974,7 @@ void process_line(const std::string& raw_line, ParseState& state) {
 
     // Check for control cards (directives)
     if (line[0] == '.') {
-        auto tokens = util::split_netlist_tokens(line);
+        auto tokens = util::split_netlist_line(line);
         if (tokens.empty()) {
             return;
         }
@@ -6061,7 +6029,7 @@ void process_line(const std::string& raw_line, ParseState& state) {
     }
 
     // Parse device line
-    auto tokens = util::split_netlist_tokens(line);
+    auto tokens = util::split_netlist_line(line);
     if (tokens.empty()) {
         return;
     }

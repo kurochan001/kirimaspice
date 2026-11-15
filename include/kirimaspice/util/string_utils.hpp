@@ -143,4 +143,22 @@ inline std::vector<std::string> split_netlist_tokens(std::string_view str) {
     return tokens;
 }
 
+/// Split an element or directive line into tokens (split_netlist_tokens), with
+/// each assignment in one token: blanks may stand on either side of its '=',
+/// so "W = 10u", "W =10u" and "W= 10u" are all "W=10u", as in ngspice. The
+/// first token, the name of the element or directive, takes no part.
+inline std::vector<std::string> split_netlist_line(std::string_view line) {
+    std::vector<std::string> tokens;
+    bool joins_next = false;  // the last token ends with '='
+    for (auto& token : split_netlist_tokens(line)) {
+        if (tokens.size() >= 2 && (joins_next || token.front() == '=')) {
+            tokens.back() += token;
+        } else {
+            tokens.push_back(std::move(token));
+        }
+        joins_next = tokens.size() >= 2 && tokens.back().back() == '=';
+    }
+    return tokens;
+}
+
 }  // namespace kirimaspice::util

@@ -44,6 +44,7 @@
 #include <stdexcept>
 #include <algorithm>
 
+#include "kirimaspice/util/string_utils.hpp"
 #include "kirimaspice/util/units.hpp"
 #include "kirimaspice/util/source_syntax.hpp"
 
@@ -2032,14 +2033,8 @@ void CircuitGraph::expand_subcircuit_instance(const std::string& instance_name) 
         // Example: R1 in out 1k  ->  X1.R1 X1.in X1.out 1k
         //   But if "in" is a pin, map it to connected node instead
 
-        std::istringstream iss(line);
-        std::string device_name, token;
-        std::vector<std::string> tokens;
-
-        // Read all tokens
-        while (iss >> token) {
-            tokens.push_back(token);
-        }
+        std::string device_name;
+        const std::vector<std::string> tokens = util::split_netlist_line(line);
 
         if (tokens.empty()) {
             continue;
