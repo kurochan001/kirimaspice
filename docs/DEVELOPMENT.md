@@ -2,7 +2,7 @@
 
 [日本語](DEVELOPMENT.ja.md) · [Project README](../README.md) · This English text is the main version; the Japanese version follows it, and where they differ, this text holds.
 
-**Updated 2026-11-15** for commit `8e8318f`. This guide is for people who
+**Updated 2026-11-15** for commit `02261a2`. This guide is for people who
 change kirimaspice: how to build it for development, how the tests are laid
 out and run, what to check before a push, and how to add a device model or
 fix a bug within the project's rules. [CONTRIBUTING](../CONTRIBUTING.md)
@@ -66,7 +66,7 @@ GoogleTest programs are registered with `gtest_discover_tests`, so CTest
 lists each test case as `Suite.Name`. The command-line tests (`cli_*`,
 among them the `.TEMP` runs `cli_temperature_*`), the examples
 (`example_*`), the Python tools (`python_tools_*`), `bsim4_dc_smoke` and `MutualInductanceFixTest` are registered with
-`add_test`, one CTest test each. At commit `8e8318f` CTest has 1187 tests
+`add_test`, one CTest test each. At commit `02261a2` CTest has 1188 tests
 on macOS.
 
 ### Run a part of the tests

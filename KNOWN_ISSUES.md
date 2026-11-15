@@ -36,7 +36,7 @@ and SuiteSparse 7.6.1 unless an entry says otherwise.
 - `BSIM4Transient.InverterChain_MatchesNgspiceReference` is disabled
   (`DISABLED_` in its name); its comment says that the BSIM4 transient
   does not converge near 1 ns (not checked again).
-- At commit `8e8318f` on macOS, CTest has 1187 tests: 1157 pass, 22 are
+- At commit `02261a2` on macOS, CTest has 1188 tests: 1158 pass, 22 are
   skipped (the twenty comparison tests above, `TemperatureSweepValidation`
   and `VdsatBranchSelection`), 7 fail and 1 is disabled.
 - Some tests find their data relative to the build directory and pass only
@@ -124,10 +124,6 @@ says otherwise.
   The noise sources (`MOSFET_BSIM4::get_noise_sources`) and
   `BSIM4ParameterExtractor` instead use `compute_drain_current` and
   `compute_threshold_voltage` in `src/devices/mosfet_bsim4.cpp`.
-- **The IGBT has two sets of defaults.** A netlist's IGBT takes those of
-  `CircuitGraph::add_igbt_n` and `add_igbt_p` (for example KP = 2 A/V²);
-  the IGBT class's constructor has others (KP = 50 A/V²), which only code
-  that builds the class itself gets (read in the code).
 - **BSIM4 has no DC model of its source and drain junctions.** ngspice-47's
   `i(vd)` holds their GMIN currents as well (10<sup>−12</sup> S times the
   junction voltage), which shows below the threshold: for the card of

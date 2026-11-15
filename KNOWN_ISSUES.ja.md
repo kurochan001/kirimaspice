@@ -28,7 +28,7 @@
   参照の電流 2.1 A は確かめられていないと書いてあります。
 - `BSIM4Transient.InverterChain_MatchesNgspiceReference` は無効です（名前に `DISABLED_` があります）。
   そのコメントには、BSIM4 の過渡解析が 1 ns 付近で収束しないと書いてあります（確かめ直していません）。
-- コミット `8e8318f` の macOS では、CTest のテストは 1187 件です。1157 件が合格、22 件がスキップ
+- コミット `02261a2` の macOS では、CTest のテストは 1188 件です。1158 件が合格、22 件がスキップ
   （上の比較のテスト 20 件、`TemperatureSweepValidation`、`VdsatBranchSelection`）、7 件が失敗、
   1 件が無効です。
 - テストの一部は、ビルドディレクトリからの相対位置でデータを探すので、ビルドディレクトリが
@@ -95,9 +95,6 @@ ngspice について書いていることは、それぞれのマニュアルに
   DC、過渡、AC の解析は `BSIM4Core`（`src/devices/bsim4_core.cpp`）を通して BSIM4 を評価します。
   ノイズ源（`MOSFET_BSIM4::get_noise_sources`）と `BSIM4ParameterExtractor` は、代わりに
   `src/devices/mosfet_bsim4.cpp` の `compute_drain_current` と `compute_threshold_voltage` を使います。
-- **IGBT の既定値は 2 組あります。** ネットリストの IGBT は `CircuitGraph::add_igbt_n` と `add_igbt_p`
-  の既定値（たとえば KP = 2 A/V²）を取ります。IGBT のクラスのコンストラクターには別の既定値
-  （KP = 50 A/V²）があり、それはクラスを自分で作るコードだけが使います（コードで読みました）。
 - **BSIM4 には、ソースとドレインの接合の DC モデルがありません。** ngspice-47 の `i(vd)` は、これらの
   GMIN の電流（10<sup>−12</sup> S と接合の電圧の積）も含むので、しきい値より下で差が見えます。
   `tests/unit/test_bsim4_reference.cpp` のカードで V<sub>GS</sub> = 0.2 V のとき、チャネルの電流は
