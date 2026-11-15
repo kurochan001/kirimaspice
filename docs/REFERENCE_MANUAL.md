@@ -99,7 +99,7 @@ does not converge.
     IF --> CT[".CONTROL: take out"]
     CT --> T[first line: title]
     T --> R["the other lines, one by one"]
-    R --> D["elements whose model comes later: read again at the end"]
+    R --> D["elements whose model or subcircuit comes later: read again at the end"]
   ```
 
 - An included file is found relative to the directory of the file that

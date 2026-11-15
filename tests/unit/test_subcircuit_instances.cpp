@@ -128,3 +128,22 @@ TEST(SubcircuitInstances, ConstantsInEveryExpression) {
     EXPECT_DOUBLE_EQ(resistance("R3"), 1000 * 2.718281828459045);
     EXPECT_DOUBLE_EQ(resistance("R4"), 1000 * 2.718281828459045);
 }
+
+// A .SUBCKT definition applies to the whole netlist wherever it stands, so an
+// instance may come before it (process_line, UnresolvedDefinition); ngspice-47
+// draws 1 mA from V1
+TEST(SubcircuitInstances, InstanceBeforeItsDefinition) {
+    const auto op = solve(
+        "t\nV1 in 0 1\nX1 in 0 load\n.subckt load a b\nR1 a b 1k\n.ends load\n.op\n.end\n");
+    ASSERT_EQ(op.status, ConvergenceStatus::SUCCESS);
+    const auto r = std::dynamic_pointer_cast<devices::Resistor>(op.parsed.circuit->get_device("X1.R1"));
+    ASSERT_NE(r, nullptr);
+    EXPECT_DOUBLE_EQ(r->resistance(), 1e3);
+}
+
+// ... and an instance of a subcircuit that the netlist does not define is an
+// error at the end
+TEST(SubcircuitInstances, InstanceOfAnUndefinedSubcircuit) {
+    const std::string message = parse_error("t\nV1 in 0 1\nX1 in 0 nosuch\n.op\n.end\n");
+    EXPECT_NE(message.find("nosuch"), std::string::npos) << message;
+}

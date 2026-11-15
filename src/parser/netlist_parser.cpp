@@ -2052,17 +2052,19 @@ struct ParseState {
     std::optional<circuit::SubcircuitDefinition> current_subcircuit;
     bool inside_subcircuit = false;
 
-    // Elements whose model had not been read yet, with their line numbers.
-    // They are parsed again after the whole netlist has been read.
+    // Elements whose model or subcircuit had not been read yet, with their
+    // line numbers. They are parsed again after the whole netlist has been
+    // read.
     std::vector<std::pair<std::string, std::size_t>> deferred_elements;
     bool resolving_deferred = false;
 };
 
-// Thrown by an element parser when the element names a model that has not
-// been read. A .MODEL line applies to the whole netlist wherever it stands,
-// so process_line puts the element aside and parses it again at the end;
-// only then is a missing model an error.
-class UnresolvedModel : public ParseError {
+// Thrown by an element parser when the element names a model or a
+// subcircuit that has not been read. A .MODEL line and a .SUBCKT definition
+// apply to the whole netlist wherever they stand, so process_line puts the
+// element aside and parses it again at the end; only then is a missing
+// definition an error.
+class UnresolvedDefinition : public ParseError {
 public:
     using ParseError::ParseError;
 };
@@ -4452,7 +4454,7 @@ static void parse_diode_device(const std::vector<std::string>& tokens, const std
                 param_start = 4;  // Skip model name in parameter parsing
             }
             else {
-                throw UnresolvedModel(fmt::format("Undefined diode model: {}", potential_model),
+                throw UnresolvedDefinition(fmt::format("Undefined diode model: {}", potential_model),
                                       state.line_number);
             }
         }
@@ -4776,7 +4778,7 @@ static void parse_mesfet_device(const std::vector<std::string>& tokens, const st
 
                 param_start = 5;  // Skip model name in parameter parsing
             } else {
-                throw UnresolvedModel(fmt::format("Undefined MESFET model: {}", potential_model),
+                throw UnresolvedDefinition(fmt::format("Undefined MESFET model: {}", potential_model),
                                       state.line_number);
             }
         } else {
@@ -4885,7 +4887,7 @@ static void parse_bjt_device(const std::vector<std::string>& tokens, const std::
         // Model reference
         const ModelDefinition* found_model = state.config->find_model(type_or_model);
         if (found_model == nullptr) {
-            throw UnresolvedModel(fmt::format("Undefined BJT model: {}", type_or_model), state.line_number);
+            throw UnresolvedDefinition(fmt::format("Undefined BJT model: {}", type_or_model), state.line_number);
         }
 
         const ModelDefinition& model = *found_model;
@@ -5162,7 +5164,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         vth = (mosfet_type == "NMOS") ? 0.7 : -0.7;
     } else {
         // Neither model nor direct type found
-        throw UnresolvedModel(fmt::format("Undefined MOSFET model: {}", type_or_model), state.line_number);
+        throw UnresolvedDefinition(fmt::format("Undefined MOSFET model: {}", type_or_model), state.line_number);
     }
 
     // Parse optional parameters (can override model parameters)
@@ -5941,6 +5943,12 @@ static void parse_subcircuit_instance_device(const std::vector<std::string>& tok
     if (parts.type.empty()) {
         throw ParseError("Missing subcircuit type in X device", state.line_number);
     }
+    if (!state.circuit->subcircuits().has_subcircuit(parts.type)) {
+        throw UnresolvedDefinition(
+            fmt::format("Subcircuit instance '{}' references undefined subcircuit type '{}'",
+                        instance_name, parts.type),
+            state.line_number);
+    }
     const std::string& subcircuit_type = parts.type;
     const std::vector<std::string>& connected_nodes = parts.nodes;
 
@@ -6077,7 +6085,7 @@ void process_line(const std::string& raw_line, ParseState& state) {
                 spdlog::warn("Unknown device type: {}", dev_type);
                 break;
         }
-    } catch (const UnresolvedModel& e) {
+    } catch (const UnresolvedDefinition& e) {
         if (!state.resolving_deferred) {
             state.deferred_elements.emplace_back(line, state.line_number);
             return;
@@ -6185,9 +6193,6 @@ public:
             throw ParseError(e.what(), state.line_number);
         }
 
-        // Parse the elements whose model is defined further down the netlist
-        // (UnresolvedModel). They are top-level lines, so an unclosed .SUBCKT
-        // must not take them.
         // A .SUBCKT must end with .ENDS, as ngspice requires ("Mismatch of
         // .subckt ... .ends"); otherwise every later line would be its body
         if (state.inside_subcircuit && state.current_subcircuit) {
@@ -6195,6 +6200,10 @@ public:
                                          state.current_subcircuit->name),
                              state.current_subcircuit->definition_line);
         }
+
+        // Parse the elements whose model or subcircuit is defined further
+        // down the netlist (UnresolvedDefinition). They are top-level lines,
+        // so they are parsed outside any .SUBCKT.
         state.resolving_deferred = true;
         const bool was_inside_subcircuit = state.inside_subcircuit;
         state.inside_subcircuit = false;

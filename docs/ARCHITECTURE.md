@@ -121,8 +121,8 @@ steps:
 3. A PEGTL pass. The grammar only splits the text into a title line and
    other lines; each line goes to `process_line`, where the parsing is
    hand-written tokenising (`util::split_netlist_tokens`).
-4. The lines held back because they named a model defined later
-   ("deferred elements", see below), parsed again.
+4. The lines held back because they named a model or a subcircuit
+   defined later ("deferred elements", see below), parsed again.
 5. The resolution of references between elements: the controlling
    sources of `F` and `H`, the inductors of `K`.
 6. The commands of a `.CONTROL` block.
@@ -135,7 +135,7 @@ flowchart TD
   G -->|directive| H["parse_*_directive"]
   G -->|inside .SUBCKT| I["the body, stored as text"]
   G -->|element| J["parse_*_device"]
-  J -->|"UnresolvedModel"| K["deferred elements, parsed again"]
+  J -->|"UnresolvedDefinition"| K["deferred elements, parsed again"]
   K --> L["resolve the controlling sources of F, H and the inductors of K"]
   L --> N["execute_control_commands"]
 ```
@@ -147,10 +147,11 @@ element lines are stored as text and parsed at expansion. Nested
 `.SUBCKT` definitions are an error. Unknown directives, `.MEASURE` among
 them, are dropped without a message.
 
-**Models defined after use.** The parsers of diodes, BJTs, MOSFETs and
-MESFETs throw `UnresolvedModel` when the model is not known yet.
+**Models and subcircuits defined after use.** The parsers of diodes,
+BJTs, MOSFETs and MESFETs throw `UnresolvedDefinition` when the model is
+not known yet, and that of `X` when the subcircuit is not.
 `process_line` stores the line, and after the PEGTL pass the stored lines
-are parsed again; a model still missing is then a `ParseError`.
+are parsed again; a definition still missing is then a `ParseError`.
 
 **Expressions** use ExprTk, set up in four places, each with its own
 symbol table: element values in braces (`read_element_value` through the
