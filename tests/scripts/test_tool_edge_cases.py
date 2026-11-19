@@ -17,7 +17,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
-from tools import check_banned, kirimaspice_pyapi, kirimaspice_repl
+from tools import check_banned, kirimaspice_pyapi, kirimaspice_repl, local_ci
 
 RAW = "No. Variables: 2\nNo. Points: 1\nVariables:\n0 time time\n1 v(out) voltage\nValues:\n0 0\n2\n"
 BINARY = None
@@ -181,6 +181,70 @@ class HistoryScannerTests(unittest.TestCase):
         findings = []
         check_banned.check_text("model.txt", 1, "t" + "Sm" + "c", [], findings)
         self.assertEqual(findings, ["model.txt:1: foundry"])
+
+
+class LocalCiClassification(unittest.TestCase):
+    """The forms below are those CTest 4.2.1 writes with --output-junit."""
+
+    CASES = {
+        "ok": '<testcase name="ok" status="run"/>',
+        "bad": '<testcase name="bad" status="fail"><failure message="Failed"/></testcase>',
+        "listed": '<testcase name="listed" status="fail"><failure message="Failed"/></testcase>',
+        "skip_output": '<testcase name="skip_output" status="notrun">'
+                       '<skipped message="SKIP_REGULAR_EXPRESSION_MATCHED"/></testcase>',
+        "skip_code": '<testcase name="skip_code" status="notrun">'
+                     '<skipped message="SKIP_RETURN_CODE=77"/></testcase>',
+        "off": '<testcase name="off" status="disabled"/>',
+        "no_exe": '<testcase name="no_exe" status="notrun">'
+                  '<skipped message="Unable to find executable"/></testcase>',
+        "no_file": '<testcase name="no_file" status="notrun">'
+                   '<skipped message="Required Files Missing"/></testcase>',
+        "odd": '<testcase name="odd" status="other"/>',
+    }
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.junit = Path(self.tmp.name) / "ctest.xml"
+
+    def judge(self, *names, known=("listed",)):
+        self.junit.write_text('<?xml version="1.0"?>\n<testsuite name="(empty)">'
+                              + "".join(self.CASES[name] for name in names) + "</testsuite>\n")
+        return local_ci.judge_tests(self.junit, set(known))
+
+    def test_skipped_disabled_and_known_failures_do_not_fail_the_run(self):
+        ok, detail = self.judge("ok", "listed", "skip_output", "skip_code", "off")
+        self.assertTrue(ok, detail)
+        self.assertIn("1 passed, 1 failed, 1 of them known, 2 skipped, 1 disabled", detail)
+
+    def test_a_failure_that_is_not_listed_fails_the_run(self):
+        ok, detail = self.judge("ok", "bad", "listed")
+        self.assertFalse(ok)
+        self.assertIn("new: bad", detail)
+
+    def test_a_test_that_could_not_start_fails_the_run(self):
+        for name in ("no_exe", "no_file", "odd"):
+            with self.subTest(name=name):
+                ok, detail = self.judge("ok", name)
+                self.assertFalse(ok, detail)
+                self.assertIn("did not run: " + name, detail)
+
+    def test_a_listed_test_that_could_not_start_is_not_excused(self):
+        ok, detail = self.judge("ok", "no_exe", known=("no_exe",))
+        self.assertFalse(ok, detail)
+
+    def test_a_listed_test_that_passes_is_reported(self):
+        ok, detail = self.judge("ok", known=("ok",))
+        self.assertTrue(ok, detail)
+        self.assertIn("listed but passing: ok", detail)
+
+    def test_a_missing_unreadable_or_empty_result_fails_the_run(self):
+        self.assertFalse(local_ci.judge_tests(self.junit, set())[0])
+        self.junit.write_text("<testsuite><testcase")
+        self.assertFalse(local_ci.judge_tests(self.junit, set())[0])
+        self.junit.write_text("<other/>")
+        self.assertFalse(local_ci.judge_tests(self.junit, set())[0])
+        self.assertEqual(self.judge(), (False, "no tests ran"))
 
 
 if __name__ == "__main__":

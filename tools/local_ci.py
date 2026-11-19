@@ -13,7 +13,9 @@ Steps, in order:
      the working directory the test definitions set
   2. compare the failed tests with tests/known_failures.txt: a failure not on
      the list fails the run; a listed test that passes is reported, so that
-     the list can be shortened
+     the list can be shortened. A test that CTest could not start, a missing
+     or unreadable result file, and a run without tests also fail the run;
+     tests that skip themselves and disabled tests do not
   3. tools/check_banned.py (and --history with --history); private patterns
      come from KIRIMASPICE_PRIVATE_PATTERNS if it is set
   4. tools/check_spdx.py
@@ -62,17 +64,60 @@ def known_failures():
     return names
 
 
-def failed_tests(junit: Path):
+def classify_tests(junit: Path):
+    """Sorts the test cases of CTest's JUnit file by what happened to them.
+
+    CTest writes status="notrun" both for a test that skipped itself (its
+    <skipped> message starts with SKIP_, from SKIP_REGULAR_EXPRESSION or
+    SKIP_RETURN_CODE) and for one it could not start (a missing executable
+    or required file). Only the first is a skip; the second checked nothing.
+    """
     root = ET.parse(junit).getroot()
     suite = root if root.tag == "testsuite" else root.find("testsuite")
-    failed, passed = set(), set()
+    if suite is None:
+        raise ValueError("no testsuite element")
+    groups = {"passed": set(), "failed": set(), "skipped": set(), "disabled": set(),
+              "unexplained": {}}
     for case in suite.findall("testcase"):
-        status = case.get("status")
-        if status == "fail":
-            failed.add(case.get("name"))
-        elif status == "run":
-            passed.add(case.get("name"))
-    return failed, passed
+        name, status = case.get("name"), case.get("status")
+        skipped = case.find("skipped")
+        message = (skipped.get("message") or "") if skipped is not None else ""
+        if status == "run":
+            groups["passed"].add(name)
+        elif status == "fail":
+            groups["failed"].add(name)
+        elif status == "disabled":
+            groups["disabled"].add(name)
+        elif status == "notrun" and message.startswith("SKIP_"):
+            groups["skipped"].add(name)
+        else:
+            groups["unexplained"][name] = f"{status}: {message}" if message else str(status)
+    return groups
+
+
+def judge_tests(junit: Path, known):
+    """Returns (ok, detail) for the result file that this run's ctest wrote."""
+    if not junit.exists():
+        return False, f"ctest wrote no result file ({junit.name})"
+    try:
+        groups = classify_tests(junit)
+    except (ET.ParseError, ValueError) as err:
+        return False, f"cannot read {junit.name}: {err}"
+    failed, passed, unexplained = groups["failed"], groups["passed"], groups["unexplained"]
+    if not (failed or passed or groups["skipped"] or groups["disabled"] or unexplained):
+        return False, "no tests ran"
+    new = sorted(failed - known)
+    fixed = sorted(known & passed)
+    detail = (f"{len(passed)} passed, {len(failed)} failed, {len(failed & known)} of them known, "
+              f"{len(groups['skipped'])} skipped, {len(groups['disabled'])} disabled")
+    if new:
+        detail += "; new: " + ", ".join(new)
+    if unexplained:
+        detail += "; did not run: " + ", ".join(
+            f"{name} ({why})" for name, why in sorted(unexplained.items()))
+    if fixed:
+        detail += "; listed but passing: " + ", ".join(fixed)
+    return not new and not unexplained, detail
 
 
 def main() -> int:
@@ -88,19 +133,12 @@ def main() -> int:
     ok = ok and run("build", ["cmake", "--build", str(BUILD), "-j", args.jobs], results) == 0
     if ok:
         junit = LOGS / "ctest.xml"
+        junit.unlink(missing_ok=True)  # a result left by an earlier run must not be judged
         run("ctest", ["ctest", "--test-dir", str(BUILD), "-j", args.jobs, "--output-on-failure",
                       "--output-junit", str(junit)], results)
         results.pop()  # judged against the known failures instead of the exit code
-        failed, passed = failed_tests(junit)
-        known = known_failures()
-        new = sorted(failed - known)
-        fixed = sorted(known & passed)
-        detail = f"{len(failed)} failed, {len(failed & known)} of them known"
-        if new:
-            detail += "; new: " + ", ".join(new)
-        if fixed:
-            detail += "; listed but passing: " + ", ".join(fixed)
-        results.append(("tests", not new, detail))
+        passed, detail = judge_tests(junit, known_failures())
+        results.append(("tests", passed, detail))
 
     run("check_banned", [sys.executable, "tools/check_banned.py"], results)
     if args.history:
