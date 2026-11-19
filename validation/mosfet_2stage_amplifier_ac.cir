@@ -1,60 +1,50 @@
 2-Stage Common-Source MOSFET Amplifier AC Analysis
-* Two-stage cascaded amplifier for high gain
+* The circuit that MOSFET2StageAmplifierValidation builds in
+* tests/unit/test_multistage_amplifier_ac_validation.cpp: each gate is
+* biased by a divider from VDD, so that both transistors conduct.
+* mosfet_2stage_amplifier_ac_ngspice.csv was written by ngspice-45.2 from
+* this file (ngspice -b mosfet_2stage_amplifier_ac.cir).
 
 * Power supply
 VDD vdd 0 DC 10
 
-* Input signal (AC only, DC bias = 3V for proper biasing)
-Vin in 0 DC 3 AC 0.01
+* Input signal (AC only)
+Vin in 0 DC 0 AC 0.01
 
-* Stage 1: Common-source amplifier
-* Input coupling
+* Stage 1: common-source amplifier with divider bias
 Cin in gate1 10u
-* Gate bias
-Rg1 gate1 0 1Meg
-* Drain resistor
+Rg1a vdd gate1 1Meg
+Rg1b gate1 0 470k
 Rd1 vdd d1 10k
-* Source resistor with bypass
-Rs1 s1 0 1k
+Rs1 s1 0 2k
 Cs1 s1 0 100u
-* MOSFET M1 (NMOS)
-M1 d1 gate1 s1 0 MNL
+M1 d1 gate1 s1 s1 MNL W=10u L=1u
 
-* Stage 2: Common-source amplifier
-* Coupling capacitor between stages
+* Stage 2: common-source amplifier with divider bias
 Cc d1 gate2 10u
-* Gate bias
-Rg2 gate2 0 1Meg
-* Drain resistor
+Rg2a vdd gate2 1Meg
+Rg2b gate2 0 470k
 Rd2 vdd d2 10k
-* Source resistor with bypass
-Rs2 s2 0 1k
+Rs2 s2 0 2k
 Cs2 s2 0 100u
-* MOSFET M2 (NMOS)
-M2 d2 gate2 s2 0 MNL
+M2 d2 gate2 s2 s2 MNL W=10u L=1u
 
-* Output coupling
+* Output coupling and load
 Cout d2 out 10u
-* Load resistor
 Rload out 0 10k
 
-* MOSFET model (Level 1, default parameters)
-.model MNL NMOS(KP=2e-5 VTO=0.7 LAMBDA=0)
+* MOSFET model (Level 1)
+.model MNL NMOS(LEVEL=1 KP=2e-5 VTO=0.7 LAMBDA=0)
 
 * AC analysis: 10 Hz to 1 MHz, 20 points per decade
 .ac dec 20 10 1Meg
 
 .control
-* Run AC analysis
 ac dec 20 10 1Meg
-
-* Write AC analysis results to CSV file
 set wr_singlescale
 set wr_vecnames
 option numdgt=7
-* Output real and imaginary parts of v(out)
 wrdata mosfet_2stage_amplifier_ac_ngspice.csv Re(v(out)) Im(v(out))
-
 quit
 .endc
 
