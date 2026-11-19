@@ -31,8 +31,8 @@ kirimaspice は、開発初期のオープンソースの SPICE 回路シミュ�
 | 失敗（`tests/known_failures.txt` に記載） | 7 |
 | 無効 | 1 |
 
-Ubuntu 24.04（x86-64）の CI では、GCC 13.3.0 と clang 18.1.3 でビルドでき、一覧のテストのうち失敗するのは 6 件です。
-`CMOS_Inverter.DCTransferCharacteristic_HighInput` はそこでは合格します。
+Ubuntu 24.04（x86-64）の CI では、GCC 13.3.0 と clang 18.1.3 でビルドでき、
+`tests/known_failures.txt` に並ぶ 6 件はそこでも失敗します。
 失敗するテスト、スキップされるテスト、そのほかの分かっている問題は
 [KNOWN_ISSUES.md](KNOWN_ISSUES.ja.md) にあります。
 

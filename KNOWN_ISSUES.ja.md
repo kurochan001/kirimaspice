@@ -12,18 +12,17 @@
 | 対象 | 状態 | 主な障害 |
 | --- | --- | --- |
 | メーカーモデルとエミッタ接地のテスト（6 件） | 既知の失敗 | モデルファイルがない |
-| CMOS の高入力時の判定（1 件） | arm64 で既知の失敗 | 微小な負の出力を 0 と比較している |
 | BSIM4 の温度の参照（1 件） | 実行 | ngspice-45.2 の参照をリポジトリに置いた |
 | BSIM4 の VDSAT 分岐（1 件） | 実行 | ngspice-45.2 で参照を確認した |
 | BSIM4 過渡解析のインバータ列（1 件） | 無効 | 遷移がずれる。簡略化した容量モデル |
 | ngspice を実行する比較 | 環境による | ngspice があるときに実行 |
 
-- **7 件のテストが失敗します。** `tests/known_failures.txt` に並べてあります。
+- **6 件のテストが失敗します。** `tests/known_failures.txt` に並べてあります。
   - `ManufacturerModels.*`（5 件）と `BJTModelTest.SimpleCommonEmitter` は、リポジトリにない
     `tests/models/2N3904.lib` と `tests/models/1N4148.lib` を読み込みます。
-  - `CMOS_Inverter.DCTransferCharacteristic_HighInput` は、出力電圧が 0 V 以上であることを
-    確かめ、macOS（arm64）と Ubuntu 24.04（arm64）では -4.1e-25 V を得ます。Ubuntu 24.04（x86-64）の
-    GCC 13.3.0 と clang 18.1.3 では合格します。
+- `CMOS_Inverter.DCTransferCharacteristic_HighInput` は、以前は出力電圧が 0 V 以上であることを
+  確かめ、arm64 で -4.1e-25 V を得ていました。これは厳密解 0 V の丸め誤差なので、下限を
+  -1e-12 V まで許すようにしました。
 - `validation/` と `tests/validation/` の参照データの大部分は、作った ngspice の版が記録されていません。
   例外は `validation/mosfet_2stage_amplifier_ac_ngspice.csv` で、ngspice-45.2 で書き出しました。
   `validation/` を読む比較のテスト 20 件は、データの探索先を直すまでスキップされていました。

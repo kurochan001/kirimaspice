@@ -14,20 +14,18 @@ table. They are not an additional set of tests.
 | Group | State | Main obstacle |
 | --- | --- | --- |
 | Manufacturer models and common-emitter test (6) | known failures | model files are absent |
-| CMOS high-input assertion (1) | known failure on arm64 | a tiny negative output is checked against zero |
 | BSIM4 temperature reference (1) | runs | reference from ngspice-45.2 is committed |
 | BSIM4 VDSAT branch (1) | runs | reference verified with ngspice-45.2 |
 | BSIM4 transient inverter chain (1) | disabled | edges differ; simplified capacitance model |
 | Live ngspice comparison | conditional | runs only when ngspice is installed |
 
-- **Seven tests fail** and are listed in `tests/known_failures.txt`:
+- **Six tests fail** and are listed in `tests/known_failures.txt`:
   - `ManufacturerModels.*` (five tests) and `BJTModelTest.SimpleCommonEmitter`
     include `tests/models/2N3904.lib` and `tests/models/1N4148.lib`, which are
     not in the repository.
-  - `CMOS_Inverter.DCTransferCharacteristic_HighInput` checks that the output
-    voltage is at least 0 V and gets -4.1e-25 V on macOS (arm64) and on
-    Ubuntu 24.04 (arm64). It passes on Ubuntu 24.04 (x86-64) with GCC 13.3.0
-    and clang 18.1.3.
+- `CMOS_Inverter.DCTransferCharacteristic_HighInput` used to require an output
+  of at least 0 V and saw -4.1e-25 V on arm64, which is roundoff around the
+  exact value of 0 V; its lower bound now allows -1e-12 V.
 - The ngspice version used to make most of the reference data in
   `validation/` and `tests/validation/` is not recorded. The exception is
   `validation/mosfet_2stage_amplifier_ac_ngspice.csv`, written by

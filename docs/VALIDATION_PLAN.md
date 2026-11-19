@@ -94,9 +94,10 @@ action requiring an explicit request.
   against a zero reference was corrected.
 - [ ] Resolve the six known failures caused by missing model files, with
   the origin and redistribution terms checked before adding any files.
-- [ ] Investigate the remaining CMOS near-zero assertion against the
-  analytic solution and floating-point error. Any existing expectation
-  change requires its own justification and approval.
+- [x] Investigate the remaining CMOS near-zero assertion against the
+  analytic solution and floating-point error. Done in `6088f8a`: the exact
+  value is 0 V and -4.1e-25 V is roundoff; the lower bound now allows
+  -1e-12 V, and the test leaves `tests/known_failures.txt`.
 - [ ] Account for the disabled BSIM4 transient test described in
   KNOWN_ISSUES. The BSIM4 temperature test now runs against the committed
   ngspice-45.2 reference (commit `7f3bd69`); on Linux (x86-64) the model

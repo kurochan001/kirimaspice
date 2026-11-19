@@ -35,8 +35,8 @@ at this commit).
 | Disabled | 1 |
 
 In CI on Ubuntu 24.04 (x86-64), GCC 13.3.0 and clang 18.1.3 build
-kirimaspice, and only six of the listed tests fail:
-`CMOS_Inverter.DCTransferCharacteristic_HighInput` passes there.
+kirimaspice; the six tests listed in `tests/known_failures.txt` fail there
+as well.
 [KNOWN_ISSUES.md](KNOWN_ISSUES.md) lists the failing and
 skipped tests and the other known problems.
 
