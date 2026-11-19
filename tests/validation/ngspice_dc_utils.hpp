@@ -48,12 +48,9 @@ inline NgspiceDCData load_ngspice_dc_data(const std::string& filename) {
         throw std::runtime_error("Cannot open ngspice DC data file: " + filename);
     }
 
+    // A header line has no number after its comma and is passed over; a
+    // file without a header keeps its first node.
     std::string line;
-    // Skip header line
-    if (!std::getline(file, line)) {
-        throw std::runtime_error("Empty ngspice DC data file: " + filename);
-    }
-
     // Parse data lines
     while (std::getline(file, line)) {
         std::istringstream iss(line);

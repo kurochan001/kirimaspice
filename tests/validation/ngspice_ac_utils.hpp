@@ -18,6 +18,7 @@
 #include <complex>
 #include <iostream>
 #include <iomanip>
+#include <limits>
 
 namespace kirimaspice::validation {
 
@@ -47,12 +48,9 @@ inline NgspiceACData load_ngspice_ac_data(const std::string& filename) {
         throw std::runtime_error("Cannot open ngspice AC data file: " + filename);
     }
 
+    // A header line does not parse as three numbers and is passed over; a
+    // file without a header keeps its first point.
     std::string line;
-    // Skip header line
-    if (!std::getline(file, line)) {
-        throw std::runtime_error("Empty ngspice AC data file: " + filename);
-    }
-
     // Parse data lines
     while (std::getline(file, line)) {
         if (line.empty()) continue;
@@ -178,14 +176,19 @@ inline std::vector<ACComparisonPoint> compare_ac_results(
         const double mag_expected = std::abs(point.expected);
         const double mag_actual = std::abs(point.actual);
 
-        if (mag_expected > 1e-12) {
+        // A reference of exactly 0 V is matched only by 0 V: any other
+        // output is an infinite error, so that a reference written for a
+        // circuit that gives no output cannot pass as a match.
+        if (mag_expected > 0.0) {
             const double mag_ratio = mag_actual / mag_expected;
-            point.mag_error_db = 20.0 * std::log10(std::abs(mag_ratio));
+            point.mag_error_db = 20.0 * std::log10(mag_ratio);
             point.relative_error = std::abs(mag_ratio - 1.0);
-        } else {
-            // Expected magnitude is near zero - use absolute difference
+        } else if (mag_actual == 0.0) {
             point.mag_error_db = 0.0;
-            point.relative_error = mag_actual;
+            point.relative_error = 0.0;
+        } else {
+            point.mag_error_db = std::numeric_limits<double>::infinity();
+            point.relative_error = std::numeric_limits<double>::infinity();
         }
 
         // Calculate phase error in degrees

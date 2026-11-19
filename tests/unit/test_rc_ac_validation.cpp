@@ -9,6 +9,8 @@
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/solvers/ac_solver.hpp"
 #include <filesystem>
+#include <fstream>
+#include "../validation/ngspice_dc_utils.hpp"
 
 using namespace kirimaspice;
 using namespace kirimaspice::circuit;
@@ -182,4 +184,76 @@ TEST_F(RCFilterACValidation, AttenuationRateCorrect) {
     std::cout << "  1 kHz magnitude: " << mag_1khz_db << " dB\n";
     std::cout << "  10 kHz magnitude: " << mag_10khz_db << " dB\n";
     std::cout << "  Attenuation rate: " << attenuation_db_per_decade << " dB/decade\n";
+}
+
+//==============================================================================
+// The comparison helpers themselves
+//==============================================================================
+namespace {
+
+fs::path write_reference(const std::string& name, const std::string& text) {
+    const fs::path path = fs::temp_directory_path() / name;
+    std::ofstream(path) << text;
+    return path;
+}
+
+ACResult one_point_result(double frequency, std::complex<double> value) {
+    ACFrequencyPoint point;
+    point.frequency = frequency;
+    point.omega = 2.0 * M_PI * frequency;
+    point.solution = ComplexDenseVector(1);
+    point.solution[0] = value;
+    ACResult result;
+    result.frequency_points.push_back(point);
+    return result;
+}
+
+}  // namespace
+
+TEST(ReferenceComparison, ZeroReferenceIsMatchedOnlyByZero) {
+    NgspiceACData reference;
+    reference.frequencies = {10.0, 100.0};
+    reference.values = {{0.0, 0.0}, {0.0, 0.0}};
+
+    auto nonzero = compare_ac_results(reference, one_point_result(10.0, {0.0625, 0.0129}), 1);
+    ASSERT_EQ(nonzero.size(), 1u);
+    EXPECT_TRUE(std::isinf(nonzero[0].mag_error_db));
+    EXPECT_GT(nonzero[0].mag_error_db, 0.0);
+
+    auto zero = compare_ac_results(reference, one_point_result(10.0, {0.0, 0.0}), 1);
+    ASSERT_EQ(zero.size(), 1u);
+    EXPECT_EQ(zero[0].mag_error_db, 0.0);
+}
+
+TEST(ReferenceComparison, SmallReferenceIsComparedAsARatio) {
+    NgspiceACData reference;
+    reference.frequencies = {10.0, 100.0};
+    reference.values = {{1e-13, 0.0}, {1e-13, 0.0}};
+
+    auto comparison = compare_ac_results(reference, one_point_result(10.0, {1e-12, 0.0}), 1);
+    ASSERT_EQ(comparison.size(), 1u);
+    EXPECT_NEAR(comparison[0].mag_error_db, 20.0, 1e-9);
+}
+
+TEST(ReferenceLoader, KeepsTheFirstPointWithAndWithoutAHeader) {
+    const std::string rows = "1.0e+01 1.0 0.5\n1.0e+02 2.0 0.25\n";
+    for (const std::string header : {"", " frequency Re(v(out)) Im(v(out))\n"}) {
+        const auto path = write_reference("kirimaspice_ac_reference_test.csv", header + rows);
+        const NgspiceACData data = load_ngspice_ac_data(path.string());
+        fs::remove(path);
+        ASSERT_EQ(data.frequencies.size(), 2u) << "header: '" << header << "'";
+        EXPECT_EQ(data.frequencies.front(), 10.0);
+        EXPECT_EQ(data.values.front(), std::complex<double>(1.0, 0.5));
+    }
+}
+
+TEST(ReferenceLoader, KeepsTheFirstNodeWithAndWithoutAHeader) {
+    const std::string rows = "n_0_0,1\nn_0_1,0.5\n";
+    for (const std::string header : {"", "node,voltage\n"}) {
+        const auto path = write_reference("kirimaspice_dc_reference_test.csv", header + rows);
+        const NgspiceDCData data = load_ngspice_dc_data(path.string());
+        fs::remove(path);
+        ASSERT_EQ(data.node_voltages.size(), 2u) << "header: '" << header << "'";
+        EXPECT_EQ(data.node_voltages.at("n_0_0"), 1.0);
+    }
 }
