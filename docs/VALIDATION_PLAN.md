@@ -129,12 +129,13 @@ kept separate from those accuracy claims.
 
 ### 4. Check equivalent paths and failure states
 
-- [ ] Compare normal and fast Monte Carlo execution using identical
+- [x] Compare normal and fast Monte Carlo execution using identical
   sampled device values, and compare sequential and parallel execution
   where both modes exist. `test_monte_carlo_paths` compares the two
   paths run by run for resistor and Level1 KP variations (commit
-  `97a4ba7`); sequential versus parallel is not checked (the build uses
-  OpenMP).
+  `97a4ba7`). Sequential and parallel now give the same samples for the
+  same seed (commit `9b9c19f`); before the fix 19 of 20 runs differed
+  between the two builds, and a test now checks the per-run seed.
 - [ ] Compare equivalent top-level/subcircuit netlists and library/CLI
   paths where the CLI implements that analysis. Include relative includes
   in parameter sweeps.
