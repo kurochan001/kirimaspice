@@ -15,6 +15,7 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
+#include <limits>
 #include <numbers>
 
 using namespace kirimaspice;
@@ -110,6 +111,17 @@ TEST(DCBoundaryConditions, FailedSweepsHaveNoFabricatedSolution) {
         EXPECT_TRUE(point.node_voltages.empty());
         EXPECT_TRUE(point.branch_currents.empty());
     }
+}
+
+TEST(DCBoundaryConditions, NonFiniteDeviceValueDoesNotReportSuccess) {
+    circuit::CircuitGraph graph;
+    graph.add_voltage_source("V1", "in", "0", 1.0);
+    graph.add_resistor("R1", "in", "0", std::numeric_limits<Real>::quiet_NaN());
+    SimulationConfig config;
+    solvers::DCSolver solver(graph, config);
+    DenseVector solution;
+    SolverStats stats;
+    EXPECT_NE(solver.solve(solution, stats), ConvergenceStatus::SUCCESS);
 }
 
 TEST(DCBoundaryConditions, MissingNestedSourceRestoresPrimary) {
