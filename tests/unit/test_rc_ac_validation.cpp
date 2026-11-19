@@ -28,7 +28,7 @@ protected:
         ref_data_path = "validation/rc_lowpass_ac_ngspice.csv";
         if (!fs::exists(ref_data_path)) {
             GTEST_SKIP() << "Reference data not found: " << ref_data_path
-                         << "\nRun: cd tests/validation && ngspice -b rc_lowpass_ac.cir";
+                         << "\nRun: cd validation && ngspice -b rc_lowpass_ac.cir";
         }
     }
 
