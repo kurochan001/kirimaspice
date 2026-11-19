@@ -35,7 +35,10 @@ table. They are not an additional set of tests.
   skipped until their data paths were corrected; they have run since then
   on Linux (x86-64) with clang 20.1.8 and GCC 15.2.0, and CI run
   44613253295 passed them with GCC 13.3.0 and clang 18.1.3; other
-  platforms are not confirmed.
+  platforms are not confirmed. The decks that write the AC reference
+  CSVs are in `validation/`. No deck in the repository writes
+  `validation/diode_ac_ngspice.csv` or the `validation/resistor_mesh_*_dc.csv`
+  files, so how those were produced is not confirmed.
 - `BSIM4TemperatureValidationTest.TemperatureSweepValidation` is skipped: it
   reads `/tmp/bsim4_temperature_refs.json`, which
   `scripts/bench/generate_bsim4_temperature_refs.py` writes.

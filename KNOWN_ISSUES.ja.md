@@ -29,6 +29,9 @@
   `validation/` を読む比較のテスト 20 件は、データの探索先を直すまでスキップされていました。
   それ以後は Linux（x86-64）の clang 20.1.8 と GCC 15.2.0 で実行し、CI run 44613253295 では
   GCC 13.3.0 と clang 18.1.3 でもすべて合格しました。ほかの環境は未確認です。
+  AC 参照の CSV を書くデッキは `validation/` にあります。`validation/diode_ac_ngspice.csv` と
+  `validation/resistor_mesh_*_dc.csv` を書くデッキはリポジトリにないため、これらの作られ方は
+  未確認です。
 - `BSIM4TemperatureValidationTest.TemperatureSweepValidation` はスキップされます。
   `scripts/bench/generate_bsim4_temperature_refs.py` が書き出す `/tmp/bsim4_temperature_refs.json` を
   読むためです。
