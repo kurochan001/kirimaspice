@@ -139,6 +139,8 @@ kept separate from those accuracy claims.
   in parameter sweeps.
 - [ ] Cover zero/one-point boundaries, invalid and non-finite inputs,
   unknown nodes/sources, convergence failure and repeated solver use.
+  `DCBoundaryConditions.NonFiniteDeviceValueDoesNotReportSuccess` covers a
+  NaN device value (commit `4be4e38`).
 - [ ] Verify that failures propagate to the caller, temporary source and
   parameter changes are restored as specified, and old or partial results
   cannot be mistaken for a successful new run.
