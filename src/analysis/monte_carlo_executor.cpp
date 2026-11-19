@@ -146,10 +146,12 @@ MonteCarloResult MonteCarloExecutor::execute_dc_monte_carlo_custom(
         try {
             spdlog::debug("Monte Carlo run {}/{}", run + 1, result.num_runs);
 
-            // Thread-local RNG (deterministic seed = base_seed + run)
+            // Per-run seed, so the samples do not depend on the threading
+            // build or on the execution order.
 #ifdef _OPENMP
             RandomNumberGenerator thread_rng(base_seed + run);
 #else
+            rng_->reset(base_seed + run);
             RandomNumberGenerator& thread_rng = *rng_;
 #endif
 
@@ -362,6 +364,8 @@ MonteCarloResult MonteCarloExecutor::execute_dc_monte_carlo_fast(
     for (std::uint32_t run = 0; run < result.num_runs; ++run) {
         spdlog::debug("Monte Carlo (fast) run {}/{}", run + 1, result.num_runs);
 
+        // Same per-run seed as the parallel branch and the normal path.
+        rng_->reset(base_seed + run);
         auto sampled_params = sample_parameters(run + 1);
         parameter_samples_vec[run] = sampled_params;
 

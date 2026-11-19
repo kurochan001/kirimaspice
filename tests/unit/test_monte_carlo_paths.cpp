@@ -155,4 +155,24 @@ TEST_F(MonteCarloPaths, MosfetParameterVariationMatchesBetweenPaths) {
     }
 }
 
+
+// Run i must draw from a generator seeded with seed + i; that is what makes
+// builds with and without OpenMP agree for the same seed.
+TEST_F(MonteCarloPaths, TheSamplesUseOneSeedPerRun) {
+    const auto cfg = config();
+    MonteCarloExecutor executor(cfg);
+    auto result = executor.execute_dc_monte_carlo(path_.string(), "out");
+
+    ASSERT_EQ(result.parameter_samples.size(), 20u);
+    for (std::size_t run = 0; run < result.parameter_samples.size(); ++run) {
+        RandomNumberGenerator rng(cfg.monte_carlo.seed + run);
+        DistributionSampler first(variation("R1"));
+        DistributionSampler second(variation("R2"));
+        EXPECT_DOUBLE_EQ(result.parameter_samples[run].at("R1.resistance"),
+                         first.sample(rng)) << "run " << run;
+        EXPECT_DOUBLE_EQ(result.parameter_samples[run].at("R2.resistance"),
+                         second.sample(rng)) << "run " << run;
+    }
+}
+
 }  // namespace
