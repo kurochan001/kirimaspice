@@ -87,7 +87,7 @@
 | kirimasim | 姉妹プロジェクトの SystemVerilog シミュレータ。波形の形式の共有と、ミックスドシグナルの協調シミュレーションは、後の目標 |
 | <a id="ngspice"></a>ngspice | SPICE の方言が違うところで kirimaspice が合わせる、オープンソースの SPICE シミュレータ。参照のために、版を記録して動かすことがある（[NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.ja.md) では ngspice-47） |
 | <a id="expected-value"></a>期待値 | テストが確かめる値。モデルの仕様、解析解、記録した参照の実行から決め、既存の期待値の変更は、独立したコミットと人の承認が必要（[AI_POLICY](spec/AI_POLICY.ja.md)） |
-| <a id="known-failures"></a>既知の失敗 | `tests/known_failures.txt`：今は失敗するテストの一覧。`tools/local_ci.py` は、ほかの失敗があるときだけ失敗する |
+| <a id="known-failures"></a>既知の失敗 | `tests/known_failures.txt`：今は失敗するテストの一覧。`tools/local_ci.py` は、ほかの失敗があるときと、起動できなかったテストがあるときに失敗する |
 | `local_ci.py` | `build/` で構成、ビルド、テストを行い、失敗を既知の失敗と比べ、`check_banned.py` と `check_spdx.py` を実行するスクリプト |
 | `check_banned.py` | 追跡しているファイル（`--history` ではすべてのコミットの差分、メッセージ、作成者）に、ホームディレクトリのパス、noreply 以外のメールアドレス、ファウンドリの名前、バイナリのファイル、5 MB を超えるファイル、`--private` で渡した非公開の名前がないかを確かめる検査 |
 | `check_spdx.py` | プロジェクト自身のコードのファイルが、著作権の行と SPDX のライセンスの行で始まっているかを確かめる検査 |

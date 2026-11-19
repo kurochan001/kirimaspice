@@ -186,13 +186,14 @@ their results are not confirmed; see the
 
 ### Why are some comparison tests skipped?
 
-At commit `eaf0629`, 22 tests are skipped on macOS: twenty comparison
-tests look for reference data in a directory where it is not,
+Two tests are skipped:
 `BSIM4TemperatureValidationTest.TemperatureSweepValidation` reads a file
 that a script writes to `/tmp`, and
 `BSIM4ComprehensiveTest.VdsatBranchSelection` skips itself because its
 reference value is not verified. `BSIM4ComprehensiveTest.NgspiceComparison`
-is skipped as well when ngspice is not installed
+is skipped as well when ngspice is not installed. Twenty comparison tests
+were skipped earlier because they looked for reference data in a
+directory where it was not; they now run
 ([KNOWN_ISSUES](../KNOWN_ISSUES.md#tests)).
 
 ## Platforms and performance

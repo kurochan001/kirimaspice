@@ -89,7 +89,7 @@ For practical questions see the [FAQ](FAQ.md).
 | kirimasim | The sister project, a SystemVerilog simulator. Shared waveform formats and mixed-signal co-simulation with it are goals for later |
 | <a id="ngspice"></a>ngspice | The open-source SPICE simulator that kirimaspice follows where SPICE dialects differ and may run for reference, recording its version (ngspice-47 for [NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.md)) |
 | <a id="expected-value"></a>expected value | The value a test checks. It comes from a model's specification, an analytic solution or a recorded reference run, and changing an existing one needs its own commit and a person's approval ([AI_POLICY](spec/AI_POLICY.md)) |
-| <a id="known-failures"></a>known failures | `tests/known_failures.txt`: the tests that fail today. `tools/local_ci.py` fails only on other failures |
+| <a id="known-failures"></a>known failures | `tests/known_failures.txt`: the tests that fail today. `tools/local_ci.py` fails on other failures, and on any test that could not start |
 | `local_ci.py` | The script that configures, builds and tests in `build/`, compares the failures with the known failures, and runs `check_banned.py` and `check_spdx.py` |
 | `check_banned.py` | The check that tracked files (and, with `--history`, every commit's patch, message and author) hold no home-directory paths, e-mail addresses other than noreply ones, foundry names, binary files or files over 5 MB, and none of the private names given with `--private` |
 | `check_spdx.py` | The check that every file of the project's own code starts with the copyright line and the SPDX license line |

@@ -85,7 +85,11 @@ and their reasons are in [KNOWN_ISSUES](../KNOWN_ISSUES.md#tests).
 `tests/known_failures.txt` lists the tests that fail today, one name per
 line, with the reason as a comment. `tools/local_ci.py` and CI fail on any
 failure that is not listed, and report a listed test that passes so that
-it can be removed. Adding a name to the list needs the same approval as
+it can be removed. They also fail when CTest could not start a test (for
+example, its executable is missing), whether or not the test is listed,
+and when the run leaves no readable result or has no tests. Tests that
+skip themselves and disabled tests are counted in the summary and do not
+fail the run. Adding a name to the list needs the same approval as
 changing an expected value (see [below](#expected-values-and-reference-data)).
 
 ## Before a push

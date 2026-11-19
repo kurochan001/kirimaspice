@@ -155,11 +155,11 @@ IGBT も `trap` のもとではそうします（[KNOWN_ISSUES](../KNOWN_ISSUES.
 
 ### スキップされる比較のテストがあるのはなぜですか？
 
-コミット `eaf0629` の macOS では、22 件のテストがスキップされます。比較のテスト 20 件は参照データが
-ない場所を探し、`BSIM4TemperatureValidationTest.TemperatureSweepValidation` はスクリプトが `/tmp` に
-書き出すファイルを読み、`BSIM4ComprehensiveTest.VdsatBranchSelection` は参照の値が確かめられていない
-ので自分でスキップします。`BSIM4ComprehensiveTest.NgspiceComparison` も、ngspice が入っていなければ
-スキップされます（[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#テスト)）。
+スキップされるテストは 2 件です。`BSIM4TemperatureValidationTest.TemperatureSweepValidation` は
+スクリプトが `/tmp` に書き出すファイルを読み、`BSIM4ComprehensiveTest.VdsatBranchSelection` は
+参照の値が確かめられていないので自分でスキップします。`BSIM4ComprehensiveTest.NgspiceComparison` も、
+ngspice が入っていなければスキップされます。比較のテスト 20 件は、参照データがない場所を探していたため
+以前はスキップされていましたが、今は実行されます（[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#テスト)）。
 
 ## プラットフォームと性能
 
