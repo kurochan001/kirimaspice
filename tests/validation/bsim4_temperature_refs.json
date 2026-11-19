@@ -1,0 +1,246 @@
+{
+  "Linear-LowVds_T-39C": {
+    "bias": {
+      "vgs": 1.0,
+      "vds": 0.1,
+      "vbs": 0.0
+    },
+    "temperature_k": 233.15,
+    "temperature_c": -39.99999999999997,
+    "ngspice": {
+      "vth": 0.192403,
+      "vdsat": 0.2190046,
+      "ids": 0.0003407382,
+      "gm": 0.0002928365,
+      "gds": 0.002483182
+    }
+  },
+  "Saturation-Nominal_T-39C": {
+    "bias": {
+      "vgs": 1.5,
+      "vds": 1.0,
+      "vbs": 0.0
+    },
+    "temperature_k": 233.15,
+    "temperature_c": -39.99999999999997,
+    "ngspice": {
+      "vth": 0.1327686,
+      "vdsat": 0.2962284,
+      "ids": 0.001752436,
+      "gm": 0.0009234296,
+      "gds": 0.0008926085
+    }
+  },
+  "Saturation-HighVgs_T-39C": {
+    "bias": {
+      "vgs": 2.0,
+      "vds": 2.0,
+      "vbs": 0.0
+    },
+    "temperature_k": 233.15,
+    "temperature_c": -39.99999999999997,
+    "ngspice": {
+      "vth": 0.06650816,
+      "vdsat": 0.3616499,
+      "ids": 0.003201716,
+      "gm": 0.001036828,
+      "gds": 0.001376254
+    }
+  },
+  "Linear-LowVds_T0C": {
+    "bias": {
+      "vgs": 1.0,
+      "vds": 0.1,
+      "vbs": 0.0
+    },
+    "temperature_k": 273.15,
+    "temperature_c": 0.0,
+    "ngspice": {
+      "vth": 0.1777437,
+      "vdsat": 0.2307382,
+      "ids": 0.0003152358,
+      "gm": 0.0002721682,
+      "gds": 0.002326807
+    }
+  },
+  "Saturation-Nominal_T0C": {
+    "bias": {
+      "vgs": 1.5,
+      "vds": 1.0,
+      "vbs": 0.0
+    },
+    "temperature_k": 273.15,
+    "temperature_c": 0.0,
+    "ngspice": {
+      "vth": 0.1181093,
+      "vdsat": 0.3078687,
+      "ids": 0.001668568,
+      "gm": 0.0008713829,
+      "gds": 0.0008745819
+    }
+  },
+  "Saturation-HighVgs_T0C": {
+    "bias": {
+      "vgs": 2.0,
+      "vds": 2.0,
+      "vbs": 0.0
+    },
+    "temperature_k": 273.15,
+    "temperature_c": 0.0,
+    "ngspice": {
+      "vth": 0.05184883,
+      "vdsat": 0.3730512,
+      "ids": 0.003063295,
+      "gm": 0.000977421,
+      "gds": 0.00130859
+    }
+  },
+  "Linear-LowVds_T27C": {
+    "bias": {
+      "vgs": 1.0,
+      "vds": 0.1,
+      "vbs": 0.0
+    },
+    "temperature_k": 300.15,
+    "temperature_c": 27.0,
+    "ngspice": {
+      "vth": 0.1678487,
+      "vdsat": 0.238014,
+      "ids": 0.0002997319,
+      "gm": 0.0002600091,
+      "gds": 0.002228465
+    }
+  },
+  "Saturation-Nominal_T27C": {
+    "bias": {
+      "vgs": 1.5,
+      "vds": 1.0,
+      "vbs": 0.0
+    },
+    "temperature_k": 300.15,
+    "temperature_c": 27.0,
+    "ngspice": {
+      "vth": 0.1082142,
+      "vdsat": 0.3145215,
+      "ids": 0.001611943,
+      "gm": 0.0008413393,
+      "gds": 0.00085718
+    }
+  },
+  "Saturation-HighVgs_T27C": {
+    "bias": {
+      "vgs": 2.0,
+      "vds": 2.0,
+      "vbs": 0.0
+    },
+    "temperature_k": 300.15,
+    "temperature_c": 27.0,
+    "ngspice": {
+      "vth": 0.04195377,
+      "vdsat": 0.3787098,
+      "ids": 0.002969264,
+      "gm": 0.0009460905,
+      "gds": 0.001264369
+    }
+  },
+  "Linear-LowVds_T77C": {
+    "bias": {
+      "vgs": 1.0,
+      "vds": 0.1,
+      "vbs": 0.0
+    },
+    "temperature_k": 350.15,
+    "temperature_c": 77.0,
+    "ngspice": {
+      "vth": 0.1495245,
+      "vdsat": 0.249945,
+      "ids": 0.00027416,
+      "gm": 0.0002406677,
+      "gds": 0.002060458
+    }
+  },
+  "Saturation-Nominal_T77C": {
+    "bias": {
+      "vgs": 1.5,
+      "vds": 1.0,
+      "vbs": 0.0
+    },
+    "temperature_k": 350.15,
+    "temperature_c": 77.0,
+    "ngspice": {
+      "vth": 0.08989006,
+      "vdsat": 0.324116,
+      "ids": 0.001509776,
+      "gm": 0.0007950559,
+      "gds": 0.0008176828
+    }
+  },
+  "Saturation-HighVgs_T77C": {
+    "bias": {
+      "vgs": 2.0,
+      "vds": 2.0,
+      "vbs": 0.0
+    },
+    "temperature_k": 350.15,
+    "temperature_c": 77.0,
+    "ngspice": {
+      "vth": 0.0236296,
+      "vdsat": 0.3847316,
+      "ids": 0.002798949,
+      "gm": 0.0009039077,
+      "gds": 0.001187787
+    }
+  },
+  "Linear-LowVds_T125C": {
+    "bias": {
+      "vgs": 1.0,
+      "vds": 0.1,
+      "vbs": 0.0
+    },
+    "temperature_k": 398.15,
+    "temperature_c": 125.0,
+    "ngspice": {
+      "vth": 0.1319333,
+      "vdsat": 0.2593254,
+      "ids": 0.0002528235,
+      "gm": 0.0002253055,
+      "gds": 0.001914228
+    }
+  },
+  "Saturation-Nominal_T125C": {
+    "bias": {
+      "vgs": 1.5,
+      "vds": 1.0,
+      "vbs": 0.0
+    },
+    "temperature_k": 398.15,
+    "temperature_c": 125.0,
+    "ngspice": {
+      "vth": 0.07229886,
+      "vdsat": 0.3298673,
+      "ids": 0.001416338,
+      "gm": 0.0007596147,
+      "gds": 0.0007741326
+    }
+  },
+  "Saturation-HighVgs_T125C": {
+    "bias": {
+      "vgs": 2.0,
+      "vds": 2.0,
+      "vbs": 0.0
+    },
+    "temperature_k": 398.15,
+    "temperature_c": 125.0,
+    "ngspice": {
+      "vth": 0.006038397,
+      "vdsat": 0.3850447,
+      "ids": 0.002642516,
+      "gm": 0.0008785724,
+      "gds": 0.001121693
+    }
+  },
+  "_provenance": {
+    "generator": "scripts/bench/generate_bsim4_temperature_refs.py",
+    "ngspice": "ngspice-45.2 : Circuit level simulation program"
+  }
+}

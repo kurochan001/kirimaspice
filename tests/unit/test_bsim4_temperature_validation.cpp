@@ -128,23 +128,19 @@ protected:
 };
 
 // Test 12: Temperature Dependence Validation with ngspice References
-// Validates BSIM4 temperature model (KT1/KT2/UTE) against ngspice BSIM4.8.3
-// SKIPPED: Known BSIM4 model limitation - Vth error 227-332% vs ngspice
-// Root cause: Different Vth calculation approach (KirimaSpice: Vfb-based, ngspice: parameter-based)
-// TODO: Future work - align Vth calculation with ngspice b4ld.c implementation
+// Validates BSIM4 temperature model (KT1/KT2/UTE) against the reference in
+// tests/validation/bsim4_temperature_refs.json, generated with ngspice-45.2
+// (BSIM4.8.3) by scripts/bench/generate_bsim4_temperature_refs.py.
 TEST_F(BSIM4TemperatureValidationTest, TemperatureSweepValidation) {
-    // SKIP removed by user request - running even with known limitations
-    // GTEST_SKIP() << "Known BSIM4 Vth temperature model limitation (227-332% error vs ngspice). "
-    //              << "Root cause: Different Vth calculation approach.";
     // Load ngspice reference data
-    const std::string ref_file = "/tmp/bsim4_temperature_refs.json";
+    const std::string ref_file = "tests/validation/bsim4_temperature_refs.json";
     json refs;
 
     try {
         refs = load_temperature_refs(ref_file);
     } catch (const std::exception& e) {
-        GTEST_SKIP() << "Temperature reference file not found: " << ref_file
-                     << ". Run scripts/bench/generate_bsim4_temperature_refs.py first.";
+        GTEST_SKIP() << "Reference data not found: " << ref_file
+                     << ". Run scripts/bench/generate_bsim4_temperature_refs.py with ngspice-45.2.";
         return;
     }
 
@@ -188,6 +184,9 @@ TEST_F(BSIM4TemperatureValidationTest, TemperatureSweepValidation) {
 
     // Iterate over all reference data points
     for (const auto& [key, data] : refs.items()) {
+        if (key.starts_with("_")) {
+            continue;  // provenance, not a data point
+        }
         // Extract bias conditions
         double vgs = data["bias"]["vgs"];
         double vds = data["bias"]["vds"];
@@ -248,31 +247,24 @@ TEST_F(BSIM4TemperatureValidationTest, TemperatureSweepValidation) {
     std::cout << "  Average: " << stats.avg_vdsat_error << "%" << std::endl;
     std::cout << "  Maximum: " << stats.max_vdsat_error << "%" << std::endl;
 
-    // Validation: success criteria
-    // - Vth error: RELAXED due to known calculation difference
-    //   (KirimaSpice: Vfb-based approach, ngspice: parameter-based with SCE/DIBL)
-    //   The Vth difference is documented and acceptable for BSIM4 model validation.
-    // - Ids error < 30% (relaxed, mobility/vsat temperature effects are complex)
-    // - Vdsat error < 20% (moderate tolerance)
-    //
-    // NOTE: successfully fixed the 70x Ids over-current at Saturation-HighVgs
-    // by applying selective Vds damping in [1.5V, 4.5V] window.
+    // Success criteria, with margin over the errors measured against the
+    // ngspice-45.2 reference on Linux (x86-64): average Vth 0.09%, maximum
+    // 0.65%; average Ids 1.99%, maximum 2.41%; average Vdsat 1.66%,
+    // maximum 2.44%.
+    EXPECT_LT(stats.avg_vth_error, 5.0) << "Average Vth temperature error too large";
+    EXPECT_LT(stats.max_vth_error, 10.0) << "Maximum Vth temperature error too large";
 
-    // Vth threshold relaxed: known model difference (see lines 129-131)
-    EXPECT_LT(stats.avg_vth_error, 200.0) << "Average Vth temperature error too large";
-    EXPECT_LT(stats.max_vth_error, 1000.0) << "Maximum Vth temperature error too large";
+    EXPECT_LT(stats.avg_ids_error, 10.0) << "Average Ids temperature error too large";
+    EXPECT_LT(stats.max_ids_error, 15.0) << "Maximum Ids temperature error too large";
 
-    EXPECT_LT(stats.avg_ids_error, 30.0) << "Average Ids temperature error too large";
-    EXPECT_LT(stats.max_ids_error, 50.0) << "Maximum Ids temperature error too large";
-
-    EXPECT_LT(stats.avg_vdsat_error, 20.0) << "Average Vdsat temperature error too large";
-    EXPECT_LT(stats.max_vdsat_error, 30.0) << "Maximum Vdsat temperature error too large";
+    EXPECT_LT(stats.avg_vdsat_error, 10.0) << "Average Vdsat temperature error too large";
+    EXPECT_LT(stats.max_vdsat_error, 15.0) << "Maximum Vdsat temperature error too large";
 
     // Success message
-    if (stats.avg_ids_error < 15.0 && stats.avg_vdsat_error < 5.0) {
-        SUCCEED() << "✅ Temperature validation successful! Ids < 15%, Vdsat < 5%";
-    } else if (stats.avg_ids_error < 30.0 && stats.avg_vdsat_error < 20.0) {
-        SUCCEED() << "✅ Temperature validation: acceptable accuracy. Ids < 30%, Vdsat < 20% (Vth has known limitations)";
+    if (stats.avg_vth_error < 1.0 && stats.avg_ids_error < 5.0 &&
+        stats.avg_vdsat_error < 5.0) {
+        SUCCEED() << "Temperature validation: average errors below 1% (Vth), "
+                  << "5% (Ids) and 5% (Vdsat)";
     }
 }
 

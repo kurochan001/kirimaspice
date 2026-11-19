@@ -168,6 +168,15 @@ def generate_temperature_sweep_refs():
     return results
 
 
+def ngspice_version():
+    """Returns the ngspice version line, for the reference file's provenance."""
+    result = subprocess.run(['ngspice', '--version'], capture_output=True, text=True)
+    for line in result.stdout.splitlines():
+        if 'ngspice-' in line:
+            return line.strip().lstrip('*').strip()
+    return "unknown"
+
+
 def main():
     """Main entry point"""
     print("Generating BSIM4 temperature dependence reference data")
@@ -176,18 +185,28 @@ def main():
     # Generate reference data
     results = generate_temperature_sweep_refs()
 
+    # Record how the reference was made. The test skips keys that start
+    # with '_'.
+    results["_provenance"] = {
+        "generator": "scripts/bench/generate_bsim4_temperature_refs.py",
+        "ngspice": ngspice_version(),
+    }
+
     # Save to JSON
-    output_path = '/tmp/bsim4_temperature_refs.json'
+    output_path = (Path(__file__).resolve().parents[2]
+                   / 'tests/validation/bsim4_temperature_refs.json')
     with open(output_path, 'w') as f:
         json.dump(results, f, indent=2)
+        f.write('\n')
 
     print(f"\n{'=' * 80}")
-    print(f"SUCCESS: Generated {len(results)} reference data points")
+    print(f"SUCCESS: Generated {len(results) - 1} reference data points")
     print(f"Output: {output_path}")
 
     # Summary statistics
     print(f"\n=== Temperature Range ===")
-    temps_c = sorted(set(r['temperature_c'] for r in results.values()))
+    points = [r for r in results.values() if 'temperature_c' in r]
+    temps_c = sorted(set(r['temperature_c'] for r in points))
     print(f"  {temps_c[0]:.1f}°C to {temps_c[-1]:.1f}°C ({len(temps_c)} points)")
 
     print(f"\n=== Bias Conditions ===")
