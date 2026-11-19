@@ -880,16 +880,11 @@ TEST_F(BSIM4ComprehensiveTest, MultiBiasPointValidation) {
 
 // Test 12: vdsat Branch Selection Fix Verification
 // Target: VGS=2.5V, VDS=5.0V, VBS=0V, W=5µm, L=45nm
-// Expected: vdsat ≈ 0.720 V (ngspice), Ids ≈ 2.76 A (ngspice)
+// Reference: validation/bsim4_vdsat_branch.cir, run with ngspice-45.2:
+// vdsat = 0.8418 V, id = 2.1016 A.
 // Root cause: Branch 2 should be used (Rds ≠ 0, Lambda = 1.0)
-// CRITICAL: W parameter must match ngspice (was using 10µm, should be 5µm)
-// SKIPPED: tuning achieved ±30% for standard parameters (W=1µm, L=50nm, toxe=3nm)
-//          This test uses advanced process node parameters (toxe=1.25nm) which require
-//          additional model calibration. See test_bsim4_ngspice_compare.cpp for validated tests.
+// W must match ngspice (5µm).
 TEST_F(BSIM4ComprehensiveTest, VdsatBranchSelection) {
-    // SKIP - Reference Ids=2.1A seems incorrect for W=5µm device
-    GTEST_SKIP() << "Reference Ids=2.1A requires verification. "
-                 << "Calculated Ids=29mA matches analytical estimate better than 2.1A.";
     // Override with ngspice test parameters (test_vascbe_2p5.sp)
     BSIM4Params ngspice_params = params_;  // Start with defaults
     ngspice_params.w = 5e-6;       // 5 μm (CRITICAL: ngspice uses W=5e-6, was missing!)
@@ -968,10 +963,10 @@ TEST_F(BSIM4ComprehensiveTest, VdsatBranchSelection) {
     // Evaluate operating point
     auto op = core.evaluate(vg, vd, vs, vb, temp, theta0vb0);
 
-    // ngspice reference values (from /tmp/ng_vdsat_output.txt with W=5µm, L=45nm)
-    // CRITICAL FIX: Previous ids_ref was from a different W parameter (10µm vs 5µm)
-    const Real vdsat_ref = 0.838;     // V (ngspice: vdsat = 0.838 V, verified 2025-11-26)
-    const Real ids_ref = 2.10;        // A (ngspice: id = 2.10 A, with W=5µm, verified 2025-11-26)
+    // ngspice reference values (W=5µm, L=45nm), from
+    // validation/bsim4_vdsat_branch.cir run with ngspice-45.2
+    const Real vdsat_ref = 0.838;     // V
+    const Real ids_ref = 2.10;        // A
 
     // Calculate errors
     const Real vdsat_error_pct = std::abs(op.vdsat - vdsat_ref) / vdsat_ref * 100.0;
@@ -987,16 +982,15 @@ TEST_F(BSIM4ComprehensiveTest, VdsatBranchSelection) {
               << ids_error_pct << "%)" << std::endl;
     std::cout << "  Vth:   " << op.vth << " V" << std::endl;
 
-    // Verification: Error should be < 10% (ideally < 1%)
-    // Relaxed tolerance for initial verification
-    EXPECT_LT(vdsat_error_pct, 10.0) << "Vdsat error too large: " << vdsat_error_pct << "%";
-    EXPECT_LT(ids_error_pct, 10.0) << "Ids error too large: " << ids_error_pct << "%";
+    // The reference comes from a separate ngspice run, so the bound is wider
+    // than the agreement with ngspice-45.2 itself: the measured errors are
+    // 0.45% (Vdsat) and 0.08% (Ids).
+    EXPECT_LT(vdsat_error_pct, 2.0) << "Vdsat error too large: " << vdsat_error_pct << "%";
+    EXPECT_LT(ids_error_pct, 2.0) << "Ids error too large: " << ids_error_pct << "%";
 
     // Success message
     if (vdsat_error_pct < 1.0 && ids_error_pct < 1.0) {
-        SUCCEED() << "✅ vdsat branch selection: errors < 1%";
-    } else if (vdsat_error_pct < 10.0 && ids_error_pct < 10.0) {
-        SUCCEED() << "⚠️  vdsat branch selection: errors < 10%, further tuning may be needed.";
+        SUCCEED() << "vdsat branch selection: errors < 1%";
     }
 }
 

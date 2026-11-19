@@ -1,0 +1,25 @@
+* BSIM4 VDSAT branch selection reference
+* Used by BSIM4ComprehensiveTest.VdsatBranchSelection.
+* ngspice-45.2 at VGS=2.5 V, VDS=5 V, W=5 um, L=45 nm gives
+*   id = 2.101601 A, vdsat = 0.841788 V, vth = 0.690496 V.
+* U0=450 and U0=0.045 give the same result (450 cm^2/(V*s)); this deck uses 450.
+.model N NMOS LEVEL=14 version=4.8.3
++ tnom=27
++ vth0=0.45 k1=0.53 k2=0.02
++ dvt0=2.2 dvt1=0.53 dvt2=-0.032
++ u0=450 vsat=8.5e4 pclm=1.3
++ eta0=0.08 etab=-0.07
++ ua=1e-9 ub=2.5e-21 uc=-1e-10
++ rdsw=150 prwg=0 prwb=0
++ k3=0 k3b=0 lpe0=1.74e-7
++ toxe=1.25n toxp=1.25n
+VGS gate 0 DC 2.5
+VDS drain 0 DC 5
+M1 drain gate 0 0 N W=5u L=45n
+
+.control
+op
+print @m1[id] @m1[vdsat] @m1[vth]
+quit
+.endc
+.end
