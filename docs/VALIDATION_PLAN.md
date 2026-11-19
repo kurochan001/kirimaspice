@@ -130,7 +130,10 @@ kept separate from those accuracy claims.
 
 - [ ] Compare normal and fast Monte Carlo execution using identical
   sampled device values, and compare sequential and parallel execution
-  where both modes exist.
+  where both modes exist. `test_monte_carlo_paths` compares the two
+  paths run by run for resistor and Level1 KP variations (commit
+  `97a4ba7`); sequential versus parallel is not checked (the build uses
+  OpenMP).
 - [ ] Compare equivalent top-level/subcircuit netlists and library/CLI
   paths where the CLI implements that analysis. Include relative includes
   in parameter sweeps.
