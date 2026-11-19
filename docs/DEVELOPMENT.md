@@ -225,7 +225,7 @@ holds no knowledge of the tests.
   | Script | Writes |
   | --- | --- |
   | `scripts/bench/generate_bsim4_bias_refs.py` | `/tmp/bsim4_bias_refs.json`, 13 bias points |
-  | `scripts/bench/generate_bsim4_temperature_refs.py` | `/tmp/bsim4_temperature_refs.json`, read by `BSIM4TemperatureValidationTest` |
+  | `scripts/bench/generate_bsim4_temperature_refs.py` | `tests/validation/bsim4_temperature_refs.json`, read by `BSIM4TemperatureValidationTest` |
   | `scripts/generate_bsim4_tran_ref.py` | `validation/bsim4_inv_chain_tran_ref.txt`, read by `test_bsim4_transient.cpp` |
 
 - Output, logs and waveforms of commercial simulators are never used

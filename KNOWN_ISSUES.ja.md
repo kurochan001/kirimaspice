@@ -13,7 +13,7 @@
 | --- | --- | --- |
 | メーカーモデルとエミッタ接地のテスト（6 件） | 既知の失敗 | モデルファイルがない |
 | CMOS の高入力時の判定（1 件） | arm64 で既知の失敗 | 微小な負の出力を 0 と比較している |
-| BSIM4 の温度の参照（1 件） | スキップ | 生成される参照ファイルがない |
+| BSIM4 の温度の参照（1 件） | 実行 | ngspice-45.2 の参照をリポジトリに置いた |
 | BSIM4 の VDSAT 分岐（1 件） | スキップ | 参照電流が未確認 |
 | BSIM4 過渡解析のインバータ列（1 件） | 無効 | 収束の問題が報告されているが再確認していない |
 | ngspice を実行する比較 | 環境による | ngspice があるときに実行 |
@@ -32,9 +32,10 @@
   AC 参照の CSV を書くデッキは `validation/` にあります。`validation/diode_ac_ngspice.csv` と
   `validation/resistor_mesh_*_dc.csv` を書くデッキはリポジトリにないため、これらの作られ方は
   未確認です。
-- `BSIM4TemperatureValidationTest.TemperatureSweepValidation` はスキップされます。
-  `scripts/bench/generate_bsim4_temperature_refs.py` が書き出す `/tmp/bsim4_temperature_refs.json` を
-  読むためです。
+- `BSIM4TemperatureValidationTest.TemperatureSweepValidation` は、
+  `scripts/bench/generate_bsim4_temperature_refs.py` が ngspice-45.2 で生成した
+  `tests/validation/bsim4_temperature_refs.json` を読みます。Linux（x86-64）では、実装はこの参照に
+  平均 0.09%（Vth）、1.99%（Ids）、1.66%（Vdsat）で一致し、最悪の点は 0.65%、2.41%、2.44% です。
 - `BSIM4ComprehensiveTest.NgspiceComparison` は `ngspice` を実行し、ngspice が入っていなければ
   スキップされます。macOS で Homebrew の ngspice-47 を入れると、実行して合格します。
 - `BSIM4ComprehensiveTest.VdsatBranchSelection` は、常に自分でスキップします。そのコメントには、

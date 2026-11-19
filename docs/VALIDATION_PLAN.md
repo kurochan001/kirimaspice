@@ -97,9 +97,11 @@ action requiring an explicit request.
 - [ ] Investigate the remaining CMOS near-zero assertion against the
   analytic solution and floating-point error. Any existing expectation
   change requires its own justification and approval.
-- [ ] Account for the other skipped and disabled cases individually,
-  including the temperature reference, unverified VDSAT reference and
-  disabled BSIM4 transient test described in KNOWN_ISSUES.
+- [ ] Account for the remaining skipped and disabled cases: the unverified
+  VDSAT reference and the disabled BSIM4 transient test described in
+  KNOWN_ISSUES. The BSIM4 temperature test now runs against the committed
+  ngspice-45.2 reference (commit `7f3bd69`); on Linux (x86-64) the model
+  matches it within 0.65% (Vth), 2.41% (Ids) and 2.44% (Vdsat).
 
 Completion evidence: genuine failure/skip classification, comparisons that
 execute, a reason and next action for each remaining exception, and

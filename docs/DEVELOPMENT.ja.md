@@ -192,7 +192,7 @@ flowchart TD
   | スクリプト | 書き出すもの |
   | --- | --- |
   | `scripts/bench/generate_bsim4_bias_refs.py` | `/tmp/bsim4_bias_refs.json`、13 のバイアス点 |
-  | `scripts/bench/generate_bsim4_temperature_refs.py` | `/tmp/bsim4_temperature_refs.json`。`BSIM4TemperatureValidationTest` が読む |
+  | `scripts/bench/generate_bsim4_temperature_refs.py` | `tests/validation/bsim4_temperature_refs.json`。`BSIM4TemperatureValidationTest` が読む |
   | `scripts/generate_bsim4_tran_ref.py` | `validation/bsim4_inv_chain_tran_ref.txt`。`test_bsim4_transient.cpp` が読む |
 
 - 商用シミュレータの出力、ログ、波形は使いません（[FAQ](FAQ.ja.md#商用シミュレータと比べていますか)）。

@@ -15,7 +15,7 @@ table. They are not an additional set of tests.
 | --- | --- | --- |
 | Manufacturer models and common-emitter test (6) | known failures | model files are absent |
 | CMOS high-input assertion (1) | known failure on arm64 | a tiny negative output is checked against zero |
-| BSIM4 temperature reference (1) | skipped | generated reference file is absent |
+| BSIM4 temperature reference (1) | runs | reference from ngspice-45.2 is committed |
 | BSIM4 VDSAT branch (1) | skipped | the reference current is not verified |
 | BSIM4 transient inverter chain (1) | disabled | reported convergence issue, not checked again |
 | Live ngspice comparison | conditional | runs only when ngspice is installed |
@@ -39,9 +39,12 @@ table. They are not an additional set of tests.
   CSVs are in `validation/`. No deck in the repository writes
   `validation/diode_ac_ngspice.csv` or the `validation/resistor_mesh_*_dc.csv`
   files, so how those were produced is not confirmed.
-- `BSIM4TemperatureValidationTest.TemperatureSweepValidation` is skipped: it
-  reads `/tmp/bsim4_temperature_refs.json`, which
-  `scripts/bench/generate_bsim4_temperature_refs.py` writes.
+- `BSIM4TemperatureValidationTest.TemperatureSweepValidation` reads
+  `tests/validation/bsim4_temperature_refs.json`, which
+  `scripts/bench/generate_bsim4_temperature_refs.py` generated with
+  ngspice-45.2. On Linux (x86-64) the model matches that reference:
+  average errors are 0.09% (Vth), 1.99% (Ids) and 1.66% (Vdsat); the
+  worst points are 0.65%, 2.41% and 2.44%.
 - `BSIM4ComprehensiveTest.NgspiceComparison` runs `ngspice` and is skipped
   when ngspice is not installed. On macOS with ngspice-47 from Homebrew it
   runs and passes.
