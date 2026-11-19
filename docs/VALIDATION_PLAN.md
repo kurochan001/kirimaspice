@@ -73,12 +73,19 @@ action requiring an explicit request.
   start, an unknown status, a missing or unreadable result file and a run
   without tests, removes an old result file first, and keeps skipped and
   disabled tests. `tests/scripts/test_tool_edge_cases.py` exercises the
-  cases, except the removal of the old file. Whether the CMake of CI's
-  Ubuntu 24.04 writes the same JUnit forms as CTest 4.2.1 is not
-  confirmed; the first CI run after a push shows it.
+  cases, except the removal of the old file. CI run 44613253295 after the
+  push to `e8cc364` confirmed the forms: on Ubuntu 24.04 with CMake
+  3.31.6, GCC 13.3.0 and clang 18.1.3, both jobs classified the file as
+  expected. The totals were 1270 passed, 6 failed (all listed), 3 skipped,
+  1 disabled, and no `did not run`. The third skip is
+  `BSIM4ComprehensiveTest.NgspiceComparison`, which skips itself when
+  ngspice is not installed; the CI workflow does not install ngspice,
+  the Nightly does.
 - [x] Restore the 20 reference comparisons. Done in `ebde192`, `810c728`
-  and `5097fa0`: the tests read `validation/`, and all 20 pass on Linux
-  (x86-64) with clang 20.1.8; other platforms are not confirmed. The phase
+  and `5097fa0`: the tests read `validation/`, all 20 pass on Linux
+  (x86-64) with clang 20.1.8 and with GCC 15.2.0, and CI run 44613253295
+  passed them with GCC 13.3.0 and clang 18.1.3; other platforms are not
+  confirmed. The phase
   mismatch of `MOSFET2StageAmplifierValidation.MatchesNgspice` was in the
   reference: its file held 0 V at every frequency, from a netlist whose
   transistors were cut off, and 11.7 degrees is the phase of the correct

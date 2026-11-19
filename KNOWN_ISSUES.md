@@ -33,8 +33,9 @@ table. They are not an additional set of tests.
   `validation/mosfet_2stage_amplifier_ac_ngspice.csv`, written by
   ngspice-45.2. The twenty comparison tests that read `validation/` were
   skipped until their data paths were corrected; they have run since then
-  on Linux (x86-64) with clang 20.1.8 only, and other platforms are not
-  confirmed.
+  on Linux (x86-64) with clang 20.1.8 and GCC 15.2.0, and CI run
+  44613253295 passed them with GCC 13.3.0 and clang 18.1.3; other
+  platforms are not confirmed.
 - `BSIM4TemperatureValidationTest.TemperatureSweepValidation` is skipped: it
   reads `/tmp/bsim4_temperature_refs.json`, which
   `scripts/bench/generate_bsim4_temperature_refs.py` writes.
