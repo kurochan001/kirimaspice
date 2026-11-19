@@ -149,6 +149,10 @@ add_executable(test_monte_carlo_parser unit/test_monte_carlo_parser.cpp)
 target_link_libraries(test_monte_carlo_parser PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_monte_carlo_parser PROPERTIES TIMEOUT 1200)
 
+add_executable(test_monte_carlo_paths unit/test_monte_carlo_paths.cpp)
+target_link_libraries(test_monte_carlo_paths PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_monte_carlo_paths PROPERTIES TIMEOUT 1200)
+
 add_executable(test_subcircuit_parser unit/test_subcircuit_parser.cpp)
 target_link_libraries(test_subcircuit_parser PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_subcircuit_parser PROPERTIES TIMEOUT 1200)
