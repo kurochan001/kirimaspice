@@ -25,7 +25,7 @@ protected:
     void SetUp() override {
         // Check if reference data exists
         // ctest runs from CMAKE_SOURCE_DIR (source directory)
-        ref_data_path = "tests/validation/rc_lowpass_ac_ngspice.csv";
+        ref_data_path = "validation/rc_lowpass_ac_ngspice.csv";
         if (!fs::exists(ref_data_path)) {
             GTEST_SKIP() << "Reference data not found: " << ref_data_path
                          << "\nRun: cd tests/validation && ngspice -b rc_lowpass_ac.cir";

@@ -23,7 +23,7 @@ namespace fs = std::filesystem;
 class RCHighPassFilterValidation : public ::testing::Test {
 protected:
     void SetUp() override {
-        ref_data_path = "tests/validation/rc_highpass_ac_ngspice.csv";
+        ref_data_path = "validation/rc_highpass_ac_ngspice.csv";
         if (!fs::exists(ref_data_path)) {
             GTEST_SKIP() << "Reference data not found: " << ref_data_path
                          << "\nRun: cd tests/validation && ngspice -b rc_highpass_ac.cir";
@@ -148,7 +148,7 @@ TEST_F(RCHighPassFilterValidation, CutoffFrequencyCorrect) {
 class RLCBandPassFilterValidation : public ::testing::Test {
 protected:
     void SetUp() override {
-        ref_data_path = "tests/validation/rlc_bandpass_ac_ngspice.csv";
+        ref_data_path = "validation/rlc_bandpass_ac_ngspice.csv";
         if (!fs::exists(ref_data_path)) {
             GTEST_SKIP() << "Reference data not found: " << ref_data_path
                          << "\nRun: cd tests/validation && ngspice -b rlc_bandpass_ac.cir";
@@ -275,7 +275,7 @@ TEST_F(RLCBandPassFilterValidation, CenterFrequencyCorrect) {
 class RLCBandStopFilterValidation : public ::testing::Test {
 protected:
     void SetUp() override {
-        ref_data_path = "tests/validation/rlc_bandstop_ac_ngspice.csv";
+        ref_data_path = "validation/rlc_bandstop_ac_ngspice.csv";
         if (!fs::exists(ref_data_path)) {
             GTEST_SKIP() << "Reference data not found: " << ref_data_path
                          << "\nRun: cd tests/validation && ngspice -b rlc_bandstop_ac.cir";

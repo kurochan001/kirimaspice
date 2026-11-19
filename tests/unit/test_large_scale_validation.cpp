@@ -63,7 +63,7 @@ CircuitGraph create_resistor_mesh(size_t rows, size_t cols, Real R_value = 1e3) 
 class LargeScaleValidation100 : public ::testing::Test {
 protected:
     void SetUp() override {
-        ref_data_path = "tests/validation/resistor_mesh_10x10_dc.csv";
+        ref_data_path = "validation/resistor_mesh_10x10_dc.csv";
         if (!fs::exists(ref_data_path)) {
             GTEST_SKIP() << "Reference data not found: " << ref_data_path;
         }
@@ -136,7 +136,7 @@ TEST_F(LargeScaleValidation100, DC_ResistorMesh_MatchesNgspice) {
 class LargeScaleValidation300 : public ::testing::Test {
 protected:
     void SetUp() override {
-        ref_data_path = "tests/validation/resistor_mesh_13x13_dc.csv";
+        ref_data_path = "validation/resistor_mesh_13x13_dc.csv";
         if (!fs::exists(ref_data_path)) {
             GTEST_SKIP() << "Reference data not found: " << ref_data_path;
         }
@@ -198,7 +198,7 @@ TEST_F(LargeScaleValidation300, DC_ResistorMesh_MatchesNgspice) {
 class LargeScaleValidation1000 : public ::testing::Test {
 protected:
     void SetUp() override {
-        ref_data_path = "tests/validation/resistor_mesh_22x22_dc.csv";
+        ref_data_path = "validation/resistor_mesh_22x22_dc.csv";
         if (!fs::exists(ref_data_path)) {
             GTEST_SKIP() << "Reference data not found: " << ref_data_path;
         }
@@ -260,7 +260,7 @@ TEST_F(LargeScaleValidation1000, DC_ResistorMesh_MatchesNgspice) {
 class LargeScaleValidation3000 : public ::testing::Test {
 protected:
     void SetUp() override {
-        ref_data_path = "tests/validation/resistor_mesh_39x39_dc.csv";
+        ref_data_path = "validation/resistor_mesh_39x39_dc.csv";
         if (!fs::exists(ref_data_path)) {
             GTEST_SKIP() << "Reference data not found: " << ref_data_path;
         }
