@@ -15,7 +15,6 @@ table. They are not an additional set of tests.
 | --- | --- | --- |
 | Manufacturer models and common-emitter test (6) | known failures | model files are absent |
 | CMOS high-input assertion (1) | known failure on arm64 | a tiny negative output is checked against zero |
-| Reference comparisons (20) | skipped | data paths point to the wrong directory |
 | BSIM4 temperature reference (1) | skipped | generated reference file is absent |
 | BSIM4 VDSAT branch (1) | skipped | the reference current is not verified |
 | BSIM4 transient inverter chain (1) | disabled | reported convergence issue, not checked again |
@@ -29,15 +28,13 @@ table. They are not an additional set of tests.
     voltage is at least 0 V and gets -4.1e-25 V on macOS (arm64) and on
     Ubuntu 24.04 (arm64). It passes on Ubuntu 24.04 (x86-64) with GCC 13.3.0
     and clang 18.1.3.
-- **Twenty comparison tests are always skipped.** They look for reference
-  data under `tests/validation/` (for example
-  `tests/validation/rc_lowpass_ac_ngspice.csv`), but the files are in
-  `validation/`. When the files are placed where the tests look, 19 of the
-  20 pass and `MOSFET2StageAmplifierValidation.MatchesNgspice` fails: the
-  phase differs from the reference by up to 11.7 degrees near 10 Hz, against
-  a tolerance of 5 degrees. Which side is right is not confirmed.
-- The ngspice version used to make the reference data in `validation/` and
-  `tests/validation/` is not recorded.
+- The ngspice version used to make most of the reference data in
+  `validation/` and `tests/validation/` is not recorded. The exception is
+  `validation/mosfet_2stage_amplifier_ac_ngspice.csv`, written by
+  ngspice-45.2. The twenty comparison tests that read `validation/` were
+  skipped until their data paths were corrected; they have run since then
+  on Linux (x86-64) with clang 20.1.8 only, and other platforms are not
+  confirmed.
 - `BSIM4TemperatureValidationTest.TemperatureSweepValidation` is skipped: it
   reads `/tmp/bsim4_temperature_refs.json`, which
   `scripts/bench/generate_bsim4_temperature_refs.py` writes.
@@ -49,9 +46,10 @@ table. They are not an additional set of tests.
 - `BSIM4Transient.InverterChain_MatchesNgspiceReference` is disabled
   (`DISABLED_` in its name); its comment says that the BSIM4 transient
   does not converge near 1 ns (not checked again).
-- At commit `02261a2` on macOS, CTest has 1188 tests: 1158 pass, 22 are
-  skipped (the twenty comparison tests above, `TemperatureSweepValidation`
-  and `VdsatBranchSelection`), 7 fail and 1 is disabled.
+- At commit `02261a2` on macOS, CTest had 1188 tests: 1158 passed, 22 were
+  skipped (the twenty comparison tests, which looked for their data in the
+  wrong directory then, `TemperatureSweepValidation` and
+  `VdsatBranchSelection`), 7 failed and 1 was disabled.
 - Some tests find their data relative to the build directory and pass only
   when it is `build/` directly under the source tree.
 

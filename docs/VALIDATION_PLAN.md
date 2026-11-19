@@ -67,16 +67,24 @@ action requiring an explicit request.
 
 ### 2. Make CI outcomes and comparison coverage reliable
 
-- [ ] After approval, fix CI classification so an unavailable test
-  executable cannot be treated as a successful check. Preserve intentional
-  skips, reject unexplained CTest errors and avoid reusing an old result
-  file. Exercise these cases with controlled fixtures.
-- [ ] Restore the 20 reference comparisons whose data paths currently
-  cause them to skip. An isolated path-corrected run passed 19 and exposed
-  a phase mismatch in `MOSFET2StageAmplifierValidation.MatchesNgspice`
-  (about 11.7 degrees near 10 Hz, against a 5-degree tolerance).
-  Investigate the model, analysis and reference provenance before deciding
-  which side is wrong.
+- [x] Fix CI classification so an unavailable test executable cannot be
+  treated as a successful check. Done in `cef412f` (approved before
+  committing): `tools/local_ci.py` fails on a test that CTest could not
+  start, an unknown status, a missing or unreadable result file and a run
+  without tests, removes an old result file first, and keeps skipped and
+  disabled tests. `tests/scripts/test_tool_edge_cases.py` exercises the
+  cases, except the removal of the old file. Whether the CMake of CI's
+  Ubuntu 24.04 writes the same JUnit forms as CTest 4.2.1 is not
+  confirmed; the first CI run after a push shows it.
+- [x] Restore the 20 reference comparisons. Done in `ebde192`, `810c728`
+  and `5097fa0`: the tests read `validation/`, and all 20 pass on Linux
+  (x86-64) with clang 20.1.8; other platforms are not confirmed. The phase
+  mismatch of `MOSFET2StageAmplifierValidation.MatchesNgspice` was in the
+  reference: its file held 0 V at every frequency, from a netlist whose
+  transistors were cut off, and 11.7 degrees is the phase of the correct
+  output. The simulator agrees with ngspice-45.2 and with the small-signal
+  solution worked by hand within 3e-7 dB. The helper that reported 0 dB
+  against a zero reference was corrected.
 - [ ] Resolve the six known failures caused by missing model files, with
   the origin and redistribution terms checked before adding any files.
 - [ ] Investigate the remaining CMOS near-zero assertion against the

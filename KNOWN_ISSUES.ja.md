@@ -13,7 +13,6 @@
 | --- | --- | --- |
 | メーカーモデルとエミッタ接地のテスト（6 件） | 既知の失敗 | モデルファイルがない |
 | CMOS の高入力時の判定（1 件） | arm64 で既知の失敗 | 微小な負の出力を 0 と比較している |
-| 参照データとの比較（20 件） | スキップ | データの探索先が異なるディレクトリ |
 | BSIM4 の温度の参照（1 件） | スキップ | 生成される参照ファイルがない |
 | BSIM4 の VDSAT 分岐（1 件） | スキップ | 参照電流が未確認 |
 | BSIM4 過渡解析のインバータ列（1 件） | 無効 | 収束の問題が報告されているが再確認していない |
@@ -25,12 +24,10 @@
   - `CMOS_Inverter.DCTransferCharacteristic_HighInput` は、出力電圧が 0 V 以上であることを
     確かめ、macOS（arm64）と Ubuntu 24.04（arm64）では -4.1e-25 V を得ます。Ubuntu 24.04（x86-64）の
     GCC 13.3.0 と clang 18.1.3 では合格します。
-- **比較のテスト 20 件が、常にスキップされます。** テストは参照データを `tests/validation/` の下で
-  探しますが（例：`tests/validation/rc_lowpass_ac_ngspice.csv`）、ファイルは `validation/` にあります。
-  テストが探す場所にファイルを置くと、20 件のうち 19 件が合格し、
-  `MOSFET2StageAmplifierValidation.MatchesNgspice` が失敗します。10 Hz 付近で位相が参照と最大
-  11.7 度ずれ、許容は 5 度です。どちらが正しいかは未確認です。
-- `validation/` と `tests/validation/` の参照データを作った ngspice の版は記録されていません。
+- `validation/` と `tests/validation/` の参照データの大部分は、作った ngspice の版が記録されていません。
+  例外は `validation/mosfet_2stage_amplifier_ac_ngspice.csv` で、ngspice-45.2 で書き出しました。
+  `validation/` を読む比較のテスト 20 件は、データの探索先を直すまでスキップされていました。
+  それ以後に実行したのは Linux（x86-64）の clang 20.1.8 だけで、ほかの環境は未確認です。
 - `BSIM4TemperatureValidationTest.TemperatureSweepValidation` はスキップされます。
   `scripts/bench/generate_bsim4_temperature_refs.py` が書き出す `/tmp/bsim4_temperature_refs.json` を
   読むためです。
@@ -40,9 +37,9 @@
   参照の電流 2.1 A は確かめられていないと書いてあります。
 - `BSIM4Transient.InverterChain_MatchesNgspiceReference` は無効です（名前に `DISABLED_` があります）。
   そのコメントには、BSIM4 の過渡解析が 1 ns 付近で収束しないと書いてあります（確かめ直していません）。
-- コミット `02261a2` の macOS では、CTest のテストは 1188 件です。1158 件が合格、22 件がスキップ
-  （上の比較のテスト 20 件、`TemperatureSweepValidation`、`VdsatBranchSelection`）、7 件が失敗、
-  1 件が無効です。
+- コミット `02261a2` の macOS では、CTest のテストは 1188 件でした。1158 件が合格、22 件がスキップ
+  （当時はデータを別のディレクトリで探していた比較のテスト 20 件、`TemperatureSweepValidation`、
+  `VdsatBranchSelection`）、7 件が失敗、1 件が無効でした。
 - テストの一部は、ビルドディレクトリからの相対位置でデータを探すので、ビルドディレクトリが
   ソースの直下の `build/` のときだけ合格します。
 
