@@ -22,7 +22,10 @@ table. They are not an additional set of tests.
 - **Six tests fail** and are listed in `tests/known_failures.txt`:
   - `ManufacturerModels.*` (five tests) and `BJTModelTest.SimpleCommonEmitter`
     include `tests/models/2N3904.lib` and `tests/models/1N4148.lib`, which are
-    not in the repository.
+    not in the repository. The tests expect `BF=200` for the 2N3904 and
+    `IS=2.52e-9`, `N=1.752` for the 1N4148. The files must not be added
+    before their origin and redistribution terms are checked; their origin
+    is not confirmed.
 - `CMOS_Inverter.DCTransferCharacteristic_HighInput` used to require an output
   of at least 0 V and saw -4.1e-25 V on arm64, which is roundoff around the
   exact value of 0 V; its lower bound now allows -1e-12 V.

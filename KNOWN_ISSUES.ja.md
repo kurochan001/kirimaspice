@@ -19,7 +19,9 @@
 
 - **6 件のテストが失敗します。** `tests/known_failures.txt` に並べてあります。
   - `ManufacturerModels.*`（5 件）と `BJTModelTest.SimpleCommonEmitter` は、リポジトリにない
-    `tests/models/2N3904.lib` と `tests/models/1N4148.lib` を読み込みます。
+    `tests/models/2N3904.lib` と `tests/models/1N4148.lib` を読み込みます。テストは 2N3904 に
+    `BF=200`、1N4148 に `IS=2.52e-9`、`N=1.752` を期待します。追加の前に出自と再配布条件を
+    確かめる必要があり、出自は未確認です。
 - `CMOS_Inverter.DCTransferCharacteristic_HighInput` は、以前は出力電圧が 0 V 以上であることを
   確かめ、arm64 で -4.1e-25 V を得ていました。これは厳密解 0 V の丸め誤差なので、下限を
   -1e-12 V まで許すようにしました。
