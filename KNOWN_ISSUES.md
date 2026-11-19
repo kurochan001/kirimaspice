@@ -17,7 +17,7 @@ table. They are not an additional set of tests.
 | CMOS high-input assertion (1) | known failure on arm64 | a tiny negative output is checked against zero |
 | BSIM4 temperature reference (1) | runs | reference from ngspice-45.2 is committed |
 | BSIM4 VDSAT branch (1) | runs | reference verified with ngspice-45.2 |
-| BSIM4 transient inverter chain (1) | disabled | reported convergence issue, not checked again |
+| BSIM4 transient inverter chain (1) | disabled | edges differ; simplified capacitance model |
 | Live ngspice comparison | conditional | runs only when ngspice is installed |
 
 - **Seven tests fail** and are listed in `tests/known_failures.txt`:
@@ -53,8 +53,14 @@ table. They are not an additional set of tests.
   id = 2.1016 A and vdsat = 0.8418 V; the test passes, 0.08% and 0.45%
   from the stored values.
 - `BSIM4Transient.InverterChain_MatchesNgspiceReference` is disabled
-  (`DISABLED_` in its name); its comment says that the BSIM4 transient
-  does not converge near 1 ns (not checked again).
+  (`DISABLED_` in its name). Its comment says that the transient does not
+  converge near 1 ns, but on Linux (x86-64) it now completes: with the
+  reference's 50 mV bound the worst errors are 0.40 V (n1), 0.83 V (n2)
+  and 1.83 V (n3), all during the switching edges. The DC levels match;
+  the simulated edges come earlier, consistent with the simplified
+  capacitance model described below. The reference deck uses `.options method=gear`
+  while the test uses trapezoidal; repeating the run with Gear2 changes
+  the errors only slightly.
 - At commit `02261a2` on macOS, CTest had 1188 tests: 1158 passed, 22 were
   skipped (the twenty comparison tests, which looked for their data in the
   wrong directory then, `TemperatureSweepValidation` and

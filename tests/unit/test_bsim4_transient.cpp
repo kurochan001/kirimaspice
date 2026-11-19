@@ -92,8 +92,9 @@ Real interpolate_signal(const std::vector<ReferencePoint>& ref, Real t, int sign
 
 } // namespace
 
-// DISABLED: BSIM4 transient convergence fails at t≈1ns (dt=5e-15 still diverges).
-// Root cause: BSIM4 capacitance/Newton coupling needs investigation.
+// DISABLED: the run converges, but the switching edges come earlier than the
+// reference because BSIM4's capacitances are a simplified Meyer model (see
+// KNOWN_ISSUES); the worst errors are 0.40/0.83/1.83 V for n1/n2/n3.
 TEST(BSIM4Transient, DISABLED_InverterChain_MatchesNgspiceReference) {
     // Reduce log chatter (BSIM4 debug logs are extremely verbose) but keep errors
     spdlog::set_level(spdlog::level::err);
