@@ -12,6 +12,9 @@ CMakeFiles/
 cmake_install.cmake
 install_manifest.txt
 CTestTestfile.cmake
+# Test lists that gtest_discover_tests leaves in a test's working directory
+# (seen with CMake 4.2.1); they hold absolute paths of the source tree.
+cmake_test_discovery_*.json
 _deps/
 
 # Ninja
