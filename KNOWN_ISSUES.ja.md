@@ -14,7 +14,7 @@
 | メーカーモデルとエミッタ接地のテスト（6 件） | 既知の失敗 | モデルファイルがない |
 | CMOS の高入力時の判定（1 件） | arm64 で既知の失敗 | 微小な負の出力を 0 と比較している |
 | BSIM4 の温度の参照（1 件） | 実行 | ngspice-45.2 の参照をリポジトリに置いた |
-| BSIM4 の VDSAT 分岐（1 件） | スキップ | 参照電流が未確認 |
+| BSIM4 の VDSAT 分岐（1 件） | 実行 | ngspice-45.2 で参照を確認した |
 | BSIM4 過渡解析のインバータ列（1 件） | 無効 | 収束の問題が報告されているが再確認していない |
 | ngspice を実行する比較 | 環境による | ngspice があるときに実行 |
 
@@ -38,8 +38,9 @@
   平均 0.09%（Vth）、1.99%（Ids）、1.66%（Vdsat）で一致し、最悪の点は 0.65%、2.41%、2.44% です。
 - `BSIM4ComprehensiveTest.NgspiceComparison` は `ngspice` を実行し、ngspice が入っていなければ
   スキップされます。macOS で Homebrew の ngspice-47 を入れると、実行して合格します。
-- `BSIM4ComprehensiveTest.VdsatBranchSelection` は、常に自分でスキップします。そのコメントには、
-  参照の電流 2.1 A は確かめられていないと書いてあります。
+- `BSIM4ComprehensiveTest.VdsatBranchSelection` は、`validation/bsim4_vdsat_branch.cir` の
+  参照を読みます。ngspice-45.2 では、このデッキは id = 2.1016 A、vdsat = 0.8418 V を与え、
+  テストは保存した値から 0.08% と 0.45% の差で合格します。
 - `BSIM4Transient.InverterChain_MatchesNgspiceReference` は無効です（名前に `DISABLED_` があります）。
   そのコメントには、BSIM4 の過渡解析が 1 ns 付近で収束しないと書いてあります（確かめ直していません）。
 - コミット `02261a2` の macOS では、CTest のテストは 1188 件でした。1158 件が合格、22 件がスキップ

@@ -16,7 +16,7 @@ table. They are not an additional set of tests.
 | Manufacturer models and common-emitter test (6) | known failures | model files are absent |
 | CMOS high-input assertion (1) | known failure on arm64 | a tiny negative output is checked against zero |
 | BSIM4 temperature reference (1) | runs | reference from ngspice-45.2 is committed |
-| BSIM4 VDSAT branch (1) | skipped | the reference current is not verified |
+| BSIM4 VDSAT branch (1) | runs | reference verified with ngspice-45.2 |
 | BSIM4 transient inverter chain (1) | disabled | reported convergence issue, not checked again |
 | Live ngspice comparison | conditional | runs only when ngspice is installed |
 
@@ -48,8 +48,10 @@ table. They are not an additional set of tests.
 - `BSIM4ComprehensiveTest.NgspiceComparison` runs `ngspice` and is skipped
   when ngspice is not installed. On macOS with ngspice-47 from Homebrew it
   runs and passes.
-- `BSIM4ComprehensiveTest.VdsatBranchSelection` always skips itself: its
-  comment says that its reference current of 2.1 A is not verified.
+- `BSIM4ComprehensiveTest.VdsatBranchSelection` reads the reference from
+  `validation/bsim4_vdsat_branch.cir`. With ngspice-45.2 that deck gives
+  id = 2.1016 A and vdsat = 0.8418 V; the test passes, 0.08% and 0.45%
+  from the stored values.
 - `BSIM4Transient.InverterChain_MatchesNgspiceReference` is disabled
   (`DISABLED_` in its name); its comment says that the BSIM4 transient
   does not converge near 1 ns (not checked again).

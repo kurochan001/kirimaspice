@@ -155,11 +155,11 @@ IGBT も `trap` のもとではそうします（[KNOWN_ISSUES](../KNOWN_ISSUES.
 
 ### スキップされる比較のテストがあるのはなぜですか？
 
-`BSIM4ComprehensiveTest.VdsatBranchSelection` は参照の値が確かめられていないので自分でスキップします。
-`BSIM4ComprehensiveTest.NgspiceComparison` も、ngspice が入っていなければスキップされます。
+`BSIM4ComprehensiveTest.NgspiceComparison` は、ngspice が入っていなければスキップされます。
 比較のテスト 20 件は、参照データがない場所を探していたため以前はスキップされていましたが、今は
-実行されます。BSIM4 の温度のテストも、リポジトリに入れた ngspice-45.2 の参照データに対して
-実行されます（[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#テスト)）。
+実行されます。BSIM4 の温度のテストはリポジトリに入れた ngspice-45.2 の参照データに対して、
+VDSAT 分岐のテストは ngspice-45.2 で確認した参照値に対して実行されます
+（[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#テスト)）。
 
 ## プラットフォームと性能
 

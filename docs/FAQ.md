@@ -186,12 +186,11 @@ their results are not confirmed; see the
 
 ### Why are some comparison tests skipped?
 
-`BSIM4ComprehensiveTest.VdsatBranchSelection` skips itself because its
-reference value is not verified. `BSIM4ComprehensiveTest.NgspiceComparison`
-is skipped as well when ngspice is not installed. Twenty comparison tests
-were skipped earlier because they looked for reference data in a
-directory where it was not; they now run, and so does the BSIM4
-temperature test, against a committed ngspice-45.2 reference
+`BSIM4ComprehensiveTest.NgspiceComparison` is skipped when ngspice is
+not installed. Twenty comparison tests were skipped earlier because they
+looked for reference data in a directory where it was not; they now run.
+So do the BSIM4 temperature and VDSAT branch tests, against a committed
+ngspice-45.2 reference and values verified with ngspice-45.2
 ([KNOWN_ISSUES](../KNOWN_ISSUES.md#tests)).
 
 ## Platforms and performance
