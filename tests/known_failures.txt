@@ -11,6 +11,3 @@ ManufacturerModels.MultiDevice_BJT_Diode
 ManufacturerModels.ModelFilePathResolution
 ManufacturerModels.MultipleModelFiles
 BJTModelTest.SimpleCommonEmitter
-
-# Checks v_out >= 0 and gets -4.1e-25 (macOS arm64, GCC 16.2.0).
-CMOS_Inverter.DCTransferCharacteristic_HighInput

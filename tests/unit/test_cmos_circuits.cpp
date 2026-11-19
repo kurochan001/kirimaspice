@@ -110,7 +110,9 @@ TEST(CMOS_Inverter, DCTransferCharacteristic_HighInput) {
     Real v_out = solution[out_id - 1];
 
     EXPECT_LT(v_out, 0.5);  // Output < 0.5V (close to GND)
-    EXPECT_GE(v_out, 0.0);  // Output >= 0V
+    // The exact value is 0 V; roundoff can put the last bits below zero
+    // (-4.1e-25 V was seen on arm64), so allow a tolerance well below vntol.
+    EXPECT_GE(v_out, -1e-12);
 }
 
 //==============================================================================
