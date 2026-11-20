@@ -490,8 +490,19 @@ TEST(IGBTNetlist, TailCurrentDecaysAfterTurnOff) {
     const auto result = solver.solve(0.0, 20e-6, 0.5e-6);
     ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
     const NodeId c = parsed.circuit->get_node_id("c");
+    const NodeId g = parsed.circuit->get_node_id("g");
     const Real i0 = (100.0 - 100.0 / 10001.0) / 100.0;
-    const Real t0 = 10.5e-6;
+    // t0: the first accepted point with the gate below threshold; the step
+    // lands on the end of the gate's fall, 10.01 us (a breakpoint of VG)
+    const Real vge_th = *parsed.circuit->get_device("M1")->get_parameter("vge_th");
+    Real t0 = -1.0;
+    for (const auto& tp : result.timepoints) {
+        if (tp.time > 10e-6 && tp.node_voltages[g - 1] < vge_th) {
+            t0 = tp.time;
+            break;
+        }
+    }
+    ASSERT_GT(t0, 10e-6);
     int checked = 0;
     for (const auto& tp : result.timepoints) {
         if (tp.time > t0 + 1e-9) {

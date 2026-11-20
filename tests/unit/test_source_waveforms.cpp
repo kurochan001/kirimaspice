@@ -144,16 +144,21 @@ TEST(SourceWaveforms, SinExpPwlSffmFollowTheirFormulas) {
 }
 
 TEST(SourceWaveforms, CurrentSourceWithPulse) {
-    // 1 mA from 0.2 ms on into 1 kOhm
+    // 1 mA from 0.2 ms on into 1 kOhm, rising over 1 us: at every point,
+    // the steps landing on the corners 0.2 and 0.201 ms too, V = R I(t)
     const auto parsed =
         parse("i pulse\nI1 0 f PULSE(0 1m 0.2m 1u 1u 1 2)\nR1 f 0 1k\n.end\n");
     ASSERT_NE(parsed.circuit, nullptr);
     const NodeId f = parsed.circuit->get_node_id("f");
     const TransientResult tran = transient(parsed, 0.5e-3, 1e-4);
     ASSERT_EQ(tran.status, ConvergenceStatus::SUCCESS);
+    auto expected = [](double t) {
+        if (t <= 0.2e-3) return 0.0;
+        if (t < 0.201e-3) return (t - 0.2e-3) / 1e-6;
+        return 1.0;
+    };
     for (const auto& tp : tran.timepoints) {
-        EXPECT_NEAR(tp.node_voltages[f - 1], tp.time > 0.25e-3 ? 1.0 : 0.0, 1e-9)
-            << "t=" << tp.time;
+        EXPECT_NEAR(tp.node_voltages[f - 1], expected(tp.time), 1e-9) << "t=" << tp.time;
     }
 }
 
