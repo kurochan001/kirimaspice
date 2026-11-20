@@ -87,9 +87,13 @@ Order of the example `.dc V1 0 1 0.5 V2 0 1 1` used below:
 ## Not decided here
 
 - ngspice treats node names without regard to case in batch mode
-  (section 2.1.3.4); kirimaspice treats them as case-sensitive.
+  (section 2.1.3.4). kirimaspice does so too since `8364a9c` (decided on
+  2026-11-21, outside this document), and writes them in lower case.
 - ngspice lets the DC value be omitted when it is zero, so
-  `V1 in 0 PULSE(...)` is accepted (section 4.1); kirimaspice needs it.
+  `V1 in 0 PULSE(...)` is accepted (section 4.1). kirimaspice accepts it
+  too since `aef9135`; as in ngspice-47, the operating point takes the
+  waveform's value at time 0 (0.3 V for `PULSE(0.3 2 ...)`, run on
+  2026-11-21).
 - ngspice can sweep a resistor or the temperature with `.DC`
   (section 11.3.2); kirimaspice sweeps only independent sources.
 
