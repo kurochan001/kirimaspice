@@ -308,6 +308,17 @@ void Capacitor::reset_state() {
     spdlog::trace("[{}] reset_state: all state variables reset to initial values", name_);
 }
 
+void Capacitor::apply_initial_condition() {
+    if (!initial_voltage_) {
+        return;
+    }
+    // The capacitor at rest at its IC: that voltage at every point of its
+    // history, no current
+    voltage_prev_ = voltage_prev2_ = voltage_prev3_ = voltage_gamma_ = *initial_voltage_;
+    current_prev_ = current_gamma_ = 0.0;
+    charge_ = charge_prev_ = capacitance_ * *initial_voltage_;
+}
+
 void Capacitor::accept_solution(const DenseVector& node_voltages) {
     // Update voltage and current for next timestep
     NodeId np = nodes_[0];

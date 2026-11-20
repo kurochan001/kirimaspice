@@ -173,8 +173,8 @@ are the same element, and a second is an error.
 | Element | Syntax | Notes |
 | --- | --- | --- |
 | Resistor | `R<name> <n+> <n-> <value>` | further tokens are ignored |
-| Capacitor | `C<name> <n+> <n-> <value>` | further tokens (such as `IC=`) are ignored |
-| Inductor | `L<name> <n+> <n-> <value>` | further tokens are ignored |
+| Capacitor | `C<name> <n+> <n-> <value> [IC=<V>]` | `IC=`: the voltage from `<n+>` to `<n->` at the start of a transient under `UIC`, not used without it; other tokens are named in a warning and not used |
+| Inductor | `L<name> <n+> <n-> <value> [IC=<A>]` | `IC=`: the current from `<n+>` through the inductor to `<n->` at the start of a transient under `UIC`, not used without it; other tokens are named in a warning and not used |
 | Mutual inductance | `K<name> <L1> <L2> <k>` | `<L1>`, `<L2>` are inductor names; `<k>` outside 0 to 1 is an error |
 | Voltage source | `V<name> <n+> <n-> [[DC] <value>] [AC [<mag> [<phase>]]] [<waveform>]` | see below |
 | Current source | `I<name> <n+> <n-> [[DC] <value>] [AC [<mag> [<phase>]]] [<waveform>]` | see below |

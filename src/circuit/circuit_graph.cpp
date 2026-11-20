@@ -202,12 +202,16 @@ void CircuitGraph::add_resistor(const std::string& name,
 void CircuitGraph::add_capacitor(const std::string& name,
                                  const std::string& np,
                                  const std::string& nn,
-                                 Real capacitance) {
+                                 Real capacitance,
+                                 std::optional<Real> initial_condition) {
     NodeId np_id = add_node(np);
     NodeId nn_id = add_node(nn);
 
     DeviceId id = next_device_id_++;
     auto capacitor = std::make_shared<devices::Capacitor>(id, name, np_id, nn_id, capacitance);
+    if (initial_condition) {
+        capacitor->set_initial_condition(*initial_condition);
+    }
 
     register_device(name, capacitor);
 
@@ -222,12 +226,16 @@ void CircuitGraph::add_capacitor(const std::string& name,
 void CircuitGraph::add_inductor(const std::string& name,
                                 const std::string& np,
                                 const std::string& nn,
-                                Real inductance) {
+                                Real inductance,
+                                std::optional<Real> initial_condition) {
     NodeId np_id = add_node(np);
     NodeId nn_id = add_node(nn);
 
     DeviceId id = next_device_id_++;
     auto inductor = std::make_shared<devices::Inductor>(id, name, np_id, nn_id, inductance);
+    if (initial_condition) {
+        inductor->set_initial_condition(*initial_condition);
+    }
 
     register_device(name, inductor);
 

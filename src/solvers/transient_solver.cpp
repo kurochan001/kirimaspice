@@ -1366,8 +1366,12 @@ void TransientSolver::initialize_uic_mode(TransientResult& result, Real t_start,
         spdlog::debug("No .IC specified, using zero initial conditions");
     }
 
-    // Let devices accept initial solution
+    // Let devices accept initial solution, then take the IC= of capacitors
+    // and inductors (SPICE: an element's IC= is used under UIC only)
     accept_devices(initial_voltages);
+    for (const auto& device : circuit_.get_devices()) {
+        device->apply_initial_condition();
+    }
 
     // Save initial state (t=t_start)
     TimePoint initial_tp;

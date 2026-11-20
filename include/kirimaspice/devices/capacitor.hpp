@@ -4,6 +4,7 @@
 // include/kirimaspice/devices/capacitor.hpp
 #pragma once
 #include "kirimaspice/devices/device.hpp"
+#include <optional>
 
 namespace kirimaspice::devices {
 
@@ -60,6 +61,12 @@ public:
 
     // Accessors
     Real capacitance() const { return capacitance_; }
+
+    /// IC= of the element line: the voltage from np to nn at the start of a
+    /// transient under UIC (apply_initial_condition)
+    void set_initial_condition(Real voltage) { initial_voltage_ = voltage; }
+    std::optional<Real> initial_condition() const { return initial_voltage_; }
+    void apply_initial_condition() override;
     NodeId np() const { return nodes_[0]; }
     NodeId nn() const { return nodes_[1]; }
 
@@ -71,6 +78,7 @@ public:
 private:
     std::vector<NodeId> nodes_;  // [np, nn]
     Real capacitance_;   // Capacitance (F)
+    std::optional<Real> initial_voltage_;  // IC= (V)
 
     // State variables
     mutable Real voltage_prev_;  // V(t) - voltage at previous timestep

@@ -190,9 +190,11 @@ There are important input limits:
 
 - Write upper-case `V(` in `.IC` and `.NODESET`, and keep node spelling
   consistent. A ground-node initial voltage is ignored.
-- The parser does not apply `IC=` on capacitor or inductor element lines.
-  Use nodal `.IC` for capacitor voltages. There is no general netlist
-  interface here for specifying an initial inductor current.
+- `IC=` on a capacitor or inductor line gives that element's voltage or
+  current at the start under `UIC`, after the node voltages of `.IC`; it
+  is not used without `UIC`, as in SPICE. The point at time 0 holds the
+  initial node voltages, so it shows 0 V at a node that only a
+  capacitor's `IC=` sets.
 - A circuit with no dynamic devices takes the algebraic initialization
   path even with `UIC`; the UIC/nodal-IC path above is not used there.
 

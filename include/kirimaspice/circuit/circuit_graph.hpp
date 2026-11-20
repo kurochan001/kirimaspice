@@ -19,6 +19,7 @@
 #include <vector>
 #include <unordered_map>
 #include <memory>
+#include <optional>
 
 namespace kirimaspice {
 
@@ -121,13 +122,15 @@ public:
     void add_capacitor(const std::string& name,
                       const std::string& np,
                       const std::string& nn,
-                      Real capacitance);
+                      Real capacitance,
+                      std::optional<Real> initial_condition = std::nullopt);
 
     /// Add inductor
     void add_inductor(const std::string& name,
                      const std::string& np,
                      const std::string& nn,
-                     Real inductance);
+                     Real inductance,
+                     std::optional<Real> initial_condition = std::nullopt);
 
     /// Add voltage source
     /// @param dc_value DC voltage [V]

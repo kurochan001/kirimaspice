@@ -4169,6 +4169,24 @@ static void parse_behavioral_source_device(const std::vector<std::string>& token
                  expression);
 }
 
+// IC=<value> after the value of a C or L line: the capacitor's voltage or
+// the inductor's current at the start of a transient under UIC. Anything
+// else after the value is not used, and named in a warning.
+static std::optional<Real> read_initial_condition(const std::vector<std::string>& tokens,
+                                                  ParseState& state) {
+    std::optional<Real> ic;
+    for (std::size_t i = 4; i < tokens.size(); ++i) {
+        std::string token = tokens[i];
+        util::to_upper_inplace(token);
+        if (token.rfind("IC=", 0) == 0 && token.size() > 3) {
+            ic = read_element_value(tokens[i].substr(3), state);
+        } else {
+            spdlog::warn("Line {}: {}: '{}' is not used", state.line_number, tokens[0], tokens[i]);
+        }
+    }
+    return ic;
+}
+
 static void parse_capacitor_device(const std::vector<std::string>& tokens, const std::string& dev_name, ParseState& state) {
     if (tokens.size() < 4) {
         throw ParseError("Invalid capacitor syntax", state.line_number);
@@ -4179,7 +4197,7 @@ static void parse_capacitor_device(const std::vector<std::string>& tokens, const
 
     const Real value = read_element_value(value_str, state);
 
-    state.circuit->add_capacitor(dev_name, np, nn, value);
+    state.circuit->add_capacitor(dev_name, np, nn, value, read_initial_condition(tokens, state));
     spdlog::debug("Added capacitor: {} {} {} {}F", dev_name, np, nn, value);
 }
 
@@ -4193,7 +4211,7 @@ static void parse_inductor_device(const std::vector<std::string>& tokens, const 
 
     const Real value = read_element_value(value_str, state);
 
-    state.circuit->add_inductor(dev_name, np, nn, value);
+    state.circuit->add_inductor(dev_name, np, nn, value, read_initial_condition(tokens, state));
     spdlog::debug("Added inductor: {} {} {} {}H", dev_name, np, nn, value);
 }
 

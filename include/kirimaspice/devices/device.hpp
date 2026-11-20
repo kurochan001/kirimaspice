@@ -106,6 +106,10 @@ public:
     virtual void save_state() {}
     virtual void restore_state() {}
     virtual void reset_state() {}  // Reset to initial state (for reused circuits)
+    /// Under UIC, after the initial node voltages have been accepted: take
+    /// the state from the element's own IC= (the voltage of a capacitor,
+    /// the current of an inductor) when it has one
+    virtual void apply_initial_condition() {}
     /// Record an accepted transient time point. node_voltages has ground at
     /// element 0 and node k at element k (core::accepted_node_voltage), as
     /// TransientSolver::accept_devices builds it; the stamps' vectors instead

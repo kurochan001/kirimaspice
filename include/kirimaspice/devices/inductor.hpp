@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include "kirimaspice/devices/device.hpp"
+#include <optional>
 
 namespace kirimaspice::devices {
 
@@ -109,6 +110,12 @@ public:
 
     // Accessors
     Real inductance() const { return inductance_; }
+
+    /// IC= of the element line: the current from np through the inductor to
+    /// nn at the start of a transient under UIC (apply_initial_condition)
+    void set_initial_condition(Real current) { initial_current_ = current; }
+    std::optional<Real> initial_condition() const { return initial_current_; }
+    void apply_initial_condition() override;
     NodeId np() const { return nodes_[0]; }
     NodeId nn() const { return nodes_[1]; }
     BranchId branch_id() const { return branch_id_; }
@@ -144,6 +151,7 @@ public:
     Real bdf_beta0() const { return bdf_beta0_; }
 
 private:
+    std::optional<Real> initial_current_;  // IC= (A)
     std::vector<NodeId> nodes_;  // [np, nn]
     Real inductance_;    // Inductance (H)
     BranchId branch_id_; // Branch current variable index (reserved for future use)

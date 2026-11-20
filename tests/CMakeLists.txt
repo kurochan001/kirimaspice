@@ -1217,6 +1217,10 @@ add_executable(test_singular_matrix_report unit/test_singular_matrix_report.cpp)
 target_link_libraries(test_singular_matrix_report PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_singular_matrix_report PROPERTIES TIMEOUT 1200)
 
+add_executable(test_element_initial_conditions unit/test_element_initial_conditions.cpp)
+target_link_libraries(test_element_initial_conditions PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_element_initial_conditions PROPERTIES TIMEOUT 1200)
+
 add_executable(test_source_waveforms unit/test_source_waveforms.cpp)
 target_link_libraries(test_source_waveforms PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_source_waveforms PROPERTIES TIMEOUT 1200)

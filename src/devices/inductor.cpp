@@ -309,6 +309,15 @@ void Inductor::reset_state() {
     spdlog::trace("[{}] reset_state: all state variables reset to initial values", name_);
 }
 
+void Inductor::apply_initial_condition() {
+    if (!initial_current_) {
+        return;
+    }
+    // The inductor carrying its IC through all of its history
+    current_prev_ = current_prev2_ = current_prev3_ = current_gamma_ = *initial_current_;
+    flux_ = flux_prev_ = inductance_ * *initial_current_;
+}
+
 void Inductor::accept_operating_point(const DenseVector& node_voltages) {
     const Real v_np = (nodes_[0] == NODE_GND) ? 0.0 : node_voltages[nodes_[0]];
     const Real v_nn = (nodes_[1] == NODE_GND) ? 0.0 : node_voltages[nodes_[1]];
