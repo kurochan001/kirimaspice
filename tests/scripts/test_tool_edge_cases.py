@@ -67,7 +67,7 @@ class ToolEdgeCases(unittest.TestCase):
         self.assertEqual(float(data[-1].split(",")[0]), 10.0)
         simulator = next(line.removeprefix("# Simulator: ") for line in csv.splitlines()
                          if line.startswith("# Simulator: "))
-        self.assertIn(simulator + " - SPICE circuit simulator", result.stdout)
+        self.assertIn(simulator + " - SPICE circuit simulator", result.stderr)
 
     def test_failed_default_operating_point_returns_failure(self):
         # Contradictory ideal voltage sources have no operating point.
@@ -76,7 +76,7 @@ class ToolEdgeCases(unittest.TestCase):
         result = subprocess.run([str(BINARY), str(deck)], cwd=self.directory,
                                 capture_output=True, text=True, timeout=30)
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn("No analysis specified", result.stdout)
+        self.assertIn("No analysis specified", result.stderr)
 
     def test_raw_parser_rejects_truncated_or_complex_data(self):
         raw = self.directory / "data.raw"
