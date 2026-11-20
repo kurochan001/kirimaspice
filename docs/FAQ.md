@@ -143,8 +143,9 @@ whatever the method, and the IGBT does so under `trap` ([KNOWN_ISSUES](../KNOWN_
 
 ### Is the time step adaptive?
 
-Not in the program: it steps by `tstep`, and `tmax` has no effect
-([KNOWN_ISSUES](../KNOWN_ISSUES.md#analyses)). The library has an
+Not in the program: it steps by `tstep`, or by `tmax` when it is
+shorter, and onto the corners of the sources
+([TRANSIENT_ANALYSIS](TRANSIENT_ANALYSIS.md)). The library has an
 adaptive path that chooses each step from the [LTE](GLOSSARY.md#lte); the
 program does not use it yet.
 

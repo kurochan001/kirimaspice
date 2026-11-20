@@ -11,11 +11,13 @@
 // temperature-dependent device headers are in temperature_utils.cpp
 #include "kirimaspice/devices/device.hpp"                     // Base class
 #include "kirimaspice/devices/voltage_source.hpp"
+#include "kirimaspice/devices/current_source.hpp"
 #include "kirimaspice/solvers/temperature_utils.hpp"
 #include "kirimaspice/solvers/parallel_stamper.hpp"
 #include "kirimaspice/core/constants.hpp"
 #include <spdlog/spdlog.h>
 #include <fmt/format.h>
+#include <algorithm>
 #include <cmath>
 #include <chrono>
 #include <limits>
@@ -1650,7 +1652,13 @@ void TransientSolver::run_fixed_timestepping(TransientResult& result, DenseVecto
             return;
         }
 
-        Real dt_target = step_toward(t, t_stop, dt);
+        // Back onto the grid of dt after a breakpoint between two of its points
+        Real dt_grid = dt;
+        const Real next_grid = (std::floor(t / dt + 1e-6) + 1.0) * dt;
+        if (next_grid - t < dt * (1.0 - 1e-9)) {
+            dt_grid = next_grid - t;
+        }
+        Real dt_target = step_toward(t, t_stop, dt_grid);
         Real dt_attempt = dt_target;
         std::uint32_t attempt = 0;
         ConvergenceStatus status = ConvergenceStatus::SUCCESS;
@@ -1768,12 +1776,38 @@ bool TransientSolver::run_timestepping_loop(TransientResult& result, Real t_star
     }
 
     // Time-stepping loop initialization: from 0 to t_start, whose points are
-    // dropped, and on to t_stop. The first part ends on t_start (step_toward),
-    // so a point lies on it.
+    // dropped, and on to t_stop. Each part ends on its end (step_toward), so
+    // a point lies on t_start and on every breakpoint of a source: the
+    // corners of PULSE and PWL and the delays of SIN and EXP
+    // (Waveform::breakpoints), where a fixed step would cut a corner or
+    // step over a pulse.
     Real t = 0.0;
     current_time_ = 0.0;
     std::uint32_t step_count = 0;
     const Real t_first = std::min(std::max(t_start, 0.0), t_stop);
+    std::vector<Real> segment_ends;
+    for (const auto& device : circuit_.get_devices()) {
+        const devices::Waveform* waveform = nullptr;
+        if (const auto* v = dynamic_cast<const devices::VoltageSource*>(device.get())) {
+            waveform = v->waveform();
+        } else if (const auto* i = dynamic_cast<const devices::CurrentSource*>(device.get())) {
+            waveform = i->waveform();
+        }
+        if (waveform) {
+            waveform->breakpoints(t_stop, segment_ends);
+        }
+    }
+    // The breakpoints of the sources, where the integration starts again
+    std::vector<Real> restarts(segment_ends.begin(), segment_ends.end());
+    std::sort(restarts.begin(), restarts.end());
+    if (t_first > 0.0) {
+        segment_ends.push_back(t_first);
+    }
+    segment_ends.push_back(t_stop);
+    std::sort(segment_ends.begin(), segment_ends.end());
+    segment_ends.erase(std::unique(segment_ends.begin(), segment_ends.end(),
+                                   [&](Real a, Real b) { return b - a <= 1e-9 * timestep; }),
+                       segment_ends.end());
 
     // Determine timestep strategy
     bool use_adaptive = config_.transient.use_adaptive_timestep;
@@ -1783,7 +1817,7 @@ bool TransientSolver::run_timestepping_loop(TransientResult& result, Real t_star
                  use_adaptive ? "adaptive" : "fixed", dt);
 
     // Run appropriate timestepping loop
-    for (const Real segment_stop : {t_first, t_stop}) {
+    for (const Real segment_stop : segment_ends) {
         if (use_adaptive) {
             run_adaptive_timestepping(result, solution, t, segment_stop, dt, step_count);
         } else {
@@ -1791,6 +1825,13 @@ bool TransientSolver::run_timestepping_loop(TransientResult& result, Real t_star
         }
         if (result.status != ConvergenceStatus::SUCCESS) {
             return false;
+        }
+        // At a corner of a source the past says nothing of the next step:
+        // start again as at time 0, with one backward-Euler step (the
+        // trapezoidal rule, not L-stable, rings when that step is many time
+        // constants long) and the orders of BDF built up again
+        if (std::binary_search(restarts.begin(), restarts.end(), segment_stop)) {
+            history_count_ = 0;
         }
     }
 

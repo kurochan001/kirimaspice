@@ -148,18 +148,10 @@ says otherwise.
 - In the library's adaptive time-step path, which the program does not
   use, a fixed `TRAPEZOIDAL` method starts without the backward-Euler step
   that the fixed-step path takes (read in the code, not run).
-- **`tmax` of `.TRAN` has no effect.** The parser reads it, but the
-  program steps by `tstep`: `.TRAN 10u 1m 0 2u` gives 101 points, as
-  `.TRAN 10u 1m` does. ngspice-47 limits the step to `tmax` and gives 508
-  points with a largest step of 2 µs (measured at commit `d858190`).
 - **`TRTOL`, `CHGTOL`, the `LTE_*` options, `ERROR_EST` and `MAXORD` have
   no effect**, because they act on the adaptive path that the program
   does not use (read in the code).
 - **`.OP` with `.DC` runs only the sweep.**
-- **The fixed step does not stop at the corners of sources**, so a pulse
-  between two steps is missed: `V1 in 0 PULSE(0 1 1.5u 1n 1n 0.2u 10u)`
-  into 1 kΩ and 10 pF with `.TRAN 1u 5u` gives 0 V at every point, where
-  ngspice-47 reaches 1.00008 V at 1.573 µs (measured on 2026-11-21).
 - **The library's adaptive path fails on a circuit at rest with BDF2 or
   BDF3 of fixed order.** A 1 kΩ, 1 µF RC circuit started from its
   operating point (no `UIC`) fails at t = 0, the step shrinking to

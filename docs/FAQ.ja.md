@@ -123,8 +123,8 @@ IGBT も `trap` のもとではそうします（[KNOWN_ISSUES](../KNOWN_ISSUES.
 
 ### 時間刻みは可変ですか？
 
-プログラムでは可変ではありません。`tstep` で刻み、`tmax` は効きません
-（[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#解析)）。ライブラリには
+プログラムでは可変ではありません。`tstep`（`tmax` が短ければ `tmax`）で刻み、電源の角にも刻みを合わせます
+（[TRANSIENT_ANALYSIS](TRANSIENT_ANALYSIS.ja.md)）。ライブラリには
 [LTE](GLOSSARY.ja.md#lte) から刻みを選ぶ可変刻みの経路がありますが、プログラムはまだ使いません。
 
 ### 商用シミュレータと比べていますか？

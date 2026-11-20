@@ -91,7 +91,7 @@ are in seconds; `10u` is 10 microseconds and `1m` is 1 millisecond.
 | `TSTEP` | Nominal integration step, not just the output interval |
 | `TSTOP` | Last simulated time; the final step is shortened to land on it |
 | `TSTART` | Retain points starting here, after simulating from zero; default 0 |
-| `TMAX` | Parsed into `max_step`, but not enforced by the fixed-step CLI path |
+| `TMAX` | The step is `TSTEP` or `TMAX`, whichever is shorter |
 | `UIC` | For a dynamic circuit, initialize from `.IC` and zeros instead of solving DC |
 
 The CLI uses `run_fixed_timestepping`. It reduces a step when Newton
@@ -103,7 +103,8 @@ library has a separate adaptive path:
 | Ordinary step size | `TSTEP` | Adapted from `config.transient.initial_step` |
 | Shorter steps on nonlinear failure | Yes | Yes |
 | LTE acceptance/rejection | No | Yes |
-| Maximum step setting | `TMAX` has no effect here | Used by the step controller |
+| Maximum step setting | The step is at most `TMAX` | Used by the step controller |
+| Steps onto source breakpoints | Yes | Yes |
 | Automatic integration order | No | Controlled by `adaptive_order` |
 
 Three measured examples make the timing rules concrete:
@@ -112,7 +113,7 @@ Three measured examples make the timing rules concrete:
 | --- | --- |
 | `.tran 30u 100u` | 0, 30, 60, 90, 100 microseconds |
 | `.tran 10u 1m 205u` | 205, 215, ..., 995, 1000 microseconds; 81 points |
-| `.tran 10u 1m 0 2u` | 0, 10, ..., 1000 microseconds; 101 points despite `TMAX=2u` |
+| `.tran 10u 1m 0 2u` | 0, 2, ..., 1000 microseconds; 501 points |
 
 `TSTART` is an actual step boundary: the solver first ends a segment
 there, then continues. Choosing a non-grid `TSTART` can therefore change
@@ -120,11 +121,16 @@ the grid and the numerical result, rather than merely hiding some rows.
 Discarding the earlier points happens after successful time stepping;
 partial results returned after a library failure may still contain them.
 
-There is no source-breakpoint scheduler in this path. Sources are evaluated
-at attempted step endpoints; pulse edges and PWL corners do not force
-additional points. A narrow pulse can be missed entirely. Choose `TSTEP`
-to resolve the fastest relevant edge, oscillation and device dynamics,
-and verify by halving it.
+Both paths step onto every breakpoint of a source: the four corners of
+each `PULSE` period, the points of `PWL` and the delays of `SIN` and
+`EXP` (`Waveform::breakpoints`). The fixed step keeps its points at
+multiples of the step as well, so a corner between two of them adds
+points without moving the others. After a corner the next step is a
+backward-Euler step and the orders of BDF build up again, as at time 0;
+a trapezoidal step many time constants long would ring. The steps
+between corners are still fixed: choose `TSTEP` to resolve the fastest
+relevant change, oscillation and device dynamics, and verify by halving
+it.
 
 Use one `.TRAN`. The CLI runs the transient when the parser has read a
 complete `.TRAN`, continued, included or in the branch of `.IF` taken, as
@@ -132,8 +138,8 @@ any directive; a comment never selects it. Several `.TRAN` lines do not
 create independent jobs: the last one sets the times.
 
 For comparison, ngspice documents `TSTEP` as an output/suggested computing
-increment and `TMAX` as a maximum integration step. Its syntax does not
-establish the behaviour of kirimaspice's fixed-step path.
+increment and `TMAX` as a maximum integration step; ngspice chooses its
+steps, where the fixed path here takes `TSTEP` or `TMAX`.
 See the [ngspice manual: .TRAN](https://nmg.gitlab.io/ngspice-manual/analysesandoutputcontrol_batchmode/analyses/tran_transientanalysis.html).
 
 ## Initial conditions
@@ -443,8 +449,8 @@ Defaults are `lte_abstol=1e-6`, `lte_reltol=1e-3`, `trtol=7` and
 `chgtol=1e-14`. A step is accepted when its normalized estimate is at most
 `TRTOL`; the step proposal aims at an estimate of 1, with a safety factor
 and limited growth/shrinkage, then applies step bounds. A local estimate
-does not bound the global error of a whole waveform. Source breakpoints,
-device method support and startup still require checks.
+does not bound the global error of a whole waveform. Device method
+support and startup still require checks.
 
 If `method=TR_BDF2` is set, the constructor changes
 `PREDICTOR_CORRECTOR` or `COMBINED` estimation to `PHYSICAL` and logs the

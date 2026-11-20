@@ -20,6 +20,14 @@ public:
     /// @param time Simulation time (seconds)
     /// @return The value at time t
     virtual Real evaluate(Real time) const = 0;
+
+    /// The times in (0, t_stop) at which the waveform or its slope jumps,
+    /// appended to out: the transient steps onto each of them
+    /// (TransientSolver), as SPICE does at the breakpoints of a source
+    virtual void breakpoints(Real t_stop, std::vector<Real>& out) const {
+        (void)t_stop;
+        (void)out;
+    }
 };
 
 /// Sinusoidal waveform, SPICE syntax SIN(VO VA FREQ TD THETA PHASE):
@@ -28,6 +36,12 @@ public:
 /// with PHASE in degrees (ngspice-47 holds VO + VA sin(PHASE) before TD too)
 class SinWaveform : public Waveform {
 public:
+    void breakpoints(Real t_stop, std::vector<Real>& out) const override {
+        if (delay_ > 0.0 && delay_ < t_stop) {
+            out.push_back(delay_);
+        }
+    }
+
     SinWaveform(Real offset, Real amplitude, Real frequency,
                 Real delay = 0.0, Real damping = 0.0, Real phase = 0.0)
         : offset_(offset)
@@ -70,6 +84,26 @@ private:
 /// - PER: Period (s)
 class PulseWaveform : public Waveform {
 public:
+    /// The four corners of each period: TD + k PER + {0, TR, TR + PW, TR + PW + TF}
+    void breakpoints(Real t_stop, std::vector<Real>& out) const override {
+        const Real corners[] = {0.0, rise_time_, rise_time_ + pulse_width_,
+                                rise_time_ + pulse_width_ + fall_time_};
+        for (std::size_t k = 0;; ++k) {
+            const Real start = delay_ + static_cast<Real>(k) * period_;
+            if (start >= t_stop) {
+                break;
+            }
+            for (const Real c : corners) {
+                if (start + c > 0.0 && start + c < t_stop) {
+                    out.push_back(start + c);
+                }
+            }
+            if (period_ <= 0.0) {
+                break;  // one pulse
+            }
+        }
+    }
+
     PulseWaveform(Real v1, Real v2, Real delay, Real rise_time,
                   Real fall_time, Real pulse_width, Real period)
         : v1_(v1)
@@ -129,6 +163,14 @@ private:
 /// Values before T1 are V1, values after last time point are held constant
 class PWLWaveform : public Waveform {
 public:
+    void breakpoints(Real t_stop, std::vector<Real>& out) const override {
+        for (const auto& [time, value] : points_) {
+            if (time > 0.0 && time < t_stop) {
+                out.push_back(time);
+            }
+        }
+    }
+
     /// Construct from time-voltage pairs
     /// @param points Vector of (time, voltage) pairs, must be sorted by time
     PWLWaveform(std::vector<std::pair<Real, Real>> points)
@@ -179,6 +221,14 @@ class ExpWaveform : public Waveform {
 public:
     ExpWaveform(Real v1, Real v2, Real td1, Real tau1, Real td2, Real tau2)
         : v1_(v1), v2_(v2), td1_(td1), tau1_(tau1), td2_(td2), tau2_(tau2) {}
+
+    void breakpoints(Real t_stop, std::vector<Real>& out) const override {
+        for (const Real t : {td1_, td2_}) {
+            if (t > 0.0 && t < t_stop) {
+                out.push_back(t);
+            }
+        }
+    }
 
     Real evaluate(Real time) const override {
         if (time < td1_) {

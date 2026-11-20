@@ -83,6 +83,17 @@ class CliAnalyses(unittest.TestCase):
         self.assertNotIn("Transient Analysis Results", result.stdout)
         self.assertEqual(plots, ["Transient Analysis"])
 
+    def test_tmax_limits_the_step(self):
+        # TSTEP 10 us, TMAX 2 us over 1 ms: steps of 2 us, 501 points
+        deck = self.directory / "circuit.cir"
+        deck.write_text("t\nV1 in 0 1\nR1 in out 1k\nC1 out 0 1n\n.tran 10u 1m 0 2u\n.end\n")
+        raw = self.directory / "out.raw"
+        result = subprocess.run([str(BINARY), str(deck), "--raw-out", str(raw)],
+                                cwd=self.directory, capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        points = [line for line in raw.read_text().splitlines() if line.startswith("No. Points:")]
+        self.assertEqual(points, ["No. Points: 501"])
+
     def test_options_alone_is_no_analysis_line(self):
         result, plots = self.run_deck("t\nV1 in 0 1\nR1 in 0 1k\n.options reltol=1e-4\n.end\n")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

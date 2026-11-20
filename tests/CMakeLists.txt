@@ -1255,6 +1255,10 @@ add_executable(test_node_names unit/test_node_names.cpp)
 target_link_libraries(test_node_names PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_node_names PROPERTIES TIMEOUT 1200)
 
+add_executable(test_transient_breakpoints unit/test_transient_breakpoints.cpp)
+target_link_libraries(test_transient_breakpoints PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_transient_breakpoints PROPERTIES TIMEOUT 1200)
+
 add_executable(test_source_waveforms unit/test_source_waveforms.cpp)
 target_link_libraries(test_source_waveforms PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_source_waveforms PROPERTIES TIMEOUT 1200)

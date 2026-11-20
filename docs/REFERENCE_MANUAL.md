@@ -390,7 +390,7 @@ parser stores it, but the program does not use it (the library can).
 | --- | --- | --- |
 | `.OP` | `.OP` | used: operating point (see [below](#how-the-program-chooses-analyses)) |
 | `.DC` | `.DC <src> <start> <stop> <step> [<src2> <start2> <stop2> <step2>]` | used; `<src>` is a voltage or current source and is swept for each value of `<src2>`; a zero step is an error |
-| `.TRAN` | `.TRAN <tstep> <tstop> [<tstart> [<tmax>]] [UIC]` | used; the program steps by `tstep`, and `tmax` is read but has no effect; as in SPICE, the simulation runs from 0 and keeps the points from `tstart` on, with a point on `tstart` |
+| `.TRAN` | `.TRAN <tstep> <tstop> [<tstart> [<tmax>]] [UIC]` | used; the program steps by `tstep`, or by `tmax` when it is shorter, and onto every breakpoint of a source (the corners of `PULSE` and `PWL`, the delays of `SIN` and `EXP`); as in SPICE, the simulation runs from 0 and keeps the points from `tstart` on, with a point on `tstart` |
 | `.AC` | `.AC DEC\|OCT\|LIN <n> <fstart> <fstop>` | used; `DEC`, `OCT`: round(`<n>` × the number of decades or octaves) + 1 points, evenly spaced in log from `<fstart>` to `<fstop>`, both included (`.AC DEC 3 10 50` gives 10, 22.36, 50 Hz, where ngspice-47 gives 10, 21.54, 46.42 Hz); `LIN`: `<n>` points in all; `<n>` is a whole number of at least 1, and another is an error |
 | `.TEMP` | `.TEMP <t1> [<t2> ...]` (°C) | used; one value is `.OPTIONS TEMP=<t1>` (as in ngspice-47, which takes one value only); with several, every analysis runs at each value (see [below](#how-the-program-chooses-analyses)) |
 | `.OPTIONS`, `.OPTION` | `.OPTIONS <name>=<value> ...` | used; see [Options](#options) |

@@ -125,8 +125,9 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
 
 ### Transient
 
-- [ ] **The time step.** The program steps by `tstep`, fixed: `tmax` has
-  no effect and there is no control by the truncation error. ngspice
+- [ ] **The time step.** The program steps by `tstep` (or `tmax` when it
+  is shorter), fixed, and onto the corners of the sources; there is no
+  control by the truncation error. ngspice
   chooses its steps, so give kirimaspice a `tstep` small enough for the
   fastest change of the circuit.
 - [ ] **The first step.** With the trapezoidal rule, the first step is a
