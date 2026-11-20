@@ -260,14 +260,17 @@ instance parameter overrides the model's.
 | --- | --- |
 | `D` | `IS` (1e-14 A), `N` (1), `CJO` or `CJ0` (0), `VJ` or `PB` (1 V), `M` or `MJ` (0.5), the defaults of ngspice-47; `IS` and `N` also on the element line; other names, on the card or the line, are named in a warning and not used |
 | `Q` | `IS` (1e-14 A), `BF` (100), `NF` or `N` on the instance (1), `BR` (1), `NR` (1), `VAF` or `VA` (∞), `VAR` or `VB` (∞), `IKF` or `IK` (∞), `IKR` (∞), `RB`, `RBM`, `IRB` (0), `ISE` (0), `NE` (1.5), `ISC` (0), `NC` (2), `CJE` (0), `VJE` or `PE` (0.75 V), `MJE` or `ME` (0.33), `CJC` (0), `VJC` or `PC` (0.75 V), `MJC` or `MC` (0.33), `TF`, `TR` (0), `XTI` (3), `XTB` (0), `EG` (1.11 eV), `TNOM` (27 °C), noise `KF` (0), `AF` (1), `FF` (1); the card first, then the element line |
-| `M`, level 1 | `KP` (2e-5 A/V²), `W` (10 µm), `L` (1 µm), `VTO` or `VTH` on the card and `VTH` on the element line, with the device's sign (0.7 V for NMOS, −0.7 V for PMOS; a positive one makes a depletion PMOS), noise `KF` (0), `AF` (1), `EF` (1), `GAMMA` (0.667) |
+| `M`, level 1 | with a card, the defaults of ngspice-47: `KP` (2e-5 A/V²), `W`, `L` (100 µm), `VTO` or `VTH` on the card and `VTH` on the element line, with the device's sign (0; a positive one makes a depletion PMOS), `GAMMA` (0, the body effect), `PHI` (0.6 V), `LAMBDA` (0), noise `KF` (0), `AF` (1), `EF` (1); other names on the card are named in a warning. The line's `NMOS` or `PMOS` without a card gives `W` 10 µm, `L` 1 µm and `VTH` ±0.7 V |
 | `Z` | `LEVEL`/`MODEL` (formula), `BETA` (0.1), `VTO` (−2 V; +2 V when the element line says `PMF`), `LAMBDA` (0.05), `ALPHA` (2), `B` (0.3), `VP` (3 V), `CGS` (1 pF), `CGD` (0.5 pF), `CDS` (0.1 pF), `KF`, `AF`, `EF`, `TNOM` (27 °C) |
 | `S` | `VBF` (400 V), `IGT` (20 mA), `IH` (10 mA), `IL` (30 mA), `VGT` (1 V), `RON` (0.1 Ω), `VTM` (1.5 V), `DV_DT` (10), `TNOM` (27 °C) |
 | `Y` | `VBO` (400 V), `IGT` (20 mA), `IH` (10 mA), `VGT` (1 V), `RON` (0.1 Ω), `VTM` (1.5 V), `DV_DT` or `DVDT` (10), `TNOM` (27 °C) |
 
-- The level-1 MOSFET has no bulk terminal in its equations, no channel
-  length modulation and no capacitances. Its `GAMMA` is the coefficient of
-  channel thermal noise, not the body-effect coefficient of SPICE.
+- The level-1 MOSFET is SPICE's: `Id = KP/2 W/L (VGS − Vth)² (1 + LAMBDA
+  VDS)` in saturation and `KP W/L ((VGS − Vth) VDS − VDS²/2) (1 + LAMBDA
+  VDS)` in the linear region, with `Vth = VTO + GAMMA (√(PHI − VBS) −
+  √PHI)`, and `√PHI − VBS/(2√PHI)` in place of the root for a forward
+  biased body, as ngspice-47 gives. Its channel thermal noise is
+  4kT (2/3) gm. It has no capacitances and no bulk junctions.
 - `S` and `Y` take parameters only on the element line: `.MODEL` has no
   SCR or TRIAC type, and a model name on their line that is not defined
   before them is ignored without a message.
@@ -300,7 +303,7 @@ For `NMOS` and `PMOS`, `LEVEL` selects the device:
 
 | `LEVEL` | Device | Unknown card parameters | Element-line parameters |
 | --- | --- | --- | --- |
-| 1 (default) | level 1 (square law) | ignored without a message | `KP`, `W`, `L`, `VTH`, `KF`, `AF`, `EF`, `GAMMA` |
+| 1 (default) | level 1 (square law) | warning | `KP`, `W`, `L`, `VTO`, `VTH`, `GAMMA`, `PHI`, `LAMBDA`, `KF`, `AF`, `EF` |
 | 3 | SPICE's level 3 | warning | `W`, `L` |
 | 9 | BSIM1, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W`, `L` |
 | 8, 49 | BSIM3, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W`, `L` |

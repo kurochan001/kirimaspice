@@ -5,6 +5,7 @@
 // Unified MOSFET Level 1 (Shichman-Hodges) template implementation
 #include "kirimaspice/devices/mosfet_level1.hpp"
 #include <spdlog/spdlog.h>
+#include <algorithm>
 #include <cmath>
 #include <stdexcept>
 
@@ -19,6 +20,7 @@ MOSFET_Level1<P>::MOSFET_Level1(DeviceId id, const std::string& name,
                                   Real kt1, Real kt2, Real ute, Real tnom)
     : MOSFET_Base(id, name, (P == Polarity::N) ? DeviceType::MOSFET_N : DeviceType::MOSFET_P)
     , nodes_{drain, gate, source}
+    , bulk_(source)
     , kp_(kp)
     , w_(w)
     , l_(l)
@@ -88,106 +90,93 @@ void MOSFET_Level1<P>::set_temperature(Real temp_kelvin) {
 }
 
 template<Polarity P>
-typename MOSFET_Level1<P>::Region MOSFET_Level1<P>::get_region(Real v_gs_eff, Real v_ds_eff) const {
-    Real vth_eff = get_effective_threshold();
+void MOSFET_Level1<P>::set_body(NodeId bulk, Real gamma, Real phi, Real lambda) {
+    if (gamma < 0.0 || phi <= 0.0 || lambda < 0.0) {
+        throw std::runtime_error("MOSFET level 1 needs GAMMA >= 0, PHI > 0 and LAMBDA >= 0: " + name_);
+    }
+    bulk_ = bulk;
+    gamma_body_ = gamma;
+    phi_ = phi;
+    lambda_ = lambda;
+    nodes_.resize(3);
+    if (bulk != nodes_[2]) {
+        nodes_.push_back(bulk);
+    }
+}
 
+template<Polarity P>
+typename MOSFET_Level1<P>::Threshold MOSFET_Level1<P>::threshold(Real v_bs_eff) const {
+    // VTO + GAMMA (sqrt(PHI - VBS) - sqrt(PHI)); with the body forward
+    // biased, the tangent of the square root at VBS = 0, not below 0, as
+    // ngspice-47 gives (VTO 0.7 V, GAMMA 0.5, PHI 0.6 V: 4.182331e-4 A at
+    // VBS = 0.3 V for the device of tests/unit/test_mosfet_level1_spice.cpp)
+    const Real sqrt_phi = std::sqrt(phi_);
+    Real sarg = 0.0;
+    Real dsarg = 0.0;
+    if (v_bs_eff <= 0.0) {
+        sarg = std::sqrt(phi_ - v_bs_eff);
+        dsarg = -0.5 / sarg;
+    } else {
+        sarg = sqrt_phi - v_bs_eff / (2.0 * sqrt_phi);
+        dsarg = -0.5 / sqrt_phi;
+        if (sarg < 0.0) {
+            sarg = 0.0;
+            dsarg = 0.0;
+        }
+    }
+    return {get_effective_threshold() + gamma_body_ * (sarg - sqrt_phi), gamma_body_ * dsarg};
+}
+
+template<Polarity P>
+typename MOSFET_Level1<P>::ChannelCurrent MOSFET_Level1<P>::forward_current(Real v_gs_eff,
+                                                                           Real v_ds_eff,
+                                                                           Real v_bs_eff) const {
+    // Shichman-Hodges with channel-length modulation (1 + LAMBDA VDS) in
+    // both regions, as SPICE's level 1; gmb = -gm dVth/dVBS
+    const Threshold th = threshold(v_bs_eff);
+    const Real vov = v_gs_eff - th.vth;
+    if (vov <= 0.0) {
+        return {0.0, gmin_default, gmin_default, 0.0};  // cutoff
+    }
+    const Real vds = std::max(v_ds_eff, 0.0);
+    const Real clm = 1.0 + lambda_ * vds;
+    Real id, gm, gds;
+    if (vds < vov) {
+        const Real core = vov * vds - 0.5 * vds * vds;
+        id = beta_ * core * clm;
+        gm = beta_ * vds * clm;
+        gds = beta_ * (vov - vds) * clm + beta_ * core * lambda_;
+    } else {
+        id = 0.5 * beta_ * vov * vov * clm;
+        gm = beta_ * vov * clm;
+        gds = 0.5 * beta_ * vov * vov * lambda_;
+    }
+    const Real gmb = -gm * th.dvth_dvbs;
+    return {id, std::max(gm, gmin_default), std::max(gds, gmin_default), gmb};
+}
+
+template<Polarity P>
+typename MOSFET_Level1<P>::Region MOSFET_Level1<P>::get_region(Real v_gs_eff, Real v_ds_eff) const {
+    const Real vth_eff = threshold(0.0).vth;
     if (v_gs_eff < vth_eff) {
         return Region::CUTOFF;
     }
-
-    Real vds_sat = v_gs_eff - vth_eff;  // Saturation voltage
-
-    if (v_ds_eff < vds_sat) {
-        return Region::LINEAR;
-    } else {
-        return Region::SATURATION;
-    }
+    return (v_ds_eff < v_gs_eff - vth_eff) ? Region::LINEAR : Region::SATURATION;
 }
 
 template<Polarity P>
 Real MOSFET_Level1<P>::get_drain_current(Real v_gs_eff, Real v_ds_eff) const {
-    // Shichman-Hodges Level 1 model
-    Real vth_eff = get_effective_threshold();
-
-    // Region 1: Cutoff
-    if (v_gs_eff < vth_eff) {
-        return 0.0;
-    }
-
-    Real vov = v_gs_eff - vth_eff;  // Overdrive voltage
-    Real vds_sat = vov;              // Saturation voltage
-
-    // Ensure Vds_eff >= 0 (forward current only)
-    if (v_ds_eff < 0.0) {
-        v_ds_eff = 0.0;
-    }
-
-    // Region 2: Linear (Triode)
-    if (v_ds_eff < vds_sat) {
-        // Id = β × ((Vgs - Vth) × Vds - Vds²/2)
-        return beta_ * (vov * v_ds_eff - 0.5 * v_ds_eff * v_ds_eff);
-    }
-
-    // Region 3: Saturation
-    // Id = (β/2) × (Vgs - Vth)²
-    return 0.5 * beta_ * vov * vov;
+    return forward_current(v_gs_eff, v_ds_eff, 0.0).id;
 }
 
 template<Polarity P>
 Real MOSFET_Level1<P>::get_transconductance(Real v_gs_eff, Real v_ds_eff) const {
-    // gm = dId/dVgs
-    Real vth_eff = get_effective_threshold();
-
-    // Cutoff region
-    if (v_gs_eff < vth_eff) {
-        return gmin_default;
-    }
-
-    Real vov = v_gs_eff - vth_eff;
-    Real vds_sat = vov;
-
-    // Ensure Vds_eff >= 0
-    if (v_ds_eff < 0.0) {
-        v_ds_eff = 0.0;
-    }
-
-    // Linear region: gm = β × Vds
-    if (v_ds_eff < vds_sat) {
-        Real gm = beta_ * v_ds_eff;
-        return std::max(gm, gmin_default);
-    }
-
-    // Saturation region: gm = β × (Vgs - Vth)
-    Real gm = beta_ * vov;
-    return std::max(gm, gmin_default);
+    return forward_current(v_gs_eff, v_ds_eff, 0.0).gm;
 }
 
 template<Polarity P>
 Real MOSFET_Level1<P>::get_output_conductance(Real v_gs_eff, Real v_ds_eff) const {
-    // gds = dId/dVds
-    Real vth_eff = get_effective_threshold();
-
-    // Cutoff region
-    if (v_gs_eff < vth_eff) {
-        return gmin_default;
-    }
-
-    Real vov = v_gs_eff - vth_eff;
-    Real vds_sat = vov;
-
-    // Ensure Vds_eff >= 0
-    if (v_ds_eff < 0.0) {
-        v_ds_eff = 0.0;
-    }
-
-    // Linear region: gds = β × (Vgs - Vth - Vds)
-    if (v_ds_eff < vds_sat) {
-        Real gds = beta_ * (vov - v_ds_eff);
-        return std::max(gds, gmin_default);
-    }
-
-    // Saturation region: gds = 0 (ideal), add gmin for stability
-    return gmin_default;
+    return forward_current(v_gs_eff, v_ds_eff, 0.0).gds;
 }
 
 template<Polarity P>
@@ -234,19 +223,16 @@ void MOSFET_Level1<P>::stamp_gmin(MNASystem& mna) const {
 
 template<Polarity P>
 typename MOSFET_Level1<P>::ChannelCurrent MOSFET_Level1<P>::channel_current(Real v_gs_eff,
-                                                                           Real v_ds_eff) const {
+                                                                           Real v_ds_eff,
+                                                                           Real v_bs_eff) const {
     if (v_ds_eff >= 0.0) {
-        return {get_drain_current(v_gs_eff, v_ds_eff), get_transconductance(v_gs_eff, v_ds_eff),
-                get_output_conductance(v_gs_eff, v_ds_eff)};
+        return forward_current(v_gs_eff, v_ds_eff, v_bs_eff);
     }
-    // Reverse mode: the source acts as the drain. With VGD = VGS - VDS and
-    // VSD = -VDS, id = -Id(VGD, VSD), so d id/d VGS = -gm' and
-    // d id/d VDS = gm' + gds'.
-    const Real v_gd = v_gs_eff - v_ds_eff;
-    const Real v_sd = -v_ds_eff;
-    const Real gm_r = get_transconductance(v_gd, v_sd);
-    const Real gds_r = get_output_conductance(v_gd, v_sd);
-    return {-get_drain_current(v_gd, v_sd), -gm_r, gm_r + gds_r};
+    // Reverse mode: the source acts as the drain. With VGD = VGS - VDS,
+    // VSD = -VDS and VBD = VBS - VDS, id = -Id(VGD, VSD, VBD), so
+    // d id/d VGS = -gm', d id/d VBS = -gmb' and d id/d VDS = gm' + gds' + gmb'.
+    const ChannelCurrent r = forward_current(v_gs_eff - v_ds_eff, -v_ds_eff, v_bs_eff - v_ds_eff);
+    return {-r.id, -r.gm, r.gm + r.gds + r.gmb, -r.gmb};
 }
 
 template<Polarity P>
@@ -256,20 +242,25 @@ void MOSFET_Level1<P>::stamp_dc_nonlinear(MNASystem& mna,
     NodeId ng = nodes_[1];  // Gate
     NodeId ns = nodes_[2];  // Source
 
+    const NodeId nb = bulk_;
+
     // Get terminal voltages
     Real vd = (nd == NODE_GND) ? 0.0 : node_voltages[nd - 1];
     Real vg = (ng == NODE_GND) ? 0.0 : node_voltages[ng - 1];
     Real vs = (ns == NODE_GND) ? 0.0 : node_voltages[ns - 1];
+    Real vb = (nb == NODE_GND) ? 0.0 : node_voltages[nb - 1];
 
     // Compute effective voltages based on polarity
     Real v_gs_eff, v_ds_eff;
     compute_effective_voltages(vd, vg, vs, v_gs_eff, v_ds_eff);
+    const Real v_bs_eff = effective_vbs(vb, vs);
 
     // Calculate drain current and small-signal parameters (physical values)
-    const ChannelCurrent cc = channel_current(v_gs_eff, v_ds_eff);
+    const ChannelCurrent cc = channel_current(v_gs_eff, v_ds_eff, v_bs_eff);
     Real id_physical = cc.id;
     Real gm = cc.gm;
     Real gds = cc.gds;
+    Real gmb = cc.gmb;
 
     // Convert to MNA convention
     // For N-channel: id_mna = id_physical (drain to source is positive)
@@ -286,14 +277,14 @@ void MOSFET_Level1<P>::stamp_dc_nonlinear(MNASystem& mna,
 
     Real id_eq;
     if constexpr (P == Polarity::N) {
-        id_eq = id - gm * v_gs_eff - gds * v_ds_eff;
+        id_eq = id - gm * v_gs_eff - gds * v_ds_eff - gmb * v_bs_eff;
     } else {
         // For P-channel: id_mna = -id_physical
         // The equivalent current is computed from physical current and effective voltages
         // id_eq = id_mna - gm × (Vg - Vs) - gds × (Vd - Vs)
         //       = -id_physical - gm × (-(Vs - Vg)) - gds × (-(Vs - Vd))
         //       = -id_physical + gm × v_gs_eff + gds × v_ds_eff
-        id_eq = id + gm * v_gs_eff + gds * v_ds_eff;
+        id_eq = id + gm * v_gs_eff + gds * v_ds_eff + gmb * v_bs_eff;
     }
 
     Region region = get_region(v_gs_eff, v_ds_eff);
@@ -339,6 +330,19 @@ void MOSFET_Level1<P>::stamp_dc_nonlinear(MNASystem& mna,
         mna.G.add_entry(ns_idx, ns_idx, gds);
     }
 
+    // Stamp the body transconductance gmb (bulk-source voltage)
+    const int nb_idx = (nb == NODE_GND) ? -1 : static_cast<int>(nb - 1);
+    if (gmb != 0.0) {
+        if (nd_idx >= 0) {
+            if (nb_idx >= 0) mna.G.add_entry(nd_idx, nb_idx, gmb);
+            if (ns_idx >= 0) mna.G.add_entry(nd_idx, ns_idx, -gmb);
+        }
+        if (ns_idx >= 0) {
+            if (nb_idx >= 0) mna.G.add_entry(ns_idx, nb_idx, -gmb);
+            mna.G.add_entry(ns_idx, ns_idx, gmb);
+        }
+    }
+
     // Stamp RHS (equivalent current source)
     if (nd_idx >= 0) {
         mna.b[nd_idx] -= id_eq;
@@ -371,6 +375,7 @@ void MOSFET_Level1<P>::stamp_transient(MNASystem& mna,
     const int nd_idx = (nodes_[0] == NODE_GND) ? -1 : static_cast<int>(nodes_[0] - 1);
     const int ng_idx = (nodes_[1] == NODE_GND) ? -1 : static_cast<int>(nodes_[1] - 1);
     const int ns_idx = (nodes_[2] == NODE_GND) ? -1 : static_cast<int>(nodes_[2] - 1);
+    const int nb_idx = (bulk_ == NODE_GND) ? -1 : static_cast<int>(bulk_ - 1);
     auto companion = [&](Real cap, int n1, int n2, Real v_prev) {
         if (cap <= 0.0) {
             return;
@@ -380,7 +385,7 @@ void MOSFET_Level1<P>::stamp_transient(MNASystem& mna,
     };
     companion(cgso_ * w_, ng_idx, ns_idx, vgs_prev_);
     companion(cgdo_ * w_, ng_idx, nd_idx, vgd_prev_);
-    companion(cgbo_ * l_, ng_idx, ns_idx, vgb_prev_);
+    companion(cgbo_ * l_, ng_idx, nb_idx, vgb_prev_);
 }
 
 template<Polarity P>
@@ -400,19 +405,23 @@ void MOSFET_Level1<P>::stamp_ac(ComplexMNASystem& sys, Real omega,
     NodeId ng_node = nodes_[1];
     NodeId ns_node = nodes_[2];
 
+    const NodeId nb_node = bulk_;
+
     // Get DC operating point voltages
     Real v_d = (nd_node == NODE_GND) ? 0.0 : dc_solution[nd_node - 1];
     Real v_g = (ng_node == NODE_GND) ? 0.0 : dc_solution[ng_node - 1];
     Real v_s = (ns_node == NODE_GND) ? 0.0 : dc_solution[ns_node - 1];
+    Real v_b = (nb_node == NODE_GND) ? 0.0 : dc_solution[nb_node - 1];
 
     // Compute effective voltages
     Real v_gs_eff, v_ds_eff;
     compute_effective_voltages(v_d, v_g, v_s, v_gs_eff, v_ds_eff);
 
     // Calculate small-signal parameters
-    const ChannelCurrent cc = channel_current(v_gs_eff, v_ds_eff);
+    const ChannelCurrent cc = channel_current(v_gs_eff, v_ds_eff, effective_vbs(v_b, v_s));
     Real gm = cc.gm;
     Real gds = cc.gds;
+    Real gmb = cc.gmb;
     Real cgs = get_gate_source_capacitance(v_gs_eff, v_ds_eff);
     Real cgd = get_gate_drain_capacitance(v_gs_eff, v_ds_eff);
 
@@ -488,6 +497,20 @@ void MOSFET_Level1<P>::stamp_ac(ComplexMNASystem& sys, Real omega,
         }
         sys.Y.add_entry(ns_idx, ns_idx, +gmvgs);
     }
+
+    // Stamp the body transconductance: gmb × (Vb - Vs)
+    const int nb_idx = (nb_node == NODE_GND) ? -1 : static_cast<int>(nb_node - 1);
+    if (gmb != 0.0) {
+        const Complex y_mb(gmb, 0.0);
+        if (nd_idx >= 0) {
+            if (nb_idx >= 0) sys.Y.add_entry(nd_idx, nb_idx, y_mb);
+            if (ns_idx >= 0) sys.Y.add_entry(nd_idx, ns_idx, -y_mb);
+        }
+        if (ns_idx >= 0) {
+            if (nb_idx >= 0) sys.Y.add_entry(ns_idx, nb_idx, -y_mb);
+            sys.Y.add_entry(ns_idx, ns_idx, y_mb);
+        }
+    }
 }
 
 template<Polarity P>
@@ -503,10 +526,12 @@ std::vector<NoiseSource> MOSFET_Level1<P>::get_noise_sources(const DenseVector& 
     Real V_g = (gate_node == NODE_GND) ? 0.0 : dc_solution[gate_node - 1];
     Real V_s = (source_node == NODE_GND) ? 0.0 : dc_solution[source_node - 1];
 
+    const Real V_b = (bulk_ == NODE_GND) ? 0.0 : dc_solution[bulk_ - 1];
+
     Real v_gs_eff, v_ds_eff;
     compute_effective_voltages(V_d, V_g, V_s, v_gs_eff, v_ds_eff);
 
-    const ChannelCurrent cc = channel_current(v_gs_eff, v_ds_eff);
+    const ChannelCurrent cc = channel_current(v_gs_eff, v_ds_eff, effective_vbs(V_b, V_s));
     Real I_d = std::abs(cc.id);
     Real g_m = std::abs(cc.gm);
 
@@ -583,10 +608,10 @@ void MOSFET_Level1<P>::accept_solution(const DenseVector& node_voltages) {
     vgd_prev2_ = vgd_prev_;
     vgd_prev_ = vgd_new;
 
-    // G-B junction (body = source)
+    // G-B overlap, to the bulk
     Real vgb_new = 0.0;
     if (ng_idx >= 0) vgb_new += node_voltages[ng_idx];
-    if (ns_idx >= 0) vgb_new -= node_voltages[ns_idx];
+    if (bulk_ != NODE_GND) vgb_new -= node_voltages[bulk_];
 
     if (cgbo_ > 0.0) {
         Real cgb = cgbo_ * l_;
@@ -645,7 +670,7 @@ Real MOSFET_Level1<P>::get_physical_lte(Real chgtol, const DenseVector& node_vol
     if (cgbo_ > 0.0) {
         Real vgb_now = 0.0;
         if (ng_idx >= 0) vgb_now += node_voltages[ng_idx];
-        if (ns_idx >= 0) vgb_now -= node_voltages[ns_idx];
+        if (bulk_ != NODE_GND) vgb_now -= node_voltages[bulk_];
 
         Real cgb = cgbo_ * l_;
         Real charge_gb_now = cgb * vgb_now;

@@ -23,16 +23,22 @@ namespace kirimaspice::devices {
 ///    Id = 0
 ///
 /// 2. Linear (Vgs_eff > Vth_eff, Vds_eff < Vgs_eff - Vth_eff):
-///    Id = Kp × (W/L) × ((Vgs_eff - Vth_eff) × Vds_eff - Vds_eff²/2)
+///    Id = Kp × (W/L) × ((Vgs_eff - Vth_eff) × Vds_eff - Vds_eff²/2) × (1 + LAMBDA × Vds_eff)
 ///
 /// 3. Saturation (Vgs_eff > Vth_eff, Vds_eff >= Vgs_eff - Vth_eff):
-///    Id = (Kp/2) × (W/L) × (Vgs_eff - Vth_eff)²
+///    Id = (Kp/2) × (W/L) × (Vgs_eff - Vth_eff)² × (1 + LAMBDA × Vds_eff)
 ///
-/// For N-channel: Vgs_eff = Vg - Vs, Vds_eff = Vd - Vs, Vth_eff = Vth
-/// For P-channel: Vgs_eff = Vs - Vg, Vds_eff = Vs - Vd, Vth_eff = |Vth|
+/// with the threshold of the body effect,
+///    Vth_eff = VTO_eff + GAMMA × (sqrt(PHI - Vbs_eff) - sqrt(PHI)),
+/// and for Vbs_eff > 0, sqrt(PHI) - Vbs_eff / (2 sqrt(PHI)), not below 0,
+/// in place of sqrt(PHI - Vbs_eff) (threshold()).
 ///
-/// Note: This is a simplified 3-terminal model (drain, gate, source).
-/// Body/substrate is assumed to be connected to source (Vbs = 0).
+/// For N-channel: Vgs_eff = Vg - Vs, Vds_eff = Vd - Vs, Vbs_eff = Vb - Vs, Vth_eff = Vth
+/// For P-channel: Vgs_eff = Vs - Vg, Vds_eff = Vs - Vd, Vbs_eff = Vs - Vb, Vth_eff = -Vth
+///
+/// The bulk is the source, and GAMMA and LAMBDA are 0, until set_body
+/// gives them (the parser does, for every level-1 element). The bulk
+/// junctions of SPICE's level 1 are not modelled.
 template<Polarity P>
 class MOSFET_Level1 : public MOSFET_Base {
 public:
@@ -96,6 +102,12 @@ public:
     NodeId drain() const { return nodes_[0]; }
     NodeId gate() const { return nodes_[1]; }
     NodeId source() const { return nodes_[2]; }
+    NodeId bulk() const { return bulk_; }
+
+    /// The bulk node, GAMMA (body-effect coefficient, V^0.5), PHI (surface
+    /// potential, V) and LAMBDA (channel-length modulation, 1/V) of SPICE's
+    /// level 1
+    void set_body(NodeId bulk, Real gamma, Real phi, Real lambda);
 
     /// Set threshold voltage (for temperature compensation or parameter sweeps)
     void set_threshold_voltage(Real vth);
@@ -115,8 +127,9 @@ public:
         Real id = 0.0;
         Real gm = 0.0;   ///< d id / d VGS_eff
         Real gds = 0.0;  ///< d id / d VDS_eff
+        Real gmb = 0.0;  ///< d id / d VBS_eff
     };
-    ChannelCurrent channel_current(Real v_gs_eff, Real v_ds_eff) const;
+    ChannelCurrent channel_current(Real v_gs_eff, Real v_ds_eff, Real v_bs_eff = 0.0) const;
 
     Real get_drain_current(Real v_gs_eff, Real v_ds_eff) const;
     Real get_transconductance(Real v_gs_eff, Real v_ds_eff) const;
@@ -157,6 +170,21 @@ protected:
         }
     }
 
+    /// The threshold at Vbs_eff in the device's own terms, and its slope
+    struct Threshold {
+        Real vth = 0.0;
+        Real dvth_dvbs = 0.0;
+    };
+    Threshold threshold(Real v_bs_eff) const;
+
+    /// The current and derivatives of the device in forward mode (Vds_eff >= 0)
+    ChannelCurrent forward_current(Real v_gs_eff, Real v_ds_eff, Real v_bs_eff) const;
+
+    /// Vbs_eff from the terminal voltages: vb - vs for N, vs - vb for P
+    Real effective_vbs(Real vb, Real vs) const {
+        return (P == Polarity::N) ? vb - vs : vs - vb;
+    }
+
     /// Convert terminal voltages to effective Vgs and Vds
     /// For N-channel: vgs = vg - vs, vds = vd - vs
     /// For P-channel: vgs_eff = vs - vg (= vsg), vds_eff = vs - vd (= vsd)
@@ -175,7 +203,11 @@ private:
     /// Stamp small conductance gmin for numerical stability
     void stamp_gmin(MNASystem& mna) const;
 
-    std::vector<NodeId> nodes_;  // [drain, gate, source]
+    std::vector<NodeId> nodes_;  // [drain, gate, source], and bulk when it is another node
+    NodeId bulk_;                // the source until set_body
+    Real gamma_body_ = 0.0;      // GAMMA [V^0.5]
+    Real phi_ = 0.6;             // PHI [V]
+    Real lambda_ = 0.0;          // LAMBDA [1/V]
     Real kp_;    // Process transconductance parameter [A/V²]
     Real w_;     // Channel width [m]
     Real l_;     // Channel length [m]

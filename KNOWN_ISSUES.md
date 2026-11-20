@@ -102,10 +102,9 @@ document also lists differences not decided there.
 - **The diode reads `IS`, `N`, `CJO`, `VJ` and `M` only, not `RS`, `TT`,
   `BV`, `IBV` and the others, which it names in a warning; the bipolar
   transistor does not read `RE`, `RC`, `CJS`, `XTF`, `VTF`, `ITF`, `PTF`,
-  `XCJC` and `FC`; the level-1 MOSFET has no bulk terminal in its
-  equations and no `LAMBDA`, and its `GAMMA` is a noise coefficient.**
-  Other parameters on the cards of bipolar transistors, level 1 and BSIM4
-  are ignored without a warning; the other MOSFET levels warn about parameters they do not know
+  `XCJC` and `FC`; the level-1 MOSFET has no capacitances and no bulk
+  junctions.** Other parameters on the cards of bipolar transistors and
+  BSIM4 are ignored without a warning; the other MOSFET levels warn about parameters they do not know
   ([Reference Manual](docs/REFERENCE_MANUAL.md#models)). Level 3 accepts
   `LAMBDA`, `RS`, `RD`, `CJ`, `CJSW` and `MJSW` without a warning and does
   not use them.

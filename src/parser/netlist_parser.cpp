@@ -4955,6 +4955,18 @@ static std::size_t mosfet_model_index(const std::vector<std::string>& tokens,
     return (nmos_or_pmos || config.find_model(candidate) != nullptr) ? 5 : 4;
 }
 
+// The bulk, GAMMA, PHI and LAMBDA of a level-1 element (MOSFET_Level1::set_body)
+static void set_level1_body(circuit::CircuitGraph& circuit, const std::string& name,
+                            const std::string& bulk, Real gamma, Real phi, Real lambda) {
+    const NodeId bulk_id = circuit.add_node(bulk);
+    const auto device = circuit.get_device(name);
+    if (auto* n = dynamic_cast<devices::MOSFET_N*>(device.get())) {
+        n->set_body(bulk_id, gamma, phi, lambda);
+    } else if (auto* p = dynamic_cast<devices::MOSFET_P*>(device.get())) {
+        p->set_body(bulk_id, gamma, phi, lambda);
+    }
+}
+
 static void parse_mosfet_device(const std::vector<std::string>& tokens, const std::string& dev_name, const std::string& line, ParseState& state) {
     // MOSFET: M<name> <drain> <gate> <source> [<bulk>] <type_or_model> [parameters]
     // 3-terminal: M<name> <drain> <gate> <source> <NMOS|PMOS|model> [params]
@@ -5008,7 +5020,10 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
     Real kf = 0.0;       // Flicker noise coefficient
     Real af = 1.0;       // Flicker noise current exponent
     Real ef = 1.0;       // Flicker noise frequency exponent
-    Real gamma = 0.667;  // Channel thermal noise coefficient
+    Real gamma = 2.0 / 3.0;  // Channel thermal noise coefficient (SPICE's level 1)
+    Real gamma_body = 0.0;   // Level 1: GAMMA of the card, the body effect
+    Real phi = 0.6;          // Level 1: PHI
+    Real lambda = 0.0;       // Level 1: LAMBDA
     Real mult_i = 1.0;   // BSIM4 variability multiplier for current
     Real mult_q = 1.0;   // BSIM4 variability multiplier for charge
     Real mult_fn = 1.0;  // BSIM4 variability multiplier for flicker noise
@@ -5027,11 +5042,17 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
 
         // Verify model type
         if (model.device_type == DeviceType::MOSFET_N) {
+            // A level-1 card takes the defaults of ngspice-47: VTO 0, KP
+            // 2e-5, GAMMA 0, PHI 0.6, LAMBDA 0, W = L = 100 um
             mosfet_type = "NMOS";
-            vth = 0.7;  // Default for NMOS
+            vth = 0.0;
+            w = 100e-6;
+            l = 100e-6;
         } else if (model.device_type == DeviceType::MOSFET_P) {
             mosfet_type = "PMOS";
-            vth = -0.7;  // Default for PMOS
+            vth = 0.0;
+            w = 100e-6;
+            l = 100e-6;
         } else if (model.device_type == DeviceType::MOSFET_LEVEL3_N) {
             mosfet_type = "LEVEL3_N";
         } else if (model.device_type == DeviceType::MOSFET_LEVEL3_P) {
@@ -5093,7 +5114,21 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         if (model.params.count("kf")) kf = model.params.at("kf");
         if (model.params.count("af")) af = model.params.at("af");
         if (model.params.count("ef")) ef = model.params.at("ef");
-        if (model.params.count("gamma")) gamma = model.params.at("gamma");
+        if (mosfet_type == "NMOS" || mosfet_type == "PMOS") {
+            // SPICE's level 1: GAMMA is the body effect; the names it does
+            // not use are named
+            static const std::set<std::string> kLevel1 = {"level", "kp", "w", "l", "vth", "vto",
+                                                          "kf", "af", "ef", "gamma", "phi",
+                                                          "lambda"};
+            if (model.params.count("gamma")) gamma_body = model.params.at("gamma");
+            if (model.params.count("phi")) phi = model.params.at("phi");
+            if (model.params.count("lambda")) lambda = model.params.at("lambda");
+            for (const auto& [key, value] : model.params) {
+                if (!kLevel1.count(key)) {
+                    spdlog::warn("MOSFET model {} (level 1): {} is not used", type_or_model, key);
+                }
+            }
+        }
     } else if (type_or_model == "NMOS" || type_or_model == "PMOS") {
         // Direct type specification (no model defined)
         spdlog::info("[Parser] Using direct type specification for '{}'", type_or_model);
@@ -5132,8 +5167,6 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
                 af = value;
             } else if (key == "ef") {
                 ef = value;
-            } else if (key == "gamma") {
-                gamma = value;
             } else if (key == "mult_i") {
                 mult_i = value;
             } else if (key == "mult_q") {
@@ -5599,6 +5632,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         // A level-1 card has no overlap capacitances (CGSO, CGDO, CGBO = 0)
         state.circuit->add_mosfet_n(dev_name, drain, gate, source, kp, w, l, vth, 0.0, 0.0, 0.0, kf,
                                     af, ef, gamma);
+        set_level1_body(*state.circuit, dev_name, bulk, gamma_body, phi, lambda);
         Real beta = kp * w / l;
         spdlog::debug("Added MOSFET_N: {} D={} G={} S={} Kp={:.3e}A/V² W={:.3e}m L={:.3e}m Vth={:.3f}V β={:.3e}A/V² Kf={:.3e} γ={:.3f}",
                      dev_name, drain, gate, source, kp, w, l, vth, beta, kf, gamma);
@@ -5606,6 +5640,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         // A level-1 card has no overlap capacitances (CGSO, CGDO, CGBO = 0)
         state.circuit->add_mosfet_p(dev_name, drain, gate, source, kp, w, l, vth, 0.0, 0.0, 0.0, kf,
                                     af, ef, gamma);
+        set_level1_body(*state.circuit, dev_name, bulk, gamma_body, phi, lambda);
         Real beta = kp * w / l;
         spdlog::debug("Added MOSFET_P: {} D={} G={} S={} Kp={:.3e}A/V² W={:.3e}m L={:.3e}m Vth={:.3f}V β={:.3e}A/V² Kf={:.3e} γ={:.3f}",
                      dev_name, drain, gate, source, kp, w, l, vth, beta, kf, gamma);
