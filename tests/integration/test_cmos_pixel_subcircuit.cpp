@@ -8,7 +8,9 @@
 #include "kirimaspice/parser/netlist_parser.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
 #include "kirimaspice/circuit/circuit_graph.hpp"
+#include "kirimaspice/util/string_utils.hpp"
 #include <spdlog/spdlog.h>
+#include <algorithm>
 #include <cmath>
 #include "source_path.hpp"
 
@@ -27,8 +29,11 @@ Real get_node_voltage(const DenseVector& solution, const CircuitGraph& circuit, 
     // Get all node names from the circuit
     auto node_names = circuit.get_node_names();
 
-    // Search for the node name in the list (handles hierarchical names like "Xp1.vout_sf")
-    auto it = std::find(node_names.begin(), node_names.end(), node_name);
+    // Search for the node name in the list (handles hierarchical names like
+    // "Xp1.vout_sf"); node names are compared without case
+    auto it = std::find_if(node_names.begin(), node_names.end(), [&](const std::string& name) {
+        return kirimaspice::util::equals_icase(name, node_name);
+    });
     if (it == node_names.end()) {
         throw std::runtime_error("Node not found: " + node_name);
     }

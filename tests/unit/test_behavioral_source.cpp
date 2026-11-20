@@ -200,11 +200,10 @@ Real b_output(const std::string& netlist) {
 }  // namespace
 
 // V(node) reads a node by its name as every element line does: node names
-// are case-sensitive, and may hold '.' and '-' (rewrite_node_voltages);
-// ngspice-47 gives 3 V for the second netlist
+// are compared without case, and may hold '.' and '-' (rewrite_node_voltages);
+// ngspice-47 gives 2 V for the first netlist and 3 V for the second
 TEST(BehavioralSource, NodeNamesInVoltages) {
-    EXPECT_NEAR(b_output("t\nV1 a 0 1\nV2 A 0 3\nB1 o 0 V=V(A)-V(a)\nR1 o 0 1k\n.op\n.end\n"),
-                2.0, 1e-9);
+    EXPECT_NEAR(b_output("t\nV1 a 0 1\nB1 o 0 V=2*V(A)\nR1 o 0 1k\n.op\n.end\n"), 2.0, 1e-9);
     EXPECT_NEAR(b_output("t\nV1 n.1 0 1\nV2 n-2 0 2\nB1 o 0 V=V(n.1)+V(n-2)\nR1 o 0 1k\n.op\n.end\n"),
                 3.0, 1e-9);
 }

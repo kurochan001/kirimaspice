@@ -161,7 +161,7 @@ def case_diode_iv(binary: Path, examples: Path, tmp: Path) -> bool:
         diode = 1e-14 * (math.exp(v / vt) - 1.0)
         # Relative 1e-6 is far above rounding and far below any model change.
         tol = max(1e-6 * abs(diode), 1e-18)
-        results.append(check(f"I(V1) at {v:.2f} V", row["i(V1)"], -diode, tol))
+        results.append(check(f"I(V1) at {v:.2f} V", row["i(v1)"], -diode, tol))
     return all(results)
 
 

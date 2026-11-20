@@ -80,7 +80,8 @@ TEST(RawWriter, OperatingPointHasOneValuePerVariable) {
     std::filesystem::remove(path);
 }
 
-// Only the node "0" is ground; a node named GND is written like any other.
+// Only the node "0" is ground; a node named GND is written like any other,
+// in lower case as every signal name.
 TEST(RawWriter, NodeNamedGndIsAVariable) {
     const auto path = std::filesystem::path(testing::TempDir()) / "raw_writer_gnd.raw";
     std::filesystem::remove(path);
@@ -90,7 +91,7 @@ TEST(RawWriter, NodeNamedGndIsAVariable) {
     }
 
     const RawPlot plot = read_ascii_raw(path);
-    EXPECT_EQ(plot.names, (std::vector<std::string>{"v(a)", "v(GND)", "i(V1)"}));
+    EXPECT_EQ(plot.names, (std::vector<std::string>{"v(a)", "v(gnd)", "i(v1)"}));
     ASSERT_EQ(plot.points.size(), 1u);
     ASSERT_EQ(plot.points[0].size(), 3u);
     EXPECT_DOUBLE_EQ(plot.points[0][1], 0.75);

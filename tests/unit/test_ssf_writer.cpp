@@ -406,7 +406,7 @@ TEST(SSFWriter, SignalsMatchTheValuesOfEachBlock) {
     }
     const DecodedSsf ssf = decode_ssf(path);
     std::filesystem::remove(path);
-    ASSERT_EQ(ssf.signals, (std::vector<std::string>{"v(in)", "v(mid)", "i(V1)"}));
+    ASSERT_EQ(ssf.signals, (std::vector<std::string>{"v(in)", "v(mid)", "i(v1)"}));
     ASSERT_EQ(ssf.blocks.size(), 1u);
     ASSERT_EQ(ssf.blocks[0].size(), 3u);
     EXPECT_NEAR(ssf.blocks[0][0], 2.0, 1e-12);
