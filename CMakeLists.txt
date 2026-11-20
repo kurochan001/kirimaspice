@@ -54,15 +54,6 @@ else()
     message(WARNING "OpenMP not found - building without parallel support")
 endif()
 
-# Workaround for Clang: manually set OpenMP flags if not detected
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND NOT OpenMP_CXX_FOUND)
-    set(OpenMP_CXX_FLAGS "-fopenmp=libomp")
-    set(OpenMP_CXX_LIB_NAMES "omp")
-    set(OpenMP_omp_LIBRARY "/usr/lib/llvm-18/lib/libomp.so")
-    set(OpenMP_CXX_FOUND TRUE)
-    message(STATUS "Manually set OpenMP flags for Clang++")
-endif()
-
 # Disable examples and tests for dependencies
 set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
 set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
