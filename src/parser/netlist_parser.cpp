@@ -2089,6 +2089,7 @@ struct ParseState {
     // read.
     std::vector<std::pair<std::string, std::size_t>> deferred_elements;
     bool resolving_deferred = false;
+    std::set<std::string> warned_directives;  // each named in one warning
 };
 
 // Thrown by an element parser when the element names a model or a
@@ -5949,6 +5950,7 @@ void process_line(const std::string& raw_line, ParseState& state) {
         std::string directive = tokens[0];
         util::to_upper_inplace(directive);
 
+        state.config->directives_read.insert(directive);
         if (directive == ".OP") { state.config->op_requested = true; return; }
         if (directive == ".AC") { parse_ac_directive(tokens, state); return; }
         if (directive == ".DC") { parse_dc_directive(tokens, state); return; }
@@ -5985,7 +5987,22 @@ void process_line(const std::string& raw_line, ParseState& state) {
         if (directive == ".SUBCKT") { parse_subckt_directive(tokens, state); return; }
         if (directive == ".ENDS") { parse_ends_directive(tokens, state); return; }
 
-        // Other control cards (skip for now)
+        // .END ends nothing here (the lines after it are read); any other
+        // directive is ignored, and named in one warning
+        if (directive == ".END") {
+            return;
+        }
+        if (state.warned_directives.insert(directive).second) {
+            static const std::set<std::string> kNotSupported = {".NOISE", ".MEASURE", ".MEAS",
+                                                                ".TITLE"};
+            if (kNotSupported.count(directive)) {
+                spdlog::warn("Line {}: {} is not supported and is ignored", state.line_number,
+                             tokens[0]);
+            } else {
+                spdlog::warn("Line {}: unknown directive {} is ignored", state.line_number,
+                             tokens[0]);
+            }
+        }
         return;
     }
 

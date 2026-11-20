@@ -543,6 +543,17 @@ int main(int argc, char* argv[]) {
         spdlog::info("Nodes: {}", circuit->num_nodes());
         spdlog::info("Devices: {}", circuit->num_devices());
 
+        // The directives the parser reads for the library that this program
+        // does not run: each is named once, so that no result is taken for
+        // one of them
+        for (const char* directive : {".SENS", ".SENSITIVITY", ".TF", ".PZ", ".DISTO", ".STEP",
+                                      ".MC", ".MONTECARLO", ".WCASE", ".OPTIMIZE", ".PORT",
+                                      ".PRINT", ".SAVE"}) {
+            if (config.directives_read.count(directive)) {
+                spdlog::warn("{} is read, but this program does not run it", directive);
+            }
+        }
+
         // .TEMP with one value is .OPTIONS TEMP (as in ngspice-47, which takes
         // one value only); with several, every analysis runs at each of them,
         // and the SSF, WAV and AC CSV files of a run carry its temperature in

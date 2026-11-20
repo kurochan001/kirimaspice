@@ -59,6 +59,11 @@ class CliAnalyses(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertNotIn("No analysis specified", result.stdout)
 
+    def test_directive_the_program_does_not_run_is_named(self):
+        result, plots = self.run_deck("t\nV1 in 0 1\nR1 in 0 1k\n.tf v(in) V1\n.op\n.end\n")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(".TF is read, but this program does not run it", result.stdout + result.stderr)
+
     def test_options_alone_is_no_analysis_line(self):
         result, plots = self.run_deck("t\nV1 in 0 1\nR1 in 0 1k\n.options reltol=1e-4\n.end\n")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

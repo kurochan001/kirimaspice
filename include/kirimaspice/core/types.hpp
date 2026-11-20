@@ -723,6 +723,10 @@ struct SimulationConfig {
     bool tran_requested = false;
     bool ac_requested = false;
 
+    // Every directive the parser read, by its name in upper case (.TRAN,
+    // .SENS, ...), so that a program can say which of them it does not run
+    std::set<std::string> directives_read;
+
     // Device models
     std::map<std::string, ModelDefinition> models;  ///< .MODEL definitions (model_name -> ModelDefinition)
 

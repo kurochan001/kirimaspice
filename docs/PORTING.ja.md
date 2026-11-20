@@ -61,6 +61,8 @@ ngspice-47 は、kirimaspice が書く ASCII とバイナリの raw ファイル
   | 読むが使わない | `.SENS`、`.TF`、`.PZ`、`.DISTO`、`.STEP`、`.MC`、`.WCASE`、`.OPTIMIZE`、`.PORT`、`.PRINT`、`.SAVE` |
   | 無視する | `.NOISE`、`.MEASURE`、`.TITLE`、`.END`（その後の行も読む） |
 
+  2 行目と 3 行目のものは、`.END` を除いて、警告で名指しします。
+
 - [ ] **`.TEMP`。** 値が 1 つなら、ngspice と同じく `.OPTIONS TEMP` です。値を並べると（ngspice-47 は
   これを受け付けません）、それぞれの値ですべての解析を実行し、SSF、WAV、AC の CSV のファイルの名前に
   その温度を付けます。

@@ -67,6 +67,8 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
   | read, not used | `.SENS`, `.TF`, `.PZ`, `.DISTO`, `.STEP`, `.MC`, `.WCASE`, `.OPTIMIZE`, `.PORT`, `.PRINT`, `.SAVE` |
   | ignored | `.NOISE`, `.MEASURE`, `.TITLE`, `.END` (lines after it are read) |
 
+  Each of the second and third rows, except `.END`, is named in a warning.
+
 - [ ] **`.TEMP`.** One value is `.OPTIONS TEMP`, as in ngspice. A list of
   values, which ngspice-47 rejects, runs every analysis at each value and
   names the SSF, WAV and AC CSV files after the temperature.

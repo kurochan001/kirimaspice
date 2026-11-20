@@ -111,8 +111,11 @@ stops with exit code 1.
   on it ends at the end of its own line.
 - A line that starts with `.` is a directive; any other line is an element,
   identified by its first letter in either case.
-- Lines after `.END` are read like any other. Unknown directives are
-  ignored without a message. An element of a letter not in the table
+- Lines after `.END` are read like any other. A directive the parser does
+  not read is ignored and named in one warning (`unknown directive`, or
+  `is not supported` for `.NOISE`, `.MEASURE` and `.TITLE`), and the
+  program names once each directive it reads but does not run
+  (`is read, but this program does not run it`). An element of a letter not in the table
   below (such as `J`) is a parse error, `Unknown element letter`, also in
   a subcircuit body.
 - Line numbers in messages count the lines that remain after these steps,
@@ -404,11 +407,11 @@ parser stores it, but the program does not use it (the library can).
 | `.LIB` / `.ENDL` | `.LIB <file> [<section>]` | used; without a section, the whole file |
 | `.IF` / `.ELIF` / `.ELSE` / `.ENDIF` | `.IF (<expr>)` | used, but `.PARAM` values are not visible; an expression that cannot be evaluated keeps all branches |
 | `.END` | `.END` | ignored; lines after it are read |
-| `.PRINT`, `.SAVE` | `.PRINT DC\|TRAN\|AC <signals>`, `.SAVE <signals>` | read only |
+| `.PRINT`, `.SAVE` | `.PRINT DC\|TRAN\|AC <signals>`, `.SAVE <signals>` | read only; named in a warning |
 | `.FOUR` | `.FOUR <frequency> <signal> ...`, each `v(<node>)` or `i(<source>)` | used with `.TRAN`: prints the harmonics and the THD of the last period of each signal after the transient |
-| `.STEP`, `.SENS`, `.MC`, `.TF`, `.PZ`, `.DISTO`, `.PORT`, `.WCASE`, `.OPTIMIZE` | | read only |
+| `.STEP`, `.SENS`, `.MC`, `.TF`, `.PZ`, `.DISTO`, `.PORT`, `.WCASE`, `.OPTIMIZE` | | read only; named in a warning |
 | `.CONTROL` / `.ENDC` | | taken out and run by the parser; the program does not take its analyses from it (see [KNOWN_ISSUES.md](../KNOWN_ISSUES.md)) |
-| `.TITLE`, `.MEASURE`, others | | ignored |
+| `.TITLE`, `.MEASURE`, `.NOISE`, others | | ignored; each name in one warning |
 
 ### How the program chooses analyses
 
