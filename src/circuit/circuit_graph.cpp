@@ -90,7 +90,19 @@ void CircuitGraph::set_simulation_config(const SimulationConfig* config) {
 //==============================================================================
 // Node Management
 //==============================================================================
-NodeId CircuitGraph::add_node(const std::string& name) {
+// Node names are compared without case, as SPICE does: "OUT" and "out" are
+// one node, kept under its name in lower case (add_node, get_node_id,
+// has_node)
+static std::string fold_node_name(const std::string& name) {
+    std::string folded = name;
+    for (char& c : folded) {
+        c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    }
+    return folded;
+}
+
+NodeId CircuitGraph::add_node(const std::string& written) {
+    const std::string name = fold_node_name(written);
     if (is_ground_name(name) && name != NODE_GND_NAME) {
         return NODE_GND;  // gnd in any case is ground
     }
@@ -123,10 +135,11 @@ NodeId CircuitGraph::add_node(const std::string& name) {
     return id;
 }
 
-NodeId CircuitGraph::get_node_id(const std::string& name) const {
-    if (is_ground_name(name)) {
+NodeId CircuitGraph::get_node_id(const std::string& written) const {
+    if (is_ground_name(written)) {
         return NODE_GND;
     }
+    const std::string name = fold_node_name(written);
     auto it = node_map_.find(name);
     if (it == node_map_.end()) {
         throw std::runtime_error(fmt::format("Node not found: {}", name));
@@ -135,7 +148,7 @@ NodeId CircuitGraph::get_node_id(const std::string& name) const {
 }
 
 bool CircuitGraph::has_node(const std::string& name) const {
-    return is_ground_name(name) || node_map_.find(name) != node_map_.end();
+    return is_ground_name(name) || node_map_.find(fold_node_name(name)) != node_map_.end();
 }
 
 std::uint32_t CircuitGraph::num_nodes() const {

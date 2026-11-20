@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include "kirimaspice/output/raw_binary_writer.hpp"
+#include "kirimaspice/output/signal_names.hpp"
 
 #include <chrono>
 #include <ctime>
@@ -148,11 +149,11 @@ void RawBinaryWriter::write_dc(const std::vector<std::string>& node_names,
     vars.reserve(aligned_nodes.size() + aligned_branches.size());
 
     for (const auto& node : aligned_nodes) {
-        vars.emplace_back("V(" + node + ")", "voltage");
+        vars.emplace_back(voltage_signal(node), "voltage");
     }
 
     for (const auto& branch : aligned_branches) {
-        vars.emplace_back("I(" + branch + ")", "current");
+        vars.emplace_back(current_signal(branch), "current");
     }
 
     write_header(out, "DC Operating Point", "real", vars.size(), 1);
@@ -195,11 +196,11 @@ void RawBinaryWriter::write_dc_sweep(const std::string& sweep_name,
     vars.emplace_back(sweep_var_name, "sweep");
 
     for (const auto& node : aligned_nodes) {
-        vars.emplace_back("V(" + node + ")", "voltage");
+        vars.emplace_back(voltage_signal(node), "voltage");
     }
 
     for (const auto& branch : aligned_branches) {
-        vars.emplace_back("I(" + branch + ")", "current");
+        vars.emplace_back(current_signal(branch), "current");
     }
 
     write_header(out, "DC Sweep", "real", vars.size(), num_points, "DC Sweep Analysis");
@@ -262,11 +263,11 @@ void RawBinaryWriter::write_transient(const std::vector<std::string>& node_names
     vars.emplace_back("time", "time");
 
     for (const auto& node : aligned_nodes) {
-        vars.emplace_back("V(" + node + ")", "voltage");
+        vars.emplace_back(voltage_signal(node), "voltage");
     }
 
     for (const auto& branch : aligned_branches) {
-        vars.emplace_back("I(" + branch + ")", "current");
+        vars.emplace_back(current_signal(branch), "current");
     }
 
     write_header(out, "Transient Analysis", "real", vars.size(), num_points);

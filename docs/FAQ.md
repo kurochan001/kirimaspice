@@ -60,8 +60,7 @@ It reads SPICE netlists, and where SPICE dialects differ it follows
 [ngspice](GLOSSARY.md#ngspice) for scale factors, AC inputs, the sign of
 source currents, the order of a nested `.DC` and `gnd`
 ([NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.md)); each of these was
-checked by running ngspice-47. Other differences remain: node and element
-names are case-sensitive, waveform arguments that ngspice defaults from
+checked by running ngspice-47. Other differences remain: waveform arguments that ngspice defaults from
 `.TRAN` must be written, analyses inside `.control` are not run as
 ngspice runs them, a `.DC` sweep replaces `.OP`, and the parser reads only
 part of the device parameters. [Moving from ngspice](PORTING.md) and

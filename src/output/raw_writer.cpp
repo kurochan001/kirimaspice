@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include "kirimaspice/output/raw_writer.hpp"
+#include "kirimaspice/output/signal_names.hpp"
 
 #include <chrono>
 #include <ctime>
@@ -128,10 +129,10 @@ void RawWriter::write_dc(const std::vector<std::string>& node_names,
     auto aligned_nodes = align_node_names(node_names, node_voltages.size());
     std::vector<std::pair<std::string, std::string>> variables;
     for (const auto& name : aligned_nodes) {
-        variables.emplace_back(fmt::format("v({})", name), "voltage");
+        variables.emplace_back(voltage_signal(name), "voltage");
     }
     for (std::size_t i = 0; i < branch_currents.size() && i < branch_names.size(); ++i) {
-        variables.emplace_back(fmt::format("i({})", branch_names[i]), "current");
+        variables.emplace_back(current_signal(branch_names[i]), "current");
     }
 
     auto values = build_dc_values(node_voltages, branch_currents);
@@ -172,10 +173,10 @@ void RawWriter::write_dc_sweep(const std::string& sweep_name,
         variables.emplace_back(*nested_name, "sweep");
     }
     for (const auto& name : aligned_nodes) {
-        variables.emplace_back(fmt::format("v({})", name), "voltage");
+        variables.emplace_back(voltage_signal(name), "voltage");
     }
     for (const auto& bname : aligned_branches) {
-        variables.emplace_back(fmt::format("i({})", bname), "current");
+        variables.emplace_back(current_signal(bname), "current");
     }
 
     std::ofstream out = open_stream();
@@ -238,11 +239,11 @@ void RawWriter::write_transient(const std::vector<std::string>& node_names,
     std::vector<std::pair<std::string, std::string>> variables;
     variables.emplace_back("time", "time");
     for (const auto& name : aligned_nodes) {
-        variables.emplace_back(fmt::format("v({})", name), "voltage");
+        variables.emplace_back(voltage_signal(name), "voltage");
     }
 
     for (const auto& bname : aligned_branches) {
-        variables.emplace_back(fmt::format("i({})", bname), "current");
+        variables.emplace_back(current_signal(bname), "current");
     }
 
     std::ofstream out = open_stream();

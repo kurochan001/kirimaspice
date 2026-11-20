@@ -79,8 +79,6 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
 
 ### Names and numbers
 
-- [ ] **The case of node and element names.** They are case-sensitive
-  here (`OUT` and `out` are two nodes); ngspice folds case.
 - [ ] **No scale factors inside braces or in `.OPTIONS` values.** Write
   `{0.001}`, not `{1m}`.
 - [ ] **`.IC` and `.NODESET` with an upper-case `V(`.** `v(out)=1` is

@@ -51,7 +51,7 @@
 SPICE のネットリストを読みます。SPICE の方言が違うところのうち、倍率、AC の入力、電源の電流の符号、
 入れ子の `.DC` の順、`gnd` では [ngspice](GLOSSARY.ja.md#ngspice) に合わせています
 （[NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.ja.md)）。どれも ngspice-47 を動かして確かめました。
-ほかの違いは残っています。ノード名と素子名は大文字と小文字を区別すること、ngspice が `.TRAN` から
+ほかの違いは残っています。ngspice が `.TRAN` から
 既定値を決める波形の引数を書かなければならないこと、`.control` の中の解析は ngspice のようには実行
 しないこと、`.DC` のスイープが `.OP` に代わること、パーサーが読むデバイスのパラメーターが一部なことです。
 [ngspice からの移行](PORTING.ja.md)と [KNOWN_ISSUES](../KNOWN_ISSUES.ja.md) に並べてあります。

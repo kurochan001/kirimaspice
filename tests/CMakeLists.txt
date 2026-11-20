@@ -36,6 +36,11 @@ add_test(NAME cli_options
         --binary $<TARGET_FILE:kirimaspice>
 )
 
+add_test(NAME cli_raw_names
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/scripts/test_raw_names.py
+        --binary $<TARGET_FILE:kirimaspice>
+)
+
 add_test(NAME cli_analyses
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/scripts/test_cli_analyses.py
         --binary $<TARGET_FILE:kirimaspice>
@@ -1245,6 +1250,10 @@ gtest_discover_tests(test_diode_card PROPERTIES TIMEOUT 1200)
 add_executable(test_mosfet_level1_spice unit/test_mosfet_level1_spice.cpp)
 target_link_libraries(test_mosfet_level1_spice PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_mosfet_level1_spice PROPERTIES TIMEOUT 1200)
+
+add_executable(test_node_names unit/test_node_names.cpp)
+target_link_libraries(test_node_names PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_node_names PROPERTIES TIMEOUT 1200)
 
 add_executable(test_source_waveforms unit/test_source_waveforms.cpp)
 target_link_libraries(test_source_waveforms PRIVATE kirimaspice_lib GTest::gtest_main)

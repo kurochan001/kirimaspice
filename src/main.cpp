@@ -92,7 +92,7 @@ static void print_transient_table(const std::vector<std::string>& signals,
             const std::string name = signal.substr(open + 1, close - open - 1);
             if (kind == "V") {
                 for (std::size_t id = 0; id < node_names.size(); ++id) {
-                    if (node_names[id] == name) {
+                    if (util::equals_icase(node_names[id], name)) {
                         column = Column{signal, true, id};
                     }
                 }

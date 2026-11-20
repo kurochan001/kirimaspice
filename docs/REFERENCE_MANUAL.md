@@ -119,8 +119,8 @@ the SuperLU_DIST backend of the library is a placeholder.
 
 ### Names
 
-- Node and element names are case-sensitive; model and subcircuit names
-  are not.
+- Node, element, model and subcircuit names are not case-sensitive, as in
+  SPICE: `OUT` and `out` are one node, kept and written in lower case.
 - `0` is ground, and so is a node named `gnd` in any case, at the top
   level and inside subcircuits.
 - Nodes inside a subcircuit instance are named `<instance>.<node>`, for
@@ -530,14 +530,14 @@ and `Variables`, followed by `Values`.
 | DC sweep | `DC Sweep` or `DC Sweep (2D)` | the swept source(s) (type `sweep`), `v(<node>)`, `i(<source>)` |
 | transient | `Transient Analysis` | `time`, `v(<node>)`, `i(<source>)` |
 
-Ground (the node `0`) is not a variable. Each analysis run appends one plot
+The names are in lower case, as ngspice-47 writes them (`v(out)`,
+`i(v1)`). Ground (the node `0`) is not a variable. Each analysis run appends one plot
 to the same file. Each point holds one value per variable, the first on the
 line with the point index.
 
 ### SPICE3 raw, binary (`--raw-binary-out`)
 
-The same header, with the names in upper case (`V(<node>)`, `I(<source>)`),
-then `Binary:` and the values as 8-byte IEEE doubles in the byte order of
+The same header and names, then `Binary:` and the values as 8-byte IEEE doubles in the byte order of
 the machine (little-endian on x86-64 and arm64), point after point. For a
 two-source DC sweep the binary file differs: its plot name is `DC Sweep`,
 its title `kirimaspice DC Sweep Analysis`, and it has one sweep variable,

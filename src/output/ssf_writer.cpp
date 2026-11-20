@@ -3,6 +3,7 @@
 
 // src/output/ssf_writer.cpp
 #include "kirimaspice/output/ssf_writer.hpp"
+#include "kirimaspice/output/signal_names.hpp"
 
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
@@ -218,7 +219,7 @@ void SSFWriter::init_dc_metadata(const std::vector<std::string>& node_names,
         if (node_name == NODE_GND_NAME) {
             continue;
         }
-        std::string signal_name = "v(" + node_name + ")";
+        std::string signal_name = voltage_signal(node_name);
 
         // Check if signal should be saved
         if (!should_save_signal(signal_name)) {
@@ -250,7 +251,7 @@ void SSFWriter::init_dc_metadata(const std::vector<std::string>& node_names,
     // Add branch current signals (with filtering)
     for (size_t i = 0; i < branch_names.size(); ++i) {
         const auto& branch_name = branch_names[i];
-        std::string signal_name = "i(" + branch_name + ")";
+        std::string signal_name = current_signal(branch_name);
 
         // Check if signal should be saved
         if (!should_save_signal(signal_name)) {
@@ -337,7 +338,7 @@ void SSFWriter::init_transient_metadata(const solvers::TransientResult& result,
         if (node_name == NODE_GND_NAME) {
             continue;
         }
-        std::string signal_name = "v(" + node_name + ")";
+        std::string signal_name = voltage_signal(node_name);
 
         // Check if signal should be saved
         if (!should_save_signal(signal_name)) {
@@ -369,7 +370,7 @@ void SSFWriter::init_transient_metadata(const solvers::TransientResult& result,
     // Add branch current signals (with filtering)
     for (size_t i = 0; i < branch_names.size(); ++i) {
         const auto& branch_name = branch_names[i];
-        std::string signal_name = "i(" + branch_name + ")";
+        std::string signal_name = current_signal(branch_name);
 
         // Check if signal should be saved
         if (!should_save_signal(signal_name)) {
