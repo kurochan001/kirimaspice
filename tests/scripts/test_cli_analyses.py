@@ -64,6 +64,25 @@ class CliAnalyses(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn(".TF is read, but this program does not run it", result.stdout + result.stderr)
 
+    def test_transient_prints_the_signals_of_print_tran(self):
+        # One row per time point of the fixed step (0, 1, 2 and 3 ns), with
+        # the time and the two signals, in the order of the .PRINT line
+        result, plots = self.run_deck(
+            "t\nV1 in 0 1\nR1 in out 1k\nC1 out 0 1p\n.tran 1n 3n UIC\n"
+            ".print tran v(out) i(v1)\n.end\n")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        lines = result.stdout.splitlines()
+        header = lines.index("Time (s)\tv(out)\ti(v1)")
+        rows = [line.split("\t") for line in lines[header + 1:] if line]
+        self.assertEqual(len(rows), 4)
+        self.assertTrue(all(len(row) == 3 for row in rows))
+
+    def test_transient_without_print_prints_no_table(self):
+        result, plots = self.run_deck(CIRCUIT + ".tran 10u 1m\n.end\n")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("Transient Analysis Results", result.stdout)
+        self.assertEqual(plots, ["Transient Analysis"])
+
     def test_options_alone_is_no_analysis_line(self):
         result, plots = self.run_deck("t\nV1 in 0 1\nR1 in 0 1k\n.options reltol=1e-4\n.end\n")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

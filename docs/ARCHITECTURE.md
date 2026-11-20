@@ -94,7 +94,7 @@ and the second half of `core/device_utils.hpp` is in
 | --- | --- | --- | --- |
 | a complete `.DC` | DC sweep | a summary | raw (ASCII, binary) |
 | `.OP`, no sweep, or no analysis line | operating point | `V(...)` and `I(...)` | SSF, raw (ASCII, binary) |
-| a complete `.TRAN` | transient, then `.FOUR` for each of its signals | a table | SSF, raw (ASCII, binary), WAV |
+| a complete `.TRAN` | transient, then `.FOUR` for each of its signals | the table of `.PRINT TRAN` | SSF, raw (ASCII, binary), WAV |
 | `.AC` | AC | nothing | always `<base>_ac.csv` |
 
 When more than one analysis writes a raw file, each appends a plot to it;

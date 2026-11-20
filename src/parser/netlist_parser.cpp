@@ -2701,12 +2701,22 @@ static void parse_print_directive(const std::vector<std::string>& tokens, ParseS
         return;
     }
 
+    // .PRINT DC, .PRINT TRAN and .PRINT AC are recorded as directives of
+    // their own (SimulationConfig::directives_read), since a program may
+    // print one kind and not another
+    std::string kind = analysis_type;
+    util::to_upper_inplace(kind);
+    state.config->directives_read.insert(".PRINT " + kind);
+
     // Parse signal specifications
     for (size_t i = 2; i < tokens.size(); ++i) {
         std::string signal = tokens[i];
 
         // Store signal in config (analysis type is implicit, can be extracted later)
         state.config->output.print_signals.push_back(signal);
+        if (analysis_type == "tran") {
+            state.config->output.print_tran_signals.push_back(signal);
+        }
         spdlog::debug("Added .PRINT signal: {}", signal);
     }
 

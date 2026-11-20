@@ -595,7 +595,8 @@ instead of the transient. Do not assume that a raw file's first plot has
 a time axis. A reader must also preserve the recorded times rather than
 reconstructing a uniform grid from `TSTEP`.
 
-`.PRINT` and `.SAVE` do not currently filter the CLI's transient output,
+The CLI prints the signals of `.PRINT TRAN` after a transient, and
+nothing without it; `.SAVE` does not filter the raw, SSF or WAV files,
 and the CLI does not run `.MEASURE`. Compute measurements from the desired
 raw plot or use the library explicitly. `.FOUR` operates on the retained
 transient points and needs sufficient data for its last-period analysis;

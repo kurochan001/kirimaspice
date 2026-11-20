@@ -45,8 +45,9 @@ ngspice-47 loads the ASCII and binary raw files that kirimaspice writes
 | analyses in a `.control` block (`op`, `dc`, `tran`, `ac`, `run`) | dot directives outside `.control`: `.op`, `.dc`, `.tran`, `.ac` |
 | `print`, `plot`, `meas`, `wrdata` | the raw file, read with the [Python tools](USER_MANUAL.md#use-the-python-tools); the AC result is always in `<base>_ac.csv` |
 
-The program runs in batch only. It prints the operating point and the
-transient table, a summary of a DC sweep, and nothing for an AC analysis;
+The program runs in batch only. It prints the operating point, the
+signals of `.PRINT TRAN` after a transient, a summary of a DC sweep, and
+nothing for an AC analysis;
 the values of a sweep are in the raw file. What each analysis prints and
 writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-analyses).
 
@@ -63,8 +64,8 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
 
   | Status | Directives |
   | --- | --- |
-  | run | `.OP`, `.DC`, `.TRAN`, `.AC`, `.FOUR` |
-  | read, not used | `.SENS`, `.TF`, `.PZ`, `.DISTO`, `.STEP`, `.MC`, `.WCASE`, `.OPTIMIZE`, `.PORT`, `.PRINT`, `.SAVE` |
+  | run | `.OP`, `.DC`, `.TRAN`, `.AC`, `.FOUR`, `.PRINT TRAN` |
+  | read, not used | `.SENS`, `.TF`, `.PZ`, `.DISTO`, `.STEP`, `.MC`, `.WCASE`, `.OPTIMIZE`, `.PORT`, `.PRINT DC`, `.PRINT AC`, `.SAVE` |
   | ignored | `.NOISE`, `.MEASURE`, `.TITLE`, `.END` (lines after it are read) |
 
   Each of the second and third rows, except `.END`, is named in a warning.

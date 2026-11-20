@@ -64,6 +64,76 @@ static std::optional<std::string> with_suffix(const std::optional<std::string>& 
     return stem + suffix + path->substr(stem.size());
 }
 
+// The table of .PRINT TRAN after a transient: a column of time and one for
+// each signal, v(<node>) or i(<source>), at every time point, as SPICE
+// prints .PRINT; nothing without .PRINT TRAN (the raw, SSF and WAV files
+// hold the whole result). A signal that names no node or source is left
+// out with a warning.
+static void print_transient_table(const std::vector<std::string>& signals,
+                                  const std::vector<std::string>& node_names,
+                                  const std::vector<std::string>& branch_names,
+                                  const solvers::TransientResult& result) {
+    if (signals.empty()) {
+        return;
+    }
+    struct Column {
+        std::string title;
+        bool voltage;
+        std::size_t index;  // node id, or branch index
+    };
+    std::vector<Column> columns;
+    for (const auto& signal : signals) {
+        std::string kind = signal.substr(0, signal.find('('));
+        util::to_upper_inplace(kind);
+        const auto open = signal.find('(');
+        const auto close = signal.rfind(')');
+        std::optional<Column> column;
+        if (open != std::string::npos && close != std::string::npos && close > open + 1) {
+            const std::string name = signal.substr(open + 1, close - open - 1);
+            if (kind == "V") {
+                for (std::size_t id = 0; id < node_names.size(); ++id) {
+                    if (node_names[id] == name) {
+                        column = Column{signal, true, id};
+                    }
+                }
+            } else if (kind == "I") {
+                for (std::size_t k = 0; k < branch_names.size(); ++k) {
+                    if (util::equals_icase(branch_names[k], name)) {
+                        column = Column{signal, false, k};
+                    }
+                }
+            }
+        }
+        if (!column) {
+            spdlog::warn(".PRINT TRAN {}: no such node or voltage source; left out", signal);
+            continue;
+        }
+        columns.push_back(*column);
+    }
+    if (columns.empty()) {
+        return;
+    }
+    std::cout << "\n=== Transient Analysis Results ===\n";
+    std::cout << "Time (s)";
+    for (const auto& c : columns) {
+        std::cout << "\t" << c.title;
+    }
+    std::cout << "\n";
+    for (const auto& tp : result.timepoints) {
+        std::cout << tp.time;
+        for (const auto& c : columns) {
+            Real value = 0.0;  // ground
+            if (c.voltage && c.index > 0 && c.index - 1 < tp.node_voltages.size()) {
+                value = tp.node_voltages[c.index - 1];
+            } else if (!c.voltage && c.index < tp.branch_currents.size()) {
+                value = tp.branch_currents[c.index];
+            }
+            std::cout << "\t" << value;
+        }
+        std::cout << "\n";
+    }
+}
+
 // Run the analyses of the netlist once, at the temperature of config: the DC
 // sweep, the operating point, the transient (with .FOUR) and AC, in this
 // order, or the operating point when the netlist asks for none. Which ones
@@ -277,9 +347,6 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
                                  result.timepoints.size());
                     spdlog::info("Total iterations: {}", result.stats.total_iterations);
 
-                    // Print results
-                    std::cout << "\n=== Transient Analysis Results ===\n";
-                    std::cout << "Time (s)\t";
                     auto node_names = circuit->get_node_names();
                     auto voltage_sources = circuit->get_voltage_sources();
                     std::vector<std::string> branch_names;
@@ -287,29 +354,8 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
                     for (const auto& vsrc : voltage_sources) {
                         branch_names.push_back(vsrc->name());
                     }
-                    for (const auto& name : node_names) {
-                        std::cout << "V(" << name << ")\t";
-                    }
-                    std::cout << "\n";
-
-                    // Print all timepoints
-                    for (const auto& tp : result.timepoints) {
-                        std::cout << tp.time << "\t";
-                        // Print node voltages, inserting 0 for ground node
-                        for (size_t i = 0; i < node_names.size(); ++i) {
-                            if (node_names[i] == NODE_GND_NAME) {
-                                std::cout << "0\t";  // Ground is always 0
-                            } else {
-                                // Find index in node_voltages (excluding ground)
-                                // node_voltages[0] = first non-ground node, etc.
-                                size_t voltage_idx = i - 1;  // Offset by 1 if ground is first
-                                if (voltage_idx < tp.node_voltages.size()) {
-                                    std::cout << tp.node_voltages[voltage_idx] << "\t";
-                                }
-                            }
-                        }
-                        std::cout << "\n";
-                    }
+                    print_transient_table(config.output.print_tran_signals, node_names, branch_names,
+                                          result);
 
                     // Write SSF output if requested
                     if (output_file) {
@@ -564,7 +610,7 @@ int main(int argc, char* argv[]) {
         // one of them
         for (const char* directive : {".SENS", ".SENSITIVITY", ".TF", ".PZ", ".DISTO", ".STEP",
                                       ".MC", ".MONTECARLO", ".WCASE", ".OPTIMIZE", ".PORT",
-                                      ".PRINT", ".SAVE"}) {
+                                      ".PRINT DC", ".PRINT AC", ".SAVE"}) {
             if (config.directives_read.count(directive)) {
                 spdlog::warn("{} is read, but this program does not run it", directive);
             }

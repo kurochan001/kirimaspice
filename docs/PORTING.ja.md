@@ -41,7 +41,7 @@ ngspice-47 は、kirimaspice が書く ASCII とバイナリの raw ファイル
 | `.control` のブロックの中の解析（`op`、`dc`、`tran`、`ac`、`run`） | `.control` の外のドットのディレクティブ。`.op`、`.dc`、`.tran`、`.ac` |
 | `print`、`plot`、`meas`、`wrdata` | raw ファイルを [Python のツール](USER_MANUAL.ja.md#python-のツールを使う)で読む。AC の結果は必ず `<base>_ac.csv` にある |
 
-プログラムはバッチでだけ動きます。表示するのは、動作点と過渡解析の表、DC スイープの要約で、AC 解析では
+プログラムはバッチでだけ動きます。表示するのは、動作点、過渡解析の後の `.PRINT TRAN` の信号、DC スイープの要約で、AC 解析では
 何も表示しません。スイープの値は raw ファイルにあります。それぞれの解析が何を表示し、何を書くかは
 [リファレンスマニュアル](REFERENCE_MANUAL.ja.md#プログラムが解析を選ぶ仕組み)にあります。
 
@@ -57,8 +57,8 @@ ngspice-47 は、kirimaspice が書く ASCII とバイナリの raw ファイル
 
   | 状態 | ディレクティブ |
   | --- | --- |
-  | 実行する | `.OP`、`.DC`、`.TRAN`、`.AC`、`.FOUR` |
-  | 読むが使わない | `.SENS`、`.TF`、`.PZ`、`.DISTO`、`.STEP`、`.MC`、`.WCASE`、`.OPTIMIZE`、`.PORT`、`.PRINT`、`.SAVE` |
+  | 実行する | `.OP`、`.DC`、`.TRAN`、`.AC`、`.FOUR`、`.PRINT TRAN` |
+  | 読むが使わない | `.SENS`、`.TF`、`.PZ`、`.DISTO`、`.STEP`、`.MC`、`.WCASE`、`.OPTIMIZE`、`.PORT`、`.PRINT DC`、`.PRINT AC`、`.SAVE` |
   | 無視する | `.NOISE`、`.MEASURE`、`.TITLE`、`.END`（その後の行も読む） |
 
   2 行目と 3 行目のものは、`.END` を除いて、警告で名指しします。
