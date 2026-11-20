@@ -134,3 +134,16 @@ TEST(ParserUnknownInput, DiodeAndLevel1CardsNameUnusedNamesOncePerCard) {
         "t\nV1 d 0 1\nM1 d d 0 0 NX\nM2 d d 0 0 NX\n.model NX NMOS LEVEL=1 VTO=0.7 TOX=1e-8\n.end\n");
     EXPECT_EQ(count(level1, "MOSFET model NX (level 1): tox is not used"), 1u) << level1;
 }
+
+TEST(ParserUnknownInput, UnusedElementLineNamesOfLevel1AndMesfetAreNamed) {
+    // The level-1 element line takes KP, W, L, VTH and the noise parameters;
+    // the MESFET element line takes the names of its card
+    const std::string level1 = parse_warnings(
+        "t\nV1 d 0 1\nM1 d d 0 0 NX W=10u LAMBDA=0.5\n.model NX NMOS LEVEL=1 VTO=0.7\n.end\n");
+    EXPECT_EQ(count(level1, "M1: 'LAMBDA=0.5' is not used"), 1u) << level1;
+    EXPECT_EQ(count(level1, "W=10u"), 0u) << level1;
+    const std::string mesfet = parse_warnings(
+        "t\nV1 d 0 1\nZ1 d d 0 ZM BETA=0.02 FOO=1\n.model ZM NMF BETA=0.01\n.end\n");
+    EXPECT_EQ(count(mesfet, "Z1: 'FOO=1' is not used"), 1u) << mesfet;
+    EXPECT_EQ(count(mesfet, "BETA"), 0u) << mesfet;
+}

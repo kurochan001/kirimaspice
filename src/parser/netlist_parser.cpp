@@ -4873,7 +4873,11 @@ static void parse_mesfet_device(const std::vector<std::string>& tokens, const st
                 ef = value;
             } else if (key == "tnom") {
                 tnom = core::celsius_to_kelvin(value);
+            } else {
+                spdlog::warn("Line {}: {}: '{}' is not used", state.line_number, dev_name, tokens[i]);
             }
+        } else {
+            spdlog::warn("Line {}: {}: '{}' is not used", state.line_number, dev_name, tokens[i]);
         }
     }
 
@@ -5657,22 +5661,29 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         }
         set_parameters_by_name(*igbt, instance_params, "IGBT " + dev_name);
         spdlog::debug("Added {}: {} C={} G={} E={}", mosfet_type, dev_name, drain, gate, source);
-    } else if (mosfet_type == "NMOS") {
+    } else if (mosfet_type == "NMOS" || mosfet_type == "PMOS") {
+        // The element line of level 1 gives KP, W, L, VTH and the noise
+        // parameters; other tokens are not used
+        static const std::set<std::string> kLine = {"kp", "w", "l", "vth", "kf", "af", "ef"};
+        for (size_t i = param_start_idx; i < tokens.size(); ++i) {
+            std::string key = tokens[i].substr(0, tokens[i].find('='));
+            std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+            if (tokens[i].find('=') == std::string::npos || !kLine.count(key)) {
+                spdlog::warn("Line {}: {}: '{}' is not used", state.line_number, dev_name, tokens[i]);
+            }
+        }
         // A level-1 card has no overlap capacitances (CGSO, CGDO, CGBO = 0)
-        state.circuit->add_mosfet_n(dev_name, drain, gate, source, kp, w, l, vth, 0.0, 0.0, 0.0, kf,
-                                    af, ef, gamma);
+        if (mosfet_type == "NMOS") {
+            state.circuit->add_mosfet_n(dev_name, drain, gate, source, kp, w, l, vth, 0.0, 0.0, 0.0,
+                                        kf, af, ef, gamma);
+        } else {
+            state.circuit->add_mosfet_p(dev_name, drain, gate, source, kp, w, l, vth, 0.0, 0.0, 0.0,
+                                        kf, af, ef, gamma);
+        }
         set_level1_body(*state.circuit, dev_name, bulk, gamma_body, phi, lambda);
-        Real beta = kp * w / l;
-        spdlog::debug("Added MOSFET_N: {} D={} G={} S={} Kp={:.3e}A/V² W={:.3e}m L={:.3e}m Vth={:.3f}V β={:.3e}A/V² Kf={:.3e} γ={:.3f}",
-                     dev_name, drain, gate, source, kp, w, l, vth, beta, kf, gamma);
-    } else {
-        // A level-1 card has no overlap capacitances (CGSO, CGDO, CGBO = 0)
-        state.circuit->add_mosfet_p(dev_name, drain, gate, source, kp, w, l, vth, 0.0, 0.0, 0.0, kf,
-                                    af, ef, gamma);
-        set_level1_body(*state.circuit, dev_name, bulk, gamma_body, phi, lambda);
-        Real beta = kp * w / l;
-        spdlog::debug("Added MOSFET_P: {} D={} G={} S={} Kp={:.3e}A/V² W={:.3e}m L={:.3e}m Vth={:.3f}V β={:.3e}A/V² Kf={:.3e} γ={:.3f}",
-                     dev_name, drain, gate, source, kp, w, l, vth, beta, kf, gamma);
+        spdlog::debug("Added MOSFET_{}: {} D={} G={} S={} B={} Kp={:.3e}A/V² W={:.3e}m L={:.3e}m Vth={:.3f}V",
+                      mosfet_type == "NMOS" ? "N" : "P", dev_name, drain, gate, source, bulk, kp, w,
+                      l, vth);
     }
 }
 
