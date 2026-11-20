@@ -4,22 +4,15 @@
 #pragma once
 
 #include "kirimaspice/core/types.hpp"
-#include <spdlog/spdlog.h>
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
-#include <cmath>
 #include <cstdlib>
 #include <string>
 #include <string_view>
 #include <stdexcept>
 
 namespace kirimaspice::util {
-
-// Precision loss threshold
-// IEEE 754 double has ~15-16 decimal digits of precision
-// Warn if the exponent span exceeds this (e.g., femto to tera = 27 orders of magnitude)
-constexpr int PRECISION_WARNING_EXPONENT_SPAN = 14;
 
 // Parse a numeric value with an optional scale factor
 // (docs/spec/NETLIST_CONVENTIONS.md, rule 1, as in ngspice):
@@ -29,6 +22,9 @@ constexpr int PRECISION_WARNING_EXPONENT_SPAN = 14;
 // - Letters after the number that are not a scale factor, and letters after a
 //   scale factor, are ignored: "10mA" -> 0.01, "1kHz" -> 1000, "10MHz" -> 0.01.
 // - Handles scientific notation (1e-3) and leading +/-, trims surrounding whitespace.
+// - The scale factor multiplies the number in double precision. IEEE 754
+//   rounds the product correctly, so its relative error is one rounding,
+//   plus that of the factor itself, whatever the factor's exponent.
 inline Real parse_value_with_unit(std::string_view str) {
     // Trim whitespace
     auto l = str.find_first_not_of(" \t\r\n");
@@ -90,7 +86,7 @@ inline Real parse_value_with_unit(std::string_view str) {
         throw std::runtime_error("Invalid number format: " + num_part);
     }
 
-    Real scale_factor = 1.0;  // Track scale for precision warning
+    Real scale_factor = 1.0;
 
     if (!suffix_part.empty()) {
         std::transform(suffix_part.begin(), suffix_part.end(), suffix_part.begin(),
@@ -115,20 +111,6 @@ inline Real parse_value_with_unit(std::string_view str) {
             }
         }
         value *= scale_factor;
-    }
-
-    // Warn about potential precision loss
-    // Check if the combined exponent span exceeds IEEE 754 double precision
-    if (value != 0.0 && scale_factor != 1.0) {
-        int value_exponent = static_cast<int>(std::floor(std::log10(std::fabs(value))));
-        int original_exponent = static_cast<int>(std::floor(std::log10(std::fabs(value / scale_factor))));
-        int exponent_span = std::abs(value_exponent - original_exponent);
-
-        if (exponent_span > PRECISION_WARNING_EXPONENT_SPAN) {
-            spdlog::warn("Unit conversion may lose precision: '{}' spans {} orders of magnitude "
-                        "(IEEE 754 double precision is ~15 digits)",
-                        std::string(str), exponent_span);
-        }
     }
 
     return value;
