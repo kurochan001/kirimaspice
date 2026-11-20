@@ -295,7 +295,6 @@ says otherwise.
 
 ## Command line and output
 
-- Log lines and results both go to standard output.
 - **The two raw writers name signals differently, and keep the case of
   the netlist.** The ASCII raw file writes `v(Out)` and `i(V1)`, the
   binary one `V(Out)` and `I(V1)`; ngspice-47 writes `v(out)` and `i(v1)`

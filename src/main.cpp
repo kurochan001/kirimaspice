@@ -17,10 +17,14 @@
 #include "kirimaspice/util/units.hpp"
 
 #include <spdlog/spdlog.h>
+#include <spdlog/sinks/base_sink.h>
 #include <iostream>
 #include <fstream>
 #include <sstream>
 #include <optional>
+#include <map>
+#include <memory>
+#include <mutex>
 #include <set>
 #include <cstdlib>
 #include <algorithm>
@@ -365,6 +369,21 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
     return 0;
 }
 
+// The program's own messages go to standard error as "kirimaspice: <level>:
+// <text>", and only results to standard output (kirimasim docs/spec/CLI.md,
+// sections 3 and 4); standard output is flushed first, so that the two
+// keep their order where both go to one terminal
+class StderrAfterStdout final : public spdlog::sinks::base_sink<std::mutex> {
+protected:
+    void sink_it_(const spdlog::details::log_msg& msg) override {
+        std::cout.flush();
+        spdlog::memory_buf_t formatted;
+        formatter_->format(msg, formatted);
+        std::cerr.write(formatted.data(), static_cast<std::streamsize>(formatted.size()));
+    }
+    void flush_() override { std::cerr.flush(); }
+};
+
 static bool is_help_argument(const std::string& arg) {
     return arg == "-h" || arg == "--help";
 }
@@ -385,6 +404,8 @@ static void print_usage(std::ostream& os, const char* program) {
     os << "  (an option with a value also takes it as <option>=<value>)\n";
     os << "  -h, --help                  Show this help message and exit\n";
     os << "  --version                   Show the version and exit\n";
+    os << "  --log-level <level>         Messages to show on standard error: error, warning,\n";
+    os << "                              info (default) or debug\n";
     os << "  -o <file>                   Write SSF/CSV outputs to <file> base name\n";
     os << "  --raw-out <file>            Write Nutmeg ASCII .raw output (DC/TRAN)\n";
     os << "  --raw-binary-out <file>     Write SPICE3 binary .raw output (DC/TRAN)\n";
@@ -394,6 +415,12 @@ static void print_usage(std::ostream& os, const char* program) {
 }
 
 int main(int argc, char* argv[]) {
+    {
+        auto logger = std::make_shared<spdlog::logger>("kirimaspice",
+                                                       std::make_shared<StderrAfterStdout>());
+        logger->set_pattern("kirimaspice: %l: %v");
+        spdlog::set_default_logger(logger);
+    }
     spdlog::set_level(spdlog::level::info);
 
     for (int i = 1; i < argc; ++i) {
@@ -425,7 +452,8 @@ int main(int argc, char* argv[]) {
     // option the program does not know, or one without its value, is an
     // error, not ignored
     static const std::set<std::string> kValueOptions = {
-        "-o", "--raw-out", "--raw-binary-out", "--wav-out", "--wav-sample-rate", "--wav-bits"};
+        "-o", "--raw-out", "--raw-binary-out", "--wav-out", "--wav-sample-rate", "--wav-bits",
+        "--log-level"};
     try {
         for (int i = 1; i < argc; ++i) {
             const std::string arg = argv[i];
@@ -454,7 +482,16 @@ int main(int argc, char* argv[]) {
             if (value->empty()) {
                 throw std::invalid_argument(name + " requires a value");
             }
-            if (name == "-o") {
+            if (name == "--log-level") {
+                static const std::map<std::string, spdlog::level::level_enum> kLevels = {
+                    {"error", spdlog::level::err}, {"warning", spdlog::level::warn},
+                    {"info", spdlog::level::info}, {"debug", spdlog::level::debug}};
+                const auto level = kLevels.find(*value);
+                if (level == kLevels.end()) {
+                    throw std::invalid_argument("--log-level must be error, warning, info or debug");
+                }
+                spdlog::set_level(level->second);
+            } else if (name == "-o") {
                 output_file = *value;
             } else if (name == "--raw-out") {
                 raw_output_file = *value;

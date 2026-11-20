@@ -90,8 +90,7 @@ Run it:
 build/kirimaspice examples/test_simple_divider.sp
 ```
 
-The program writes log lines that start with a time stamp and `[info]`,
-then the result:
+The program writes the result to standard output:
 
 ```text
 === DC Operating Point ===
@@ -101,8 +100,10 @@ V(n2) = 1.65 V
 I(VDD) = -0.00165 A
 ```
 
-Both the log lines and the result go to standard output. To keep only the
-result, filter out the lines that start with `[`.
+Its log lines, `kirimaspice: info: ...` and the like, go to standard
+error, so `build/kirimaspice examples/test_simple_divider.sp > out.txt`
+keeps the result alone; `--log-level warning` leaves out the `info`
+lines.
 
 `I(VDD)` is negative because the source delivers current to the circuit:
 as in SPICE, the current of a voltage source is positive when it flows
@@ -322,7 +323,8 @@ print(vout[time.index(1e-3)])    # 0.6321053213059
 - Run it from the top of the source tree, or put the tree on `PYTHONPATH`.
 - Signal names are in lower case: `time`, `v(out)`, `i(v1)`.
 - `run_netlist` raises an exception when the program fails. The program's
-  own output still goes to standard output.
+  own output is not captured: its results go to standard output and its
+  log lines to standard error, as when it runs alone.
 - Only the first plot of the raw file is read: for a netlist with `.op` and
   `.tran`, the result holds the operating point and not the transient.
 - `result.to_dataframe()` needs pandas.
@@ -457,7 +459,7 @@ lines after `.INCLUDE` and `.LIB` files have been inserted, continuation
 lines joined, empty lines dropped, `.IF` blocks resolved and `.CONTROL`
 blocks taken out, so it can differ from the line number in your editor.
 
-Warnings start with the time stamp and `[warning]`. Read them: several mistakes (an unknown
+Warnings start with `kirimaspice: warning:`. Read them: several mistakes (an unknown
 `.OPTIONS` name, a value with a suffix where none is allowed, an element
 inside a subcircuit that is not expanded) produce only a warning and the
 run continues without that setting or element.

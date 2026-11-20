@@ -63,6 +63,21 @@ class CliOptions(unittest.TestCase):
                                 capture_output=True, text=True, timeout=60)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
+    def test_results_on_stdout_and_messages_on_stderr(self):
+        result = self.run_cli("deck.cir")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("V(in) = 1 V", result.stdout)
+        self.assertNotIn("kirimaspice: ", result.stdout)
+        self.assertIn("kirimaspice: info: ", result.stderr)
+        self.assertNotIn("V(in) = 1 V", result.stderr)
+
+    def test_log_level_leaves_out_lower_levels(self):
+        result = self.run_cli("--log-level", "warning", "deck.cir")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("kirimaspice: info: ", result.stderr)
+        self.assertIn("V(in) = 1 V", result.stdout)
+        self.assert_rejected(self.run_cli("--log-level=loud", "deck.cir"), "--log-level must be")
+
     def test_version(self):
         result = self.run_cli("--version")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

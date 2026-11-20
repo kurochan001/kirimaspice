@@ -28,17 +28,18 @@ a subcircuit can hold and which device parameters the parser reads; read
 
 ### What should I record when a result needs reproducing?
 
-The version line the program logs first (`kirimaspice v0.0.0 - SPICE
-circuit simulator`), the commit you built, the netlist, the command line,
-your operating system, compiler and SuiteSparse version. There is no
-`--version` option yet.
+The version (`kirimaspice --version`, or the first line the program logs,
+`kirimaspice: info: kirimaspice v0.0.0 - SPICE circuit simulator`), the
+commit you built, the netlist, the command line, your operating system,
+compiler and SuiteSparse version.
 
-### Why are log lines mixed with the results?
+### Where do the log lines go?
 
-Both go to standard output. Log lines start with `[` (a time stamp and
-`[info]`, `[warning]` or `[error]`), so filter them out to keep the results.
-Read the warnings: some mistakes, such as an unknown `.OPTIONS` name, only
-give a warning and the run goes on without that setting.
+To standard error, as `kirimaspice: <level>: <text>` (`info`, `warning`,
+`error`); the results go to standard output, so `> out.txt` keeps the
+results alone. `--log-level warning` shows warnings and errors only. Read
+the warnings: some mistakes, such as an unknown `.OPTIONS` name, only give
+a warning and the run goes on without that setting.
 
 ### Where is the result of an AC analysis?
 

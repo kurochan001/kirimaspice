@@ -496,8 +496,10 @@ it.
 
 ### Standard output
 
-Log lines (`[<time>] [info]`, `[warning]`, `[error]`) and results are both
-written to standard output. The results are:
+Only results are written to standard output; the log lines go to
+standard error as `kirimaspice: <level>: <text>`, after standard output
+has been flushed, and `--log-level` chooses the lowest level shown. The
+results are:
 
 - operating point: `=== DC Operating Point ===`, then `V(0) = 0 V`, one
   `V(<node>) = <value> V` per node and one `I(<source>) = <value> A` per
