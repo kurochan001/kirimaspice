@@ -142,6 +142,22 @@ std::uint32_t CircuitGraph::num_nodes() const {
     return static_cast<std::uint32_t>(node_map_.size());
 }
 
+std::uint32_t CircuitGraph::num_unknowns() const {
+    return num_nodes() - 1 + static_cast<std::uint32_t>(voltage_sources_.size());
+}
+
+std::string CircuitGraph::unknown_name(std::uint32_t index) const {
+    const std::uint32_t nodes = num_nodes() - 1;
+    if (index < nodes) {
+        const NodeId id = index + 1;
+        return "V(" + (id < node_names_.size() ? node_names_[id] : std::to_string(id)) + ")";
+    }
+    if (index - nodes < voltage_sources_.size()) {
+        return "I(" + voltage_sources_[index - nodes]->name() + ")";
+    }
+    return "unknown " + std::to_string(index);
+}
+
 std::vector<std::string> CircuitGraph::get_node_names() const {
     std::vector<std::string> names;
     names.reserve(node_names_.size());

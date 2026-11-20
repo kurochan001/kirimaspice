@@ -98,6 +98,14 @@ public:
     /// Get all node names
     std::vector<std::string> get_node_names() const;
 
+    /// The unknowns of the modified nodal equations: the nodes other than
+    /// ground, then the branch currents of get_voltage_sources() in order
+    std::uint32_t num_unknowns() const;
+
+    /// The name of unknown index of those equations: "V(<node>)" or
+    /// "I(<source>)"
+    std::string unknown_name(std::uint32_t index) const;
+
     // Device management
     /// Add resistor
     /// @param name Device name (e.g., "R1")

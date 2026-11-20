@@ -41,6 +41,20 @@ void KLUSolver::reset() {
     values_.clear();
     n_ = 0;
     last_error_.clear();
+    singular_column_.reset();
+}
+
+void KLUSolver::record_factor_failure(const char* what) {
+    last_error_ = what;
+    singular_column_.reset();
+    // The caller reports the failure, naming the unknown of the column
+    // (solvers::factorization_failure); this is the backend's detail
+    spdlog::debug("{}: KLU status {}, rcond {:.6e}", last_error_, common_.status, common_.rcond);
+    if (common_.status == KLU_SINGULAR && common_.singular_col >= 0 &&
+        static_cast<std::uint32_t>(common_.singular_col) < n_) {
+        singular_column_ = static_cast<std::uint32_t>(common_.singular_col);
+        spdlog::debug("Matrix is singular at column: {}", common_.singular_col);
+    }
 }
 
 bool KLUSolver::update_csc_inplace(const SparseMatrix& matrix, bool verify_pattern) {
@@ -193,13 +207,7 @@ bool KLUSolver::analyze_and_factorize(const SparseMatrix& matrix) {
     numeric_ = klu_factor(col_ptr_.data(), row_idx_.data(),
                           values_.data(), symbolic_, &common_);
     if (!numeric_) {
-        last_error_ = "KLU numeric factorization failed";
-        spdlog::error("{}", last_error_);
-        spdlog::error("KLU status: {}", common_.status);
-        spdlog::error("KLU rcond: {:.6e}", common_.rcond);
-        if (common_.status == KLU_SINGULAR) {
-            spdlog::error("Matrix is singular at column: {}", common_.singular_col);
-        }
+        record_factor_failure("KLU numeric factorization failed");
         klu_free_symbolic(&symbolic_, &common_);
         symbolic_ = nullptr;
         return false;
@@ -211,6 +219,7 @@ bool KLUSolver::analyze_and_factorize(const SparseMatrix& matrix) {
 }
 
 bool KLUSolver::refactorize(const SparseMatrix& matrix) {
+    singular_column_.reset();
     // Check if symbolic factorization exists
     if (!symbolic_) {
         last_error_ = "Must call analyze_and_factorize first";
@@ -279,13 +288,7 @@ bool KLUSolver::refactorize(const SparseMatrix& matrix) {
     numeric_ = klu_factor(col_ptr_.data(), row_idx_.data(),
                           values_.data(), symbolic_, &common_);
     if (!numeric_) {
-        last_error_ = "KLU refactorization failed";
-        spdlog::error("{}", last_error_);
-        spdlog::error("KLU status: {}", common_.status);
-        spdlog::error("KLU rcond: {:.6e}", common_.rcond);
-        if (common_.status == KLU_SINGULAR) {
-            spdlog::error("Matrix is singular at column: {}", common_.singular_col);
-        }
+        record_factor_failure("KLU refactorization failed");
 
         // If pattern changed and numeric factorization failed, recommend full reanalysis
         if (diff.has_changes()) {

@@ -23,7 +23,9 @@
 #ifdef Int_MAX
 #undef Int_MAX
 #endif
+#include <cstdint>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace kirimaspice::solvers {
@@ -76,6 +78,10 @@ public:
     /// Get last error message
     const std::string& last_error() const { return last_error_; }
 
+    /// The column of the original matrix with the zero pivot, when the last
+    /// factorization failed on a singular matrix (klu_common's singular_col)
+    std::optional<std::uint32_t> singular_column() const { return singular_column_; }
+
     /// Check if solver is initialized
     bool is_initialized() const { return symbolic_ != nullptr; }
 
@@ -101,6 +107,11 @@ private:
 
     std::uint32_t n_;          ///< Matrix dimension
     std::string last_error_;   ///< Last error message
+    std::optional<std::uint32_t> singular_column_;  ///< See singular_column()
+
+    /// After klu_factor returned no factorization: the error, and the
+    /// singular column when KLU found one
+    void record_factor_failure(const char* what);
 
     /// Convert COO to CSC and update internal storage in-place
     /// Returns false if sparsity pattern has changed

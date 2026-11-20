@@ -7,7 +7,9 @@
 #include "kirimaspice/core/matrix_types.hpp"
 #include "kirimaspice/core/types.hpp"
 
+#include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 
 namespace kirimaspice::solvers {
@@ -31,6 +33,11 @@ public:
 
     /// Error message (empty if the last operation succeeded)
     virtual const std::string& last_error() const = 0;
+
+    /// When the last factorization failed on a singular matrix, the column of
+    /// the matrix as given (not permuted) where it was found, if the backend
+    /// reports one
+    virtual std::optional<std::uint32_t> singular_column() const { return std::nullopt; }
 
     /// Reset internal state
     virtual void reset() = 0;

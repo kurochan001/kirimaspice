@@ -479,9 +479,14 @@ The waveform has fewer or more arguments than it takes. The arguments
 that SPICE derives from `.TRAN` when they are left out must be written
 ([Reference Manual](REFERENCE_MANUAL.md#sources)).
 
-### `Matrix is singular` or `KLU numeric factorization failed`
+### `singular matrix: check V(<node>)` or `check I(<source>)`
 
-A node has no DC path to ground, or two voltage sources form a loop.
+The message ends with the unknown where the solver found the matrix
+singular. At `V(<node>)`, that node, or a group of nodes it belongs to,
+has no DC path to ground; at `I(<source>)`, that voltage source is in a
+loop of voltage sources (also `E` and `H` sources and voltage-form `B`
+sources). The node or source named is one of those involved, not always
+the one to change.
 
 ### A `B` source gives `cannot compile the expression`
 

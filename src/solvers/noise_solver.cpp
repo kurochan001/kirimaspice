@@ -4,6 +4,7 @@
 // src/solvers/noise_solver.cpp
 // Noise Analysis with Adjoint Transfer Function Method
 #include "kirimaspice/solvers/noise_solver.hpp"
+#include "kirimaspice/solvers/factorization_failure.hpp"
 #include "kirimaspice/devices/device.hpp"
 #include "kirimaspice/solvers/solver_factory.hpp"
 #include <spdlog/spdlog.h>
@@ -355,7 +356,8 @@ ComplexDenseVector NoiseSolver::solve_adjoint_system(const ComplexSparseMatrix& 
     // Solve using KLU
     auto solver = make_solver(choose_backend());
     if (!solver->analyze_and_factorize(real_system.G)) {
-        spdlog::error("NoiseSolver: Adjoint factorization failed: {}", solver->last_error());
+        spdlog::error("NoiseSolver: Adjoint factorization failed: {}",
+                      factorization_failure(circuit_, *solver));
         return ComplexDenseVector();
     }
 

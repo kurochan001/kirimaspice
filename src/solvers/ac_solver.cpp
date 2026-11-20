@@ -3,6 +3,7 @@
 
 // src/solvers/ac_solver.cpp
 #include "kirimaspice/solvers/ac_solver.hpp"
+#include "kirimaspice/solvers/factorization_failure.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
 #include "kirimaspice/solvers/solver_factory.hpp"
 #include "kirimaspice/devices/device.hpp"
@@ -321,7 +322,8 @@ ComplexDenseVector ACSolver::solve_at_frequency(Real omega) {
         // In parallel region: create thread-local solver (no reuse)
         auto local_solver = make_solver(choose_backend());
         if (!local_solver->analyze_and_factorize(real_system->G)) {
-            spdlog::error("Linear solver factorization failed: {}", local_solver->last_error());
+            spdlog::error("Linear solver factorization failed: {}",
+                          factorization_failure(circuit_, *local_solver));
             return ComplexDenseVector();
         }
         if (!local_solver->solve(real_system->b, V_real)) {
@@ -427,7 +429,8 @@ DenseVector ACSolver::solve_linear_system(MNASystem& system) {
         }
     }
     if (!ok) {
-        spdlog::error("Linear solver factorization failed: {}", lin_solver_->last_error());
+        spdlog::error("Linear solver factorization failed: {}",
+                      factorization_failure(circuit_, *lin_solver_));
         return DenseVector();
     }
 

@@ -31,6 +31,10 @@ public:
         return klu_.last_error();
     }
 
+    std::optional<std::uint32_t> singular_column() const override {
+        return klu_.singular_column();
+    }
+
     void reset() override { klu_.reset(); }
 
 private:

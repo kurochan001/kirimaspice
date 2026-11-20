@@ -3,6 +3,7 @@
 
 // src/solvers/transient_solver.cpp
 #include "kirimaspice/solvers/transient_solver.hpp"
+#include "kirimaspice/solvers/factorization_failure.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
 #include "kirimaspice/solvers/fourier_analyzer.hpp"
 
@@ -593,7 +594,7 @@ ConvergenceStatus TransientSolver::solve_timestep(DenseVector& solution,
 
         if (!factorize_ok) {
             spdlog::error("Linear solver factorization failed: {}",
-                         lin_solver_->last_error());
+                         factorization_failure(circuit_, *lin_solver_));
             return ConvergenceStatus::SINGULAR_MATRIX;
         }
 
@@ -680,7 +681,8 @@ ConvergenceStatus TransientSolver::solve_timestep_tr_bdf2(DenseVector& solution,
         }
 
         if (!factorize_ok) {
-            spdlog::error("Linear solver factorization failed: {}", lin_solver_->last_error());
+            spdlog::error("Linear solver factorization failed: {}",
+                          factorization_failure(circuit_, *lin_solver_));
             restore_device_states();
             return ConvergenceStatus::SINGULAR_MATRIX;
         }
@@ -766,7 +768,8 @@ ConvergenceStatus TransientSolver::solve_timestep_tr_bdf2(DenseVector& solution,
         spdlog::trace("TR-BDF2 Stage 2: Numeric factorization only (reusing symbolic, iter={})", iter);
 
         if (!factorize_ok) {
-            spdlog::error("Linear solver factorization failed: {}", lin_solver_->last_error());
+            spdlog::error("Linear solver factorization failed: {}",
+                          factorization_failure(circuit_, *lin_solver_));
             return ConvergenceStatus::SINGULAR_MATRIX;
         }
 

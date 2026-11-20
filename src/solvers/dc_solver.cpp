@@ -4,6 +4,7 @@
 // src/solvers/dc_solver.cpp
 #include "kirimaspice/util/string_utils.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
+#include "kirimaspice/solvers/factorization_failure.hpp"
 
 // Only the device headers used directly here are included
 #include "kirimaspice/devices/device.hpp"          // Base class for polymorphism
@@ -320,7 +321,7 @@ ConvergenceStatus DCSolver::solve_standard(DenseVector& solution, SolverStats& s
 
         if (!factorize_ok) {
             spdlog::error("Matrix factorization failed: {}",
-                         lin_solver_->last_error());
+                         factorization_failure(circuit_, *lin_solver_));
             return ConvergenceStatus::SINGULAR_MATRIX;
         }
 
@@ -678,7 +679,8 @@ ConvergenceStatus DCSolver::solve_with_source_stepping(DenseVector& solution, So
             }
 
             if (!factorize_ok) {
-                spdlog::error("Matrix factorization failed: {}", lin_solver_->last_error());
+                spdlog::error("Matrix factorization failed: {}",
+                              factorization_failure(circuit_, *lin_solver_));
                 // Restore scale factor to 1.0 before returning
                 set_source_scale_factor(1.0);
                 return ConvergenceStatus::SINGULAR_MATRIX;
@@ -847,7 +849,8 @@ ConvergenceStatus DCSolver::solve_with_gmin_stepping(DenseVector& solution, Solv
             }
 
             if (!factorize_ok) {
-                spdlog::error("Matrix factorization failed: {}", lin_solver_->last_error());
+                spdlog::error("Matrix factorization failed: {}",
+                              factorization_failure(circuit_, *lin_solver_));
                 return ConvergenceStatus::SINGULAR_MATRIX;
             }
 
@@ -974,7 +977,8 @@ ConvergenceStatus DCSolver::solve_with_pseudo_transient(DenseVector& solution, S
             }
         }
         if (!factorize_ok) {
-            spdlog::warn("Pseudo-transient factorization failed: {}", lin_solver_->last_error());
+            spdlog::warn("Pseudo-transient factorization failed: {}",
+                         factorization_failure(circuit_, *lin_solver_));
             return ConvergenceStatus::SINGULAR_MATRIX;
         }
 

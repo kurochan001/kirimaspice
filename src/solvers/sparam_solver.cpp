@@ -457,6 +457,8 @@ DenseVector SParameterSolver::solve_linear_system(MNASystem& system) {
     }
 
     if (!ok) {
+        // The system holds the nodes alone, not in the order of
+        // CircuitGraph::unknown_name, so no unknown is named
         spdlog::error("Linear solver factorization failed: {}", lin_solver_->last_error());
         return DenseVector();
     }

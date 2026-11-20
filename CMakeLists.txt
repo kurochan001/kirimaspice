@@ -313,6 +313,7 @@ add_library(kirimaspice_lib STATIC
 
     # Solvers
     src/solvers/klu_solver.cpp
+    src/solvers/factorization_failure.cpp
     src/solvers/solver_factory.cpp
     src/solvers/superlu_dist_solver.cpp
     src/solvers/dc_solver.cpp
