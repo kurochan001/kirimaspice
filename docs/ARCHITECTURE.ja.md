@@ -2,7 +2,7 @@
 
 [English](ARCHITECTURE.md) · [プロジェクトの README](../README.ja.md) · この文書は英語版を正とします。日本語版はその訳で、両者が食い違う場合は英語版に従います。
 
-**2026-11-15 更新**、コミット `eaf0629` に合わせています。この文書は、kirimaspice の作りを説明します。
+**2026-11-21 更新**、コミット `2826a81` に合わせています。この文書は、kirimaspice の作りを説明します。
 ライブラリの部品、ネットリストがそれらを通る道筋、設計がまだ意図どおりになっていない箇所です。コードを
 読んで書きました。実行しても確かめたものは、そう書いています。場所は行番号ではなく、ファイルと関数で
 示します。コードに手を入れるときは [DEVELOPMENT](DEVELOPMENT.ja.md) を、用語は[用語集](GLOSSARY.ja.md)を
@@ -67,8 +67,10 @@ flowchart LR
 
 `src/main.cpp` は次のことをします。
 
-1. オプション（`-o`、`--raw-out`、`--raw-binary-out`、`--wav-*`、`--solver-*`）を読み、ソルバーの
-   オプションをソルバーの工場に渡します。
+1. メッセージを、標準出力を書き出した後に `kirimaspice: <レベル>: <本文>` の形で標準エラーに書く
+   ロガー（`StderrAfterStdout`）を設定し、オプション（`-o`、`--raw-out`、`--raw-binary-out`、
+   `--wav-*`、`--log-level`、`--version`、`--help`）を読みます。知らないオプション、値のないオプション、
+   2 つ目のネットリストは、終了コード 1 のエラーです。
 2. `NetlistParser::parse_file` を呼びます。これは回路と `SimulationConfig` を返します。`.TEMP` があると、
    最初の温度が基準の温度になります。
 3. `CircuitGraph::expand_all_subcircuits` を呼びます。展開はパーサーではなく、プログラムの仕事です。
@@ -84,7 +86,7 @@ flowchart LR
 | --- | --- | --- | --- |
 | 完全な `.DC` | DC スイープ | 要約 | raw（ASCII、バイナリ） |
 | `.OP` でスイープなし、または解析の行がない | 動作点 | `V(...)` と `I(...)` | SSF、raw（ASCII、バイナリ） |
-| 完全な `.TRAN` | 過渡解析。その後に `.FOUR` を、その行の信号ごとに | `.PRINT TRAN` の表 | SSF、raw（ASCII、バイナリ）、WAV |
+| 完全な `.TRAN` | 過渡解析。その後に `.FOUR` を、その行の信号ごとに | `.FOUR` の結果、続いて `.PRINT TRAN` の表 | SSF、raw（ASCII、バイナリ）、WAV |
 | `.AC` | AC | なし | 必ず `<base>_ac.csv` |
 
 複数の解析が raw ファイルを書くと、それぞれがプロットを後ろに足します。SSF ファイルは、それぞれが
@@ -122,7 +124,10 @@ flowchart TD
 
 ディレクティブは `.SUBCKT` の本体かどうかを調べる前に処理するので、サブ回路の中の `.MODEL` はグローバルに
 なります。そこにある `.PARAM` は本体と一緒に保存し、インスタンスごとにその中だけで効きます。`.SUBCKT` の中の素子の行はテキストのまま保存し、展開のときに同じ素子のパーサーで解析します（[回路](#回路)）。入れ子の
-`.SUBCKT` の定義はエラーです。知らないディレクティブは、`.MEASURE` も含め、メッセージなしで捨てます。
+`.SUBCKT` の定義はエラーです。パーサーが読まないディレクティブは、1 回警告して無視します（`.NOISE`、
+`.MEASURE`、`.TITLE` は未対応として）。読んだディレクティブは `SimulationConfig::directives_read` に
+記録し、プログラムはそこから、実行しないものを名指しします。`BCDEFGHIKLMOQRSTVXYZ` 以外の文字の素子は
+`ParseError` です（`is_element_letter`）。
 
 **使う前に定義されていないモデルとサブ回路。** ダイオード、BJT、MOSFET、MESFET の解析は、モデルがまだ
 分からないと、`X` の解析はサブ回路がまだ分からないと、`UnresolvedDefinition` を投げます。`process_line` は
@@ -147,6 +152,12 @@ flowchart TD
 - ノードは 0 から番号を付けます。ノード 0 がグラウンドで、名前は `0` です。`is_ground_name` は、大文字と
   小文字を問わず `gnd` もそこへ対応させます（[NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.ja.md) の
   規則 5）。
+- ノードの名前は `add_node`、`get_node_id`、`has_node` で小文字にそろえるので、大文字小文字を区別せずに
+  比べます。出力の書き手は、`include/kirimaspice/output/signal_names.hpp` を通して、信号を小文字の
+  `v(<ノード>)`、`i(<電源>)` と名付けます。
+- `unknown_name` は行の未知数を `V(<ノード>)` または `I(<電源>)` と名付けます。KLU が行列を特異と
+  判定すると、ソルバーはその列を `solvers::factorization_failure` を通して
+  `singular matrix: check V(b)` のように報告します。
 - デバイスは `std::shared_ptr<Device>` として、名前と順番で持ちます。
 - 電流が方程式の未知数になるデバイスは、`voltage_sources_` にも入れ、その中の位置を枝の番号にします。
   独立電圧源（DC と波形）、電圧の形の `B` 電源、`E`、`H` です。インダクタには枝がなく、DC では 10⁶ S の
@@ -210,7 +221,9 @@ MESFET、SCR、VDMOS は、それぞれ自分の極性の列挙型（`GaNPolarit
   0 も残すので、回路の非零の形は反復の間で変わりません。`to_csc` は重複を足し合わせて、KLU が受け取る
   圧縮列形式にします。`MNASystem` は G、b、x を持ち、`ComplexMNASystem` はその AC 版です。
 - ソルバーは `ISparseLinearSolver` を通して線形ソルバーを使います。`choose_backend`
-  （`src/solvers/solver_factory.cpp`）は、コマンドライン、環境変数、ビルドの既定の順に選びます。動く
+  （`src/solvers/solver_factory.cpp`）は、ライブラリの呼び出し側が設定した上書き（`set_cli_backend_override`。
+  単体テスト 1 つとベンチマーク 1 つが使う）、ビルドの既定の順に選びます。プログラムは何も設定せず、
+  環境変数は読みません。動く
   バックエンドは KLU だけで、`SuperLUDISTSolver` はどのメソッドも `false` を返します。
 - Newton 法のループでは、最初の反復で解析と分解を行い、非零の形が変わらない間は、あとの反復で保存した
   記号解析を使って分解し直します。
@@ -255,7 +268,7 @@ flowchart TD
   同じ判定をします（`TransientSolver::check_convergence`）。そのため、書き込みはデバイスの履歴を変えては
   いけません。履歴を進めるのは `accept_solution` です。
 - **制限。** 未知数が 4 個を超える非線形の回路では、最初の 10 回の反復で、Newton 法の一歩全体を 5 V 以下に
-  縮めます（動的 gmin を使うときを除きます）。ダイオードと NPN トランジスタは、反復の間に接合電圧が動く幅も
+  縮めます（動的 gmin を使うときを除きます）。ダイオードとバイポーラトランジスタ（NPN と PNP）は、反復の間に接合電圧が動く幅も
   制限し（`core::limit_junction_step`。SPICE と同じです）、IGBT は V<sub>CE</sub> を SPICE3 の FET の
   V<sub>DS</sub> の規則で制限します（`core::limit_fet_drain_step`）。レベル 1 の MOSFET と MESFET は、V<sub>GS</sub> を
   SPICE3 の FET のゲートの規則で（`core::limit_fet_gate_step`。逆モードでは V<sub>GD</sub>）、V<sub>DS</sub> をドレインの
@@ -269,7 +282,8 @@ flowchart TD
 
 `TransientSolver::solve`（`src/solvers/transient_solver.cpp`）は、温度を設定し、始点を求め、時間を進めます。
 
-- **始点。** `UIC` があれば `initialize_uic_mode` が `.IC` から始めます。なければ始点は動作点で、`.IC` の
+- **始点。** `UIC` があれば `initialize_uic_mode` が `.IC` と、キャパシタとインダクタの `IC=`
+  （`apply_initial_condition`）から始めます。なければ始点は動作点で、`.IC` の
   ノードをその値に固定して解き（`DCSolver::hold_node_voltages`。それぞれ 10¹⁰ S のコンダクタンス）、
   過渡解析ではそれを外します。
 - **方法**（`IntegrationMethod`）。後退オイラー法、台形則（既定）、BDF2（`gear`、`gear2`、`bdf2`）、
@@ -277,8 +291,11 @@ flowchart TD
   その方法のコンパニオンモデルを書きます。ただし、SiC MOSFET、GaN HEMT、VDMOS、FinFET、MESFET は方法に
   かかわらず容量を後退オイラー法で積分し、IGBT は台形則のときにそうします
   （[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#デバイスモデル)）。
-- **固定刻み。プログラムが使う経路です。** `run_fixed_timestepping` は `tstep` で刻み、`tmax` は使いません。
-  最初のステップ（BDF2 では最初の 2 ステップ）は後退オイラー法で進み、BDF3 は、履歴が 1 点か 2 点の間は
+- **固定刻み。プログラムが使う経路です。** 刻みは TSTEP と TMAX の短いほうです（`main.cpp`。TMAX が
+  なければパーサーが TSTEP にします）。`run_timestepping_loop` は電源の折れ点（`Waveform::breakpoints`。
+  `PULSE` の角、`PWL` の点、`SIN` と `EXP` の遅れ）ごとに区間を区切るので、そこに必ず点があります。
+  その後、刻みは格子に戻り、積分はそこから後退オイラー法の 1 ステップでやり直します（`history_count_`
+  を戻します）。最初のステップ（BDF2 では最初の 2 ステップ）は後退オイラー法で進み、BDF3 は、履歴が 1 点か 2 点の間は
   BDF2 のステップで進みます。失敗したステップは、後退オイラー法でやり直し、それでも駄目なら刻みを半分にして、
   15 回までやり直します。打ち切り誤差による制御はありません。
 
@@ -340,7 +357,7 @@ flowchart TD
 | パラメータスイープ（`.STEP`） | `ParameterSweepExecutor`。点ごとにネットリストを解析し直す | 使えない。`.STEP` は解析する |
 | モンテカルロ、ワーストケース | `MonteCarloExecutor`、`WCaseAnalyzer`（`src/analysis`） | 使えない |
 | 最適化、BSIM4 の抽出 | NLopt を使う `CircuitOptimizer`、`BSIM4ParameterExtractor` | 使えない |
-| 測定 | `MeasureEngine`（`src/measure`） | 使えない。`.MEASURE` は捨てる |
+| 測定 | `MeasureEngine`（`src/measure`） | 使えない。`.MEASURE` は警告して無視する |
 
 これらはライブラリの呼び出しとしてテストしています。プログラムが解析しても実行しないディレクティブは
 [KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#ネットリストの入力) にあります。
@@ -360,7 +377,7 @@ flowchart TD
   違います。
 - **ソルバーが `const CircuitGraph&` のデバイスを変えます。** スイープの電源の値、温度、過渡解析の始めの
   状態のリセットです。続けて実行する解析は、その状態を共有します。
-- **静的な状態があります。** ソルバーの工場はコマンドラインの選択を静的変数に持ち、`bsim4_core.cpp` と
+- **静的な状態があります。** ソルバーの工場は `set_cli_backend_override` などで設定した上書きを静的変数に持ち、`bsim4_core.cpp` と
   `mutual_inductance.cpp` のいくつかの関数は、OpenMP が並列に実行しうる経路で関数内の静的変数を持ちます。
 - **使われていない部分。** `CircuitGraph` の Boost.Graph、BSIM4 が `extra_node_count` で宣言する内部ノード
   （ソルバーは 0 個として扱います）、SuperLU_DIST のバックエンド、止めてある DC スイープの並列化、

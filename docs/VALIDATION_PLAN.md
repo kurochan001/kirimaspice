@@ -57,7 +57,9 @@ individual completion records. The fifth item applies throughout the work.
   as well as the implementation.
 - [ ] Commit reviewed changes in small units with their regression tests
   and a record of the broken rule, its implementation point and the other
-  paths using it, as required by CLAUDE.md.
+  paths using it, as required by CLAUDE.md. The review fixes were
+  committed in `c53faa5`, `b24d060`, `bcbf92a`, `cb74f90` and `57de8e1`;
+  whether each was reviewed by a person is not recorded here.
 - [ ] Resolve the pending documentation, specification-observation and CI
   proposals through their required approval process.
 
@@ -170,9 +172,10 @@ rules already defined in CLAUDE.md and AI_POLICY.
 1. Read this plan, CLAUDE.md, AI_POLICY and KNOWN_ISSUES; inspect the current
    branch, working tree and approval record.
 2. Check which review fixes and proposals have actually been applied. Start
-   with the first incomplete priority; the next implementation task after
-   preserving the review fixes is the approved CI-classification change,
-   followed by restoring the 20 reference comparisons.
+   with the first incomplete priority. In priority 2 the CI-classification
+   change and the 20 reference comparisons are done; its open items are
+   the six known failures caused by missing model files and the disabled
+   BSIM4 transient test.
 3. After meaningful changes, update completion markers with the commit,
    verification command and result, and record unresolved questions.
 4. Before a requested push, run `python3 tools/local_ci.py` and attach its

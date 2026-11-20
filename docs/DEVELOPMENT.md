@@ -2,7 +2,7 @@
 
 [日本語](DEVELOPMENT.ja.md) · [Project README](../README.md) · This English text is the main version; the Japanese version follows it, and where they differ, this text holds.
 
-**Updated 2026-11-15** for commit `02261a2`. This guide is for people who
+**Updated 2026-11-21** for commit `2826a81`. This guide is for people who
 change kirimaspice: how to build it for development, how the tests are laid
 out and run, what to check before a push, and how to add a device model or
 fix a bug within the project's rules. [CONTRIBUTING](../CONTRIBUTING.md)
@@ -33,7 +33,8 @@ ctest --test-dir build --output-on-failure
 ```
 
 - The build directory may be anywhere: tests read their data from the
-  source tree by its absolute path (`tests/support/source_path.hpp`).
+  source tree by its absolute path (`tests/support/source_path.hpp`), and
+  the tests that run the program are given the program of the build.
   `tools/local_ci.py` uses `build/`.
 - SuiteSparse (KLU) comes from the system. For another installation, pass
   `-DCMAKE_PREFIX_PATH=<prefix>`; `tools/local_ci.py` takes it as
@@ -58,7 +59,7 @@ ctest --test-dir build --output-on-failure
 | `tests/unit/` | GoogleTest programs, one per source file, for one class or one function each | yes, every case |
 | `tests/integration/` | GoogleTest programs that parse a netlist and run an analysis | yes |
 | `tests/validation/` | comparisons with ngspice reference data in `validation/`, and standalone investigation programs | 5 of the 47 programs (GoogleTest); the other 42 are built but not run |
-| `tests/scripts/` | Python tests: the Python tools, the [examples](../examples/README.md), a BSIM4 DC smoke test | yes |
+| `tests/scripts/` | Python tests: the command line, the Python tools, the [examples](../examples/README.md), a BSIM4 DC smoke test; and the install check, `check_install.cmake` | yes |
 | `tests/netlists/` | netlists that the command-line and Python tests use | — |
 | `tests/benchmarks/` | Google Benchmark programs, built only with `BUILD_BENCHMARKS=ON` | no |
 | `tests/debug/`, `tests/debug_*.cpp` | debugging programs | no |
@@ -66,13 +67,13 @@ ctest --test-dir build --output-on-failure
 GoogleTest programs are registered with `gtest_discover_tests`, so CTest
 lists each test case as `Suite.Name`. The command-line tests (`cli_*`,
 among them the `.TEMP` runs `cli_temperature_*`), the examples
-(`example_*`), the Python tools (`python_tools_*`), `bsim4_dc_smoke` and `MutualInductanceFixTest` are registered with
-`add_test`, one CTest test each. At commit `f3d6423` CTest has 1293 tests
+(`example_*`), the Python tools (`python_tools_*`), `bsim4_dc_smoke`, `install_program_only` and `MutualInductanceFixTest` are registered with
+`add_test`, one CTest test each. At commit `2826a81` CTest has 1335 tests
 on macOS.
 
 Tests write their files under the build tree, each in a directory of its
-own: `build/tests/test_output/<Suite.Name>/` for a GoogleTest case and
-`build/tests/test_output/<test or program>/` otherwise
+own: `<build>/tests/test_output/<Suite.Name>/` for a GoogleTest case and
+`<build>/tests/test_output/<test or program>/` otherwise
 ([tests/support/test_output.hpp](../tests/support/test_output.hpp), which
 empties a directory the first time a program asks for it). No test writes
 to the source tree or to fixed names in `/tmp`.
@@ -151,8 +152,8 @@ The steps, with the classes and files described in
    `src/devices/`, deriving from the device base class and implementing
    the stamps of the analyses it takes part in.
 2. Add it to the circuit (`CircuitGraph` in `src/circuit/`) and, if a
-   netlist should reach it, to the parser (`src/parser/netlist_parser.cpp`)
-   and to subcircuit expansion.
+   netlist should reach it, to the parser (`src/parser/netlist_parser.cpp`).
+   Lines inside a `.SUBCKT` are read by the same element parsers.
 3. Write tests whose expected values come from the model's specification
    or an analytic solution, or from an ngspice run with its version
    recorded.
@@ -166,7 +167,7 @@ The places a new device touches:
 | `include/kirimaspice/devices/`, `src/devices/` | the class; an explicit instantiation in the `.cpp` file for a template that is not header-only |
 | `CMakeLists.txt` | the `.cpp` file in the sources of `kirimaspice_lib` (they are listed, not globbed) |
 | `src/parser/netlist_parser.cpp` | the element or the `LEVEL` of a `.MODEL` card, and its parameters |
-| `CircuitGraph::expand_subcircuit_instance` (`src/circuit/circuit_graph.cpp`) | the element inside a `.SUBCKT`, if it should work there |
+| `is_element_letter`, `rename_body_line` (`src/parser/netlist_parser.cpp`) | a new element letter, and which of its tokens are nodes or names of other elements, so that it works inside a `.SUBCKT` |
 | `apply_temperature_to_devices` (`src/solvers/temperature_utils.cpp`) | a call of the device's `set_temperature`, if it depends on temperature |
 | `tests/unit/`, `tests/CMakeLists.txt` | the tests and their registration |
 | `ECL_FILES` in `tools/check_spdx.py`, [THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md) | only for code based on BSIM model code |
@@ -254,9 +255,10 @@ them, CI does not build them, and no results are published.
 
 ## Debugging aids
 
-- The program logs at the `info` level (`src/main.cpp`); there is no
-  option to change the level. The `debug` and `trace` messages in the code
-  need a change to `main.cpp` to appear.
+- The program logs at the `info` level by default; `--log-level
+  error|warning|info|debug` sets the lowest level shown on standard error
+  (`src/main.cpp`). The `trace` messages in the code need a change to
+  `main.cpp` to appear.
 - `KIRIMASPICE_DEBUG_DUMP`, set to any value, writes the MNA system of
   the second Newton iteration of each DC solve to `debug_coo.txt`,
   `debug_csc.txt`, `debug_b.txt` and `debug_x.txt` in the current

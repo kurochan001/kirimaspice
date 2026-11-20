@@ -2,7 +2,7 @@
 
 [English](DEVELOPMENT.md) · [プロジェクトの README](../README.ja.md) · この文書は英語版を正とします。日本語版はその訳で、両者が食い違う場合は英語版に従います。
 
-**2026-11-15 更新**、コミット `02261a2` に合わせています。この手引きは、kirimaspice を変える人のための
+**2026-11-21 更新**、コミット `2826a81` に合わせています。この手引きは、kirimaspice を変える人のための
 ものです。開発用のビルド、テストの構成と実行、push の前に確かめること、プロジェクトの決まりの中で
 デバイスモデルを足したり不具合を直したりする方法を書きます。受け付ける貢献は
 [CONTRIBUTING](../CONTRIBUTING.ja.md) に、人にもエージェントにも等しく適用される決まりは
@@ -31,7 +31,8 @@ ctest --test-dir build --output-on-failure
 ```
 
 - ビルドディレクトリはどこに置いてもかまいません。テストは、データをソースのツリーから絶対パスで読みます
-  （`tests/support/source_path.hpp`）。`tools/local_ci.py` は `build/` を使います。
+  （`tests/support/source_path.hpp`）。プログラムを動かすテストには、そのビルドのプログラムを渡します。
+  `tools/local_ci.py` は `build/` を使います。
 - SuiteSparse（KLU）はシステムのものを使います。ほかの場所に入れたものは `-DCMAKE_PREFIX_PATH=<prefix>` で
   渡します。`tools/local_ci.py` には `--cmake-arg=-DCMAKE_PREFIX_PATH=<prefix>` として渡します。
 - CMake のオプション（`BUILD_TESTS`、`BUILD_BENCHMARKS`、`SANITIZE_ADDRESS`、`ENABLE_COVERAGE` など）は
@@ -51,7 +52,7 @@ ctest --test-dir build --output-on-failure
 | `tests/unit/` | GoogleTest のプログラム。ソースファイル 1 つに 1 つで、それぞれ 1 つのクラスか関数を調べる | する。すべてのケース |
 | `tests/integration/` | ネットリストを読んで解析を走らせる GoogleTest のプログラム | する |
 | `tests/validation/` | `validation/` にある ngspice の参照データとの比較と、調査用の単体のプログラム | 47 個のうち 5 個（GoogleTest）。残りの 42 個はビルドされるが実行されない |
-| `tests/scripts/` | Python のテスト。Python のツール、[例題](../examples/README.ja.md)、BSIM4 の DC の簡単な確認 | する |
+| `tests/scripts/` | Python のテスト。コマンドライン、Python のツール、[例題](../examples/README.ja.md)、BSIM4 の DC の簡単な確認。インストールの確認 `check_install.cmake` | する |
 | `tests/netlists/` | コマンドラインと Python のテストが使うネットリスト | — |
 | `tests/benchmarks/` | Google Benchmark のプログラム。`BUILD_BENCHMARKS=ON` のときだけビルドされる | しない |
 | `tests/debug/`、`tests/debug_*.cpp` | デバッグ用のプログラム | しない |
@@ -59,11 +60,11 @@ ctest --test-dir build --output-on-failure
 GoogleTest のプログラムは `gtest_discover_tests` で登録するので、CTest はテストケースを 1 つずつ
 `Suite.Name` として並べます。コマンドラインのテスト（`cli_*`。`.TEMP` の実行を調べる `cli_temperature_*`
 もその中にあります）、例題（`example_*`）、Python のツール（`python_tools_*`）、`bsim4_dc_smoke`、
-`MutualInductanceFixTest` は `add_test` で登録し、それぞれが CTest の 1 つのテストです。コミット `f3d6423`
-では、macOS で CTest のテストは 1293 個です。
+`install_program_only`、`MutualInductanceFixTest` は `add_test` で登録し、それぞれが CTest の 1 つのテストです。
+コミット `2826a81` では、macOS で CTest のテストは 1335 個です。
 
 テストは、ファイルをビルドのツリーの下の、テストごとのディレクトリに書きます。GoogleTest のケースは
-`build/tests/test_output/<Suite.Name>/`、それ以外は `build/tests/test_output/<テストかプログラムの名前>/` です
+`<build>/tests/test_output/<Suite.Name>/`、それ以外は `<build>/tests/test_output/<テストかプログラムの名前>/` です
 （[tests/support/test_output.hpp](../tests/support/test_output.hpp)。プログラムが最初に求めたときに、その
 ディレクトリを空にします）。ソースのツリーや `/tmp` の決まった名前に書くテストはありません。
 
@@ -129,7 +130,7 @@ noreply でないコミットの作者です。出てはいけない名前は、
 1. `include/kirimaspice/devices/` と `src/devices/` にデバイスを実装します。デバイスの基底クラスから派生し、
    そのデバイスが加わる解析の書き込み（スタンプ）を実装します。
 2. 回路（`src/circuit/` の `CircuitGraph`）に足します。ネットリストから使えるようにするなら、パーサー
-   （`src/parser/netlist_parser.cpp`）とサブ回路の展開にも足します。
+   （`src/parser/netlist_parser.cpp`）にも足します。`.SUBCKT` の中の行は、同じ素子のパーサーが読みます。
 3. テストを書きます。期待値は、モデルの仕様か解析解、または版を記録した ngspice の実行から決めます。
 4. [リファレンスマニュアル](REFERENCE_MANUAL.ja.md#素子)に素子を書きます。
 
@@ -141,7 +142,7 @@ noreply でないコミットの作者です。出てはいけない名前は、
 | `include/kirimaspice/devices/`、`src/devices/` | クラス。ヘッダーだけでないテンプレートなら、`.cpp` のファイルでの明示的な実体化 |
 | `CMakeLists.txt` | `kirimaspice_lib` のソースへの `.cpp` のファイル（ソースはグロブで集めず、列挙しています） |
 | `src/parser/netlist_parser.cpp` | 素子、または `.MODEL` カードの `LEVEL` と、そのパラメータ |
-| `CircuitGraph::expand_subcircuit_instance`（`src/circuit/circuit_graph.cpp`） | `.SUBCKT` の中で使えるようにするなら、その中の素子 |
+| `is_element_letter`、`rename_body_line`（`src/parser/netlist_parser.cpp`） | 新しい素子の文字と、その字句のどれがノードやほかの素子の名前か。これで `.SUBCKT` の中でも使える |
 | `apply_temperature_to_devices`（`src/solvers/temperature_utils.cpp`） | 温度に依存するなら、デバイスの `set_temperature` の呼び出し |
 | `tests/unit/`、`tests/CMakeLists.txt` | テストとその登録 |
 | `tools/check_spdx.py` の `ECL_FILES`、[THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.ja.md) | BSIM のモデルのコードに基づくコードのときだけ |
@@ -216,8 +217,9 @@ cmake --build build-bench --target bench_device_stamping
 
 ## デバッグの助け
 
-- プログラムは `info` のレベルでログを出します（`src/main.cpp`）。レベルを変えるオプションはありません。
-  コードの中の `debug` と `trace` のメッセージを出すには、`main.cpp` を変える必要があります。
+- プログラムは既定では `info` のレベルでログを出し、`--log-level error|warning|info|debug` で標準エラーに
+  出す最低のレベルを選べます（`src/main.cpp`）。コードの中の `trace` のメッセージを出すには、`main.cpp` を
+  変える必要があります。
 - `KIRIMASPICE_DEBUG_DUMP` は、どんな値でも設定すると、DC の解を求めるたびに、Newton 法の 2 回目の反復の
   MNA の系を、今のディレクトリの `debug_coo.txt`、`debug_csc.txt`、`debug_b.txt`、`debug_x.txt` に書きます。
   `KIRIMASPICE_BSIM1_DEBUG` は BSIM1 のデバッグログを出します。値が空でないときは、その名前のデバイスに

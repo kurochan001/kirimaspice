@@ -2,7 +2,7 @@
 
 [日本語](ARCHITECTURE.ja.md) · [Project README](../README.md) · This English text is the main version; the Japanese version follows it, and where they differ, this text holds.
 
-**Updated 2026-11-15** for commit `eaf0629`. This document describes how
+**Updated 2026-11-21** for commit `2826a81`. This document describes how
 kirimaspice is built: the parts of the library, the path a netlist takes
 through them, and the places where the design is not yet as intended. It
 was written by reading the code; what was also run says so. Places are
@@ -72,8 +72,12 @@ and the second half of `core/device_utils.hpp` is in
 
 `src/main.cpp` does the following:
 
-1. Reads the options (`-o`, `--raw-out`, `--raw-binary-out`, `--wav-*`,
-   `--solver-*`) and passes the solver options to the solver factory.
+1. Installs a logger that writes messages to standard error as
+   `kirimaspice: <level>: <text>` after standard output is flushed
+   (`StderrAfterStdout`), and reads the options (`-o`, `--raw-out`,
+   `--raw-binary-out`, `--wav-*`, `--log-level`, `--version`, `--help`).
+   An unknown option, a missing value or a second netlist is an error
+   with exit code 1.
 2. Calls `NetlistParser::parse_file`, which returns the circuit and a
    `SimulationConfig`. With `.TEMP`, the first temperature becomes the
    base temperature.
@@ -94,7 +98,7 @@ and the second half of `core/device_utils.hpp` is in
 | --- | --- | --- | --- |
 | a complete `.DC` | DC sweep | a summary | raw (ASCII, binary) |
 | `.OP`, no sweep, or no analysis line | operating point | `V(...)` and `I(...)` | SSF, raw (ASCII, binary) |
-| a complete `.TRAN` | transient, then `.FOUR` for each of its signals | the table of `.PRINT TRAN` | SSF, raw (ASCII, binary), WAV |
+| a complete `.TRAN` | transient, then `.FOUR` for each of its signals | the results of `.FOUR`, then the table of `.PRINT TRAN` | SSF, raw (ASCII, binary), WAV |
 | `.AC` | AC | nothing | always `<base>_ac.csv` |
 
 When more than one analysis writes a raw file, each appends a plot to it;
@@ -143,8 +147,12 @@ Directives are handled before the check for a `.SUBCKT` body, so a
 body and is local to each instance. Inside a `.SUBCKT`,
 element lines are stored as text and parsed at expansion, by the same
 element parsers (see [Circuit](#circuit)). Nested
-`.SUBCKT` definitions are an error. Unknown directives, `.MEASURE` among
-them, are dropped without a message.
+`.SUBCKT` definitions are an error. A directive the parser does not read
+is ignored with one warning (`.NOISE`, `.MEASURE` and `.TITLE` as not
+supported); every directive read is recorded in
+`SimulationConfig::directives_read`, from which the program names those
+it does not run. An element of a letter outside `BCDEFGHIKLMOQRSTVXYZ` is
+a `ParseError` (`is_element_letter`).
 
 **Models and subcircuits defined after use.** The parsers of diodes,
 BJTs, MOSFETs and MESFETs throw `UnresolvedDefinition` when the model is
@@ -176,6 +184,14 @@ devices:
 - Nodes are numbered from 0. Node 0 is ground, named `0`;
   `is_ground_name` also maps `gnd` in any case to it
   ([NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.md), rule 5).
+- Node names are folded to lower case in `add_node`, `get_node_id` and
+  `has_node`, so they are compared without case; the writers name the
+  signals `v(<node>)` and `i(<source>)` in lower case through
+  `include/kirimaspice/output/signal_names.hpp`.
+- `unknown_name` names the unknown of a row, `V(<node>)` or
+  `I(<source>)`; when KLU finds a matrix singular, the solvers report its
+  column through `solvers::factorization_failure` as `singular matrix:
+  check V(b)`.
 - Devices are held as `std::shared_ptr<Device>`, by name and in order.
 - Every device whose current is an unknown of the equations is also kept
   in `voltage_sources_`, and its branch number is its position there:
@@ -254,8 +270,10 @@ parser has no `J` element.
   duplicate entries into the compressed-column form KLU takes.
   `MNASystem` holds G, b and x; `ComplexMNASystem` is its AC counterpart.
 - The solvers reach a linear solver through `ISparseLinearSolver`.
-  `choose_backend` (`src/solvers/solver_factory.cpp`) takes the command
-  line, then the environment, then the build default. KLU is the only
+  `choose_backend` (`src/solvers/solver_factory.cpp`) takes an override a
+  library caller set (`set_cli_backend_override`, which one unit test and
+  one benchmark use), then the build default; the program sets none, and
+  the environment is not read. KLU is the only
   working backend: `SuperLUDISTSolver` returns `false` from every method.
 - In a Newton loop, the first iteration analyses and factorises, and the
   later ones refactorise with the stored symbolic analysis while the
@@ -311,7 +329,8 @@ off by default).
   device's history; `accept_solution` advances it.
 - **Limiting.** For the first ten iterations of a nonlinear circuit with
   more than four unknowns, the whole Newton step is scaled to at most 5 V
-  (unless dynamic gmin is on). The diode and the NPN transistor also limit
+  (unless dynamic gmin is on). The diode and the bipolar transistor (NPN
+  and PNP) also limit
   how far a junction voltage moves from one iteration to the next
   (`core::limit_junction_step`, as SPICE does), the IGBT limits its V<sub>CE</sub>
   by SPICE3's rule for a FET's V<sub>DS</sub> (`core::limit_fet_drain_step`),
@@ -329,7 +348,8 @@ off by default).
 `TransientSolver::solve` (`src/solvers/transient_solver.cpp`) applies the
 temperature, finds the starting point, and steps in time.
 
-- **Start.** With `UIC`, `initialize_uic_mode` starts from `.IC`;
+- **Start.** With `UIC`, `initialize_uic_mode` starts from `.IC` and the
+  `IC=` of capacitors and inductors (`apply_initial_condition`);
   otherwise the start is an operating point, solved with the `.IC` nodes
   held at their values (`DCSolver::hold_node_voltages`, a conductance of
   10¹⁰ S each), which the transient then releases.
@@ -341,9 +361,14 @@ temperature, finds the starting point, and steps in time.
   capacitances by backward Euler whatever the method, and the IGBT does so
   under the
   trapezoidal method ([KNOWN_ISSUES](../KNOWN_ISSUES.md#device-models)).
-- **Fixed steps, the path the program uses.** `run_fixed_timestepping`
-  steps by `tstep`; `tmax` is not used. Backward Euler takes the first
-  step (the first two under BDF2), and BDF3 takes BDF2 steps while its
+- **Fixed steps, the path the program uses.** The step is the shorter of
+  TSTEP and TMAX (`main.cpp`; the parser sets TMAX to TSTEP when it is
+  absent). `run_timestepping_loop` ends a segment at each source
+  breakpoint (`Waveform::breakpoints`: the corners of `PULSE`, the points
+  of `PWL`, the delays of `SIN` and `EXP`), so a point lies on each; the
+  steps then return to the grid, and the integration restarts there with
+  a backward-Euler step (`history_count_` is reset). Backward Euler takes
+  the first step (the first two under BDF2), and BDF3 takes BDF2 steps while its
   history has one or two points. A step that fails is tried again with
   backward Euler, then with the step halved, up to 15 times. There is no
   control by the truncation error.
@@ -412,7 +437,7 @@ its own solver. The inputs are the sources written with `AC`
 | Parameter sweep (`.STEP`) | `ParameterSweepExecutor`, which parses the netlist again per point | no; `.STEP` is parsed |
 | Monte Carlo, worst case | `MonteCarloExecutor`, `WCaseAnalyzer` (`src/analysis`) | no |
 | Optimization, BSIM4 extraction | `CircuitOptimizer`, `BSIM4ParameterExtractor`, with NLopt | no |
-| Measurements | `MeasureEngine` (`src/measure`) | no; `.MEASURE` is dropped |
+| Measurements | `MeasureEngine` (`src/measure`) | no; `.MEASURE` is ignored with a warning |
 
 These are tested as library calls; [KNOWN_ISSUES](../KNOWN_ISSUES.md#netlist-input)
 lists the directives the program parses but does not run.
@@ -437,8 +462,8 @@ lists the directives the program parses but does not run.
 - **Solvers change the devices of a `const CircuitGraph&`**: source values
   in a sweep, temperatures, and the state reset at the start of a
   transient. Analyses that run one after another share that state.
-- **Some state is static.** The solver factory keeps the command-line
-  choice in statics, and a few functions in `bsim4_core.cpp` and
+- **Some state is static.** The solver factory keeps the overrides set
+  through `set_cli_backend_override` and its siblings in statics, and a few functions in `bsim4_core.cpp` and
   `mutual_inductance.cpp` keep function-local statics on paths that
   OpenMP can run in parallel.
 - **Unused parts.** The Boost.Graph of `CircuitGraph`, the extra internal
