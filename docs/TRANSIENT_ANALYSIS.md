@@ -126,11 +126,10 @@ additional points. A narrow pulse can be missed entirely. Choose `TSTEP`
 to resolve the fastest relevant edge, oscillation and device dynamics,
 and verify by halving it.
 
-Use one `.TRAN` in the top-level file. The CLI selects transient analysis
-by rereading that file with a regular expression; a directive only in an
-included file may not select the analysis. Comments are also searched,
-and multiple `.TRAN` lines do not create independent jobs. The same search
-mistakes `.OPTIONS` for `.OP`; see the output section for the extra plot.
+Use one `.TRAN`. The CLI runs the transient when the parser has read a
+complete `.TRAN`, continued, included or in the branch of `.IF` taken, as
+any directive; a comment never selects it. Several `.TRAN` lines do not
+create independent jobs: the last one sets the times.
 
 For comparison, ngspice documents `TSTEP` as an output/suggested computing
 increment and `TMAX` as a maximum integration step. Its syntax does not
@@ -262,8 +261,7 @@ adding an integration stage or an error-estimation solve.
 
 ## Integration methods
 
-Select a method with, for example, `.OPTIONS METHOD=gear`. This also
-causes the current CLI's extra operating-point plot. The startup rules
+Select a method with, for example, `.OPTIONS METHOD=gear`. The startup rules
 below are for fixed stepping; the adaptive path has its own order control.
 
 | `METHOD` names | Method | Nominal order | Fixed-step startup |
@@ -586,8 +584,8 @@ inductor current. The positive source-current direction is from its
 positive terminal to its negative terminal. A voltage source delivering
 power to the RC example therefore has negative current.
 
-Raw files can contain several plots. `.OP`, the `.OPTIONS` detection bug,
-other requested analyses and temperature runs can add plots. Select by
+Raw files can contain several plots. `.OP`, other requested analyses and
+temperature runs can add plots. Select by
 `Plotname: Transient Analysis` and the intended run. The current
 `parse_ascii_raw` helper in `tools/kirimaspice_pyapi.py` reads only the first plot;
 with the method-comparison decks above it can read the operating point
@@ -644,7 +642,7 @@ expected values needs human review under the project rules.
 | [TransientSolver API](../include/kirimaspice/solvers/transient_solver.hpp) | `TimePoint`, `TransientResult`, solver ownership and history members |
 | [Configuration](../include/kirimaspice/core/types.hpp) | `SimulationConfig::Transient`, `IntegrationMethod`, `ErrorEstimation` |
 | [Netlist parser](../src/parser/netlist_parser.cpp) | `parse_tran_directive`, `parse_options_directive`, nodal initial conditions and model parameters |
-| [CLI](../src/main.cpp) | `parse_analysis_commands`, `run_analyses`, output routing and exit status |
+| [CLI](../src/main.cpp) | `run_analyses`, output routing and exit status |
 | [Device interface](../include/kirimaspice/devices/device.hpp) | Stamping, state save/restore, acceptance and physical LTE hooks |
 | [Shared device helpers](../include/kirimaspice/core/device_utils.hpp) | `capacitor_companion` and method fallback |
 | [Discrete capacitor](../src/devices/capacitor.cpp), [inductor](../src/devices/inductor.cpp) | Companion coefficients and stored voltage/current history |

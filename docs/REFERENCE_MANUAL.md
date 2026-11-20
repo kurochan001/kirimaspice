@@ -389,7 +389,7 @@ parser stores it, but the program does not use it (the library can).
 
 | Directive | Syntax | Status |
 | --- | --- | --- |
-| `.OP` | `.OP` | used: operating point (found by a text search, see [below](#how-the-program-chooses-analyses)) |
+| `.OP` | `.OP` | used: operating point (see [below](#how-the-program-chooses-analyses)) |
 | `.DC` | `.DC <src> <start> <stop> <step> [<src2> <start2> <stop2> <step2>]` | used; `<src>` is a voltage or current source and is swept for each value of `<src2>`; a zero step is an error |
 | `.TRAN` | `.TRAN <tstep> <tstop> [<tstart> [<tmax>]] [UIC]` | used; the program steps by `tstep`, and `tmax` is read but has no effect; as in SPICE, the simulation runs from 0 and keeps the points from `tstart` on, with a point on `tstart` |
 | `.AC` | `.AC DEC\|OCT\|LIN <n> <fstart> <fstop>` | used; `DEC`, `OCT`: round(`<n>` × the number of decades or octaves) + 1 points, evenly spaced in log from `<fstart>` to `<fstop>`, both included (`.AC DEC 3 10 50` gives 10, 22.36, 50 Hz, where ngspice-47 gives 10, 21.54, 46.42 Hz); `LIN`: `<n>` points in all; `<n>` is a whole number of at least 1, and another is an error |
@@ -414,16 +414,16 @@ parser stores it, but the program does not use it (the library can).
 
 ### How the program chooses analyses
 
-- The DC sweep runs when the parser has read a complete `.DC` line, and AC
-  when it has read `.AC`.
-- The operating point and the transient are chosen by searching each raw
-  line of the netlist file (not of included files) for `.op`, `.dc`, or
-  `.tran` followed by two words, in any case and anywhere in the line,
-  comments included. A `.OPTIONS` line therefore selects the operating
-  point. A `.DC` line selects the sweep instead of the operating point,
-  also when `.OP` is there too.
-- With none of these, the program computes the operating point, prints
-  the node voltages only and writes no file.
+- The program runs the analyses that the parser has read: the operating
+  point for `.OP`, the DC sweep for a complete `.DC` line, the transient
+  for a complete `.TRAN` line, and AC for `.AC` (or the `ac` command of a
+  `.control` block). An analysis line counts as every other directive
+  does: joined to its `+` continuation lines, in the text of `.INCLUDE`
+  and `.LIB` files, in the branch of `.IF` that is taken; a comment never
+  counts, and `.OPTIONS` is no analysis line. A `.DC` line runs the sweep
+  instead of the operating point, also when `.OP` is there too.
+- With no analysis line, the program runs the operating point as for
+  `.OP`: it prints the voltages and currents and writes the output files.
 - With a `.TEMP` list of several values, all of this runs once per value,
   after a line `=== Temperature <t> °C ===`. The raw files hold the plots
   of every run, one after another; the SSF, WAV and AC CSV files of a run
@@ -434,13 +434,12 @@ parser stores it, but the program does not use it (the library can).
 flowchart TD
   N[netlist] --> P{"parser: complete .DC?"}
   P -- yes --> SW["DC sweep"]
-  P -- no --> S{"text search: .op or .dc?"}
+  P -- no --> S{"parser: .OP, or no analysis line at all?"}
   S -- yes --> OP["operating point"]
-  N --> TS{"text search: .tran a b?"}
+  N --> TS{"parser: complete .TRAN?"}
   TS -- yes --> TR["transient, then .FOUR"]
   N --> A{"parser: .AC?"}
   A -- yes --> AC["AC"]
-  S -- "no, and no .tran or .AC" --> DEF["operating point, voltages only"]
 ```
 
 They run in this order: DC sweep, operating point, transient, AC. What
@@ -452,7 +451,6 @@ each run prints and writes:
 | operating point | voltages and currents | yes, replaced by a later transient | yes | — | — |
 | transient | the table, then `.FOUR` | yes | yes | yes | — |
 | AC | nothing | — | — | — | always, named after `-o` or the netlist |
-| default operating point | voltages only | — | — | — | — |
 
 ## Options
 

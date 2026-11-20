@@ -63,8 +63,8 @@ Ubuntu 24.04（x86-64）の CI では、GCC 13.3.0 と clang 18.1.3 でビルド
 パーサーが受け付けるディレクティブ：`.AC`、`.DC`、`.TRAN`、`.OPTIONS`、`.IC`、`.NODESET`、
 `.PRINT`、`.SAVE`、`.GLOBAL`、`.PARAM`、`.FUNC`、`.MODEL`、`.SUBCKT`/`.ENDS`、`.INCLUDE`、
 `.LIB`/`.ENDL`、`.IF`/`.ELIF`/`.ELSE`/`.ENDIF`、`.CONTROL`/`.ENDC`、`.STEP`、`.TEMP`、`.SENS`、`.MC`、
-`.TF`、`.FOUR`、`.PZ`、`.DISTO`、`.PORT`、`.WCASE`、`.OPTIMIZE`。プログラムは `.OP` を、ネットリストの
-ファイルの文字列の検索で見つけます（[リファレンスマニュアル](docs/REFERENCE_MANUAL.ja.md#プログラムが解析を選ぶ仕組み)）。
+`.TF`、`.FOUR`、`.PZ`、`.DISTO`、`.PORT`、`.WCASE`、`.OPTIMIZE`。プログラムは、パーサーが読んだ解析を
+実行し、1 つもなければ動作点を実行します（[リファレンスマニュアル](docs/REFERENCE_MANUAL.ja.md#プログラムが解析を選ぶ仕組み)）。
 
 プログラム `kirimaspice` が実行するのは、動作点、DC スイープ（入れ子を含む）、`.FOUR` のフーリエ解析を
 含む過渡解析、AC 解析で、どれも `.TEMP` に並べた各温度でも実行します。電源は、DC の値、AC の入力と、

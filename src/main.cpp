@@ -20,7 +20,6 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
-#include <regex>
 #include <optional>
 #include <cstdlib>
 #include <algorithm>
@@ -28,46 +27,6 @@
 #include "kirimaspice/solvers/solver_factory.hpp"
 
 using namespace kirimaspice;
-
-// Parse analysis commands from netlist file
-struct AnalysisCommand {
-    bool has_dc = false;
-    bool has_tran = false;
-    Real tran_tstep = 1e-6;
-    Real tran_tstop = 1e-3;
-};
-
-AnalysisCommand parse_analysis_commands(const std::string& filepath) {
-    AnalysisCommand cmd;
-    std::ifstream file(filepath);
-    if (!file.is_open()) {
-        return cmd;
-    }
-
-    std::string line;
-    std::regex tran_regex(R"(\.tran\s+(\S+)\s+(\S+))", std::regex::icase);
-    std::regex dc_regex(R"(\.dc)", std::regex::icase);
-    std::regex op_regex(R"(\.op)", std::regex::icase);
-    std::smatch match;
-
-    while (std::getline(file, line)) {
-        // Check for .tran command
-        if (std::regex_search(line, match, tran_regex)) {
-            cmd.has_tran = true;
-            cmd.tran_tstep = kirimaspice::util::parse_value_with_unit(match[1].str());
-            cmd.tran_tstop = kirimaspice::util::parse_value_with_unit(match[2].str());
-        }
-        // Check for .dc command
-        else if (std::regex_search(line, dc_regex)) {
-            cmd.has_dc = true;
-        }
-        // Check for .op command (DC operating point analysis)
-        else if (std::regex_search(line, op_regex)) {
-            cmd.has_dc = true;
-        }
-    }
-    return cmd;
-}
 
 // The files a run writes; the SSF, WAV and AC CSV names carry the
 // temperature suffix of a run under a .TEMP list (with_suffix)
@@ -103,12 +62,16 @@ static std::optional<std::string> with_suffix(const std::optional<std::string>& 
 
 // Run the analyses of the netlist once, at the temperature of config: the DC
 // sweep, the operating point, the transient (with .FOUR) and AC, in this
-// order, or the operating point when the netlist asks for none. Returns the
-// exit code. raw_append and raw_binary_append carry over from run to run, so
-// the raw files hold the plots of every run.
+// order, or the operating point when the netlist asks for none. Which ones
+// is what the parser recorded (SimulationConfig's op_requested,
+// dc_sweep_enabled, tran_requested and ac_requested), so an analysis line
+// counts as the parser reads it: joined to its continuation lines, from
+// .INCLUDE and .LIB text, in the branch of .IF taken, never in a comment.
+// Returns the exit code. raw_append and raw_binary_append carry over from
+// run to run, so the raw files hold the plots of every run.
 static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationConfig& config,
-                        const AnalysisCommand& analysis, const OutputFiles& files,
-                        bool& raw_append_mode, bool& raw_binary_append_mode) {
+                        const OutputFiles& files, bool& raw_append_mode,
+                        bool& raw_binary_append_mode) {
     auto* circuit = &circuit_graph;
     const auto& output_file = files.ssf;
     const auto& raw_output_file = files.raw;
@@ -125,8 +88,15 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
         branch_names.push_back(vsrc->name());
     }
 
-    bool run_dc_sweep = config.dc_sweep_enabled;
-    bool run_dc_point = analysis.has_dc && !run_dc_sweep;
+    const bool run_dc_sweep = config.dc_sweep_enabled;
+    const bool asks_for_none = !config.op_requested && !config.dc_sweep_enabled &&
+                               !config.tran_requested && !config.ac_requested;
+    // A netlist without an analysis line runs the operating point as if it had
+    // .OP; with .DC as well, .OP gives the sweep alone
+    const bool run_dc_point = (config.op_requested || asks_for_none) && !run_dc_sweep;
+    if (asks_for_none) {
+        spdlog::info("No analysis specified, running the operating point as for .OP");
+    }
 
     // Run DC sweep analysis if requested via .DC
     if (run_dc_sweep) {
@@ -284,11 +254,11 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
     }
 
         // Run transient analysis if requested
-        if (analysis.has_tran) {
-            // Prefer parser-derived config (.tran/.options). Regex fallback values are only for legacy decks.
-            Real t_start = config.transient.start_time;
-            Real t_stop  = config.transient.end_time > 0 ? config.transient.end_time : analysis.tran_tstop;
-            Real t_step  = config.transient.initial_step > 0 ? config.transient.initial_step : analysis.tran_tstep;
+        if (config.tran_requested) {
+            // The times of the .TRAN line (parse_tran_directive)
+            const Real t_start = config.transient.start_time;
+            const Real t_stop = config.transient.end_time;
+            const Real t_step = config.transient.initial_step;
 
             spdlog::info("Running transient analysis: {} to {} s (step: {} s)",
                          t_start, t_stop, t_step);
@@ -369,7 +339,7 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
         }
 
         // Run AC analysis if specified
-        if (config.ac.start_freq > 0.0 && config.ac.stop_freq > 0.0) {
+        if (config.ac_requested) {
             spdlog::info("Running AC analysis...");
             solvers::ACSolver ac_solver(*circuit, config);
             auto ac_result = ac_solver.solve();
@@ -388,46 +358,6 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
 
             } else {
                 spdlog::error("AC analysis failed");
-                return 1;
-            }
-        }
-
-        // If no analysis specified, run DC by default
-        if (!analysis.has_dc && !analysis.has_tran && config.ac.start_freq == 0.0) {
-            spdlog::info("No analysis specified, running DC analysis...");
-            solvers::DCSolver dc_solver(*circuit, config);
-            DenseVector solution;
-            SolverStats stats;
-
-            auto status = dc_solver.solve(solution, stats);
-
-            if (status == ConvergenceStatus::SUCCESS) {
-                spdlog::info("DC analysis converged");
-                std::cout << "\n=== DC Operating Point ===\n";
-                auto node_names = circuit->get_node_names();
-
-                // Print ground node explicitly (always 0V)
-                for (const auto& name : node_names) {
-                    if (name == NODE_GND_NAME) {
-                        std::cout << "V(0) = 0 V\n";
-                        break;
-                    }
-                }
-
-                // Print non-ground nodes from solution vector
-                size_t solution_idx = 0;
-                for (const auto& name : node_names) {
-                    if (name == NODE_GND_NAME) {
-                        continue; // Skip ground node
-                    }
-                    if (solution_idx < solution.size()) {
-                        std::cout << "V(" << name << ") = "
-                                  << solution[solution_idx] << " V\n";
-                        solution_idx++;
-                    }
-                }
-            } else {
-                spdlog::error("DC analysis failed to converge");
                 return 1;
             }
         }
@@ -613,9 +543,6 @@ int main(int argc, char* argv[]) {
         spdlog::info("Nodes: {}", circuit->num_nodes());
         spdlog::info("Devices: {}", circuit->num_devices());
 
-        // Parse analysis commands
-        auto analysis = parse_analysis_commands(netlist_file);
-
         // .TEMP with one value is .OPTIONS TEMP (as in ngspice-47, which takes
         // one value only); with several, every analysis runs at each of them,
         // and the SSF, WAV and AC CSV files of a run carry its temperature in
@@ -650,7 +577,7 @@ int main(int argc, char* argv[]) {
             const OutputFiles files{with_suffix(output_file, suffix), ac_csv, raw_output_file,
                                     raw_binary_output_file, with_suffix(wav_output_file, suffix),
                                     wav_sample_rate, wav_bits_per_sample};
-            const int code = run_analyses(*circuit, run_config, analysis, files, raw_append_mode,
+            const int code = run_analyses(*circuit, run_config, files, raw_append_mode,
                                           raw_binary_append_mode);
             if (code != 0) {
                 return code;

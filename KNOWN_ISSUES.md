@@ -138,8 +138,8 @@ document also lists differences not decided there.
   their netlists starting with an empty line.
 - **Analyses in a `.control` block are not run as in ngspice.** In runs at
   commit `7434904`, `op` inside `.control` did not select the operating
-  point (the program fell back to its default, which prints no currents),
-  and `dc V1 0 1 0.5 V2 0 1 1` swept only `V1`. Write analyses as dot
+  point (the program ran the operating point it runs for a netlist
+  without analysis lines), and `dc V1 0 1 0.5 V2 0 1 1` swept only `V1`. Write analyses as dot
   directives (`.op`, `.dc`, `.tran`, `.ac`).
 
 ## Analyses
@@ -272,10 +272,6 @@ says otherwise.
 ## Command line and output
 
 - There is no `--version` option.
-- **The program chooses the operating point and the transient by a text
-  search.** It looks for `.op`, `.dc` and `.tran` anywhere in each line of
-  the netlist file, comments included, so a `.OPTIONS` line runs an
-  operating point and a comment that mentions `.tran` runs a transient.
 - Options the program does not know are ignored without a message, and the
   netlist must be the first argument.
 - A non-numeric value of `--wav-sample-rate` ends the program with an

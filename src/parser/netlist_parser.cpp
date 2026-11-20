@@ -924,6 +924,7 @@ static void execute_control_commands(
                         config.ac.num_points = read_ac_point_count(cmd.args[1]);
                         config.ac.start_freq = parse_value_with_unit(cmd.args[2]);
                         config.ac.stop_freq = parse_value_with_unit(cmd.args[3]);
+                        config.ac_requested = true;
 
                         spdlog::info("AC: type={}, npoints={}, fstart={}, fstop={}",
                                    type_str, config.ac.num_points,
@@ -2153,6 +2154,7 @@ static void parse_ac_directive(const std::vector<std::string>& tokens, ParseStat
     }
     state.config->ac.start_freq = parse_value_with_unit(tokens[3]);
     state.config->ac.stop_freq = parse_value_with_unit(tokens[4]);
+    state.config->ac_requested = true;
 
     spdlog::debug("Parsed .AC: sweep={}, num_points={}, start={} Hz, stop={} Hz",
                  sweep_type_str, state.config->ac.num_points,
@@ -2280,6 +2282,7 @@ static void parse_tran_directive(const std::vector<std::string>& tokens, ParseSt
     if (has_uic) {
         state.config->transient.use_initial_conditions = true;
     }
+    state.config->tran_requested = true;
 
     spdlog::info("Parsed .TRAN: tstep={}, tstop={}, tstart={}, tmax={}, UIC={}",
                 state.config->transient.initial_step,
@@ -5913,6 +5916,7 @@ void process_line(const std::string& raw_line, ParseState& state) {
         std::string directive = tokens[0];
         util::to_upper_inplace(directive);
 
+        if (directive == ".OP") { state.config->op_requested = true; return; }
         if (directive == ".AC") { parse_ac_directive(tokens, state); return; }
         if (directive == ".DC") { parse_dc_directive(tokens, state); return; }
         if (directive == ".TRAN") { parse_tran_directive(tokens, state); return; }

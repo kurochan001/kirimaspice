@@ -715,6 +715,14 @@ struct SimulationConfig {
     DCSweepConfig dc_sweep;   ///< .DC sweep configuration (supports nested/2D sweeps)
     bool dc_sweep_enabled = false;  ///< Whether DC sweep is requested
 
+    // The analyses the netlist asks for, as the parser read them: a .OP, a
+    // complete .TRAN and a .AC (or the ac command of a .control block); a DC
+    // sweep is dc_sweep_enabled. The program runs these (main.cpp), and the
+    // operating point when the netlist asks for none.
+    bool op_requested = false;
+    bool tran_requested = false;
+    bool ac_requested = false;
+
     // Device models
     std::map<std::string, ModelDefinition> models;  ///< .MODEL definitions (model_name -> ModelDefinition)
 

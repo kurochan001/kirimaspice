@@ -59,11 +59,6 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
   `.control` are not run as in ngspice.
 - [ ] **`.OP` with `.DC`.** A `.DC` sweep replaces the operating point,
   also when `.OP` is there; ngspice runs both.
-- [ ] **No analysis words in comments.** The program finds `.op`, `.dc`
-  and `.tran` by a text search of every line of the netlist file, so a
-  comment that mentions `.tran` with two words after it runs a transient,
-  and a `.OPTIONS` line runs an operating point. Analyses in an included
-  file are not found this way.
 - [ ] **Directives that do nothing here:**
 
   | Status | Directives |
@@ -76,7 +71,8 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
   values, which ngspice-47 rejects, runs every analysis at each value and
   names the SSF, WAV and AC CSV files after the temperature.
 - [ ] **A netlist without analyses.** ngspice does nothing; kirimaspice
-  computes an operating point and prints its node voltages.
+  computes the operating point as for `.OP`, prints the voltages and
+  currents and writes the output files.
 
 ### Names and numbers
 

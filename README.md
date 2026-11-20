@@ -70,7 +70,8 @@ The parser accepts these directives: `.AC`, `.DC`, `.TRAN`, `.OPTIONS`,
 `.MODEL`, `.SUBCKT`/`.ENDS`, `.INCLUDE`, `.LIB`/`.ENDL`,
 `.IF`/`.ELIF`/`.ELSE`/`.ENDIF`, `.CONTROL`/`.ENDC`, `.STEP`, `.TEMP`,
 `.SENS`, `.MC`, `.TF`, `.FOUR`, `.PZ`, `.DISTO`, `.PORT`, `.WCASE` and
-`.OPTIMIZE`. The program finds `.OP` by a text search of the netlist file
+`.OPTIMIZE`. The program runs the analyses that the parser reads, and the
+operating point when there are none
 ([Reference Manual](docs/REFERENCE_MANUAL.md#how-the-program-chooses-analyses)).
 
 The program `kirimaspice` runs the operating point, DC sweeps (also

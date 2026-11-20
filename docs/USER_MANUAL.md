@@ -266,7 +266,9 @@ Not every run writes every file:
 | DC sweep | yes | — | — | — |
 | transient | yes | yes | yes | — |
 | AC | — | — | — | yes |
-| no analysis line (default operating point) | — | — | — | — |
+
+A netlist without an analysis line runs the operating point, as if it had
+`.OP`.
 
 Under a `.TEMP` list of several values, the raw files hold the plots of
 every temperature in turn, and the other files are written once per

@@ -35,11 +35,10 @@ the devices, solves them with KLU, and writes the results.
 ```mermaid
 flowchart LR
     N[netlist file] --> P[NetlistParser<br/>parse_file]
-    N -. "read again for .op .dc .tran" .-> A["parse_analysis_commands<br/>(main.cpp)"]
     P --> C[CircuitGraph<br/>devices, nodes, branches]
     P --> S[SimulationConfig<br/>analyses, options, models]
     C --> X[expand_all_subcircuits]
-    X & S & A --> M{main.cpp<br/>chooses the analyses}
+    X & S --> M{main.cpp<br/>runs the analyses<br/>the parser read}
     M --> DC[DCSolver]
     M --> TR[TransientSolver]
     M --> AC[ACSolver]
@@ -80,24 +79,23 @@ and the second half of `core/device_utils.hpp` is in
    base temperature.
 3. Calls `CircuitGraph::expand_all_subcircuits`. Expansion is the
    program's step, not the parser's.
-4. Chooses the analyses. `parse_analysis_commands` reads the top-level
-   file again and looks for `.tran` followed by two words, `.dc` and `.op`
-   with regular expressions, on every line, comments included; `.op` also
-   matches `.options` ([KNOWN_ISSUES](../KNOWN_ISSUES.md#command-line-and-output)).
-   A DC sweep runs when the parser found `.DC`, and an AC analysis when it
-   found `.AC` frequencies. A DC sweep replaces the operating point that
-   `.op` or `.dc` asks for.
+4. Takes the analyses from what the parser recorded in `SimulationConfig`:
+   `op_requested` (`.OP`), `dc_sweep_enabled` (a complete `.DC`),
+   `tran_requested` (a complete `.TRAN`) and `ac_requested` (`.AC`, or the
+   `ac` command of a `.control` block). So an analysis line counts as every
+   other directive, after continuation lines, `.INCLUDE`, `.LIB` and `.IF`;
+   a netlist with none of them runs the operating point as for `.OP`. A DC
+   sweep replaces the operating point that `.OP` asks for.
 5. Runs the analyses through `run_analyses`, once per `.TEMP` value with
    that temperature in its `SimulationConfig` (once without `.TEMP`), and
    writes their results:
 
 | Netlist has | Runs | Standard output | Files |
 | --- | --- | --- | --- |
-| a complete `.DC` (parsed) | DC sweep | a summary | raw (ASCII, binary) |
-| `.op` or `.dc` (text), no sweep | operating point | `V(...)` and `I(...)` | SSF, raw (ASCII, binary) |
-| `.tran a b` (text) | transient, then `.FOUR` for each of its signals | a table | SSF, raw (ASCII, binary), WAV |
-| `.AC` (parsed) | AC | nothing | always `<base>_ac.csv` |
-| none of these | operating point | `V(...)` only | none |
+| a complete `.DC` | DC sweep | a summary | raw (ASCII, binary) |
+| `.OP`, no sweep, or no analysis line | operating point | `V(...)` and `I(...)` | SSF, raw (ASCII, binary) |
+| a complete `.TRAN` | transient, then `.FOUR` for each of its signals | a table | SSF, raw (ASCII, binary), WAV |
+| `.AC` | AC | nothing | always `<base>_ac.csv` |
 
 When more than one analysis writes a raw file, each appends a plot to it;
 the SSF file is rewritten by each. Under a `.TEMP` list of several values
@@ -423,10 +421,6 @@ lists the directives the program parses but does not run.
   simplified functions instead, and so does `BSIM4ParameterExtractor`.
   The SiC MOSFET, the GaN HEMT and the VDMOS evaluate their current in one
   `drain_current` for DC, AC and noise, and the IGBT in `collector_current`.
-- **The analyses are chosen in two places**: by the parser's
-  configuration (`.DC`, `.AC`) and by the regular expressions of
-  `main.cpp` (`.op`, `.dc`, `.tran`). The second holds simulation logic in
-  the program and decides the meaning of a netlist a second time.
 - **Temperature is applied type by type** in
   `apply_temperature_to_devices`, which skips the types it does not list
   (see [Devices](#devices)).

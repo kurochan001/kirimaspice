@@ -32,11 +32,10 @@ kirimaspice は、静的ライブラリ `kirimaspice_lib` と、コマンドラ�
 ```mermaid
 flowchart LR
     N[ネットリスト] --> P[NetlistParser<br/>parse_file]
-    N -. ".op .dc .tran を探して読み直す" .-> A["parse_analysis_commands<br/>（main.cpp）"]
     P --> C[CircuitGraph<br/>デバイス、ノード、枝]
     P --> S[SimulationConfig<br/>解析、オプション、モデル]
     C --> X[expand_all_subcircuits]
-    X & S & A --> M{"main.cpp<br/>が解析を選ぶ"}
+    X & S --> M{"main.cpp<br/>がパーサーの読んだ<br/>解析を実行する"}
     M --> DC[DCSolver]
     M --> TR[TransientSolver]
     M --> AC[ACSolver]
@@ -73,21 +72,20 @@ flowchart LR
 2. `NetlistParser::parse_file` を呼びます。これは回路と `SimulationConfig` を返します。`.TEMP` があると、
    最初の温度が基準の温度になります。
 3. `CircuitGraph::expand_all_subcircuits` を呼びます。展開はパーサーではなく、プログラムの仕事です。
-4. 解析を選びます。`parse_analysis_commands` が最上位のファイルを読み直し、正規表現で、後ろに 2 つの語が
-   続く `.tran` と、`.dc`、`.op` を、コメントも含めたすべての行から探します。`.op` は `.options` にも当てはまります
-   （[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#コマンドラインと出力)）。DC スイープはパーサーが `.DC` を見つけた
-   ときに、AC 解析は `.AC` の周波数を見つけたときに実行します。`.op` や `.dc` が求める動作点は、DC スイープに
-   置き換わります。
+4. 解析を、パーサーが `SimulationConfig` に記録したものから取ります。`op_requested`（`.OP`）、
+   `dc_sweep_enabled`（完全な `.DC`）、`tran_requested`（完全な `.TRAN`）、`ac_requested`（`.AC`、または
+   `.control` のブロックの `ac` のコマンド）です。そのため解析の行は、継続行、`.INCLUDE`、`.LIB`、`.IF` の後で、
+   ほかのディレクティブと同じに数えます。どれもないネットリストは、`.OP` と同じく動作点を実行します。
+   `.OP` が求める動作点は、DC スイープに置き換わります。
 5. `run_analyses` を通して解析を実行し、結果を書き出します。`.TEMP` の値ごとに、その温度を入れた
    `SimulationConfig` で 1 回ずつ実行します（`.TEMP` がなければ 1 回です）。
 
 | ネットリストにあるもの | 実行するもの | 標準出力 | ファイル |
 | --- | --- | --- | --- |
-| 完全な `.DC`（パーサーが読む） | DC スイープ | 要約 | raw（ASCII、バイナリ） |
-| `.op` か `.dc`（文字列の検索）で、スイープなし | 動作点 | `V(...)` と `I(...)` | SSF、raw（ASCII、バイナリ） |
-| `.tran a b`（文字列の検索） | 過渡解析。その後に `.FOUR` を、その行の信号ごとに | 表 | SSF、raw（ASCII、バイナリ）、WAV |
-| `.AC`（パーサーが読む） | AC | なし | 必ず `<base>_ac.csv` |
-| どれもない | 動作点 | `V(...)` だけ | なし |
+| 完全な `.DC` | DC スイープ | 要約 | raw（ASCII、バイナリ） |
+| `.OP` でスイープなし、または解析の行がない | 動作点 | `V(...)` と `I(...)` | SSF、raw（ASCII、バイナリ） |
+| 完全な `.TRAN` | 過渡解析。その後に `.FOUR` を、その行の信号ごとに | 表 | SSF、raw（ASCII、バイナリ）、WAV |
+| `.AC` | AC | なし | 必ず `<base>_ac.csv` |
 
 複数の解析が raw ファイルを書くと、それぞれがプロットを後ろに足します。SSF ファイルは、それぞれが
 書き直します。`.TEMP` に複数の値を並べると、raw ファイルにはすべての実行のプロットが入り、各実行の
@@ -350,9 +348,6 @@ flowchart TD
   BSIM4 を評価しますが、`MOSFET_BSIM4::get_noise_sources` は代わりに簡略化した関数を使い、
   `BSIM4ParameterExtractor` も同じです。SiC MOSFET、GaN HEMT、VDMOS は、DC、AC、ノイズのどれでも、
   電流を 1 つの `drain_current` で評価し、IGBT は `collector_current` で評価します。
-- **解析を 2 か所で選びます。** パーサーの設定（`.DC`、`.AC`）と、`main.cpp` の正規表現（`.op`、`.dc`、
-  `.tran`）です。後者は、プログラムにシミュレーションの論理を持たせ、ネットリストの意味をもう一度決めて
-  います。
 - **温度を種類ごとに設定します。** `apply_temperature_to_devices` は、一覧にない種類を飛ばします
   （[デバイス](#デバイス)を参照）。
 - **Newton 法のループを何度も書いています。** `solve_standard`、電源ステッピングと gmin ステッピング、

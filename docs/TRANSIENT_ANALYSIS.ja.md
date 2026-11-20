@@ -114,10 +114,9 @@ CLIは `run_fixed_timestepping` を使います。Newton反復に失敗した場
 終点であり、パルスのエッジやPWLの折れ点が追加の計算点を強制することはありません。細いパルスを丸ごと
 見逃す場合もあります。必要なエッジ、振動、素子の動特性を解像できる `TSTEP` を選び、半分にして確かめてください。
 
-`.TRAN` はトップレベルのファイルに1つ書いてください。CLIはそのファイルを正規表現でもう一度読み、
-過渡解析を選びます。include先にしかないディレクティブでは解析が選ばれない場合があります。
-コメントも検索対象で、複数の `.TRAN` は独立したジョブにはなりません。
-同じ検索が `.OPTIONS` を `.OP` と誤認するため、追加されるプロットにも注意してください。
+`.TRAN` は 1 つ書いてください。CLI は、パーサーが完全な `.TRAN` を読んだときに過渡解析を実行します。
+ほかのディレクティブと同じく、継続行、include 先、`.IF` の選ばれた分岐の中のものも数え、コメントは数えません。
+複数の `.TRAN` は独立したジョブにはならず、最後のものが時刻を決めます。
 
 比較として、ngspiceの文書では `TSTEP` は出力間隔・計算刻みの目安、`TMAX` は積分刻みの上限です。
 同じ構文でも、kirimaspiceの固定刻み経路がそのとおりに動くとは限りません。
@@ -230,8 +229,7 @@ BDF3の係数は、保持している刻み間隔から多項式補間で求め�
 
 ## 積分法
 
-例えば `.OPTIONS METHOD=gear` で選択します。現在のCLIでは、これによって追加の動作点プロットも
-生じます。下表は固定刻みの開始処理で、可変刻みには別の次数制御があります。
+例えば `.OPTIONS METHOD=gear` で選択します。下表は固定刻みの開始処理で、可変刻みには別の次数制御があります。
 
 | `METHOD` の名前 | 方法 | 理論上の次数 | 固定刻みの開始処理 |
 | --- | --- | --- | --- |
@@ -516,8 +514,7 @@ rawの変数に接地は含みません。枝電流は電圧を規定する電�
 電流を自動的に出すものではありません。電源電流の正方向は正端子から負端子です。
 RC例に電力を供給する電圧源の電流は、そのため負になります。
 
-rawファイルには複数のプロットが入ることがあります。`.OP`、`.OPTIONS` の検出不具合、ほかの解析、温度ごとの
-実行で追加されます。`Plotname: Transient Analysis` と対象の実行を選んでください。
+rawファイルには複数のプロットが入ることがあります。`.OP`、ほかの解析、温度ごとの実行で追加されます。`Plotname: Transient Analysis` と対象の実行を選んでください。
 現在の `tools/kirimaspice_pyapi.py` の `parse_ascii_raw` は最初のプロットだけを読むため、上の積分法比較用の
 ネットリストでは過渡解析でなく動作点を読むことがあります。最初のプロットに時間軸があるとは限りません。
 読み込み側は `TSTEP` から等間隔の時刻を作り直さず、記録した時刻を保持する必要もあります。
@@ -564,7 +561,7 @@ CLIは過渡解析に失敗すると非ゼロで終了し、その過渡解析�
 | [TransientSolverのAPI](../include/kirimaspice/solvers/transient_solver.hpp) | `TimePoint`、`TransientResult`、ソルバーの所有関係と履歴メンバー |
 | [設定](../include/kirimaspice/core/types.hpp) | `SimulationConfig::Transient`、`IntegrationMethod`、`ErrorEstimation` |
 | [ネットリストパーサー](../src/parser/netlist_parser.cpp) | `parse_tran_directive`、`parse_options_directive`、ノード初期条件とモデルパラメータ |
-| [CLI](../src/main.cpp) | `parse_analysis_commands`、`run_analyses`、出力先と終了状態 |
+| [CLI](../src/main.cpp) | `run_analyses`、出力先と終了状態 |
 | [素子インターフェース](../include/kirimaspice/devices/device.hpp) | スタンプ、状態の保存・復元、受理、物理量LTEのフック |
 | [共通の素子ヘルパー](../include/kirimaspice/core/device_utils.hpp) | `capacitor_companion` と積分法の切り替え |
 | [単体コンデンサ](../src/devices/capacitor.cpp)、[インダクタ](../src/devices/inductor.cpp) | コンパニオン係数と電圧・電流の履歴 |
