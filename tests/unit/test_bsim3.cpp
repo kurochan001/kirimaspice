@@ -1176,7 +1176,7 @@ TEST(MOSFET_BSIM3_N_Capacitance, AcceptSolution_HistoryUpdate) {
 
     MOSFET_BSIM3_N mosfet(1, "M1", 3, 2, 0, 0, params);
 
-    // First accept
+    // First accept (accept_solution takes ground at element 0)
     DenseVector node_voltages1 = {0.0, 0.0, 1.5, 2.0};
     mosfet.accept_solution(node_voltages1, 0.0);
 
@@ -1184,8 +1184,30 @@ TEST(MOSFET_BSIM3_N_Capacitance, AcceptSolution_HistoryUpdate) {
     DenseVector node_voltages2 = {0.0, 0.0, 2.0, 3.0};
     mosfet.accept_solution(node_voltages2, 1e-9);
 
-    // No direct way to verify history, but ensure no crash
-    SUCCEED();
+    // The backward-Euler companion of a capacitance carries C (v - v_prev) / h,
+    // v_prev being the voltage of the last accepted point. So a step that
+    // keeps the voltages of the second point moves no charge into the gate,
+    // which conducts no DC current, and one that raises the gate does.
+    // stamp_transient takes node k at element k - 1.
+    auto gate_current = [&](const DenseVector& v) {
+        MNASystem mna;
+        mna.resize(3, 0);
+        mna.zero();
+        mosfet.stamp_transient(mna, v, 1e-9, IntegrationMethod::BACKWARD_EULER, nullptr, nullptr);
+        Real i = -mna.b[1];
+        for (std::size_t k = 0; k < mna.G.nnz(); ++k) {
+            if (mna.G.rows[k] == 1) {
+                i += mna.G.values[k] * v[mna.G.cols[k]];
+            }
+        }
+        return i;
+    };
+    const Real at_second_point = gate_current({0.0, 2.0, 3.0});
+    const Real gate_raised = gate_current({0.0, 2.5, 3.0});
+    EXPECT_GT(std::abs(gate_raised), 0.0);
+    EXPECT_LE(std::abs(at_second_point), 1e-9 * std::abs(gate_raised))
+        << "gate current " << at_second_point << " A at the second point, " << gate_raised
+        << " A with the gate raised";
 }
 
 // Test 42: Capacitance area and perimeter dependence

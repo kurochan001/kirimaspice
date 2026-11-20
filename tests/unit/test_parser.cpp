@@ -272,16 +272,14 @@ R1 in out 1k
 
     parser::NetlistParser parser;
 
-    // Should parse successfully (END card is optional in some parsers)
-    // Or throw ParseError depending on implementation
-    // For now, we'll accept either behavior
-    try {
-        auto circuit = parser.parse_string_legacy(netlist);
-        // If parsing succeeded, that's fine for this test
-    } catch (const parser::ParseError& e) {
-        // If it threw an error, that's also acceptable
-        EXPECT_TRUE(true);
-    }
+    // .END is not needed: the parser reads every line, and .END itself is
+    // ignored (REFERENCE_MANUAL, "Directives")
+    std::unique_ptr<circuit::CircuitGraph> circuit;
+    ASSERT_NO_THROW(circuit = parser.parse_string_legacy(netlist));
+    ASSERT_NE(circuit, nullptr);
+    auto resistor = std::dynamic_pointer_cast<devices::Resistor>(circuit->get_device("R1"));
+    ASSERT_NE(resistor, nullptr);
+    EXPECT_DOUBLE_EQ(resistor->resistance(), 1000.0);
 }
 
 TEST(NetlistParser, InvalidSyntax) {

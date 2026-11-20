@@ -113,21 +113,37 @@ TEST_F(TRIACTest, PositiveDirection_Q1Plus_Trigger) {
 }
 
 TEST_F(TRIACTest, PositiveDirection_Turnoff) {
-    // Test turn-off when current drops below IH
-    // Note: This requires transient analysis or step-wise DC changes
-    // Simplified test: construct TRIAC and verify state management
+    // Once triggered, the TRIAC conducts (Vmt - VTM) / RON without gate
+    // current, until that current falls below IH; then it blocks until it is
+    // triggered again (devices/triac.hpp, operating regions 3 and 4)
     TRIAC triac(1, "Y1", 1, 2, 3,
                 400.0, 20e-3, 10e-3, 1.0, 0.1, 1.5, 10.0, 300.15);
-
-    // Reset state should clear latching
     triac.reset_state();
 
-    // Accept solution with low current (simulates turn-off condition)
-    DenseVector voltages = {5.0, 0.0, 1.0};  // MT2=5V, MT1=0V, G=1V (arbitrary test values)
-    triac.accept_solution(voltages);
+    // The current from MT2 to MT1 that the stamp at voltages v represents:
+    // the MT2 row (index 0) holds the main path only
+    auto mt_current = [&](const DenseVector& v) {
+        MNASystem mna;
+        mna.resize(3, 0);
+        mna.zero();
+        triac.stamp_dc_nonlinear(mna, v);
+        Real i = -mna.b[0];
+        for (std::size_t k = 0; k < mna.G.nnz(); ++k) {
+            if (mna.G.rows[k] == 0) {
+                i += mna.G.values[k] * v[mna.G.cols[k]];
+            }
+        }
+        return i;
+    };
 
-    // State management verified through parameter access
-    EXPECT_TRUE(true);  // Placeholder for state verification
+    // Gate at 4 V: Ig = (4 V - VGT) / 100 ohm = 30 mA >= IGT, so it triggers
+    EXPECT_NEAR(mt_current({5.0, 0.0, 4.0}), (5.0 - 1.5) / 0.1, 1e-9);
+    // Latched: it conducts without gate current
+    EXPECT_NEAR(mt_current({5.0, 0.0, 0.0}), (5.0 - 1.5) / 0.1, 1e-9);
+    // (1.5005 V - VTM) / RON = 5 mA < IH = 10 mA: it turns off
+    EXPECT_NEAR(mt_current({1.5005, 0.0, 0.0}), 0.0, 1e-12);
+    // and blocks 5 V again without gate current
+    EXPECT_NEAR(mt_current({5.0, 0.0, 0.0}), 0.0, 1e-12);
 }
 
 //==============================================================================

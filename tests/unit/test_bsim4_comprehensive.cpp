@@ -392,24 +392,26 @@ TEST_F(BSIM4ComprehensiveTest, PDIBLCEffects) {
     EXPECT_GT(op_default_high.gds, 0.0) << "Default model should have finite gds";
     EXPECT_GT(op_enhanced_high.gds, 0.0) << "Enhanced model should have finite gds";
 
-    // Body bias should affect CLM through pdiblcb (check with tolerance)
-    if (params_enhanced.pdiblcb != 0.0) {
-        const Real diff = std::abs(clm_ratio_body - clm_ratio_enhanced);
-        const Real tolerance = 0.01;  // 1% tolerance
-        // May be small effect due to BSIM4 smoothing, just verify it's computed
-        if (diff > tolerance) {
-            SUCCEED() << "pdiblcb effect detected: " << (diff * 100) << "% difference";
-        } else {
-            SUCCEED() << "pdiblcb effect is small (<1%) due to BSIM4 smoothing";
-        }
-    }
-
-    SUCCEED() << "PDIBLC effects verified: "
-              << "CLM ratio (default)=" << clm_ratio_default << ", "
-              << "CLM ratio (enhanced)=" << clm_ratio_enhanced << ", "
-              << "CLM ratio (body-bias)=" << clm_ratio_body << ", "
-              << "gds (default)=" << op_default_high.gds << " S, "
-              << "gds (enhanced)=" << op_enhanced_high.gds << " S";
+    // PDIBLCB is the body-bias coefficient of the DIBL effect on the output
+    // resistance (BSIM4 manual, model parameter list): it multiplies Vbseff.
+    // So under reverse body bias the CLM ratio changes with PDIBLCB, and at
+    // Vbs = 0, where Vbseff is close to 0, it does not.
+    BSIM4Params params_no_pdiblcb = params_enhanced;
+    params_no_pdiblcb.pdiblcb = 0.0;
+    BSIM4Core core_no_pdiblcb(params_no_pdiblcb, false);
+    auto clm_ratio = [&](const BSIM4Core& core, Real vbs_value) {
+        return core.evaluate(vgs, vds_high, 0.0, vbs_value, temperature, theta0vb0).ids /
+               core.evaluate(vgs, vds_low, 0.0, vbs_value, temperature, theta0vb0).ids;
+    };
+    const Real clm_ratio_body_without = clm_ratio(core_no_pdiblcb, vbs_negative);
+    const Real clm_ratio_zero_without = clm_ratio(core_no_pdiblcb, 0.0);
+    std::cout << "[PDIBLCB] CLM ratio at Vbs=-0.3: " << clm_ratio_body << " (PDIBLCB=-0.2), "
+              << clm_ratio_body_without << " (0); at Vbs=0: " << clm_ratio_enhanced << ", "
+              << clm_ratio_zero_without << std::endl;
+    EXPECT_NE(clm_ratio_body, clm_ratio_body_without)
+        << "PDIBLCB should change the CLM ratio under body bias";
+    EXPECT_NEAR(clm_ratio_enhanced, clm_ratio_zero_without, 1e-3 * clm_ratio_zero_without)
+        << "PDIBLCB should have almost no effect at Vbs = 0";
 }
 
 // Helper: Run ngspice and parse DC results

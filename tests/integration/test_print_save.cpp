@@ -7,6 +7,10 @@
 #include <gtest/gtest.h>
 #include <spdlog/spdlog.h>
 
+#include <fstream>
+#include <iterator>
+#include <string>
+
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/output/ssf_writer.hpp"
 #include "kirimaspice/parser/netlist_parser.hpp"
@@ -249,7 +253,8 @@ C1 2 0 1u
 // Test 10: SSF Writer with output config
 //==============================================================================
 TEST_F(PrintSaveTest, SSFWriterWithOutputConfig) {
-    // Test that SSFWriter can receive output config without crashing
+    // Without save_all, the SSF file holds the signals of save_signals only
+    // (SSFWriter::should_save_signal): here v(1) and v(2), not v(3)
     SimulationConfig config;
     config.output.save_all = false;
     config.output.save_signals.push_back("v(1)");
@@ -258,10 +263,17 @@ TEST_F(PrintSaveTest, SSFWriterWithOutputConfig) {
     config.output.print_signals.push_back("v(2)");
     config.output.print_signals.push_back("v(3)");
 
-    // Create SSF writer and set output config
-    output::SSFWriter writer("/tmp/test_output_config.ssf", 0);
-    writer.set_output_config(config.output);
+    const std::string path = "/tmp/test_output_config.ssf";
+    {
+        output::SSFWriter writer(path, 0);
+        writer.set_output_config(config.output);
+        writer.write_dc_analysis(DenseVector{1.0, 2.0, 3.0}, {"0", "1", "2", "3"}, DenseVector{}, {});
+    }  // the destructor writes the file
 
-    // Just verify the call succeeds
-    SUCCEED();
+    std::ifstream in(path, std::ios::binary);
+    const std::string bytes((std::istreambuf_iterator<char>(in)), {});
+    ASSERT_FALSE(bytes.empty());
+    EXPECT_NE(bytes.find("v(1)"), std::string::npos);
+    EXPECT_NE(bytes.find("v(2)"), std::string::npos);
+    EXPECT_EQ(bytes.find("v(3)"), std::string::npos);
 }
