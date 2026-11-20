@@ -4,6 +4,7 @@
 // tests/unit/test_bsim4_comprehensive.cpp
 // BSIM4 Comprehensive Testing and ngspice Comparison
 #include <gtest/gtest.h>
+#include "gtest_output.hpp"
 #include "kirimaspice/devices/mosfet_bsim4.hpp"  // Unified BSIM4 template
 #include "kirimaspice/devices/mosfet_bsim4_params.hpp"
 #include "kirimaspice/devices/bsim4_core.hpp"
@@ -457,21 +458,21 @@ NgspiceResult run_ngspice_dc(const std::string& vgs_str, std::string& error_msg)
     }
 
     // Replace @RAWFILE@ placeholder
-    const char* rawfile = "/tmp/bsim4_qa_test.raw";
+    const std::string rawfile = kirimaspice::test::test_output_path("bsim4_qa_test.raw").string();
     pos = netlist_content.find("@RAWFILE@");
     if (pos != std::string::npos) {
         netlist_content.replace(pos, 9, rawfile);
     }
 
     // Write temporary netlist
-    const char* tmpfile = "/tmp/bsim4_qa_test.sp";
+    const std::string tmpfile = kirimaspice::test::test_output_path("bsim4_qa_test.sp").string();
     std::ofstream netlist(tmpfile);
     netlist << netlist_content;
     netlist.close();
 
     // Run ngspice
-    const char* outfile = "/tmp/bsim4_qa_test.out";
-    std::string cmd = "ngspice -b " + std::string(tmpfile) + " -o " + outfile + " 2>&1";
+    const std::string outfile = kirimaspice::test::test_output_path("bsim4_qa_test.out").string();
+    std::string cmd = "ngspice -b '" + tmpfile + "' -o '" + outfile + "' 2>&1";
     int ret = system(cmd.c_str());
 
     if (ret != 0) {
@@ -482,7 +483,7 @@ NgspiceResult run_ngspice_dc(const std::string& vgs_str, std::string& error_msg)
     // Parse output
     std::ifstream output(outfile);
     if (!output.is_open()) {
-        error_msg = "Failed to open ngspice output file: " + std::string(outfile);
+        error_msg = "Failed to open ngspice output file: " + outfile;
         return result;
     }
 

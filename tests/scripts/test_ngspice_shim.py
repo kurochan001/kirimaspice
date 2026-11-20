@@ -5,16 +5,28 @@
 """Validate that tools/ngspice_shim.py runs a deck and emits log/raw artifacts."""
 from __future__ import annotations
 
+import argparse
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--out-dir", help="directory for the log and raw files "
+                        "(default: a temporary directory)")
+    args = parser.parse_args()
+    if args.out_dir is None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            return run(Path(tmpdir))
+    return run(Path(args.out_dir))
+
+
+def run(bench_dir: Path) -> int:
     repo = Path(__file__).resolve().parents[2]
     shim = repo / "tools" / "ngspice_shim.py"
     deck = repo / "tests" / "netlists" / "repl_rc.sp"
-    bench_dir = repo / "bench_out"
     bench_dir.mkdir(parents=True, exist_ok=True)
 
     log_path = bench_dir / "test_shim.log"

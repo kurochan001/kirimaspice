@@ -11,6 +11,7 @@
 #include <iomanip>
 #include <fstream>
 #include <cmath>
+#include "test_output.hpp"
 
 using namespace kirimaspice;
 
@@ -171,7 +172,8 @@ int main() {
     }
 
     // Write detailed output to file
-    std::ofstream outfile("/tmp/kirimaspice_adaptive_physical_output.txt");
+    const auto output_path = kirimaspice::test::output_dir("test_adaptive_physical") / "kirimaspice_adaptive_physical_output.txt";
+    std::ofstream outfile(output_path);
     outfile << std::fixed << std::setprecision(9);
     outfile << "Time(s)\tV_out(V)\tTheory(V)\tError(%)\tTimestep(s)" << std::endl;
 
@@ -189,7 +191,7 @@ int main() {
     }
     outfile.close();
 
-    std::cout << "\nDetailed output written to /tmp/kirimaspice_adaptive_physical_output.txt" << std::endl;
+    std::cout << "\nDetailed output written to " << output_path.string() << std::endl;
 
     return all_passed ? 0 : 1;
 }

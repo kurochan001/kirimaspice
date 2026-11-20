@@ -7,6 +7,7 @@
 #include "kirimaspice/solvers/ac_solver.hpp"
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include <gtest/gtest.h>
+#include "gtest_output.hpp"
 #include <fstream>
 #include <sstream>
 #include <cmath>
@@ -88,7 +89,7 @@ TEST_F(ACCSVWriterTest, CreateFile_WithMetadata) {
     ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
 
     // Write to CSV
-    std::string filepath = "/tmp/test_ac_output.csv";
+    std::string filepath = kirimaspice::test::test_output_path("test_ac_output.csv").string();
     ACCSVWriter writer(filepath, circuit);
     writer.write(result, "RC Low-Pass Filter Test");
 
@@ -121,7 +122,7 @@ TEST_F(ACCSVWriterTest, ColumnHeaders_Format) {
     ACSolver solver(circuit, config);
     ACResult result = solver.solve();
 
-    std::string filepath = "/tmp/test_ac_headers.csv";
+    std::string filepath = kirimaspice::test::test_output_path("test_ac_headers.csv").string();
     ACCSVWriter writer(filepath, circuit);
     writer.write(result);
 
@@ -165,7 +166,7 @@ TEST_F(ACCSVWriterTest, DataValues_Correctness) {
     ACSolver solver(circuit, config);
     ACResult result = solver.solve();
 
-    std::string filepath = "/tmp/test_ac_data.csv";
+    std::string filepath = kirimaspice::test::test_output_path("test_ac_data.csv").string();
     ACCSVWriter writer(filepath, circuit);
     writer.write(result);
 
@@ -221,7 +222,7 @@ TEST_F(ACCSVWriterTest, MultipleFrequencyPoints) {
     ACSolver solver(circuit, config);
     ACResult result = solver.solve();
 
-    std::string filepath = "/tmp/test_ac_multiple_points.csv";
+    std::string filepath = kirimaspice::test::test_output_path("test_ac_multiple_points.csv").string();
     ACCSVWriter writer(filepath, circuit);
     writer.write(result);
 

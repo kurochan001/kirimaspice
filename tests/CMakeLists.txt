@@ -7,6 +7,12 @@ set(CTEST_TEST_TIMEOUT 1200)
 
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
+# Tests write their files under the build tree, each in a directory of its
+# own (support/test_output.hpp)
+set(KIRIMASPICE_TEST_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/test_output)
+add_compile_definitions(KIRIMASPICE_TEST_OUTPUT_DIR="${KIRIMASPICE_TEST_OUTPUT_DIR}")
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/support)
+
 add_executable(test_analysis_edge_cases unit/test_analysis_edge_cases.cpp)
 target_link_libraries(test_analysis_edge_cases PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_analysis_edge_cases PROPERTIES TIMEOUT 1200)
@@ -45,6 +51,7 @@ set_tests_properties(python_tools_repl PROPERTIES
 
 add_test(NAME python_tools_ngspice_shim
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/scripts/test_ngspice_shim.py
+        --out-dir ${KIRIMASPICE_TEST_OUTPUT_DIR}/python_tools_ngspice_shim
 )
 set_tests_properties(python_tools_ngspice_shim PROPERTIES
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -54,7 +61,7 @@ add_test(NAME bsim4_dc_smoke
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/scripts/test_bsim4_dc.py
         --binary $<TARGET_FILE:kirimaspice>
         --template ${CMAKE_SOURCE_DIR}/tests/netlists/bsim4_qa_dc.template.sp
-        --json-out ${CMAKE_SOURCE_DIR}/bench_out/bsim4_dc_compare.json
+        --json-out ${KIRIMASPICE_TEST_OUTPUT_DIR}/bsim4_dc_smoke/bsim4_dc_compare.json
 )
 set_tests_properties(bsim4_dc_smoke PROPERTIES
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}

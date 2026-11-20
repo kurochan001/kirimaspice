@@ -62,6 +62,11 @@ GoogleTest のプログラムは `gtest_discover_tests` で登録するので、
 `MutualInductanceFixTest` は `add_test` で登録し、それぞれが CTest の 1 つのテストです。コミット `02261a2`
 では、macOS で CTest のテストは 1188 個です。
 
+テストは、ファイルをビルドのツリーの下の、テストごとのディレクトリに書きます。GoogleTest のケースは
+`build/tests/test_output/<Suite.Name>/`、それ以外は `build/tests/test_output/<テストかプログラムの名前>/` です
+（[tests/support/test_output.hpp](../tests/support/test_output.hpp)。プログラムが最初に求めたときに、その
+ディレクトリを空にします）。ソースのツリーや `/tmp` の決まった名前に書くテストはありません。
+
 ### テストの一部を実行する
 
 ```sh

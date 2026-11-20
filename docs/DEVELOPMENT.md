@@ -69,6 +69,13 @@ among them the `.TEMP` runs `cli_temperature_*`), the examples
 `add_test`, one CTest test each. At commit `02261a2` CTest has 1188 tests
 on macOS.
 
+Tests write their files under the build tree, each in a directory of its
+own: `build/tests/test_output/<Suite.Name>/` for a GoogleTest case and
+`build/tests/test_output/<test or program>/` otherwise
+([tests/support/test_output.hpp](../tests/support/test_output.hpp), which
+empties a directory the first time a program asks for it). No test writes
+to the source tree or to fixed names in `/tmp`.
+
 ### Run a part of the tests
 
 ```sh

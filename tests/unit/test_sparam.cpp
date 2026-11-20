@@ -5,6 +5,7 @@
 // S-parameter Analysis Tests
 
 #include <gtest/gtest.h>
+#include "gtest_output.hpp"
 #include "kirimaspice/parser/netlist_parser.hpp"
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/solvers/sparam_solver.hpp"
@@ -463,7 +464,7 @@ TEST(Touchstone, TwoPort_MA_Format) {
     result.frequency_points.push_back(point);
 
     // Write Touchstone file
-    std::string filename = "/tmp/test_2port.s2p";
+    std::string filename = kirimaspice::test::test_output_path("test_2port.s2p").string();
     bool success = TouchstoneWriter::write(filename, result, TouchstoneWriter::Format::MA);
     ASSERT_TRUE(success);
 
@@ -518,7 +519,7 @@ TEST(Touchstone, FourPort_DB_Format) {
     result.frequency_points.push_back(point);
 
     // Write Touchstone file in DB format
-    std::string filename = "/tmp/test_4port.s4p";
+    std::string filename = kirimaspice::test::test_output_path("test_4port.s4p").string();
     bool success = TouchstoneWriter::write(filename, result, TouchstoneWriter::Format::DB);
     ASSERT_TRUE(success);
 
@@ -574,7 +575,7 @@ R2 mid out 25
     ASSERT_EQ(sparam_result.frequency_points.size(), 2);
 
     // Write Touchstone file
-    std::string filename = "/tmp/integration_test.s2p";
+    std::string filename = kirimaspice::test::test_output_path("integration_test.s2p").string();
     bool write_success = TouchstoneWriter::write(filename, sparam_result);
     ASSERT_TRUE(write_success);
 

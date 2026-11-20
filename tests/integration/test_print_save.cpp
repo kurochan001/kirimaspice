@@ -6,6 +6,7 @@
 
 #include <gtest/gtest.h>
 #include <spdlog/spdlog.h>
+#include "gtest_output.hpp"
 
 #include <fstream>
 #include <iterator>
@@ -263,7 +264,7 @@ TEST_F(PrintSaveTest, SSFWriterWithOutputConfig) {
     config.output.print_signals.push_back("v(2)");
     config.output.print_signals.push_back("v(3)");
 
-    const std::string path = "/tmp/test_output_config.ssf";
+    const std::string path = kirimaspice::test::test_output_path("test_output_config.ssf").string();
     {
         output::SSFWriter writer(path, 0);
         writer.set_output_config(config.output);
