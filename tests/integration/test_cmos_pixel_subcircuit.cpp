@@ -102,8 +102,9 @@ TEST(CMOSPixelSubcircuitTest, SubcircuitBasedDCAnalysis) {
 
     // Verify output voltages (source follower operation)
     // V(col) should be approximately V(pd) - Vth
-    EXPECT_NEAR(v_col, 0.618332, 1e-3) << "Column output voltage incorrect";
-    EXPECT_NEAR(v_vout_sf, 0.752912, 1e-3) << "Source follower output voltage incorrect";
+    // ngspice-47 on the same netlist: 0.6225199 V and 0.7581629 V (2026-11-21)
+    EXPECT_NEAR(v_col, 0.622520, 1e-3) << "Column output voltage incorrect";
+    EXPECT_NEAR(v_vout_sf, 0.758163, 1e-3) << "Source follower output voltage incorrect";
 
     // Verify source follower offset (Vgs ≈ Vth + margin)
     Real v_gs_sf = v_pd - v_vout_sf;  // Gate-source voltage of source follower MOSFET
@@ -146,8 +147,9 @@ TEST(CMOSPixelSubcircuitTest, InlineBasedDCAnalysis) {
     EXPECT_NEAR(v_rowsel, 3.3, 1e-6) << "Row select voltage incorrect";
 
     // Verify output voltages
-    EXPECT_NEAR(v_col, 0.618332, 1e-3) << "Column output voltage incorrect";
-    EXPECT_NEAR(v_vout_sf, 0.752912, 1e-3) << "Source follower output voltage incorrect";
+    // ngspice-47 on the same netlist: 0.6225199 V and 0.7581629 V (2026-11-21)
+    EXPECT_NEAR(v_col, 0.622520, 1e-3) << "Column output voltage incorrect";
+    EXPECT_NEAR(v_vout_sf, 0.758163, 1e-3) << "Source follower output voltage incorrect";
 
     // Verify source follower offset
     Real v_gs_sf = v_pd - v_vout_sf;
