@@ -435,32 +435,6 @@ ConvergenceStatus DCSolver::solve_standard(DenseVector& solution, SolverStats& s
             }
         }
 
-        // Debug: dump matrix for iter 1
-        if (iter == 1) {
-            spdlog::trace("=== MNA Matrix Dump (Iter 1) ===");
-            spdlog::trace("System size: {}", mna_.G.n_rows);
-            spdlog::trace("b vector:");
-            for (std::size_t i = 0; i < std::min(mna_.b.size(), size_t(6)); ++i) {
-                spdlog::trace("  b[{}] = {:.6e}", i, mna_.b[i]);
-            }
-
-            // Dump relevant G matrix rows (base row 2 and collector row 3)
-            spdlog::trace("G matrix (base row 2):");
-            for (std::size_t k = 0; k < mna_.G.nnz(); ++k) {
-                if (mna_.G.rows[k] == 2 && mna_.G.cols[k] <= 5) {
-                    spdlog::trace("  G[{}][{}] = {:.6e}",
-                                 mna_.G.rows[k], mna_.G.cols[k], mna_.G.values[k]);
-                }
-            }
-            spdlog::trace("G matrix (collector row 3, ALL columns):");
-            for (std::size_t k = 0; k < mna_.G.nnz(); ++k) {
-                if (mna_.G.rows[k] == 3) {
-                    spdlog::trace("  G[{}][{}] = {:.6e}",
-                                 mna_.G.rows[k], mna_.G.cols[k], mna_.G.values[k]);
-                }
-            }
-        }
-
         // Factorize and solve
         bool factorize_ok;
         if (iter == 0) {
@@ -501,17 +475,10 @@ ConvergenceStatus DCSolver::solve_standard(DenseVector& solution, SolverStats& s
             return ConvergenceStatus::NUMERICAL_ERROR;
         }
 
-        // Debug: dump solution for iter 1
-        if (iter == 1) {
-            spdlog::trace("=== Solution Vector (Iter 1) ===");
-            for (std::size_t i = 0; i < std::min(x_new.size(), size_t(6)); ++i) {
-                spdlog::trace("  x[{}] = {:.6e}", i, x_new[i]);
-            }
-
-            // Write debug files for external verification (only if env var is set)
-            if (std::getenv("KIRIMASPICE_DEBUG_DUMP")) {
-                dump_mna_system_to_files(x_new);
-            }
+        // KIRIMASPICE_DEBUG_DUMP (core/constants.hpp) writes the system of
+        // the second Newton iteration to files
+        if (iter == 1 && std::getenv("KIRIMASPICE_DEBUG_DUMP")) {
+            dump_mna_system_to_files(x_new);
         }
 
         // Compute residual for convergence check
@@ -547,7 +514,7 @@ ConvergenceStatus DCSolver::solve_standard(DenseVector& solution, SolverStats& s
         spdlog::debug("  Newton step: max_delta={:.3e} V, threshold={:.3e} V", max_delta_unscaled, max_voltage_step);
         if (max_delta_unscaled > max_voltage_step) {
             const Real scale = max_voltage_step / max_delta_unscaled;
-            spdlog::info("  Voltage limiting: Scaling Newton step by {:.6f} (max_delta={:.3e} V)",
+            spdlog::debug("  Voltage limiting: Scaling Newton step by {:.6f} (max_delta={:.3e} V)",
                          scale, max_delta_unscaled);
             for (std::size_t i = 0; i < x_new.size(); ++i) {
                 x_new[i] = x_old[i] + scale * (x_new[i] - x_old[i]);
@@ -559,18 +526,8 @@ ConvergenceStatus DCSolver::solve_standard(DenseVector& solution, SolverStats& s
             max_change = std::max(max_change, std::abs(x_new[i] - x_old[i]));
         }
 
-        spdlog::info("Iter {}: max_residual={:.3e}, max_change={:.3e}",
-                     iter, max_residual, max_change);
-
-        // DEBUG: Log node-by-node voltages and changes for iterations 10-20
-        if (iter >= 10 && iter <= 20) {
-            spdlog::info("  Node voltages at iter {} (num_nodes={}):", iter, x_new.size());
-            for (std::size_t i = 0; i < x_new.size(); ++i) {
-                Real delta = x_new[i] - x_old[i];
-                spdlog::info("    Node {}: V={:10.6f}, ΔV={:+.6e}",
-                            i + 1, x_new[i], delta);
-            }
-        }
+        spdlog::debug("Iter {}: max_residual={:.3e}, max_change={:.3e}",
+                      iter, max_residual, max_change);
 
         if (dynamic_gmin_enabled) {
             const Real improvement_threshold = std::clamp(config_.dc.dynamic_gmin_improvement_threshold, 0.0, 0.99);
