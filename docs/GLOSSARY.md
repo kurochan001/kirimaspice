@@ -17,14 +17,14 @@ For practical questions see the [FAQ](FAQ.md).
 | --- | --- |
 | <a id="netlist"></a>netlist | The text file that describes a circuit and the analyses to run. kirimaspice reads SPICE netlists and follows ngspice where SPICE dialects differ ([NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.md)) |
 | title line | The first non-empty line of a netlist, whatever it contains |
-| element | A line that places a device, named by its first letter: `R1`, `V1`, `M3`, `X2`. Element names are case-sensitive |
+| element | A line that places a device, named by its first letter: `R1`, `V1`, `M3`, `X2`. Element names are not case-sensitive |
 | <a id="directive"></a>directive | A line that starts with `.`: `.MODEL`, `.TRAN`, `.PARAM`. Some are read but not used by the program ([Reference Manual](REFERENCE_MANUAL.md#directives)) |
-| <a id="node"></a>node | A connection point named on element lines. Node names are case-sensitive |
+| <a id="node"></a>node | A connection point named on element lines. Node names are not case-sensitive, and are written in lower case |
 | <a id="ground"></a>ground | The reference node, 0 V: `0`, or `gnd` in any case. Inside kirimaspice it is node 0, `NODE_GND` |
 | continuation line | A line that starts with `+` and continues the line before it |
 | <a id="model-card"></a>model card | A `.MODEL` line: a named set of device parameters. Its name is not case-sensitive, and it may stand after the `D`, `Q`, `M` and `Z` elements that use it |
 | `LEVEL` | The model-card parameter that selects the MOSFET model: 1, 3, BSIM1, BSIM3, BSIM4 and others ([Reference Manual](REFERENCE_MANUAL.md#models)) |
-| <a id="subcircuit"></a>subcircuit | A circuit defined between `.SUBCKT` and `.ENDS` and placed with an `X` element. Its name is not case-sensitive. Its internal nodes and elements get names such as `X1.n1`. Only some elements are expanded inside it ([Reference Manual](REFERENCE_MANUAL.md#elements)) |
+| <a id="subcircuit"></a>subcircuit | A circuit defined between `.SUBCKT` and `.ENDS` and placed with an `X` element. Its name is not case-sensitive. Its internal nodes and elements get names such as `x1.n1` and `X1.R1` ([Reference Manual](REFERENCE_MANUAL.md#elements)) |
 | <a id="parameter"></a>parameter | A name defined with `.PARAM`, used in `{...}` expressions; `.FUNC` defines a function for `.PARAM` expressions |
 | expression | A value in braces, `{...}`, evaluated with the ExprTk library. Scale factors are not accepted inside it |
 | <a id="scale-factor"></a>scale factor | A suffix that scales a number, in any case: `T`, `G`, `MEG`, `K`, `MIL`, `M` (milli), `U`, `N`, `P`, `F`, `A` (atto). Mega is `MEG` |
@@ -38,7 +38,7 @@ For practical questions see the [FAQ](FAQ.md).
 | controlled source | A source whose value depends on a voltage (`E` gives a voltage, `G` a current) or on the current of a voltage source (`H` gives a voltage, `F` a current) |
 | <a id="behavioural-source"></a>behavioural source | A `B` element whose voltage or current is an expression of node voltages and `TIME`, the time of the transient |
 | <a id="branch-current"></a>branch current | The current of a voltage source, `E`, `H` or voltage-form `B` source, solved as its own unknown. It is positive when it flows into the `+` terminal through the source, so a source delivering current has a negative current |
-| level-1 MOSFET | The square-law MOSFET model: parameters `KP`, `W`, `L`, `VTO` and noise parameters; no bulk effect and no channel-length modulation |
+| level-1 MOSFET | SPICE's square-law MOSFET model (Shichman–Hodges): parameters `KP`, `W`, `L`, `VTO`, `GAMMA` (body effect), `PHI`, `LAMBDA` (channel-length modulation) and noise parameters, with the defaults of ngspice-47 |
 | BSIM3, BSIM4 | The Berkeley short-channel MOSFET models. The BSIM4 code is based on BSIM4 4.8.3 and keeps its ECL-2.0 notice ([THIRD_PARTY_NOTICES](../THIRD_PARTY_NOTICES.md)) |
 | <a id="mutual-inductance"></a>mutual inductance | A `K` element coupling two inductors with coefficient k, so that M = k·√(L1·L2) |
 | <a id="lossless-line"></a>lossless line | A `T` element: a transmission line with characteristic impedance `Z0` and delay `TD`, simulated by the method of characteristics |
@@ -67,7 +67,7 @@ For practical questions see the [FAQ](FAQ.md).
 | `GMIN` | A small conductance to ground (default 10⁻¹² S) that keeps the system solvable |
 | convergence aids | Gmin stepping, source stepping, dynamic gmin, continuation and pseudo-transient: ways to find an operating point when plain iteration fails, each switched on with `.OPTIONS` |
 | <a id="klu"></a>KLU | The sparse LU solver of SuiteSparse that solves the linear system at each iteration; taken from the system and linked dynamically |
-| <a id="integration-method"></a>integration method | How a transient step turns the derivatives of capacitors and inductors into equations: backward Euler (first order), trapezoidal (`trap`, the default), BDF2 (`gear`), BDF3 (`gear3`) and TR-BDF2. The program takes the first step by backward Euler with every method (the first two with BDF2), and BDF3 then starts with BDF2 steps |
+| <a id="integration-method"></a>integration method | How a transient step turns the derivatives of capacitors and inductors into equations: backward Euler (first order), trapezoidal (`trap`, the default), BDF2 (`gear`), BDF3 (`gear3`) and TR-BDF2. The program takes the first step, and the first step after each corner of a source, by backward Euler with every method (the first two with BDF2), and BDF3 then starts with BDF2 steps |
 | companion model | A capacitor or inductor replaced, for one time step, by a conductance and a current source that follow from the integration method |
 | <a id="lte"></a>LTE | Local truncation error: the error one step adds, estimated from the charge of capacitors and the flux of inductors (for coupled inductors, their coupled fluxes) |
 | <a id="time-step"></a>fixed and adaptive time step | The program steps by `tstep`, or `tmax` when it is shorter, and onto the corners of the sources. The library also has an adaptive path that chooses each step from the LTE; the program does not use it |

@@ -12,7 +12,7 @@
 | --- | --- | --- | --- | --- | --- | --- |
 | [test_simple_divider.sp](test_simple_divider.sp) | [ユーザーマニュアル](../docs/USER_MANUAL.ja.md#最初のシミュレーション)の最初の実行 | 動作点 | V(n2) | 1.65 V | 1.65 V | 1e-6 V |
 | [params_subckt.sp](params_subckt.sp) | `.PARAM`、`.FUNC`、パラメータ付きのサブ回路 | 動作点 | V(out) | 1.33333 V | 1.33333 V | 1e-5 V |
-| [diode_iv.sp](diode_iv.sp) | `.MODEL`、DC スイープ、電源の電流の符号 | DC スイープ | 0.6 V の i(V1) | −1.18719×10⁻⁴ A | −1.18719×10⁻⁴ A | 相対 1e-6 |
+| [diode_iv.sp](diode_iv.sp) | `.MODEL`、DC スイープ、電源の電流の符号 | DC スイープ | 0.6 V の i(v1) | −1.18719×10⁻⁴ A | −1.18719×10⁻⁴ A | 相対 1e-6 |
 | [rc_step.sp](rc_step.sp) | `PULSE` 電源と raw 出力 | 過渡解析 | 1 ms の V(out) | 0.632121 | 0.632105 | 5e-5 |
 | [rc_discharge.sp](rc_discharge.sp) | `UIC` 付きの `.IC` と、積分法 | 過渡解析 | 1 ms の V(out) | 0.367879 | 0.367895（trap） | 5e-5（trap）、1e-4（gear）、3e-3（euler） |
 | [rc_lowpass_ac.sp](rc_lowpass_ac.sp) | AC 解析の入力と AC の CSV | AC | 1 kHz の \|V(out)\| | −16.0722 dB | −16.0722 dB | 1e-6 dB |
@@ -57,7 +57,7 @@ build/kirimaspice examples/diode_iv.sp --raw-out diode_iv.raw
 ```
 
 プログラムはスイープの要約しか表示しないので、値は raw ファイルにあります。27 °C で `IS=1e-14`、`N=1` の
-とき、電流は I = IS·(exp(V/V<sub>T</sub>) − 1)、V<sub>T</sub> = kT/q = 25.865 mV に従い、`i(V1)` は −I
+とき、電流は I = IS·(exp(V/V<sub>T</sub>) − 1)、V<sub>T</sub> = kT/q = 25.865 mV に従い、`i(v1)` は −I
 です。スイープのどの点でも、プログラムはこの式と 100 万分の 1 より良く一致します。たとえば 0.6 V で
 −1.18719×10⁻⁴ A、0.8 V で −0.270827 A です。ngspice-47 は −1.18720×10⁻⁴ A と −0.270830 A で、
 値に対して最大 1.1×10⁻⁵ の差があります。これが ngspice の k と q の値によるものかは未確認です。約 0.73 V より上では、
@@ -100,4 +100,3 @@ build/kirimaspice examples/rc_lowpass_ac.sp -o rc_lowpass
 AC 解析の結果は表示されず、`rc_lowpass_ac.csv` に書かれます。`AC 1` により `V1` が入力になります。
 1 kHz で応答 1/(1 + j2πfRC) は −16.0722 dB、−80.957° です。CSV には 16 桁が書かれ、式と合うのは
 約 10 桁です。残りは、ノード `out` にある 10⁻¹² S の GMIN によるもので、式にそれを加えると再現します。
-CSV の見出しの行の `Simulator: kirimaspice v0.27` は既知の問題で、版は 0.0.0 です。

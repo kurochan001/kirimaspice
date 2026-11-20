@@ -14,7 +14,7 @@ digits. Run the examples from the top of the source tree after
 | --- | --- | --- | --- | --- | --- | --- |
 | [test_simple_divider.sp](test_simple_divider.sp) | the first run of the [User Manual](../docs/USER_MANUAL.md#run-your-first-simulation) | operating point | V(n2) | 1.65 V | 1.65 V | 1e-6 V |
 | [params_subckt.sp](params_subckt.sp) | `.PARAM`, `.FUNC` and a subcircuit with a parameter | operating point | V(out) | 1.33333 V | 1.33333 V | 1e-5 V |
-| [diode_iv.sp](diode_iv.sp) | a `.MODEL`, a DC sweep and the sign of a source current | DC sweep | i(V1) at 0.6 V | −1.18719×10⁻⁴ A | −1.18719×10⁻⁴ A | 1e-6 relative |
+| [diode_iv.sp](diode_iv.sp) | a `.MODEL`, a DC sweep and the sign of a source current | DC sweep | i(v1) at 0.6 V | −1.18719×10⁻⁴ A | −1.18719×10⁻⁴ A | 1e-6 relative |
 | [rc_step.sp](rc_step.sp) | a `PULSE` source and the raw output | transient | V(out) at 1 ms | 0.632121 | 0.632105 | 5e-5 |
 | [rc_discharge.sp](rc_discharge.sp) | `.IC` with `UIC`, and the integration methods | transient | V(out) at 1 ms | 0.367879 | 0.367895 (trap) | 5e-5 (trap), 1e-4 (gear), 3e-3 (euler) |
 | [rc_lowpass_ac.sp](rc_lowpass_ac.sp) | an AC input and the AC CSV | AC | \|V(out)\| at 1 kHz | −16.0722 dB | −16.0722 dB | 1e-6 dB |
@@ -64,7 +64,7 @@ build/kirimaspice examples/diode_iv.sp --raw-out diode_iv.raw
 The program prints only a summary of a sweep; the values are in the raw
 file. With `IS=1e-14` and `N=1` at 27 °C the current follows
 I = IS·(exp(V/V<sub>T</sub>) − 1), V<sub>T</sub> = kT/q = 25.865 mV, and
-`i(V1)` is −I. The program agrees with this to better than one part in a
+`i(v1)` is −I. The program agrees with this to better than one part in a
 million at every point of the sweep, for example −1.18719×10⁻⁴ A at 0.6 V
 and −0.270827 A at 0.8 V. ngspice-47 gives −1.18720×10⁻⁴ A and −0.270830 A,
 up to 1.1×10⁻⁵ apart relative to the value; whether that comes from its values of k and q is not
@@ -115,5 +115,3 @@ The AC result is written to `rc_lowpass_ac.csv`, not printed. `AC 1` makes
 −80.957°. The CSV prints 16 digits, and they agree with the formula to
 about 10: the rest is the 10⁻¹² S GMIN at node `out`, which the formula
 reproduces when it is added.
-The CSV's header line `Simulator: kirimaspice v0.27` is a known issue: the
-version is 0.0.0.

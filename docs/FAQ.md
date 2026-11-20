@@ -22,8 +22,8 @@ It is in early development and has no release yet (version 0.0.0). The
 program runs the [operating point](GLOSSARY.md#operating-point),
 [DC sweep](GLOSSARY.md#dc-sweep), [transient](GLOSSARY.md#transient) and
 [AC](GLOSSARY.md#ac-analysis) analyses of a netlist. Several elements and
-directives have limits that matter in practice, for example which elements
-a subcircuit can hold and which device parameters the parser reads; read
+directives have limits that matter in practice, for example which device
+parameters the parser reads; read
 [KNOWN_ISSUES](../KNOWN_ISSUES.md) before relying on a result.
 
 ### What should I record when a result needs reproducing?
@@ -89,13 +89,6 @@ therefore shows a negative current ([branch current](GLOSSARY.md#branch-current)
 
 Only sources written with `AC` are inputs of an AC analysis. Write
 `AC 1` (or `AC` alone) on the source that drives the circuit.
-
-### Why does an element inside my subcircuit disappear?
-
-Inside a subcircuit only `R`, `C`, `L`, `V` and `I` (DC and AC values, no
-waveform), `M` (with four terminals, level 1 or BSIM4) and `X` are
-expanded; other elements are skipped with a warning. Place diodes, bipolar transistors and
-controlled sources at the top level for now.
 
 ### Why does `{1m}` give an error?
 

@@ -60,11 +60,12 @@ Ubuntu 24.04（x86-64）の CI では、GCC 13.3.0 と clang 18.1.3 でビルド
 ライブラリには JFET のモデルもありますが、パーサーにはまだ `J` 素子がありません。どこまで
 実装されているかはモデルごとに違い、それぞれにテストがあります。
 
-パーサーが受け付けるディレクティブ：`.AC`、`.DC`、`.TRAN`、`.OPTIONS`、`.IC`、`.NODESET`、
+パーサーが受け付けるディレクティブ：`.OP`、`.AC`、`.DC`、`.TRAN`、`.OPTIONS`、`.IC`、`.NODESET`、
 `.PRINT`、`.SAVE`、`.GLOBAL`、`.PARAM`、`.FUNC`、`.MODEL`、`.SUBCKT`/`.ENDS`、`.INCLUDE`、
 `.LIB`/`.ENDL`、`.IF`/`.ELIF`/`.ELSE`/`.ENDIF`、`.CONTROL`/`.ENDC`、`.STEP`、`.TEMP`、`.SENS`、`.MC`、
-`.TF`、`.FOUR`、`.PZ`、`.DISTO`、`.PORT`、`.WCASE`、`.OPTIMIZE`。プログラムは、パーサーが読んだ解析を
-実行し、1 つもなければ動作点を実行します（[リファレンスマニュアル](docs/REFERENCE_MANUAL.ja.md#プログラムが解析を選ぶ仕組み)）。
+`.TF`、`.FOUR`、`.PZ`、`.DISTO`、`.PORT`、`.WCASE`、`.OPTIMIZE`。このうちプログラムが実行するのは
+`.OP`、`.DC`、`.TRAN`（`.FOUR` を含む）、`.AC` で、1 つもなければ動作点を実行します。読んでも実行しない
+ものは、警告で名指しします（[リファレンスマニュアル](docs/REFERENCE_MANUAL.ja.md#プログラムが解析を選ぶ仕組み)）。
 
 プログラム `kirimaspice` が実行するのは、動作点、DC スイープ（入れ子を含む）、`.FOUR` のフーリエ解析を
 含む過渡解析、AC 解析で、どれも `.TEMP` に並べた各温度でも実行します。電源は、DC の値、AC の入力と、
@@ -94,7 +95,7 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-ビルドディレクトリは `build/` にしてください。テストの一部は、そこからの相対位置でデータを探します。
+ビルドディレクトリはどこに置いてもかまいません。`tools/local_ci.py` は `build/` を使います。
 SuiteSparse がほかの場所にある場合は、最初のコマンドに `-DCMAKE_PREFIX_PATH=<その場所>` を加えます。
 
 ## 実行

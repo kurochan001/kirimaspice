@@ -7,8 +7,9 @@ analyses the program offers and reading the results. It was checked on
 **2026-11-14** against commit `91af284`, reviewed again on **2026-11-15**
 at commit `db0fef6` and updated the same day for the fixes up to commit
 `eaf0629`, built on macOS 27.2 (arm64) with GCC 16.2.0; the program
-reported `kirimaspice v0.0.0`. Every example below was run with those
-builds.
+reported `kirimaspice v0.0.0`. On **2026-11-21** it was reviewed again
+against commit `2826a81`, and the values its examples show were checked
+by running that build.
 
 For lookup by option, element, directive or output format, use the
 [Reference Manual](REFERENCE_MANUAL.md). For what is known to be wrong or
@@ -128,8 +129,10 @@ surprise someone who has used another SPICE simulator; the
   it. Comment lines and empty lines between the two do not end that line,
   and a `;` comment on it ends at the end of its own line.
 - **Ground is `0`,** and a node named `gnd` in any case is ground too.
-- **Node names are case-sensitive;** element names, model names, keywords
-  such as `DC`, `AC`, `PULSE` and directive names are not.
+- **Names are not case-sensitive:** `OUT` and `out` are one node, and node
+  names are written in lower case. Element names, model names, keywords
+  such as `DC`, `AC`, `PULSE` and directive names are not case-sensitive
+  either.
 - **Numbers** take the scale factors `T`, `G`, `MEG`, `K`, `MIL`, `M`, `U`,
   `N`, `P`, `F` and `A` in either case, as in ngspice. **`M` is milli
   whatever its case**: write `1MEG` for 10⁶. Letters after a number or a
@@ -182,18 +185,14 @@ The program runs these analyses:
 
 A netlist can ask for more than one; they run in the order DC sweep or
 operating point, transient, AC. With both `.OP` and `.DC`, only the sweep
-runs. A netlist that asks for none gets an operating point, whose node
-voltages are printed, without source currents and without any file.
+runs. A netlist that asks for none runs the operating point as for `.OP`:
+it prints the voltages and currents and writes the output files.
 
-The program decides whether to run the operating point and the transient
-by searching each line of the netlist file, but not of included files, for
-the text `.op` or `.dc`, or `.tran` followed by two words, in any case and
-anywhere in the line. So a `.OPTIONS` line also asks for an operating
-point, and a comment such as `* see .tran 1u 1m` asks for a transient,
-while `* the .tran line below` stops the program with `Invalid number
-format`. A `.tran` line in an `.INCLUDE` file is not seen. Keep those
-words out of comments, and keep the analysis lines in the netlist file.
-The [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-analyses)
+The program runs the analyses the parser read. An analysis line counts
+after its `+` continuation lines are joined, in the text of `.INCLUDE` and
+`.LIB` files, and in the branch of `.IF` that is taken, never in a
+comment; `.OPTIONS` is no analysis line. Of the analysis commands of a
+`.control` block, `dc` and `ac` are run. The [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-analyses)
 draws these rules as a chart.
 
 `.TEMP` with one value means `.OPTIONS TEMP` with that value. With several
@@ -204,8 +203,9 @@ temperature in their names (see [Save the results](#save-the-results)).
 The other analyses in the library (noise, transfer function, pole-zero,
 distortion, sensitivity, S-parameters, Monte Carlo, worst case,
 optimization) are not run by the program. `.TF`, `.PZ`, `.DISTO`, `.SENS`,
-`.PORT`, `.MC`, `.WCASE` and `.OPTIMIZE` are read and not used; noise has
-no directive, and `.NOISE` is ignored.
+`.PORT`, `.MC`, `.WCASE`, `.OPTIMIZE`, `.STEP`, `.SAVE`, `.PRINT DC` and
+`.PRINT AC` are read and not run, each named once in a warning; noise has
+no directive here, and `.NOISE` and `.MEASURE` are ignored with a warning.
 
 ### Operating point
 
@@ -224,12 +224,16 @@ build/kirimaspice examples/diode_iv.sp --raw-out diode_iv.raw
 
 ### Transient
 
-The program prints a table with one row per time point and one column per
-node, including `V(0)`. The program steps by `tstep`; `tmax` is read but
-has no effect ([KNOWN_ISSUES](../KNOWN_ISSUES.md#analyses)). As in SPICE,
+Without `.PRINT TRAN` the program prints no table; with `.PRINT TRAN
+v(<node>) i(<source>) ...` it prints a `Time (s)` column and one column per
+signal, one row per time point. The raw, SSF and WAV files hold the whole
+result. The program steps by `tstep`, or by `tmax` when that is shorter,
+and puts a point on each corner of the sources (the breakpoints of
+`PULSE`, `PWL`, `SIN` and `EXP`). As in SPICE,
 the simulation runs from 0 and the results are kept from `tstart` on, with
 a point on `tstart`. With `UIC`,
-the transient starts from the values in `.IC` instead of from an operating
+the transient starts from the values in `.IC` and the `IC=` of capacitors
+(a voltage) and inductors (a current) instead of from an operating
 point; `.IC` must be written with an upper-case `V`, as in
 `.IC V(out)=1`. Without `UIC`, the operating point that starts the
 transient holds the `.IC` nodes at their values, and the transient then
@@ -317,7 +321,7 @@ from tools.kirimaspice_pyapi import KirimaspiceSession
 session = KirimaspiceSession()   # build/kirimaspice, or KirimaspiceSession(Path(...))
 result = session.run_netlist(Path("examples/rc_step.sp").read_text())
 time, vout = result.series("time"), result.series("v(out)")
-print(vout[time.index(1e-3)])    # 0.6321053213059
+print(vout[time.index(1e-3)])    # 0.6321053249481
 ```
 
 - Run it from the top of the source tree, or put the tree on `PYTHONPATH`.
@@ -410,10 +414,8 @@ X1 in out DIV RTOP=3k
   `.SUBCKT` line and the values on the `X` line come before them. A
   `.PARAM` written inside a `.SUBCKT` is local to the subcircuit and is
   evaluated for each instance.
-- Inside a subcircuit, only `R`, `C`, `L`, `V` and `I` (DC and AC values,
-  no waveform), `M` (four terminals, level 1 or BSIM4) and `X` are
-  expanded. Other elements are skipped with a warning, so put diodes,
-  bipolar transistors and the other MOSFET levels at the top level.
+- Elements inside a subcircuit are read as at the top level, with their
+  waveforms and models.
 - `.GLOBAL <node> ...` makes a node visible inside every subcircuit.
 
 ### Include files and libraries
@@ -450,8 +452,8 @@ options are listed in the
 
 | Exit code | Meaning |
 | --- | --- |
-| 0 | the requested analyses finished |
-| 1 | no netlist was given, the file could not be read, the netlist could not be parsed, an analysis failed (also the operating point of a netlist without analysis lines), or an option value was rejected (for example a non-numeric `--wav-sample-rate`) |
+| 0 | the requested analyses finished, or `--help` or `--version` |
+| 1 | no netlist was given, a second netlist, an unknown option or an option without its value was given, the file could not be read, the netlist could not be parsed, an analysis failed (also the operating point of a netlist without analysis lines), or an option value was rejected (for example a non-numeric `--wav-sample-rate`) |
 | other | the program was stopped by a crash |
 
 A parse error names a line: `Parse error at line 3: ...`. The number counts
@@ -460,8 +462,8 @@ lines joined, empty lines dropped, `.IF` blocks resolved and `.CONTROL`
 blocks taken out, so it can differ from the line number in your editor.
 
 Warnings start with `kirimaspice: warning:`. Read them: several mistakes (an unknown
-`.OPTIONS` name, a value with a suffix where none is allowed, an element
-inside a subcircuit that is not expanded) produce only a warning and the
+`.OPTIONS` name, a value with a suffix where none is allowed, a card
+parameter that the device does not use) produce only a warning and the
 run continues without that setting or element.
 
 ## Troubleshoot

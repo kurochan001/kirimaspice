@@ -65,13 +65,14 @@ HEMT), 12 (FinFET), 20 (VDMOS) and 21 (IGBT). The library also has a JFET
 model, but the parser has no `J` element yet. How complete each model is
 varies; each has its own tests.
 
-The parser accepts these directives: `.AC`, `.DC`, `.TRAN`, `.OPTIONS`,
+The parser accepts these directives: `.OP`, `.AC`, `.DC`, `.TRAN`, `.OPTIONS`,
 `.IC`, `.NODESET`, `.PRINT`, `.SAVE`, `.GLOBAL`, `.PARAM`, `.FUNC`,
 `.MODEL`, `.SUBCKT`/`.ENDS`, `.INCLUDE`, `.LIB`/`.ENDL`,
 `.IF`/`.ELIF`/`.ELSE`/`.ENDIF`, `.CONTROL`/`.ENDC`, `.STEP`, `.TEMP`,
 `.SENS`, `.MC`, `.TF`, `.FOUR`, `.PZ`, `.DISTO`, `.PORT`, `.WCASE` and
-`.OPTIMIZE`. The program runs the analyses that the parser reads, and the
-operating point when there are none
+`.OPTIMIZE`. Of these, the program runs `.OP`, `.DC`, `.TRAN` (with
+`.FOUR`) and `.AC`, and the operating point when there are none; it names
+each of the others that it reads and does not run in a warning
 ([Reference Manual](docs/REFERENCE_MANUAL.md#how-the-program-chooses-analyses)).
 
 The program `kirimaspice` runs the operating point, DC sweeps (also
@@ -108,8 +109,7 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-Use `build/` as the build directory: some tests find their data relative to
-it. If SuiteSparse is installed elsewhere, add
+The build directory may be anywhere; `tools/local_ci.py` uses `build/`. If SuiteSparse is installed elsewhere, add
 `-DCMAKE_PREFIX_PATH=<its prefix>` to the first command.
 
 ## Running
