@@ -42,8 +42,9 @@ python3 tools/local_ci.py        # build, tests, check_banned and check_spdx, wi
 - SuiteSparse (KLU) comes from the system, for example `libsuitesparse-dev`
   on Ubuntu; pass `-DCMAKE_PREFIX_PATH=<prefix>` for another installation.
   Python 3 is needed for the tests.
-- The build directory must be `build/` directly under the source tree: some
-  tests find their data relative to it.
+- The build directory may be anywhere: tests read their data from the
+  source tree and run the program of the build. `tools/local_ci.py`
+  builds in `build/`.
 - Tests that fail today are listed in `tests/known_failures.txt`;
   `tools/local_ci.py` fails on any other failure.
 - Before pushing, run `tools/local_ci.py` and attach its summary to the

@@ -16,7 +16,7 @@
 - [docs/spec/AI_POLICY.md](docs/spec/AI_POLICY.ja.md)：人が決めること、コミットの印の付け方、
   クリーンルーム。
 
-プロジェクトの現状は、日付の付いたメモではなく [README.md](README.ja.md) と
+プロジェクトの現状は [README.md](README.ja.md) と
 [KNOWN_ISSUES.md](KNOWN_ISSUES.ja.md) で確かめてください。
 
 ## コミットの印

@@ -39,8 +39,8 @@ python3 tools/local_ci.py        # ビルド、テスト、check_banned、check_
 
 - SuiteSparse（KLU）はシステムのものを使います（Ubuntu なら `libsuitesparse-dev`）。
   別の場所にある場合は `-DCMAKE_PREFIX_PATH=<prefix>` を渡します。テストには Python 3 が要ります。
-- ビルドディレクトリはソースの直下の `build/` にしてください。テストの一部は、
-  そこからの相対位置でデータを探します。
+- ビルドディレクトリはどこに置いてもかまいません。テストはデータをソースのツリーから読み、
+  そのビルドのプログラムを動かします。`tools/local_ci.py` は `build/` でビルドします。
 - 今失敗するテストは `tests/known_failures.txt` に並べてあります。`tools/local_ci.py` は、
   それ以外の失敗があれば失敗します。
 - push の前に `tools/local_ci.py` を実行し、その要約を報告に付けます。CI は GitHub の
