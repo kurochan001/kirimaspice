@@ -61,6 +61,13 @@ set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 #==============================================================================
 # Dependency: fmt
 #==============================================================================
+# A fetched dependency is part of the build only: its targets are built
+# when kirimaspice needs them, and its install rules are left out, so
+# cmake --install installs the program alone
+function(kirimaspice_build_only dir)
+    set_property(DIRECTORY "${dir}" PROPERTY EXCLUDE_FROM_ALL TRUE)
+endfunction()
+
 FetchContent_Declare(
     fmt
     GIT_REPOSITORY https://github.com/fmtlib/fmt.git
@@ -68,6 +75,7 @@ FetchContent_Declare(
 )
 set(FMT_MODULE OFF CACHE BOOL "Build fmt as a header and library, not a C++ module" FORCE)
 FetchContent_MakeAvailable(fmt)
+kirimaspice_build_only(${fmt_SOURCE_DIR})
 
 #==============================================================================
 # Dependency: spdlog
@@ -80,6 +88,7 @@ FetchContent_Declare(
 set(SPDLOG_FMT_EXTERNAL ON CACHE BOOL "" FORCE)
 set(SPDLOG_COMPILED_LIB ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(spdlog)
+kirimaspice_build_only(${spdlog_SOURCE_DIR})
 
 #==============================================================================
 # Dependency: PEGTL
@@ -90,6 +99,7 @@ FetchContent_Declare(
     GIT_TAG cf639f7f4ee125f68e1ccfba8d99ebc0de57b9fe # 3.2.7
 )
 FetchContent_MakeAvailable(pegtl)
+kirimaspice_build_only(${pegtl_SOURCE_DIR})
 
 #==============================================================================
 # Dependency: ExprTk (header-only)
@@ -110,6 +120,7 @@ FetchContent_Declare(
     GIT_TAG 9cca280a4d0ccf0c08f47a99aa71d1b0e52f8d03 # v3.11.3
 )
 FetchContent_MakeAvailable(nlohmann_json)
+kirimaspice_build_only(${nlohmann_json_SOURCE_DIR})
 
 #==============================================================================
 # Dependency: Boost (Graph only, header-only subset)
@@ -125,6 +136,7 @@ FetchContent_Declare(
 )
 set(BOOST_INCLUDE_LIBRARIES graph CACHE STRING "" FORCE)
 FetchContent_MakeAvailable(Boost)
+kirimaspice_build_only(${boost_SOURCE_DIR})
 
 #==============================================================================
 # Dependency: zstd
@@ -140,6 +152,7 @@ set(ZSTD_BUILD_SHARED OFF CACHE BOOL "" FORCE)
 set(ZSTD_BUILD_STATIC ON CACHE BOOL "" FORCE)
 set(CMAKE_POLICY_DEFAULT_CMP0000 NEW CACHE STRING "" FORCE)
 FetchContent_MakeAvailable(zstd)
+kirimaspice_build_only(${zstd_SOURCE_DIR}/build/cmake)
 
 #==============================================================================
 # Dependency: NLopt (Nonlinear optimization library)
@@ -163,6 +176,7 @@ set(NLOPT_TESTS OFF CACHE BOOL "Disable NLopt tests" FORCE)
 set(NLOPT_LUKSAN OFF CACHE BOOL "Build without the LGPL Luksan solvers" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static library" FORCE)
 FetchContent_MakeAvailable(nlopt)
+kirimaspice_build_only(${nlopt_SOURCE_DIR})
 message(STATUS "NLopt will be built (static library, NLOPT_LUKSAN=OFF)")
 
 #==============================================================================
@@ -232,6 +246,7 @@ if(BUILD_TESTS)
     # Prevent overriding the parent project's compiler/linker settings
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(googletest)
+    kirimaspice_build_only(${googletest_SOURCE_DIR})
 
     enable_testing()
     include(GoogleTest)
@@ -414,13 +429,10 @@ endif()
 #==============================================================================
 # Installation
 #==============================================================================
-install(TARGETS kirimaspice_lib kirimaspice
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
-)
-
-install(DIRECTORY include/ DESTINATION include)
+# The program alone: the library's headers need fmt, spdlog, Boost, KLU and
+# OpenMP, which are not installed with it, and no package configuration
+# describes the library yet
+install(TARGETS kirimaspice RUNTIME DESTINATION bin)
 
 #==============================================================================
 # Documentation (Doxygen)

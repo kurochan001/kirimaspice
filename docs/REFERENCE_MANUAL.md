@@ -587,9 +587,11 @@ and larger values are clipped. 8-bit samples are unsigned; 16-, 24- and
 | `KIRIMASPICE_WITH_SUNDIALS` | OFF | sets a macro only |
 | `KIRIMASPICE_SOLVER` | `KLU` | default backend name |
 
-By `CMakeLists.txt`, `cmake --install build` installs `kirimaspice`, the
-static library `kirimaspice_lib` and the headers under `include/` (read in
-the file, not run).
+`cmake --install build` installs the program `kirimaspice` alone, to
+`bin/` under the prefix (the CTest test `install_program_only` checks
+this). The library and its headers are not installed: they need fmt,
+spdlog, Boost, KLU and OpenMP, which are not installed with them, and no
+package configuration describes the library yet.
 
 ## Source files
 

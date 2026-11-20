@@ -23,6 +23,12 @@ add_test(NAME python_tools_edge_cases
 )
 set_tests_properties(python_tools_edge_cases PROPERTIES WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
+add_test(NAME install_program_only
+    COMMAND ${CMAKE_COMMAND} -DBUILD_DIR=${CMAKE_BINARY_DIR}
+        -DPREFIX=${KIRIMASPICE_TEST_OUTPUT_DIR}/install_program_only
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_install.cmake
+)
+
 add_test(NAME cli_analyses
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/scripts/test_cli_analyses.py
         --binary $<TARGET_FILE:kirimaspice>

@@ -516,8 +516,10 @@ PCM で、ノード（グラウンドを除く）ごとに 1 チャンネルで�
 | `KIRIMASPICE_WITH_SUNDIALS` | OFF | マクロを定義するだけ |
 | `KIRIMASPICE_SOLVER` | `KLU` | 既定のバックエンドの名前 |
 
-`CMakeLists.txt` によれば、`cmake --install build` は `kirimaspice`、静的ライブラリ `kirimaspice_lib`、
-`include/` の下のヘッダをインストールします（ファイルで読んだだけで、実行していません）。
+`cmake --install build` は、プログラム `kirimaspice` だけを、プレフィックスの下の `bin/` にインストールします
+（CTest のテスト `install_program_only` が確かめます）。ライブラリとそのヘッダはインストールしません。ヘッダは
+fmt、spdlog、Boost、KLU、OpenMP を必要としますが、それらは一緒にはインストールされず、ライブラリを
+表すパッケージの設定もまだないためです。
 
 ## ソースファイル
 
