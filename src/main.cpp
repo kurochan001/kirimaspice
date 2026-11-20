@@ -25,7 +25,6 @@
 #include <cstdlib>
 #include <algorithm>
 #include <charconv>
-#include "kirimaspice/solvers/solver_factory.hpp"
 
 using namespace kirimaspice;
 
@@ -391,16 +390,7 @@ static void print_usage(std::ostream& os, const char* program) {
     os << "  --raw-binary-out <file>     Write SPICE3 binary .raw output (DC/TRAN)\n";
     os << "  --wav-out <file>            Write WAV audio output (TRAN only, default: 44.1kHz 16-bit)\n";
     os << "  --wav-sample-rate <Hz>      Set WAV sample rate in Hz (default: 44100)\n";
-    os << "  --wav-bits <N>              Set WAV bit depth: 8, 16, 24, or 32 (default: 16)\n";
-    os << "  --solver-backend=<name>     Choose backend: KLU (default), SUPERLU_DIST\n";
-    os << "  --solver-fallback-order=A,B Fallback order when requested backend unavailable\n";
-    os << "  --strict-backend            Do not fallback; error out if unavailable\n";
-    os << "  --superlu-dist-topology=<t>  SUPERLU_DIST topology hint (e.g., 2D/3D)\n";
-    os << "  --superlu-dist-grid=<g>      SUPERLU_DIST grid hint (e.g., 2x2 or 2x2x1)\n\n";
-    os << "Environment overrides:\n";
-    os << "  KIRIMASPICE_SOLVER_BACKEND=KLU|SUPERLU_DIST\n";
-    os << "  KIRIMASPICE_SOLVER_FALLBACK_ORDER=klu\n";
-    os << "  KIRIMASPICE_SOLVER_STRICT=1\n\n";
+    os << "  --wav-bits <N>              Set WAV bit depth: 8, 16, 24, or 32 (default: 16)\n\n";
 }
 
 int main(int argc, char* argv[]) {
@@ -434,16 +424,8 @@ int main(int argc, char* argv[]) {
     // as "<option> <value>" or "<option>=<value>", and one netlist. An
     // option the program does not know, or one without its value, is an
     // error, not ignored
-    std::optional<std::string> cli_backend;
-    std::vector<std::string> cli_fb_order;
-    bool strict_backend = false;
-    std::optional<std::string> sld_topology; // SUPERLU_DIST topology hint
-    std::optional<std::string> sld_grid;     // SUPERLU_DIST grid hint
     static const std::set<std::string> kValueOptions = {
-        "-o", "--raw-out", "--raw-binary-out", "--wav-out", "--wav-sample-rate", "--wav-bits",
-        "--solver-backend", "--solver-fallback-order", "--superlu-dist-topology",
-        "--superlu-dist-grid"};
-    static const std::set<std::string> kFlagOptions = {"--strict-backend"};
+        "-o", "--raw-out", "--raw-binary-out", "--wav-out", "--wav-sample-rate", "--wav-bits"};
     try {
         for (int i = 1; i < argc; ++i) {
             const std::string arg = argv[i];
@@ -459,13 +441,6 @@ int main(int argc, char* argv[]) {
             if (const auto eq = arg.find('='); arg.rfind("--", 0) == 0 && eq != std::string::npos) {
                 name = arg.substr(0, eq);
                 value = arg.substr(eq + 1);
-            }
-            if (kFlagOptions.count(name)) {
-                if (value) {
-                    throw std::invalid_argument(name + " takes no value");
-                }
-                strict_backend = true;
-                continue;
             }
             if (!kValueOptions.count(name)) {
                 throw std::invalid_argument("unknown option " + arg + " (see --help)");
@@ -495,18 +470,6 @@ int main(int argc, char* argv[]) {
                     throw std::invalid_argument("--wav-bits must be 8, 16, 24, or 32");
                 }
                 wav_bits_per_sample = static_cast<std::uint16_t>(bits);
-            } else if (name == "--solver-backend") {
-                cli_backend = *value;
-            } else if (name == "--solver-fallback-order") {
-                std::stringstream ss(*value);
-                std::string item;
-                while (std::getline(ss, item, ',')) {
-                    if (!item.empty()) cli_fb_order.push_back(item);
-                }
-            } else if (name == "--superlu-dist-topology") {
-                sld_topology = *value;
-            } else if (name == "--superlu-dist-grid") {
-                sld_grid = *value;
             }
         }
         if (netlist_file.empty()) {
@@ -519,13 +482,6 @@ int main(int argc, char* argv[]) {
     }
 
     spdlog::info("kirimaspice v{} - SPICE circuit simulator", KIRIMASPICE_VERSION);
-
-    // Apply CLI overrides to solver factory
-    solvers::set_cli_backend_override(cli_backend);
-    if (!cli_fb_order.empty()) solvers::set_cli_fallback_order(cli_fb_order);
-    solvers::set_cli_strict_backend(strict_backend);
-    if (sld_topology) solvers::set_cli_superludist_topology(*sld_topology);
-    if (sld_grid)     solvers::set_cli_superludist_grid(*sld_grid);
 
     spdlog::info("Loading netlist: {}", netlist_file);
     if (output_file) {

@@ -36,8 +36,7 @@ kirimaspice --version | --help
 Options may come before or after the netlist, and there is one netlist.
 An option that takes a value accepts both `--opt value` and
 `--opt=value` (`-o` only `-o value`). An option the program does not
-know, an option without its value, a value given to `--strict-backend`,
-and a second netlist are errors: the program says which and exits with
+know, an option without its value and a second netlist are errors: the program says which and exits with
 code 1.
 The output options write files only for some runs; the table under
 [How the program chooses analyses](#how-the-program-chooses-analyses)
@@ -53,22 +52,14 @@ says which.
 | `--wav-out <file>` | write the transient result as a WAV file |
 | `--wav-sample-rate <Hz>` | WAV sample rate (default 44100) |
 | `--wav-bits <n>` | WAV sample size: 8, 16, 24 or 32 (default 16) |
-| `--solver-backend=<name>` | linear solver: `KLU` (default) or `SUPERLU_DIST` |
-| `--solver-fallback-order=<a>,<b>` | backends to try when the requested one is not built |
-| `--strict-backend` | stop with an error instead of falling back |
-| `--superlu-dist-topology=<t>`, `--superlu-dist-grid=<g>` | hints for SuperLU_DIST |
 
-SuperLU_DIST is not built by default and its backend is a placeholder:
-asking for it logs `Falling back to klu ...`, or, with `--strict-backend`,
-stops with exit code 1.
+The linear solver is KLU. The program has no option to choose another:
+the SuperLU_DIST backend of the library is a placeholder.
 
 ## Environment variables
 
 | Variable | Effect |
 | --- | --- |
-| `KIRIMASPICE_SOLVER_BACKEND` | backend, as `--solver-backend`; the command line takes precedence |
-| `KIRIMASPICE_SOLVER_FALLBACK_ORDER` | comma-separated fallback order for the variable above (default `klu`) |
-| `KIRIMASPICE_SOLVER_STRICT` | `1` makes an unavailable backend from the variable above an error |
 | `KIRIMASPICE_TLINE_LOSSY_IIR` | `1` turns on a second-order IIR loss filter in `O` lines (read in the code, not run) |
 | `KIRIMASPICE_DEBUG_DUMP` | for development: when set, to any value, writes the MNA system of the second Newton iteration of each DC solve to `debug_coo.txt`, `debug_csc.txt`, `debug_b.txt` and `debug_x.txt` in the current directory, each solve overwriting the last |
 | `KIRIMASPICE_BSIM1_DEBUG` | for development: debug logs for BSIM1 devices (optionally only those whose name is the value) |

@@ -33,7 +33,7 @@ kirimaspice --version | --help
 
 オプションはネットリストの前にも後にも書けます。ネットリストは 1 つです。値を取るオプションは
 `--opt 値` と `--opt=値` のどちらも受け付けます（`-o` は `-o 値` だけ）。プログラムが知らないオプション、
-値のないオプション、`--strict-backend` に与えた値、2 つ目のネットリストはエラーです。プログラムはどれかを
+値のないオプション、2 つ目のネットリストはエラーです。プログラムはどれかを
 言い、終了コード 1 で終わります。
 出力のオプションがファイルを書くのは、一部の実行だけです。どの実行で書くかは、
 [プログラムが解析を選ぶ仕組み](#プログラムが解析を選ぶ仕組み)の表にあります。
@@ -48,21 +48,14 @@ kirimaspice --version | --help
 | `--wav-out <ファイル>` | 過渡解析の結果を WAV ファイルに書く |
 | `--wav-sample-rate <Hz>` | WAV のサンプリング周波数（既定 44100） |
 | `--wav-bits <n>` | WAV のサンプルの大きさ：8、16、24、32（既定 16） |
-| `--solver-backend=<名前>` | 線形ソルバー：`KLU`（既定）または `SUPERLU_DIST` |
-| `--solver-fallback-order=<a>,<b>` | 指定したバックエンドがビルドされていないときに試す順 |
-| `--strict-backend` | 切り替えずにエラーで止める |
-| `--superlu-dist-topology=<t>`、`--superlu-dist-grid=<g>` | SuperLU_DIST への指示 |
 
-SuperLU_DIST は既定ではビルドされず、そのバックエンドは仮置きです。指定すると
-`Falling back to klu ...` をログに出し、`--strict-backend` を付けると終了コード 1 で止まります。
+線形ソルバーは KLU です。ほかを選ぶオプションはありません。ライブラリの SuperLU_DIST のバックエンドは
+仮置きです。
 
 ## 環境変数
 
 | 変数 | 効果 |
 | --- | --- |
-| `KIRIMASPICE_SOLVER_BACKEND` | `--solver-backend` と同じバックエンドの指定。コマンドラインが優先 |
-| `KIRIMASPICE_SOLVER_FALLBACK_ORDER` | 上の変数のための、カンマ区切りの切り替えの順（既定 `klu`） |
-| `KIRIMASPICE_SOLVER_STRICT` | `1` にすると、上の変数で指定したバックエンドがないときにエラー |
 | `KIRIMASPICE_TLINE_LOSSY_IIR` | `1` にすると、`O` 線路で 2 次の IIR の損失フィルタを使う（コードで読んだだけで、実行していない） |
 | `KIRIMASPICE_DEBUG_DUMP` | 開発用：設定すると（値は何でもよい）、DC の各求解の 2 回目のニュートン反復の MNA の系を、カレントディレクトリの `debug_coo.txt`、`debug_csc.txt`、`debug_b.txt`、`debug_x.txt` に書く。求解のたびに前のものを上書きする |
 | `KIRIMASPICE_BSIM1_DEBUG` | 開発用：BSIM1 のデバイスのデバッグログ（値を名前とするデバイスだけに絞れる） |

@@ -105,43 +105,8 @@ SolverBackend choose_backend() {
         return SolverBackend::KLU;
     }
 
-    // 2) ENV
-    if (const char* env = std::getenv("KIRIMASPICE_SOLVER_BACKEND")) {
-        if (auto b = parse_backend_string(env)) {
-            if (is_backend_built(*b)) {
-                spdlog::info("Solver backend from ENV: {}", env);
-                return *b;
-            }
-            // ENV fallback order
-            std::vector<std::string> order;
-            if (const char* ord = std::getenv("KIRIMASPICE_SOLVER_FALLBACK_ORDER")) {
-                std::string s = ord;
-                std::stringstream ss(s);
-                std::string item;
-                while (std::getline(ss, item, ',')) order.push_back(item);
-            } else {
-                order = {"klu"};
-            }
-            const bool env_strict = [](){
-                if (const char* sv = std::getenv("KIRIMASPICE_SOLVER_STRICT")) return std::string(sv) == "1";
-                return false;
-            }();
-            if (env_strict) {
-                throw std::runtime_error(std::string("Requested backend not available (strict mode): ") + env);
-            }
-            for (const auto& name : order) {
-                auto fb = parse_backend_string(name);
-                if (fb && is_backend_built(*fb)) {
-                    spdlog::warn("Falling back to {} due to unavailable backend {} (ENV)", name, env);
-                    return *fb;
-                }
-            }
-        } else {
-            spdlog::warn("Unknown solver backend in ENV: {} (falling back)", env);
-        }
-    }
-
-    // 3) Build default
+    // 2) Build default (the environment chooses nothing: one backend, KLU,
+    // exists so far)
 #ifdef KIRIMASPICE_BUILD_DEFAULT_SOLVER
     {
         const std::string def = KIRIMASPICE_BUILD_DEFAULT_SOLVER;

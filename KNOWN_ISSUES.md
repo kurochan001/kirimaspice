@@ -290,8 +290,8 @@ says otherwise.
   that `K` lines couple among themselves: for three of 1 H with k = 0.5
   between each two, the diagonal of the inverse of the 3 × 3 matrix is 3/2,
   and the pairs add up to 5/3 (computed in exact fractions).
-- KLU is the only working linear solver. The SuperLU_DIST backend is a
-  placeholder: asking for it falls back to KLU.
+- KLU is the only working linear solver. The SuperLU_DIST backend of the
+  library is a placeholder, and the program has no option to choose it.
 
 ## Command line and output
 

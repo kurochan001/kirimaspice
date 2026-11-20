@@ -102,25 +102,6 @@ constexpr Real DEFAULT_MOSFET_CGD = 1e-12;
 //
 // KirimaSpice uses the following environment variables for configuration:
 //
-// === Solver Backend Selection ===
-//
-// KIRIMASPICE_SOLVER_BACKEND
-//   Values: KLU, SUPERLU_DIST
-//   Default: KLU
-//   Description: Select the linear solver backend
-//   Example: export KIRIMASPICE_SOLVER_BACKEND=KLU
-//
-// KIRIMASPICE_SOLVER_FALLBACK_ORDER
-//   Values: Comma-separated list of backends (e.g., "KLU")
-//   Default: None
-//   Description: Specify fallback order if primary backend fails
-//   Example: export KIRIMASPICE_SOLVER_FALLBACK_ORDER=KLU
-//
-// KIRIMASPICE_SOLVER_STRICT
-//   Values: 1 (strict mode enabled), 0 or unset (disabled)
-//   Default: 0
-//   Description: If set to 1, do not fallback to other backends on failure
-//
 // === Debug Options ===
 //
 // KIRIMASPICE_DEBUG_DUMP

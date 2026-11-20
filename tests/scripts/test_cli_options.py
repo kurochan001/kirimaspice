@@ -7,6 +7,7 @@
 an option without its value and a second netlist are errors (exit 1), not
 ignored; --version prints the version."""
 import argparse
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -50,6 +51,17 @@ class CliOptions(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertTrue((self.directory / "a.raw").exists())
         self.assertTrue((self.directory / "b.raw").exists())
+
+    def test_backend_options_are_gone(self):
+        # KLU is the one working solver; the program has no option for another
+        for option in ["--solver-backend=KLU", "--strict-backend", "--superlu-dist-grid=2x2"]:
+            self.assert_rejected(self.run_cli("deck.cir", option), "unknown option " + option)
+
+    def test_environment_does_not_choose_the_solver(self):
+        env = dict(os.environ, KIRIMASPICE_SOLVER_BACKEND="SUPERLU_DIST", KIRIMASPICE_SOLVER_STRICT="1")
+        result = subprocess.run([str(BINARY), "deck.cir"], cwd=self.directory, env=env,
+                                capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_version(self):
         result = self.run_cli("--version")
