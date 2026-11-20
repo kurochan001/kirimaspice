@@ -8,6 +8,7 @@
 #include "kirimaspice/core/types.hpp"
 #include <gtest/gtest.h>
 #include <cmath>
+#include <complex>
 #include <vector>
 #include <algorithm>
 
@@ -16,6 +17,31 @@ using namespace kirimaspice;
 // Test fixture for RLC damping tests
 class RLCDampingTest : public ::testing::Test {
 protected:
+    // The capacitor voltage of a series RLC circuit switched onto V0 from
+    // rest (zero charge and current): V0 (1 - (s2 e^(s1 t) - s1 e^(s2 t)) /
+    // (s2 - s1)), with s1, s2 = -a +- sqrt(a^2 - w0^2), a = R/(2L) and
+    // w0 = 1/sqrt(LC); V0 (1 - (1 + a t) e^(-a t)) when a = w0
+    static double step_response(double R, double L, double C, double V0, double t) {
+        const double a = R / (2.0 * L);
+        const double w0 = 1.0 / std::sqrt(L * C);
+        if (std::abs(a - w0) < 1e-9 * w0) {
+            return V0 * (1.0 - (1.0 + a * t) * std::exp(-a * t));
+        }
+        const std::complex<double> d = std::sqrt(std::complex<double>(a * a - w0 * w0));
+        const std::complex<double> s1 = -a + d, s2 = -a - d;
+        return V0 * (1.0 - ((s2 * std::exp(s1 * t) - s1 * std::exp(s2 * t)) / (s2 - s1)).real());
+    }
+
+    // The time at which step_response first reaches level (bisection)
+    static double crossing_time(double R, double L, double C, double V0, double level, double t_max) {
+        double lo = 0.0, hi = t_max;
+        for (int i = 0; i < 200; ++i) {
+            const double mid = 0.5 * (lo + hi);
+            (step_response(R, L, C, V0, mid) >= level ? hi : lo) = mid;
+        }
+        return hi;
+    }
+
     // Calculate damping ratio for RLC series circuit
     double calculate_zeta(double R, double L, double C) {
         return (R / 2.0) * std::sqrt(C / L);
@@ -97,12 +123,24 @@ TEST_F(RLCDampingTest, Underdamped_ShouldOscillate) {
     // This test documents the limitation rather than strictly enforcing oscillation
     std::cout << "Underdamped (ζ=" << zeta << "): Peaks=" << peaks
               << ", Final=" << v_final << "V" << std::endl;
-    if (peaks == 0) {
-        GTEST_SKIP() << "Oscillation not detected (known limitation with physical LTE)";
+    // The maxima are at k pi / wd for odd k, wd = w0 sqrt(1 - zeta^2) =
+    // 8660 rad/s: 0.363, 1.088 and 1.814 ms within 2 ms, so three peaks
+    EXPECT_EQ(peaks, 3) << "Underdamped RLC should oscillate";
+
+    // The waveform follows the analytic step response within 1e-4 V0
+    // (0.5 mV; with these steps the error was 1e-6 V on 2026-11-20)
+    double worst = 0.0;
+    for (const auto& tp : result.timepoints) {
+        worst = std::max(worst, std::abs(tp.node_voltages[node_out - 1] - step_response(R, L, C, V0, tp.time)));
     }
-    EXPECT_GE(peaks, 1) << "Underdamped RLC should oscillate";
-    EXPECT_GT(v_final, 0.0) << "Voltage should be positive";
-    EXPECT_LT(v_final, V0 * 1.5) << "Voltage should not exceed 1.5x source (with overshoot)";
+    EXPECT_LE(worst, 1e-4 * V0) << "Underdamped RLC should follow its step response";
+
+    // First overshoot: V0 (1 + exp(-zeta pi / sqrt(1 - zeta^2))) = 5.815 V
+    double v_peak = 0.0;
+    for (const auto& tp : result.timepoints) {
+        v_peak = std::max(v_peak, tp.node_voltages[node_out - 1]);
+    }
+    EXPECT_NEAR(v_peak, V0 * (1.0 + std::exp(-zeta * M_PI / std::sqrt(1.0 - zeta * zeta))), 1e-4 * V0);
 }
 
 // Test critically damped RLC (ζ = 1): Should not oscillate
@@ -235,19 +273,21 @@ TEST_F(RLCDampingTest, CompareSettlingTime) {
     ASSERT_EQ(result_c.status, ConvergenceStatus::SUCCESS);
 
     // Find settling time for critical
-    double t_settle_critical = -1.0;
+    double t_settle_critical = -1.0, t_before_critical = 0.0;
     for (const auto& tp : result_c.timepoints) {
         if (tp.node_voltages[node_out_c - 1] >= threshold) {
             t_settle_critical = tp.time;
             break;
         }
+        t_before_critical = tp.time;
     }
 
-    // Note: With physical LTE, critically damped circuits may not reach even 2% threshold
-    if (t_settle_critical <= 0) {
-        GTEST_SKIP() << "Critical damping did not reach threshold (known physical LTE limitation)";
-    }
     ASSERT_GT(t_settle_critical, 0) << "Critical damping should reach threshold";
+    // The analytic crossing (21.5 us) lies between the last point below the
+    // threshold and the first at it
+    const double t_cross_critical = crossing_time(R_critical, L, C, V0, threshold, 10e-3);
+    EXPECT_GT(t_cross_critical, t_before_critical);
+    EXPECT_LE(t_cross_critical, t_settle_critical);
 
     // Overdamped (ζ = 2)
     double R_over = 4.0 * std::sqrt(L / C);
@@ -268,14 +308,18 @@ TEST_F(RLCDampingTest, CompareSettlingTime) {
     ASSERT_EQ(result_o.status, ConvergenceStatus::SUCCESS);
 
     // Find settling time for overdamped
-    double t_settle_over = -1.0;
+    double t_settle_over = -1.0, t_before_over = 0.0;
     for (const auto& tp : result_o.timepoints) {
         if (tp.node_voltages[node_out_o - 1] >= threshold) {
             t_settle_over = tp.time;
             break;
         }
+        t_before_over = tp.time;
     }
     ASSERT_GT(t_settle_over, 0) << "Overdamped should reach threshold";
+    const double t_cross_over = crossing_time(R_over, L, C, V0, threshold, 10e-3);
+    EXPECT_GT(t_cross_over, t_before_over);
+    EXPECT_LE(t_cross_over, t_settle_over);
 
     // Overdamped should be SLOWER than critically damped
     EXPECT_GT(t_settle_over, t_settle_critical)

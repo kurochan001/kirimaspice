@@ -7,6 +7,7 @@
 #include "kirimaspice/solvers/transient_solver.hpp"
 #include "kirimaspice/core/types.hpp"
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <cmath>
 
 using namespace kirimaspice;
@@ -245,6 +246,9 @@ TEST_F(LTEToleranceTest, EnergyConservation_RLCircuit) {
     SimulationConfig config;
     config.transient.use_adaptive_timestep = true;
     config.transient.method = IntegrationMethod::GEAR2;
+    // Start from zero inductor current; without UIC the operating point
+    // (the inductor a short, V_out = 0) is already the steady state
+    config.transient.use_initial_conditions = true;
 
     solvers::TransientSolver solver(circuit, config);
     auto result = solver.solve(0.0, 1e-3, 10e-9); // 1ms = 10*tau
@@ -257,19 +261,22 @@ TEST_F(LTEToleranceTest, EnergyConservation_RLCircuit) {
     // Energy stored in inductor: E_L = 0.5 * L * I^2
     double E_L_theory = 0.5 * L * I_theory * I_theory;
 
-    // We can't directly measure current in this API, but we can check voltage
-    // At steady state, V_out should approach 0 (all voltage dropped across R)
-    double v_final = result.timepoints.back().node_voltages[node_out - 1];
-
-    // Note: With physical LTE, RL circuits converge very slowly
-    // Flux-based error estimation can be conservative for inductive circuits
-    double v_error_percent = std::abs(v_final) / V0 * 100.0;
-
-    if (v_error_percent >= 60.0) {
-        GTEST_SKIP() << "RL circuit convergence too slow (error=" << v_error_percent
-                    << "%, known limitation with flux-based physical LTE)";
+    // We can't directly measure current in this API, but we can check voltage.
+    // From zero current, V_out(t) = V0 exp(-t/tau) for t > 0, tau = L/R; the
+    // point at t = 0 holds the initial state. BDF2 of step h has the global
+    // error (h/tau)^2 (t/tau) V0 exp(-t/tau) / 3, at most (h/tau)^2 V0 / (3e).
+    const double tau = L / R;
+    double worst = 0.0, h = 0.0;
+    for (size_t j = 1; j < result.timepoints.size(); ++j) {
+        const auto& tp = result.timepoints[j];
+        h = std::max(h, tp.time - result.timepoints[j - 1].time);
+        worst = std::max(worst, std::abs(tp.node_voltages[node_out - 1] - V0 * std::exp(-tp.time / tau)));
     }
-    EXPECT_LT(v_error_percent, 70.0) << "RL circuit should approach steady state (V_out → 0)";
+    std::cout << "  max |V_out - V0 exp(-t/tau)| = " << worst << " V, largest step " << h << " s" << std::endl;
+    double v_final = result.timepoints.back().node_voltages[node_out - 1];
+    double v_error_percent = std::abs(v_final) / V0 * 100.0;
+    EXPECT_LE(worst, (h / tau) * (h / tau) * V0 / (3.0 * std::exp(1.0)))
+        << "RL circuit should follow V0 exp(-t/tau)";
 
     std::cout << "Flux conservation (RL circuit):" << std::endl;
     std::cout << "  V_out_final = " << v_final << " V (error=" << v_error_percent << "%)" << std::endl;

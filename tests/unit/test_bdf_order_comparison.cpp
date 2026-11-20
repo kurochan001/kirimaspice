@@ -7,7 +7,9 @@
 #include "kirimaspice/solvers/transient_solver.hpp"
 #include "kirimaspice/core/types.hpp"
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <cmath>
+#include <numbers>
 
 using namespace kirimaspice;
 
@@ -65,6 +67,33 @@ protected:
         return std::sqrt(sum_sq_error / count) * 100.0; // RMS error in %
     }
 
+    // Largest absolute error against the charging curve, over every point
+    double max_error(const solvers::TransientResult& result, NodeId node_out) {
+        double worst = 0.0;
+        for (const auto& tp : result.timepoints) {
+            worst = std::max(worst, std::abs(tp.node_voltages[node_out - 1] - rc_theory(tp.time, V0_, tau_)));
+        }
+        return worst;
+    }
+
+    double largest_step(const solvers::TransientResult& result) {
+        double h = 0.0;
+        for (size_t j = 1; j < result.timepoints.size(); ++j) {
+            h = std::max(h, result.timepoints[j].time - result.timepoints[j - 1].time);
+        }
+        return h;
+    }
+
+    // For dv/dt = (V0 - v)/tau, a k-step BDF of step h multiplies the
+    // decaying part V0 exp(-t/tau) by a root whose logarithm is
+    // -h/tau + c (h/tau)^(k+1) + ..., with c = |C(k+1)|/sigma(1): 1/2 for
+    // BDF1, (2/9)/(2/3) = 1/3 for BDF2. The global error is then
+    // c (h/tau)^k (t/tau) V0 exp(-t/tau), largest at t = tau:
+    // c (h/tau)^k V0 / e.
+    double bdf_error_bound(double c, int order, double h) const {
+        return c * std::pow(h / tau_, order) * V0_ / std::numbers::e;
+    }
+
     double R_, C_, V0_, tau_;
 };
 
@@ -77,21 +106,19 @@ TEST_F(BDFOrderComparisonTest, BDF1_BackwardEuler) {
     config.transient.use_adaptive_timestep = true;
     config.transient.method = IntegrationMethod::BACKWARD_EULER; // BDF1
     config.transient.adaptive_order = false; // Fixed order
+    config.transient.use_initial_conditions = true;  // charge from 0 V, as rc_theory
 
     solvers::TransientSolver solver(circuit, config);
     auto result = solver.solve(0.0, 5e-3, 1e-6); // 0 to 5ms, initial dt=1μs
 
-    // Note: With physical LTE warm-up, some edge cases may not converge
-    if (result.status != ConvergenceStatus::SUCCESS) {
-        GTEST_SKIP() << "Convergence failed (expected with warm-up period)";
-    }
     ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
 
     double rms_error = compute_rms_error(result, node_out);
 
-    // BDF1 is 1st order: with physical LTE, accuracy is limited
-    // Note: Physical LTE emphasizes charge conservation over voltage accuracy
-    EXPECT_LT(rms_error, 60.0); // < 60% RMS error (relaxed for physical LTE)
+    // First order: within the leading global error of BDF1 at the largest
+    // step (5% above it for the higher-order terms)
+    const double h = largest_step(result);
+    EXPECT_LE(max_error(result, node_out), 1.05 * bdf_error_bound(1.0 / 2.0, 1, h)) << "h=" << h;
     EXPECT_GT(result.timepoints.size(), 10); // At least some steps
 
     std::cout << "BDF1: RMS error = " << rms_error << "%, "
@@ -163,20 +190,19 @@ TEST_F(BDFOrderComparisonTest, AdaptiveOrderControl) {
     config.transient.method = IntegrationMethod::GEAR2; // Start with BDF2
     config.transient.adaptive_order = true;  // Enable adaptive order
     config.transient.max_order = 3;          // Allow up to BDF3
+    config.transient.use_initial_conditions = true;  // charge from 0 V, as rc_theory
 
     solvers::TransientSolver solver(circuit, config);
     auto result = solver.solve(0.0, 5e-3, 1e-6);  // initial dt=1μs
 
-    if (result.status != ConvergenceStatus::SUCCESS) {
-        GTEST_SKIP() << "Convergence failed (expected with warm-up period)";
-    }
     ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
 
     double rms_error = compute_rms_error(result, node_out);
 
-    // Adaptive order with physical LTE: accuracy depends on initial conditions
-    // Note: May fall back to lower order during warm-up period
-    EXPECT_LT(rms_error, 60.0); // < 60% RMS error (relaxed for physical LTE)
+    // An order of 2 or more: within the leading global error of BDF2 at the
+    // largest step
+    const double h = largest_step(result);
+    EXPECT_LE(max_error(result, node_out), bdf_error_bound(1.0 / 3.0, 2, h)) << "h=" << h;
     EXPECT_GT(result.timepoints.size(), 10);
 
     std::cout << "Adaptive: RMS error = " << rms_error << "%, "
