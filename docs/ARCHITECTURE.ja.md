@@ -257,7 +257,9 @@ flowchart TD
 - **制限。** 未知数が 4 個を超える非線形の回路では、最初の 10 回の反復で、Newton 法の一歩全体を 5 V 以下に
   縮めます（動的 gmin を使うときを除きます）。ダイオードと NPN トランジスタは、反復の間に接合電圧が動く幅も
   制限し（`core::limit_junction_step`。SPICE と同じです）、IGBT は V<sub>CE</sub> を SPICE3 の FET の
-  V<sub>DS</sub> の規則で制限します（`core::limit_fet_drain_step`）。制限した書き込みから得た解は収束と
+  V<sub>DS</sub> の規則で制限します（`core::limit_fet_drain_step`）。レベル 1 の MOSFET と MESFET は、V<sub>GS</sub> を
+  SPICE3 の FET のゲートの規則で（`core::limit_fet_gate_step`。逆モードでは V<sub>GD</sub>）、V<sub>DS</sub> をドレインの
+  規則で制限します。制限した書き込みから得た解は収束と
   見なしません（`any_device_limited`）。
 - **DC スイープ。** 入れ子の `.DC` では、最初の電源が内側のループです
   （[NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.ja.md) の規則 4）。点は 1 つずつ順に解き、それぞれ

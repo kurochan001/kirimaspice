@@ -315,7 +315,9 @@ off by default).
   how far a junction voltage moves from one iteration to the next
   (`core::limit_junction_step`, as SPICE does), the IGBT limits its V<sub>CE</sub>
   by SPICE3's rule for a FET's V<sub>DS</sub> (`core::limit_fet_drain_step`),
-  and an iterate that a limited stamp produced is not accepted as
+  and the level-1 MOSFET and the MESFET limit V<sub>GS</sub> by SPICE3's rule
+  for a FET's gate (`core::limit_fet_gate_step`, V<sub>GD</sub> in reverse
+  mode) and V<sub>DS</sub> by the drain rule; an iterate that a limited stamp produced is not accepted as
   converged (`any_device_limited`).
 - **DC sweep.** A nested `.DC` has the first source as the inner loop
   ([NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.md), rule 4). The points

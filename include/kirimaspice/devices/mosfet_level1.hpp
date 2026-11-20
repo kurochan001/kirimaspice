@@ -149,6 +149,12 @@ public:
     /// Accept solution for transient analysis (updates voltage history)
     void accept_solution(const DenseVector& node_voltages) override;
 
+    /// Limiting of VGS (core::limit_fet_gate_step) and VDS
+    /// (core::limit_fet_drain_step) between Newton iterations, as SPICE's
+    /// level 1 does; on by default
+    void set_voltage_limiting(bool enable) override { enable_voltage_limiting_ = enable; }
+    bool limited_in_last_stamp() const override { return limited_in_last_stamp_; }
+
     /// Physical local truncation error (charge-based for adaptive timestepping)
     Real get_physical_lte(Real chgtol, const DenseVector& node_voltages) const override;
 
@@ -206,6 +212,10 @@ private:
     std::vector<NodeId> nodes_;  // [drain, gate, source], and bulk when it is another node
     NodeId bulk_;                // the source until set_body
     Real gamma_body_ = 0.0;      // GAMMA [V^0.5]
+    bool enable_voltage_limiting_ = true;
+    mutable Real vgs_last_eval_ = 0.0;   // VGS_eff of the last Newton evaluation
+    mutable Real vds_last_eval_ = 0.0;   // VDS_eff of the last Newton evaluation
+    mutable bool limited_in_last_stamp_ = false;
     Real phi_ = 0.6;             // PHI [V]
     Real lambda_ = 0.0;          // LAMBDA [1/V]
     Real kp_;    // Process transconductance parameter [A/V²]

@@ -100,8 +100,9 @@ public:
 
     void stamp_dc_nonlinear(MNASystem& mna, const DenseVector& node_voltages) const override {
         // Newton's linearization of the channel current, each entry on its
-        // own: a grounded terminal drops its row and column, nothing else
-        const Channel ch = channel_at(node_voltages);
+        // own: a grounded terminal drops its row and column, nothing else;
+        // the controlling voltages limited from their last evaluation
+        const Channel ch = channel_at(node_voltages, true);
         const int cols[3] = {ch.d, ch.g, ch.s};
         const Real derivs[3] = {ch.dd, ch.dg, ch.ds};
         for (int k = 0; k < 3; ++k) {
@@ -420,6 +421,9 @@ public:
     MESFETModel model() const { return model_; }
     Real beta() const { return beta_; }
     Real vto() const { return vto_; }
+
+    void set_voltage_limiting(bool enable) override { enable_voltage_limiting_ = enable; }
+    bool limited_in_last_stamp() const override { return limited_in_last_stamp_; }
     Real lambda() const { return lambda_; }
 
 private:
@@ -438,7 +442,11 @@ private:
         Real i_eq;
     };
 
-    Channel channel_at(const DenseVector& node_voltages) const {
+    // With limit, the steps of v_ctrl (core::limit_fet_gate_step) and v_ds
+    // (core::limit_fet_drain_step) from their last evaluation are limited, as
+    // SPICE limits a FET's, and the channel is evaluated and linearized at
+    // the limited voltages, which equal the iterate at convergence
+    Channel channel_at(const DenseVector& node_voltages, bool limit = false) const {
         auto row = [](NodeId n) { return (n > 0) ? static_cast<int>(n - 1) : -1; };
         Channel ch;
         ch.d = row(nodes_[0]);
@@ -450,6 +458,20 @@ private:
 
         Real v_ctrl, v_ds;
         compute_effective_voltages(vd, vg, vs, v_ctrl, v_ds);
+        Real vd_lin = vd, vg_lin = vg;
+        if (limit) {
+            const Real ctrl_in = v_ctrl, ds_in = v_ds;
+            if (enable_voltage_limiting_) {
+                v_ctrl = core::limit_fet_gate_step(v_ctrl, ctrl_last_eval_, threshold());
+                v_ds = core::limit_fet_drain_step(v_ds, ds_last_eval_);
+            }
+            limited_in_last_stamp_ = (v_ctrl != ctrl_in || v_ds != ds_in);
+            ctrl_last_eval_ = v_ctrl;
+            ds_last_eval_ = v_ds;
+            // The terminal voltages of the limited point, the source kept
+            if (v_ctrl != ctrl_in) vg_lin = vs + polarity_sign * v_ctrl;
+            if (v_ds != ds_in) vd_lin = vs + polarity_sign * v_ds;
+        }
         ch.id = compute_drain_current(v_ctrl, v_ds);
         const Real gm = compute_transconductance(v_ctrl, v_ds);
         const Real gds = compute_output_conductance(v_ctrl, v_ds);
@@ -469,7 +491,7 @@ private:
             ch.dg = -gm;
             ch.ds = gm + gds;
         }
-        ch.i_eq = ch.id - ch.dd * vd - ch.dg * vg - ch.ds * vs;
+        ch.i_eq = ch.id - ch.dd * vd_lin - ch.dg * vg_lin - ch.ds * vs;
         return ch;
     }
 
@@ -550,6 +572,10 @@ private:
     Real tnom_;
 
     // State variables (unified naming)
+    bool enable_voltage_limiting_ = true;
+    mutable Real ctrl_last_eval_ = 0.0;  // v_ctrl of the last Newton evaluation
+    mutable Real ds_last_eval_ = 0.0;    // v_ds of the last Newton evaluation
+    mutable bool limited_in_last_stamp_ = false;
     mutable Real v_gs_prev_ = 0.0;
     mutable Real v_gd_prev_ = 0.0;
     mutable Real v_ds_prev_ = 0.0;

@@ -157,6 +157,49 @@ inline Real limit_junction_step(Real vnew, Real vold, Real nvt, Real vcrit) {
     return (vnew > nvt) ? nvt * std::log(vnew / nvt) : vnew;
 }
 
+/// Limit the step of the gate-source voltage of a FET between two Newton
+/// iterations, by SPICE3's rule for it (DEVfetlim in ngspice's
+/// src/spicelib/devices/devsup.c, whose header gives only the copyright of
+/// the Regents of the University of California; read 2026-11-21). With
+/// hi = 2 |vold - vto| + 2, lo = |vold - vto| + 1 and vtox = vto + 3.5:
+///   from vold >= vtox, a fall stops lo below vold while vnew >= vtox and
+///   at vto + 2 below it, and a rise of hi or more stops at vold + hi;
+///   from vto <= vold < vtox, a fall stops at vto - 0.5 and a rise at
+///   vto + 4;
+///   from vold < vto, a fall of more than hi stops at vold - hi, and a rise
+///   stops at vto + 0.5, or, below that, at vold + lo.
+/// A converged solution (vnew = vold) is returned unchanged.
+/// @param vnew the voltage of the present iterate [V]
+/// @param vold the voltage at which the device was last evaluated [V]
+/// @param vto  the threshold voltage [V]
+/// @return the voltage at which to evaluate the device this iteration
+inline Real limit_fet_gate_step(Real vnew, Real vold, Real vto) {
+    const Real hi = std::abs(2.0 * (vold - vto)) + 2.0;
+    const Real lo = std::abs(vold - vto) + 1.0;
+    const Real vtox = vto + 3.5;
+    const Real delv = vnew - vold;
+    if (vold >= vto) {
+        if (vold >= vtox) {
+            if (delv <= 0.0) {
+                if (vnew >= vtox) {
+                    return (-delv > lo) ? vold - lo : vnew;
+                }
+                return std::max(vnew, vto + 2.0);
+            }
+            return (delv >= hi) ? vold + hi : vnew;
+        }
+        return (delv <= 0.0) ? std::max(vnew, vto - 0.5) : std::min(vnew, vto + 4.0);
+    }
+    if (delv <= 0.0) {
+        return (-delv > hi) ? vold - hi : vnew;
+    }
+    const Real vtemp = vto + 0.5;
+    if (vnew <= vtemp) {
+        return (delv > lo) ? vold + lo : vnew;
+    }
+    return vtemp;
+}
+
 /// Limit the step of the drain-source voltage of a FET (here the
 /// collector-emitter voltage of the IGBT) between two Newton iterations, by
 /// SPICE3's rule for VDS (DEVlimvds in ngspice's

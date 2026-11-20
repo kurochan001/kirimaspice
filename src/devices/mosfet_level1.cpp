@@ -4,6 +4,7 @@
 // src/devices/mosfet_level1.cpp
 // Unified MOSFET Level 1 (Shichman-Hodges) template implementation
 #include "kirimaspice/devices/mosfet_level1.hpp"
+#include "kirimaspice/core/device_utils.hpp"
 #include <spdlog/spdlog.h>
 #include <algorithm>
 #include <cmath>
@@ -254,6 +255,35 @@ void MOSFET_Level1<P>::stamp_dc_nonlinear(MNASystem& mna,
     Real v_gs_eff, v_ds_eff;
     compute_effective_voltages(vd, vg, vs, v_gs_eff, v_ds_eff);
     const Real v_bs_eff = effective_vbs(vb, vs);
+
+    // Limit the steps from the last evaluation as SPICE's level 1 does: VGS
+    // in forward mode, VGD in reverse mode (core::limit_fet_gate_step), and
+    // VDS (core::limit_fet_drain_step); the device is evaluated and
+    // linearized at the limited voltages, which equal the iterate at
+    // convergence
+    if (enable_voltage_limiting_) {
+        const Real vth = threshold(v_bs_eff).vth;
+        const Real vgs_in = v_gs_eff, vds_in = v_ds_eff;
+        // A voltage is derived again only where a limit moved it, so that an
+        // unlimited iterate keeps its exact value
+        if (vds_last_eval_ >= 0.0) {
+            const Real vgs = core::limit_fet_gate_step(vgs_in, vgs_last_eval_, vth);
+            const Real vds = (vgs != vgs_in) ? vgs - (vgs_in - vds_in) : vds_in;
+            v_gs_eff = vgs;
+            v_ds_eff = core::limit_fet_drain_step(vds, vds_last_eval_);
+        } else {
+            const Real vgd_in = vgs_in - vds_in;
+            const Real vgd = core::limit_fet_gate_step(vgd_in, vgs_last_eval_ - vds_last_eval_, vth);
+            const Real vds = (vgd != vgd_in) ? vgs_in - vgd : vds_in;
+            v_ds_eff = core::limit_fet_drain_step(vds, vds_last_eval_);
+            v_gs_eff = (vgd != vgd_in || v_ds_eff != vds_in) ? vgd + v_ds_eff : vgs_in;
+        }
+        limited_in_last_stamp_ = (v_gs_eff != vgs_in || v_ds_eff != vds_in);
+    } else {
+        limited_in_last_stamp_ = false;
+    }
+    vgs_last_eval_ = v_gs_eff;
+    vds_last_eval_ = v_ds_eff;
 
     // Calculate drain current and small-signal parameters (physical values)
     const ChannelCurrent cc = channel_current(v_gs_eff, v_ds_eff, v_bs_eff);
