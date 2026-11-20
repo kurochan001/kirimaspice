@@ -2,7 +2,7 @@
 
 [日本語](PORTING.ja.md) · [Project README](../README.md) · This English text is the main version; the Japanese version follows it, and where they differ, this text holds.
 
-**Updated 2026-11-15** for commit `eaf0629`. This guide is for running with
+**Updated 2026-11-21** for commit `2826a81`. This guide is for running with
 kirimaspice a netlist written for ngspice. It says what is the same, how
 the commands map, and what to check in the netlist, in the order in which
 it is usually met. Each difference was found by running kirimaspice and
@@ -42,7 +42,7 @@ ngspice-47 loads the ASCII and binary raw files that kirimaspice writes
 | --- | --- |
 | `ngspice -b circuit.cir` | `build/kirimaspice circuit.cir` |
 | `ngspice -b -r out.raw circuit.cir` | `build/kirimaspice circuit.cir --raw-out out.raw`, or `python3 tools/ngspice_shim.py -b -r out.raw circuit.cir` |
-| analyses in a `.control` block (`op`, `dc`, `tran`, `ac`, `run`) | dot directives outside `.control`: `.op`, `.dc`, `.tran`, `.ac` |
+| analyses in a `.control` block (`op`, `tran`, `run`; `dc` and `ac` are run) | dot directives outside `.control`: `.op`, `.dc`, `.tran`, `.ac` |
 | `print`, `plot`, `meas`, `wrdata` | the raw file, read with the [Python tools](USER_MANUAL.md#use-the-python-tools); the AC result is always in `<base>_ac.csv` |
 
 The program runs in batch only. It prints the operating point, the
@@ -56,8 +56,8 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
 ### Analyses and directives
 
 - [ ] **Analyses as dot directives.** The program runs `.OP`, `.DC`,
-  `.TRAN` and `.AC`, and `.FOUR` after a transient. Analyses inside
-  `.control` are not run as in ngspice.
+  `.TRAN` and `.AC`, and `.FOUR` after a transient. Of the analysis
+  commands of a `.control` block, only `dc` and `ac` are run.
 - [ ] **`.OP` with `.DC`.** A `.DC` sweep replaces the operating point,
   also when `.OP` is there; ngspice runs both.
 - [ ] **Directives that do nothing here:**
@@ -108,9 +108,11 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
 ### Models
 
 - [ ] **The parameters the models read.** The diode reads `IS`, `N`,
-  `CJO`, `VJ` and `M`, and the other models read part of their parameters; some levels
-  warn about the rest, others ignore it without a message
-  ([Reference Manual](REFERENCE_MANUAL.md#models)).
+  `CJO`, `VJ` and `M`, and the other models read part of their parameters.
+  Every model names the rest of its card in a warning, except a few names
+  that level 3 accepts without using them; on the element line, levels 3,
+  8/49, 9 and 12 drop the names they do not read, `M=` among them,
+  without a message ([Reference Manual](REFERENCE_MANUAL.md#models)).
 - [ ] **The `LEVEL` of each MOSFET card.** The levels here are 1, 3,
   8/49 (BSIM3), 9 (BSIM1), 10 (SiC), 11 (GaN HEMT), 12 (FinFET), 14/54
   (BSIM4), 20 (VDMOS) and 21 (IGBT)

@@ -78,8 +78,8 @@ running ngspice-47 and removed by following ngspice, as
 [NETLIST_CONVENTIONS.md](docs/spec/NETLIST_CONVENTIONS.md) sets out; that
 document also lists differences not decided there.
 
-- **`B` sources have no `I(<source>)`:** an expression with `I(...)` is an
-  error.
+- **`B` sources have no `I(<source>)` and cannot read `.PARAM` names:**
+  an expression with either is an error (`Undefined symbol`).
 - **Scale factors are not accepted inside braces or in `.OPTIONS`
   values** (there the option is ignored with a warning).
 - **`PARAMS:` is not accepted** on `.SUBCKT` and `X` lines; parameters are
@@ -107,7 +107,9 @@ document also lists differences not decided there.
   MOSFET levels are named in a warning
   ([Reference Manual](docs/REFERENCE_MANUAL.md#models)). Level 3 accepts
   `LAMBDA`, `RS`, `RD`, `CJ`, `CJSW` and `MJSW` without a warning and does
-  not use them.
+  not use them. On the element line, levels 3, 8/49, 9 and 12 drop the
+  names they do not read, `M=` and `AD=` among them, without a message
+  (run at `2826a81`).
 - **The bipolar transistor implements the Gummel–Poon currents in one
   device for NPN and PNP, with limits on its parasitics.** The currents
   and their analytic derivatives share `BJT::evaluate`. Forward-active,
@@ -123,9 +125,10 @@ document also lists differences not decided there.
   depletion capacitances or junction potentials (read in the code).
 - **`S` and `Y` take a model name that is not defined before them without
   a message,** and use their defaults.
-- **`.PRINT`, `.SAVE`, `.STEP`, `.SENS`, `.MC`, `.TF`, `.PZ`, `.DISTO`,
-  `.PORT`, `.WCASE` and `.OPTIMIZE` are read, but the program does not use
-  them.** `.NOISE`, `.MEASURE` and `.TITLE` are ignored.
+- **`.SAVE`, `.STEP`, `.SENS`, `.MC`, `.TF`, `.PZ`, `.DISTO`, `.PORT`,
+  `.WCASE`, `.OPTIMIZE`, `.PRINT DC` and `.PRINT AC` are read but not run,
+  each named in a warning; `.PRINT TRAN` is printed.** `.NOISE`,
+  `.MEASURE`, `.TITLE` and unknown directives are ignored with a warning.
 - **Lines after `.END` are read.**
 - **Empty lines before the title are skipped: the first line that is not
   empty is the title.** ngspice-47 takes the first line as the title even
@@ -137,7 +140,9 @@ document also lists differences not decided there.
 - **Analyses in a `.control` block are not run as in ngspice.** In runs at
   commit `7434904`, `op` inside `.control` did not select the operating
   point (the program ran the operating point it runs for a netlist
-  without analysis lines), and `dc V1 0 1 0.5 V2 0 1 1` swept only `V1`. Write analyses as dot
+  without analysis lines), and `dc V1 0 1 0.5 V2 0 1 1` swept only `V1`.
+  At `2826a81`, `tran` inside `.control` is not run either; `dc` and `ac`
+  are. Write analyses as dot
   directives (`.op`, `.dc`, `.tran`, `.ac`).
 
 ## Analyses
@@ -177,6 +182,16 @@ says otherwise.
 
 ## Device models
 
+- **The trapezoidal rule of the diode's junction capacitance is wrong.**
+  `Diode::stamp_transient` stamps `G = C/(2h)` and `I = −G·v(n)`, without
+  the previous current of the trapezoidal companion (`G = 2C/h`). Since
+  the card's `CJO` is read (`11893bf`), this reaches every netlist diode
+  with a capacitance under the default method: for a 1 kΩ resistor, a
+  diode with `CJO=1e-6 M=1e-8` (about 1 µF) and a ramp from 0 to −1 V over
+  1 ms, `.tran 10u 1m` ends at −0.569003 V, where the analytic value is
+  −e⁻¹ = −0.367879 V; backward Euler gives −0.369711 V and BDF2 (`gear`)
+  −0.367913 V (run at `2826a81`). TR-BDF2, which does not use the
+  standard stage companions either, gives −0.500217 V.
 - **BSIM4 noise and the BSIM4 parameter extractor use a separate,
   simplified current model.** The operating point, DC, transient and AC
   analyses evaluate BSIM4 through `BSIM4Core` (`src/devices/bsim4_core.cpp`).
@@ -296,8 +311,8 @@ says otherwise.
   and Apple clang 21.0.0 (no OpenMP) give the same test results.
 - On Ubuntu 24.04 (x86-64), CI builds and tests with GCC 13.3.0 and clang
   18.1.3 (libstdc++), CMake 3.31.6 and SuiteSparse 7.6.1 from
-  `libsuitesparse-dev`; the results differ from macOS only in
-  `CMOS_Inverter.DCTransferCharacteristic_HighInput`, which passes.
+  `libsuitesparse-dev`. Whether its results now equal those on macOS
+  is not confirmed; CI's test summary shows it.
 - On 2026-11-14, the README's steps were followed in a fresh `ubuntu:24.04`
   container on arm64 (Colima on macOS): GCC 13.3.0, CMake 3.28.3, Ninja
   1.11.1, Python 3.12.3, Git 2.43.0 and `libsuitesparse-dev`

@@ -2,7 +2,7 @@
 
 [English](PORTING.md) · [プロジェクトの README](../README.ja.md) · この文書は英語版を正とします。日本語版はその訳で、両者が食い違う場合は英語版に従います。
 
-**2026-11-15 更新**、コミット `eaf0629` に合わせています。この手引きは、ngspice 用に書いたネットリストを
+**2026-11-21 更新**、コミット `2826a81` に合わせています。この手引きは、ngspice 用に書いたネットリストを
 kirimaspice で動かすためのものです。同じ点、コマンドの対応、ネットリストで確かめることを、ふつう出会う順に
 書きます。違いはどれも、kirimaspice と ngspice-47 を動かして見つけたものです。詳しいことと測った値は
 [KNOWN_ISSUES](../KNOWN_ISSUES.ja.md) に、書式は[リファレンスマニュアル](REFERENCE_MANUAL.ja.md)にあります。
@@ -38,7 +38,7 @@ ngspice-47 は、kirimaspice が書く ASCII とバイナリの raw ファイル
 | --- | --- |
 | `ngspice -b circuit.cir` | `build/kirimaspice circuit.cir` |
 | `ngspice -b -r out.raw circuit.cir` | `build/kirimaspice circuit.cir --raw-out out.raw`、または `python3 tools/ngspice_shim.py -b -r out.raw circuit.cir` |
-| `.control` のブロックの中の解析（`op`、`dc`、`tran`、`ac`、`run`） | `.control` の外のドットのディレクティブ。`.op`、`.dc`、`.tran`、`.ac` |
+| `.control` のブロックの中の解析（`op`、`tran`、`run`。`dc` と `ac` は実行する） | `.control` の外のドットのディレクティブ。`.op`、`.dc`、`.tran`、`.ac` |
 | `print`、`plot`、`meas`、`wrdata` | raw ファイルを [Python のツール](USER_MANUAL.ja.md#python-のツールを使う)で読む。AC の結果は必ず `<base>_ac.csv` にある |
 
 プログラムはバッチでだけ動きます。表示するのは、動作点、過渡解析の後の `.PRINT TRAN` の信号、DC スイープの要約で、AC 解析では
@@ -50,7 +50,7 @@ ngspice-47 は、kirimaspice が書く ASCII とバイナリの raw ファイル
 ### 解析とディレクティブ
 
 - [ ] **解析はドットのディレクティブで。** プログラムが実行するのは `.OP`、`.DC`、`.TRAN`、`.AC` と、
-  過渡解析の後の `.FOUR` です。`.control` の中の解析は、ngspice のようには実行されません。
+  過渡解析の後の `.FOUR` です。`.control` のブロックの解析のコマンドのうち、実行するのは `dc` と `ac` だけです。
 - [ ] **`.OP` と `.DC`。** `.OP` があっても、`.DC` のスイープが動作点に置き換わります。ngspice は両方を
   実行します。
 - [ ] **ここでは何もしないディレクティブ：**
@@ -96,8 +96,9 @@ ngspice-47 は、kirimaspice が書く ASCII とバイナリの raw ファイル
 ### モデル
 
 - [ ] **モデルが読むパラメータ。** ダイオードは `IS`、`N`、`CJO`、`VJ`、`M` を読み、ほかのモデルもパラメータの一部しか
-  読みません。残りについて、警告を出すレベルもあれば、メッセージなしで無視するレベルもあります
-  （[リファレンスマニュアル](REFERENCE_MANUAL.ja.md#モデル)）。
+  読みません。カードの残りの名前は、どのモデルも警告で名指しします。ただし、レベル 3 は使わないいくつかの
+  名前を警告なしに受け付けます。素子の行では、レベル 3、8/49、9、12 は、読まない名前（`M=` も）を何も言わずに
+  捨てます（[リファレンスマニュアル](REFERENCE_MANUAL.ja.md#モデル)）。
 - [ ] **MOSFET のカードそれぞれの `LEVEL`。** ここでのレベルは 1、3、8/49（BSIM3）、9（BSIM1）、10（SiC）、
   11（GaN HEMT）、12（FinFET）、14/54（BSIM4）、20（VDMOS）、21（IGBT）です
   （[リファレンスマニュアル](REFERENCE_MANUAL.ja.md#モデル)）。ネットリストのそれぞれのカードが、その番号で

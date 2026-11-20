@@ -3,7 +3,9 @@
 [日本語](TRANSIENT_ANALYSIS.ja.md) · [Documentation guide](README.md) · This English text is the main version; the Japanese version follows it, and where they differ, this text holds.
 
 Status: **working draft for review**. Checked on **2026-11-15** against
-commit `0cb0ac3`, on the macOS arm64 build. This is a description of the
+commit `0cb0ac3`, on the macOS arm64 build, and reviewed again on
+**2026-11-21** against commit `2826a81`: most of its measurements were run
+again on that build, and those that had changed were corrected. This is a description of the
 implementation and its measured behaviour, not a new specification.
 Examples and measurements below use kirimaspice unless stated otherwise.
 The diagrams describe this implementation; they are not copied from a
@@ -55,7 +57,8 @@ The RC time constant is `tau = R C = 1 ms`. For an ideal instantaneous
 1 V step from a discharged capacitor, `V(out,t) = 1 - exp(-t/tau)`.
 The example has a finite 1 ns rise time; this formula is a useful check
 away from the edge, not its exact solution during the rise. The measured
-run retained 501 points, from 0 to 5 ms, and ended at about
+run retained 502 points (the 10 µs grid and the 1 ns corner), from 0 to
+5 ms, and ended at about
 `0.993261999 V`. The default method is trapezoidal, with a backward Euler
 startup step.
 
@@ -112,12 +115,13 @@ Three measured examples make the timing rules concrete:
 | Directive | Retained times, without convergence retries |
 | --- | --- |
 | `.tran 30u 100u` | 0, 30, 60, 90, 100 microseconds |
-| `.tran 10u 1m 205u` | 205, 215, ..., 995, 1000 microseconds; 81 points |
+| `.tran 10u 1m 205u` | 205, 210, 220, ..., 990, 1000 microseconds; 81 points |
 | `.tran 10u 1m 0 2u` | 0, 2, ..., 1000 microseconds; 501 points |
 
 `TSTART` is an actual step boundary: the solver first ends a segment
-there, then continues. Choosing a non-grid `TSTART` can therefore change
-the grid and the numerical result, rather than merely hiding some rows.
+there, then continues. A non-grid `TSTART` therefore adds one point and
+can change the numerical result slightly, rather than merely hiding some
+rows; the other points stay on the grid.
 Discarding the earlier points happens after successful time stepping;
 partial results returned after a library failure may still contain them.
 
@@ -135,7 +139,8 @@ it.
 Use one `.TRAN`. The CLI runs the transient when the parser has read a
 complete `.TRAN`, continued, included or in the branch of `.IF` taken, as
 any directive; a comment never selects it. Several `.TRAN` lines do not
-create independent jobs: the last one sets the times.
+create independent jobs: the last one sets TSTEP, TSTOP and TMAX, and a
+TSTART or `UIC` of an earlier line stays when the last omits it.
 
 For comparison, ngspice documents `TSTEP` as an output/suggested computing
 increment and `TMAX` as a maximum integration step; ngspice chooses its
@@ -303,7 +308,7 @@ step. The current implementation has two substantial limits:
 
 ```mermaid
 flowchart TD
-    A["Choose nominal step<br/>clip at TSTART or TSTOP"] --> B["Set attempted endpoint time<br/>save device states; select startup method"]
+    A["Next point of the step grid<br/>clip at TSTART, a breakpoint or TSTOP"] --> B["Set attempted endpoint time<br/>save device states; select startup method"]
     B --> C["Stamp devices; factorize and solve<br/>Newton iteration"]
     C --> D{"Updates and residuals converge?<br/>No device limiting active?"}
     D -->|yes| E["Accept solution and device histories<br/>record time, voltages and branch currents"]
@@ -340,7 +345,7 @@ This catches cases where a small Newton update alone would be misleading.
 If the selected non-BE method fails, fixed stepping first tries BE at the
 same size. If that fails too, it halves the step and retries, for up to
 15 halvings, bounded by `min_step` (default `1e-15 s`). After accepting a
-reduced step, the next step starts from the nominal `TSTEP` again. Thus
+reduced step, the next steps return to the multiples of the step. Thus
 even this fixed-step mode can write irregularly spaced points.
 
 | Setting | Default | Controls |
@@ -440,7 +445,7 @@ max over node voltages of
 ```
 
 MNA branch currents are not part of that voltage estimate. After 20
-accepted steps, the solver also takes the maximum with dynamic devices'
+accepted steps since time 0 or the last source breakpoint, the solver also takes the maximum with dynamic devices'
 `get_physical_lte()` results; the base implementation returns zero, so
 coverage depends on the model. This is not an all-device charge/energy
 conservation guarantee.
@@ -553,10 +558,9 @@ request; each device determines its actual discretization.
 | --- | --- |
 | Discrete `C`, `L` | Dedicated BE, trapezoidal, BDF2, BDF3 and TR-BDF2 companions |
 | Mutual inductance | Accepted after inductors; networks with more than two coupled inductors use pairwise corrections rather than a full coupled inverse |
-| Diode | Netlist models read only `IS` and `N`; `CJ0` defaults to zero, so a model-card capacitance does not enable stored junction charge |
-| Diode with API-set `CJ0` | Voltage-dependent capacitance; trapezoidal and TR-BDF2 paths do not implement the standard stage/history companions |
+| Diode | A card sets `CJO`, `VJ` and `M`, so the capacitance depends on the voltage; BE and BDF2 gave the RC result below, but the trapezoidal (default) and TR-BDF2 paths do not implement the standard stage/history companions |
 | BJT | Integrates differential capacitances rather than junction charge; a cross derivative is missing; TR-BDF2 falls back to BE in the shared helper |
-| Level-1 MOSFET | Overlap capacitors use BE regardless of the requested method |
+| Level-1 MOSFET | No capacitance from a netlist (the parser names `CGSO`, `CGDO` and `CGBO` as not used); overlap capacitors set through the API use BE regardless of the requested method |
 | Level-3 MOSFET | Transient stamp has no intrinsic capacitance contribution; AC capacitances do not establish transient support |
 | BSIM1 | Capacitances use BE regardless of the requested method |
 | BSIM3 / BSIM4 | Shared capacitor helper supports BE/trapezoidal/BDF2/BDF3; TR-BDF2 takes its BE fallback |
@@ -567,11 +571,11 @@ request; each device determines its actual discretization.
 
 The diode caveat is numerical, as well as an input limitation. Its present
 trapezoidal stamp uses `G=Cj/(2h)` and `H=-G*v_old`, without the previous
-current term of the standard capacitor companion. In a separate API probe
-with nearly constant `CJ0=1e-6 F`, `M=1e-8`, a 1 kohm resistor and a
+current term of the standard capacitor companion. In a netlist probe
+with nearly constant `CJO=1e-6`, `M=1e-8`, a 1 kohm resistor and a
 0 to -1 V linear ramp over 1 ms, the final node voltages at `h=10 us`
-were about `-0.369711 V` with BE and `-0.569003 V` with the trapezoidal
-request. The constant-capacitance RC limit is `-exp(-1) V`. This probe
+were about `-0.369711 V` with BE, `-0.367913 V` with BDF2 and
+`-0.569003 V` with the trapezoidal request (2826a81). The constant-capacitance RC limit is `-exp(-1) V`. This probe
 shows why changing the solver option alone cannot establish model accuracy.
 
 For broader model limits see [KNOWN_ISSUES](../KNOWN_ISSUES.md). This table
@@ -581,7 +585,7 @@ is not an exhaustive validation of every device.
 
 | Output | Suitable use and limits |
 | --- | --- |
-| Console table | Quick inspection; prints time and node voltages including ground, with limited precision |
+| Console table | Only with `.PRINT TRAN`: time and the listed `v()` and `i()` signals, with 6 digits |
 | ASCII/binary raw | Preserve accepted timepoints and source branch currents; use for numerical comparisons |
 | SSF | Quantizes voltages to microvolts, currents to microamps and times to whole nanoseconds; unsuitable for finer accuracy checks |
 | WAV | Interpolated audio-rate samples, with voltages clipped to the audio range of -1 to +1; use for listening |
@@ -596,8 +600,8 @@ Raw files can contain several plots. `.OP`, other requested analyses and
 temperature runs can add plots. Select by
 `Plotname: Transient Analysis` and the intended run. The current
 `parse_ascii_raw` helper in `tools/kirimaspice_pyapi.py` reads only the first plot;
-with the method-comparison decks above it can read the operating point
-instead of the transient. Do not assume that a raw file's first plot has
+when the netlist also has `.OP` or `.DC`, that plot comes first and is
+read instead of the transient. Do not assume that a raw file's first plot has
 a time axis. A reader must also preserve the recorded times rather than
 reconstructing a uniform grid from `TSTEP`.
 
@@ -628,7 +632,7 @@ optional parallel device stamping does not make time steps independent.
 | Step-count exhaustion | `ITL5`, total interval including time before `TSTART`, repeated small accepted steps |
 | Library rejection exhaustion | LTE settings, startup/order combination, minimum step and model history handling |
 | Missing `time` in Python | First raw plot may be an operating point |
-| Different results after changing `TSTART` | Its segment boundary changes the numerical grid |
+| Different results after changing `TSTART` | Its segment boundary adds a step |
 
 Library status values include `SUCCESS`, `MAX_ITERATIONS`,
 `SINGULAR_MATRIX`, `NUMERICAL_ERROR` and `TIMESTEP_TOO_SMALL`.
