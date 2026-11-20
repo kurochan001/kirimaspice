@@ -158,6 +158,32 @@ says otherwise.
   no effect**, because they act on the adaptive path that the program
   does not use (read in the code).
 - **`.OP` with `.DC` runs only the sweep.**
+- **The fixed step does not stop at the corners of sources**, so a pulse
+  between two steps is missed: `V1 in 0 PULSE(0 1 1.5u 1n 1n 0.2u 10u)`
+  into 1 kΩ and 10 pF with `.TRAN 1u 5u` gives 0 V at every point, where
+  ngspice-47 reaches 1.00008 V at 1.573 µs (measured on 2026-11-21).
+- **The library's adaptive path fails on a circuit at rest with BDF2 or
+  BDF3 of fixed order.** A 1 kΩ, 1 µF RC circuit started from its
+  operating point (no `UIC`) fails at t = 0, the step shrinking to
+  10<sup>-12</sup> s; BDF1 and the order control finish.
+  `BDFOrderComparisonTest.FinalValueConvergence` passes over these two
+  runs (measured on 2026-11-20).
+- **No convergence aid is on by default.** Source stepping, Gmin
+  stepping, dynamic Gmin, the continuation method and the
+  pseudo-transient fallback run only when `.OPTIONS` asks for them, so a
+  DC solve that Newton's method alone does not finish fails. What
+  ngspice-47 does by default is not confirmed.
+- **`.NODESET` does not choose between stable states.** For a flip-flop
+  of two NPN transistors (5 V, 1 kΩ collector and 10 kΩ cross-coupling
+  resistors, 100 Ω common emitter resistor), `.NODESET V(c1)=5 V(c2)=0.2`
+  and its mirror both give the symmetric point, 1.72451 V at both
+  collectors; ngspice-47 gives 4.65779 V and 0.552872 V, and their mirror
+  (measured on 2026-11-21).
+- **A transient takes longer than in ngspice-47.** A ladder of 200
+  sections of 100 Ω and 10 pF (201 unknowns), `.TRAN 1n 10u` with 10 001
+  points, took 2.1 s; ngspice-47 with `tmax` 1 ns, 10 024 points, took
+  0.36 to 0.40 s (macOS arm64, 2026-11-21). The cause is not
+  investigated.
 
 ## Device models
 
@@ -275,6 +301,10 @@ says otherwise.
 - Options the program does not know are ignored without a message, and the
   netlist must be the first argument.
 - Log lines and results both go to standard output.
+- **The two raw writers name signals differently, and keep the case of
+  the netlist.** The ASCII raw file writes `v(Out)` and `i(V1)`, the
+  binary one `V(Out)` and `I(V1)`; ngspice-47 writes `v(out)` and `i(v1)`
+  in both.
 - No SSF file is written for a DC sweep.
 - The SSF output format has no published specification in this repository.
 
@@ -295,3 +325,27 @@ says otherwise.
 - CMake 3.25, the minimum the README names, is not tested; the oldest
   tested is 3.28.3.
 - Windows is not tested.
+
+## Source code
+
+Counted on 2026-11-21 at commit `9aa304c`, the warnings at `81bfb2a`.
+
+- **Compiler warnings.** A full build with GCC 16.2.0 on macOS gives 559
+  warning lines, at 153 places once those repeated by the headers of
+  several files are counted once; 150 are in kirimaspice's own sources:
+  125 `-Wunused-parameter`, 17 `-Wunused-variable`, 4
+  `-Wunused-but-set-variable`, 3 `-Woverloaded-virtual` and 1
+  `-Wunused-function`. Other compilers are not counted.
+- **Large files.** Five source files have more than 2000 lines:
+  `src/parser/netlist_parser.cpp` (6509), `tests/unit/test_parser.cpp`
+  (4657), `src/devices/bsim4_core.cpp` (3082),
+  `src/circuit/circuit_graph.cpp` (2135) and `tests/unit/test_bsim3.cpp`
+  (2009).
+- **Comments in Japanese.** 46 lines in 11 files of `src/` and `include/`
+  hold Japanese text, most in `mosfet_bsim4_params.hpp` (19) and
+  `mosfet_bsim3_params.hpp` (13); with the tests, 56 lines in 17 files.
+- **Two directories of helpers**, `include/kirimaspice/util/` and
+  `include/kirimaspice/utils/`.
+- **`MonteCarloBatchExecutor::execute_dc_monte_carlo_gpu` has no GPU
+  code.** `src/analysis/monte_carlo_gpu.cpp` logs "Using fast CPU path
+  (CUDA off)" and runs the CPU path.
