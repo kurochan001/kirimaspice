@@ -204,7 +204,7 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
             std::cout << "First sweep value: " << first.sweep_value
                       << ", last sweep value: " << last.sweep_value << "\n";
         }
-        std::cout << "Detailed waveforms are available via --raw-out / SSF outputs.\n";
+        std::cout << "The swept values are in the raw files (--raw-out, --raw-binary-out).\n";
 
         if (raw_output_file) {
             output::RawWriter raw_writer(*raw_output_file, raw_append_mode);

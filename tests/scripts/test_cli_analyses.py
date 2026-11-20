@@ -94,6 +94,17 @@ class CliAnalyses(unittest.TestCase):
         points = [line for line in raw.read_text().splitlines() if line.startswith("No. Points:")]
         self.assertEqual(points, ["No. Points: 501"])
 
+    def test_dc_sweep_summary_names_the_files_that_hold_it(self):
+        # -o writes no SSF file for a DC sweep; the summary names the raw files
+        deck = self.directory / "circuit.cir"
+        deck.write_text("t\nV1 in 0 1\nR1 in out 1k\nR2 out 0 1k\n.dc V1 0 1 0.5\n.end\n")
+        result = subprocess.run([str(BINARY), str(deck), "-o", "sweep"],
+                                cwd=self.directory, capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("--raw-out", result.stdout)
+        self.assertNotIn("SSF", result.stdout)
+        self.assertEqual(list(self.directory.glob("sweep*")), [])
+
     def test_options_alone_is_no_analysis_line(self):
         result, plots = self.run_deck("t\nV1 in 0 1\nR1 in 0 1k\n.options reltol=1e-4\n.end\n")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
