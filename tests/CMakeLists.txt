@@ -70,6 +70,7 @@ set_tests_properties(python_tools_repl PROPERTIES
 add_test(NAME python_tools_ngspice_shim
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/scripts/test_ngspice_shim.py
         --out-dir ${KIRIMASPICE_TEST_OUTPUT_DIR}/python_tools_ngspice_shim
+        --binary $<TARGET_FILE:kirimaspice>
 )
 set_tests_properties(python_tools_ngspice_shim PROPERTIES
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}

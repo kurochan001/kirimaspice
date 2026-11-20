@@ -16,14 +16,16 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out-dir", help="directory for the log and raw files "
                         "(default: a temporary directory)")
+    parser.add_argument("--binary", type=Path, help="the kirimaspice program to run "
+                        "(default: the shim's, build/kirimaspice of the source tree)")
     args = parser.parse_args()
     if args.out_dir is None:
         with tempfile.TemporaryDirectory() as tmpdir:
-            return run(Path(tmpdir))
-    return run(Path(args.out_dir))
+            return run(Path(tmpdir), args.binary)
+    return run(Path(args.out_dir), args.binary)
 
 
-def run(bench_dir: Path) -> int:
+def run(bench_dir: Path, binary: Path | None = None) -> int:
     repo = Path(__file__).resolve().parents[2]
     shim = repo / "tools" / "ngspice_shim.py"
     deck = repo / "tests" / "netlists" / "repl_rc.sp"
@@ -36,6 +38,8 @@ def run(bench_dir: Path) -> int:
             path.unlink()
 
     cmd = ["python3", str(shim), "-b", "-o", str(log_path), "-r", str(raw_path), str(deck)]
+    if binary is not None:
+        cmd[2:2] = ["--binary", str(binary.resolve())]
     result = subprocess.run(cmd, cwd=repo, capture_output=True, text=True)
     if result.returncode != 0:
         sys.stderr.write(result.stdout)
