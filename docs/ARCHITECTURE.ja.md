@@ -241,6 +241,8 @@ flowchart TD
 ステッピング、gmin ステッピング、継続法を行い、そうでなければ Newton 法のループ `solve_standard` を行います。
 `PSEUDO_TRANSIENT=1` のときは、それが失敗すると疑似過渡法に切り替えます（既定では切り替えません）。
 
+- **初期推定値。** 0 と、`.NODESET` が名指すノードではその値です（`DCSolver::initialize_solution`）。
+  デバイスの種類やつながり方からは何も推定しません。
 - **Newton 法のループ。** 書き込みから系を組み立て、分解し、解き、収束を調べます
   （`DCSolver::check_convergence`）。
 - **収束。** まず一歩の大きさを調べます。ノードが不合格になるのは、変化が `vntol` と、値の `reltol` 倍の

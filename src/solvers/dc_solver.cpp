@@ -9,7 +9,6 @@
 #include "kirimaspice/devices/device.hpp"          // Base class for polymorphism
 #include "kirimaspice/devices/voltage_source.hpp"  // Source scaling/sweep
 #include "kirimaspice/devices/current_source.hpp"  // Source scaling
-#include "kirimaspice/devices/bjt_npn.hpp"         // Darlington detection
 #include "kirimaspice/solvers/temperature_utils.hpp"
 #include "kirimaspice/solvers/parallel_stamper.hpp"
 #include "kirimaspice/core/constants.hpp"
@@ -21,7 +20,6 @@
 #include <fstream>
 #include <iomanip>
 #include <cstdlib>
-#include <set>
 #include <limits>
 
 // OpenMP for parallel device stamping
@@ -123,144 +121,6 @@ void DCSolver::initialize_solution(DenseVector& x) const {
         }
     }
 
-    // Smart initial value estimation for BJT circuits
-    // Apply to all BJT circuits to prevent numerical instability
-    // when base-emitter voltage difference is too large in initial guess
-
-    // Check if circuit has BJT devices
-    bool has_bjt = false;
-    for (const auto& device : circuit_.get_devices()) {
-        if (device->type() == DeviceType::BJT_NPN || device->type() == DeviceType::BJT_PNP) {
-            has_bjt = true;
-            break;
-        }
-    }
-
-    if (!has_bjt) {
-        spdlog::debug("No BJT devices found, using zero initial values");
-        return;
-    }
-
-    // Find Vcc: look for voltage sources with positive DC value connected to GND
-    Real vcc = 0.0;
-    for (const auto& device : circuit_.get_devices()) {
-        if (device->type() == DeviceType::VSOURCE) {
-            auto* vsrc = dynamic_cast<const devices::VoltageSource*>(device.get());
-            if (vsrc && vsrc->nn() == 0 && vsrc->dc_value() > 0.0) {
-                vcc = std::max(vcc, vsrc->dc_value());
-            }
-        }
-    }
-
-    // If we found a supply voltage, set smart initial values for BJTs in amplifier circuits
-    if (vcc > 0.0) {
-        spdlog::debug("AC amplifier detected, Vcc = {:.2f}V, setting smart BJT initial values", vcc);
-
-        // Collect all BJT_NPN devices
-        std::vector<const devices::BJT_NPN*> bjts;
-        for (const auto& device : circuit_.get_devices()) {
-            if (device->type() == DeviceType::BJT_NPN) {
-                auto* bjt = dynamic_cast<const devices::BJT_NPN*>(device.get());
-                if (bjt) {
-                    bjts.push_back(bjt);
-                }
-            }
-        }
-
-        // Detect Darlington pairs: Q1.emitter == Q2.base
-        std::set<const devices::BJT_NPN*> processed;
-
-        for (size_t i = 0; i < bjts.size(); ++i) {
-            if (processed.count(bjts[i])) continue;
-
-            const auto* q1 = bjts[i];
-            NodeId ne1 = q1->emitter();
-            NodeId nb1 = q1->base();
-            NodeId nc1 = q1->collector();
-
-            // Check if this is part of a Darlington pair
-            const devices::BJT_NPN* q2 = nullptr;
-            for (size_t j = 0; j < bjts.size(); ++j) {
-                if (i == j) continue;
-                if (bjts[j]->base() == ne1) {
-                    q2 = bjts[j];
-                    break;
-                }
-            }
-
-            if (q2) {
-                // Darlington pair detected: Q1 drives Q2
-                NodeId ne2 = q2->emitter();
-                NodeId nc2 = q2->collector();
-
-                spdlog::debug("Darlington pair detected: {} (Q1) drives {} (Q2)",
-                             q1->name(), q2->name());
-
-                // Set consistent initial values for Darlington pair
-                // Q1: Vbe1 = 0.7V, Ve1 = 0.7V → Vb1 = 1.4V
-                // Q2: Vbe2 = 0.7V, Ve2 = 0.0V → Vb2 = 0.7V (= Ve1)
-
-                if (nb1 > 0 && nb1 <= mna_.num_nodes) {
-                    x[nb1 - 1] = 1.4;  // Q1 base
-                }
-                if (ne1 > 0 && ne1 <= mna_.num_nodes) {
-                    x[ne1 - 1] = 0.7;  // Q1 emitter = Q2 base
-                }
-                if (nc1 > 0 && nc1 <= mna_.num_nodes) {
-                    x[nc1 - 1] = vcc / 2.0;  // Q1 collector (if not tied to Vcc)
-                }
-                if (ne2 > 0 && ne2 <= mna_.num_nodes) {
-                    x[ne2 - 1] = 0.0;  // Q2 emitter (will be adjusted by Re)
-                }
-                if (nc2 > 0 && nc2 <= mna_.num_nodes) {
-                    x[nc2 - 1] = vcc / 2.0;  // Q2 collector
-                }
-
-                spdlog::debug("Darlington Q1 {}: Vb={:.2f}V, Vc={:.2f}V, Ve={:.2f}V",
-                             q1->name(),
-                             (nb1 > 0 && nb1 <= mna_.num_nodes) ? x[nb1 - 1] : 0.0,
-                             (nc1 > 0 && nc1 <= mna_.num_nodes) ? x[nc1 - 1] : 0.0,
-                             (ne1 > 0 && ne1 <= mna_.num_nodes) ? x[ne1 - 1] : 0.0);
-                spdlog::debug("Darlington Q2 {}: Vb={:.2f}V, Vc={:.2f}V, Ve={:.2f}V",
-                             q2->name(),
-                             (ne1 > 0 && ne1 <= mna_.num_nodes) ? x[ne1 - 1] : 0.0,
-                             (nc2 > 0 && nc2 <= mna_.num_nodes) ? x[nc2 - 1] : 0.0,
-                             (ne2 > 0 && ne2 <= mna_.num_nodes) ? x[ne2 - 1] : 0.0);
-
-                processed.insert(q1);
-                processed.insert(q2);
-            } else {
-                // Regular BJT (not part of Darlington pair)
-                // Only set initial values for BJT with emitter resistor (not grounded emitter)
-                if (ne1 > 0 && ne1 <= mna_.num_nodes) {
-                    std::uint32_t ne_idx = ne1 - 1;
-                    x[ne_idx] = 0.1;  // Small voltage drop across Re
-
-                    if (nb1 > 0 && nb1 <= mna_.num_nodes) {
-                        std::uint32_t nb_idx = nb1 - 1;
-                        x[nb_idx] = 0.7;  // Typical Vbe for forward-active
-                    }
-                    if (nc1 > 0 && nc1 <= mna_.num_nodes) {
-                        std::uint32_t nc_idx = nc1 - 1;
-                        x[nc_idx] = vcc / 2.0;  // Mid-supply bias point
-                    }
-
-                    spdlog::debug("BJT {}: Vb={:.2f}V, Vc={:.2f}V, Ve={:.2f}V (initial guess)",
-                                 q1->name(),
-                                 (nb1 > 0 && nb1 <= mna_.num_nodes) ? x[nb1 - 1] : 0.0,
-                                 (nc1 > 0 && nc1 <= mna_.num_nodes) ? x[nc1 - 1] : 0.0,
-                                 x[ne_idx]);
-
-                    processed.insert(q1);
-                } else {
-                    spdlog::debug("BJT {} has grounded emitter, skipping smart initialization", q1->name());
-                    processed.insert(q1);
-                }
-            }
-        }
-    } else {
-        spdlog::debug("No supply voltage found, using zero initial values");
-    }
 }
 
 void DCSolver::build_mna_system(const DenseVector& node_voltages) {

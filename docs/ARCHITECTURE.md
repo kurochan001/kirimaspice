@@ -291,6 +291,9 @@ asks for it, and otherwise `solve_standard`, the Newton loop; with
 `PSEUDO_TRANSIENT=1`, pseudo-transient continuation is its fallback (it is
 off by default).
 
+- **Initial guess.** Zero, and the value of `.NODESET` at the nodes it
+  names (`DCSolver::initialize_solution`); nothing is guessed from the
+  kinds of the devices or their connections.
 - **Newton loop.** Build the system from the stamps, factorise, solve,
   and check convergence (`DCSolver::check_convergence`).
 - **Convergence.** First the step: a node fails only when its change

@@ -1209,6 +1209,10 @@ add_executable(test_dc_solver_logging unit/test_dc_solver_logging.cpp)
 target_link_libraries(test_dc_solver_logging PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_dc_solver_logging PROPERTIES TIMEOUT 1200)
 
+add_executable(test_dc_initial_guess unit/test_dc_initial_guess.cpp)
+target_link_libraries(test_dc_initial_guess PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_dc_initial_guess PROPERTIES TIMEOUT 1200)
+
 add_executable(test_source_waveforms unit/test_source_waveforms.cpp)
 target_link_libraries(test_source_waveforms PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_source_waveforms PROPERTIES TIMEOUT 1200)
