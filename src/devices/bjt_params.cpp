@@ -41,10 +41,13 @@ bool set_bjt_parameter(BJTParams& p, const std::string& key, Real value) {
     return true;
 }
 
-BJTParams bjt_params_from_model(const std::map<std::string, Real>& model_params) {
+BJTParams bjt_params_from_model(const std::map<std::string, Real>& model_params,
+                                std::vector<std::string>* unused) {
     BJTParams params;
     for (const auto& [key, value] : model_params) {
-        set_bjt_parameter(params, key, value);
+        if (!set_bjt_parameter(params, key, value) && unused) {
+            unused->push_back(key);
+        }
     }
     return params;
 }

@@ -539,8 +539,10 @@ struct BSIM4Params {
 /// subcircuit expansion both use it, so a model means the same at the top
 /// level and inside a subcircuit; the instance values (W, L, M) are set by
 /// the caller.
+/// The names the model does not take are appended to unused
 BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_params,
-                                    const std::string& model_name);
+                                    const std::string& model_name,
+                                    std::vector<std::string>* unused = nullptr);
 
 /// Set an instance parameter (W, L, NF, M, AS, AD, PS, PD, NRD, NRS and the
 /// MULT_ factors; the name in lower case) and say whether the name is one.

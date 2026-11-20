@@ -103,8 +103,8 @@ document also lists differences not decided there.
   `BV`, `IBV` and the others, which it names in a warning; the bipolar
   transistor does not read `RE`, `RC`, `CJS`, `XTF`, `VTF`, `ITF`, `PTF`,
   `XCJC` and `FC`; the level-1 MOSFET has no capacitances and no bulk
-  junctions.** Other parameters on the cards of bipolar transistors and
-  BSIM4 are ignored without a warning; the other MOSFET levels warn about parameters they do not know
+  junctions.** Other parameters on the cards of these devices and of the
+  MOSFET levels are named in a warning
   ([Reference Manual](docs/REFERENCE_MANUAL.md#models)). Level 3 accepts
   `LAMBDA`, `RS`, `RD`, `CJ`, `CJSW` and `MJSW` without a warning and does
   not use them.

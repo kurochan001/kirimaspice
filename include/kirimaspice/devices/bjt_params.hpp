@@ -38,6 +38,8 @@ struct BJTParams {
 bool set_bjt_parameter(BJTParams& params, const std::string& key, Real value);
 
 /// The parameters of a .MODEL card (names in lower case)
-BJTParams bjt_params_from_model(const std::map<std::string, Real>& model_params);
+/// The names that set_bjt_parameter does not take are appended to unused
+BJTParams bjt_params_from_model(const std::map<std::string, Real>& model_params,
+                                std::vector<std::string>* unused = nullptr);
 
 }  // namespace kirimaspice::devices

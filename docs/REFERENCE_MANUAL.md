@@ -253,8 +253,9 @@ method and AC take the derivatives of the expression by central differences.
 ### Parameters of the simpler devices
 
 These are the parameters the parser reads; any other parameter in the
-element line or the `.MODEL` card is ignored without a message. An
-instance parameter overrides the model's.
+element line or the `.MODEL` card of `D`, `Q`, `Z` and level-1 `M` is not
+used and is named in a warning, once per card. An instance parameter
+overrides the model's.
 
 | Element | Parameters (default) |
 | --- | --- |
@@ -307,7 +308,7 @@ For `NMOS` and `PMOS`, `LEVEL` selects the device:
 | 3 | SPICE's level 3 | warning | `W`, `L` |
 | 9 | BSIM1, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W`, `L` |
 | 8, 49 | BSIM3, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W`, `L` |
-| 14, 54 | BSIM4 (a model card with a `VERSION` other than 4.83 gives a warning) | ignored without a message | `W` (the width of all `NF` fingers), `L`, `NF`, `M`, `AS`, `AD`, `PS`, `PD`, `NRD`, `NRS`, `MULT_I`, `MULT_Q`, `MULT_FN` |
+| 14, 54 | BSIM4 (a model card with a `VERSION` other than 4.83 gives a warning) | warning, once per card | `W` (the width of all `NF` fingers), `L`, `NF`, `M`, `AS`, `AD`, `PS`, `PD`, `NRD`, `NRS`, `MULT_I`, `MULT_Q`, `MULT_FN` |
 | 10 | SiC MOSFET | warning | all, by name |
 | 11 | GaN HEMT | warning | all, by name |
 | 12 | FinFET | warning | `L` only (others ignored without a message) |

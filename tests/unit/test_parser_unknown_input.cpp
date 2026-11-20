@@ -110,3 +110,18 @@ TEST(ParserUnknownInput, DirectivesReadAreRecorded) {
     EXPECT_TRUE(config.directives_read.count(".OP"));
     EXPECT_FALSE(config.directives_read.count(".TRAN"));
 }
+
+TEST(ParserUnknownInput, UnusedCardNamesAreNamedOncePerCard) {
+    // Two transistors on one card: each name the card gives and the device
+    // does not take is named once
+    const std::string bjt = parse_warnings(
+        "t\nV1 c 0 1\nQ1 c c 0 QM\nQ2 c c 0 QM AREA=2\n.model QM NPN BF=100 FOO=1\n.end\n");
+    EXPECT_EQ(count(bjt, "BJT model QM: foo is not used"), 1u) << bjt;
+    EXPECT_EQ(count(bjt, "Q2: 'AREA=2' is not used"), 1u) << bjt;
+    const std::string bsim4 = parse_warnings(
+        "t\nV1 d 0 1\nM1 d d 0 0 NB\nM2 d d 0 0 NB\n.model NB NMOS LEVEL=14 BAR=3\n.end\n");
+    EXPECT_EQ(count(bsim4, "BSIM4 model NB: bar is not used"), 1u) << bsim4;
+    const std::string mesfet =
+        parse_warnings("t\nV1 d 0 1\nZ1 d d 0 ZM\n.model ZM NMF BETA=0.01 QUUX=2\n.end\n");
+    EXPECT_EQ(count(mesfet, "MESFET model ZM: quux is not used"), 1u) << mesfet;
+}

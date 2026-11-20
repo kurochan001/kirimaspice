@@ -2090,6 +2090,7 @@ struct ParseState {
     std::vector<std::pair<std::string, std::size_t>> deferred_elements;
     bool resolving_deferred = false;
     std::set<std::string> warned_directives;  // each named in one warning
+    std::set<std::string> warned_card_names;  // "<what>: <name>", each in one warning
 };
 
 // Thrown by an element parser when the element names a model or a
@@ -4439,6 +4440,17 @@ static void parse_current_source_device(const std::vector<std::string>& tokens, 
                   spec.waveform ? " with a waveform" : "");
 }
 
+// The names a card gives and its device does not use, each named once per
+// card: a card read for many elements warns once
+static void warn_unused_card_names(ParseState& state, const std::string& what,
+                                   const std::vector<std::string>& unused) {
+    for (const auto& name : unused) {
+        if (state.warned_card_names.insert(what + ": " + name).second) {
+            spdlog::warn("{}: {} is not used", what, name);
+        }
+    }
+}
+
 static void parse_diode_device(const std::vector<std::string>& tokens, const std::string& dev_name, ParseState& state) {
     // Diode: D<name> <anode> <cathode> [model_name] [is=<value> n=<value>]
     // The card gives IS, N, CJO (or CJ0), VJ (or PB) and M (or MJ), with the
@@ -4796,6 +4808,14 @@ static void parse_mesfet_device(const std::vector<std::string>& tokens, const st
                 if (model_def.params.count("af")) af = model_def.params.at("af");
                 if (model_def.params.count("ef")) ef = model_def.params.at("ef");
                 if (model_def.params.count("tnom")) tnom = core::celsius_to_kelvin(model_def.params.at("tnom"));
+                std::vector<std::string> unused;
+                for (const auto& [key, value] : model_def.params) {
+                    static const std::set<std::string> kMesfet = {
+                        "level", "beta", "vto", "lambda", "alpha", "b", "vp", "cgs", "cgd",
+                        "cds", "kf", "af", "ef", "tnom"};
+                    if (!kMesfet.count(key)) unused.push_back(key);
+                }
+                warn_unused_card_names(state, "MESFET model " + potential_model, unused);
 
                 param_start = 5;  // Skip model name in parameter parsing
             } else {
@@ -4901,16 +4921,19 @@ static void parse_bjt_device(const std::vector<std::string>& tokens, const std::
         } else {
             throw ParseError(fmt::format("Model {} is not a BJT model", type_or_model), state.line_number);
         }
-        params = devices::bjt_params_from_model(model.params);
+        std::vector<std::string> unused;
+        params = devices::bjt_params_from_model(model.params, &unused);
+        warn_unused_card_names(state, "BJT model " + type_or_model, unused);
     }
 
     for (size_t i = 5; i < tokens.size(); ++i) {
         std::string param = tokens[i];
         std::transform(param.begin(), param.end(), param.begin(), ::tolower);
         const size_t eq_pos = param.find('=');
-        if (eq_pos != std::string::npos) {
-            devices::set_bjt_parameter(params, param.substr(0, eq_pos),
-                                       read_element_value(param.substr(eq_pos + 1), state));
+        if (eq_pos == std::string::npos ||
+            !devices::set_bjt_parameter(params, param.substr(0, eq_pos),
+                                        read_element_value(param.substr(eq_pos + 1), state))) {
+            spdlog::warn("Line {}: {}: '{}' is not used", state.line_number, dev_name, tokens[i]);
         }
     }
 
@@ -5532,8 +5555,10 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         const ModelDefinition* found_model = state.config->find_model(type_or_model);
         const ModelDefinition& model = *found_model;
 
+        std::vector<std::string> bsim4_unused;
         devices::BSIM4Params bsim4_params =
-            devices::bsim4_params_from_model(model.params, type_or_model);
+            devices::bsim4_params_from_model(model.params, type_or_model, &bsim4_unused);
+        warn_unused_card_names(state, "BSIM4 model " + type_or_model, bsim4_unused);
 
         bsim4_params.w = w;
         bsim4_params.l = l;

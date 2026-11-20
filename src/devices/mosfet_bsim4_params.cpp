@@ -336,7 +336,8 @@ bool set_bsim4_instance_parameter(BSIM4Params& p, const std::string& key, Real v
 }
 
 BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_params,
-                                    const std::string& model_name) {
+                                    const std::string& model_name,
+                                    std::vector<std::string>* unused) {
     BSIM4Params bsim4_params;
 
     // Which of the parameters that change the computation of others were
@@ -484,8 +485,8 @@ BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_par
         else if (key == "igcmod") bsim4_params.igcmod = static_cast<int>(value);
         // Note: Additional BSIM4 parameters (200+ more) will be added.4+
         // For now, warn about unrecognized parameters
-        else {
-            spdlog::debug("BSIM4 parameter '{}' recognized but not yet implemented", key);
+        else if (key != "level" && unused) {
+            unused->push_back(key);
         }
     }
 
