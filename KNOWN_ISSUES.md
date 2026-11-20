@@ -295,9 +295,6 @@ says otherwise.
 
 ## Command line and output
 
-- There is no `--version` option.
-- Options the program does not know are ignored without a message, and the
-  netlist must be the first argument.
 - Log lines and results both go to standard output.
 - **The two raw writers name signals differently, and keep the case of
   the netlist.** The ASCII raw file writes `v(Out)` and `i(V1)`, the

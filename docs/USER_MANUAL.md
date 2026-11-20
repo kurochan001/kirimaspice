@@ -59,10 +59,10 @@ ctest --test-dir build --output-on-failure
   `python3 tools/local_ci.py` builds, runs the tests and reports only
   failures that are not in that list.
 
-The program is `build/kirimaspice`. There is no `--version` option; the
-first line it logs gives the version, for example
-`kirimaspice v0.0.0 - SPICE circuit simulator`. Keep that line, and the
-commit you built, with any result you want to reproduce.
+The program is `build/kirimaspice`; `build/kirimaspice --version` prints
+its version, for example `kirimaspice 0.0.0`, and the first line it logs
+in a run gives it too. Keep the version, and the commit you built, with
+any result you want to reproduce.
 
 ## Run your first simulation
 

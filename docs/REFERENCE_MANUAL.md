@@ -29,13 +29,16 @@ the [User Manual](USER_MANUAL.md); for what is wrong or missing, see
 ## Command line
 
 ```text
-kirimaspice <netlist> [options]
+kirimaspice [options] <netlist>
+kirimaspice --version | --help
 ```
 
-The netlist must be the first argument. Options that take a value accept
-both `--opt value` and `--opt=value`, except `-o`, which takes only
-`-o value`, and the solver options, which take only `--opt=value`.
-Options the program does not know are ignored without a message.
+Options may come before or after the netlist, and there is one netlist.
+An option that takes a value accepts both `--opt value` and
+`--opt=value` (`-o` only `-o value`). An option the program does not
+know, an option without its value, a value given to `--strict-backend`,
+and a second netlist are errors: the program says which and exits with
+code 1.
 The output options write files only for some runs; the table under
 [How the program chooses analyses](#how-the-program-chooses-analyses)
 says which.
@@ -43,6 +46,7 @@ says which.
 | Option | Effect |
 | --- | --- |
 | `-h`, `--help` | print the usage and exit with 0 |
+| `--version` | print `kirimaspice <version>` and exit with 0 |
 | `-o <file>` | write the operating point or transient result to `<file>` as SSF (when both run, the transient replaces the operating point in the file), and name the AC CSV after `<file>` |
 | `--raw-out <file>` | write the operating point, DC sweep and transient results as an ASCII SPICE3 raw file |
 | `--raw-binary-out <file>` | the same as a binary SPICE3 raw file |

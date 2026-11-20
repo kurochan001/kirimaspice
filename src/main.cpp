@@ -21,6 +21,7 @@
 #include <fstream>
 #include <sstream>
 #include <optional>
+#include <set>
 #include <cstdlib>
 #include <algorithm>
 #include <charconv>
@@ -380,9 +381,11 @@ static std::uint32_t read_positive_integer_option(const std::string& value,
 }
 
 static void print_usage(std::ostream& os, const char* program) {
-    os << "\nUsage: " << program << " <netlist.cir> [-o <output.ssf>] [options]\n\n";
+    os << "\nUsage: " << program << " [options] <netlist.cir>\n\n";
     os << "Options:\n";
+    os << "  (an option with a value also takes it as <option>=<value>)\n";
     os << "  -h, --help                  Show this help message and exit\n";
+    os << "  --version                   Show the version and exit\n";
     os << "  -o <file>                   Write SSF/CSV outputs to <file> base name\n";
     os << "  --raw-out <file>            Write Nutmeg ASCII .raw output (DC/TRAN)\n";
     os << "  --raw-binary-out <file>     Write SPICE3 binary .raw output (DC/TRAN)\n";
@@ -410,15 +413,14 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    if (argc < 2) {
-        spdlog::error("Usage: {} <netlist.cir> [-o <output.ssf>] [options]", argv[0]);
-        spdlog::info("Use --help for details.");
-        return 1;
+    for (int i = 1; i < argc; ++i) {
+        if (std::string(argv[i]) == "--version") {
+            std::cout << "kirimaspice " << KIRIMASPICE_VERSION << "\n";
+            return 0;
+        }
     }
 
-    spdlog::info("kirimaspice v{} - SPICE circuit simulator", KIRIMASPICE_VERSION);
-
-    std::string netlist_file = argv[1];
+    std::string netlist_file;
     std::optional<std::string> output_file;
     std::optional<std::string> raw_output_file;
     std::optional<std::string> raw_binary_output_file;
@@ -428,74 +430,95 @@ int main(int argc, char* argv[]) {
     bool raw_append_mode = false;
     bool raw_binary_append_mode = false;
 
-    // Parse command-line arguments
+    // Parse command-line arguments: options anywhere, each taking its value
+    // as "<option> <value>" or "<option>=<value>", and one netlist. An
+    // option the program does not know, or one without its value, is an
+    // error, not ignored
     std::optional<std::string> cli_backend;
     std::vector<std::string> cli_fb_order;
     bool strict_backend = false;
     std::optional<std::string> sld_topology; // SUPERLU_DIST topology hint
     std::optional<std::string> sld_grid;     // SUPERLU_DIST grid hint
+    static const std::set<std::string> kValueOptions = {
+        "-o", "--raw-out", "--raw-binary-out", "--wav-out", "--wav-sample-rate", "--wav-bits",
+        "--solver-backend", "--solver-fallback-order", "--superlu-dist-topology",
+        "--superlu-dist-grid"};
+    static const std::set<std::string> kFlagOptions = {"--strict-backend"};
     try {
-        for (int i = 2; i < argc; ++i) {
-            std::string arg = argv[i];
-            if (arg == "-o" && i + 1 < argc) {
-                output_file = argv[i + 1];
-                ++i;  // Skip next argument
-            } else if (arg == "--raw-out" && i + 1 < argc) {
-                raw_output_file = argv[i + 1];
-                ++i;
-            } else if (arg.rfind("--raw-out=", 0) == 0) {
-                raw_output_file = arg.substr(std::string("--raw-out=").size());
-            } else if (arg == "--raw-binary-out" && i + 1 < argc) {
-                raw_binary_output_file = argv[i + 1];
-                ++i;
-            } else if (arg.rfind("--raw-binary-out=", 0) == 0) {
-                raw_binary_output_file = arg.substr(std::string("--raw-binary-out=").size());
-            } else if (arg == "--wav-out" && i + 1 < argc) {
-                wav_output_file = argv[i + 1];
-                ++i;
-            } else if (arg.rfind("--wav-out=", 0) == 0) {
-                wav_output_file = arg.substr(std::string("--wav-out=").size());
-            } else if (arg == "--wav-sample-rate" && i + 1 < argc) {
-                wav_sample_rate = read_positive_integer_option(argv[i + 1], arg);
-                ++i;
-            } else if (arg.rfind("--wav-sample-rate=", 0) == 0) {
-                wav_sample_rate = read_positive_integer_option(arg.substr(std::string("--wav-sample-rate=").size()), "--wav-sample-rate");
-            } else if (arg == "--wav-bits" && i + 1 < argc) {
-                const auto bits = read_positive_integer_option(argv[i + 1], arg);
+        for (int i = 1; i < argc; ++i) {
+            const std::string arg = argv[i];
+            if (arg.empty() || arg[0] != '-' || arg == "-") {
+                if (!netlist_file.empty()) {
+                    throw std::invalid_argument("more than one netlist: " + netlist_file + " and " + arg);
+                }
+                netlist_file = arg;
+                continue;
+            }
+            std::string name = arg;
+            std::optional<std::string> value;
+            if (const auto eq = arg.find('='); arg.rfind("--", 0) == 0 && eq != std::string::npos) {
+                name = arg.substr(0, eq);
+                value = arg.substr(eq + 1);
+            }
+            if (kFlagOptions.count(name)) {
+                if (value) {
+                    throw std::invalid_argument(name + " takes no value");
+                }
+                strict_backend = true;
+                continue;
+            }
+            if (!kValueOptions.count(name)) {
+                throw std::invalid_argument("unknown option " + arg + " (see --help)");
+            }
+            if (!value) {
+                if (i + 1 >= argc) {
+                    throw std::invalid_argument(name + " requires a value");
+                }
+                value = argv[++i];
+            }
+            if (value->empty()) {
+                throw std::invalid_argument(name + " requires a value");
+            }
+            if (name == "-o") {
+                output_file = *value;
+            } else if (name == "--raw-out") {
+                raw_output_file = *value;
+            } else if (name == "--raw-binary-out") {
+                raw_binary_output_file = *value;
+            } else if (name == "--wav-out") {
+                wav_output_file = *value;
+            } else if (name == "--wav-sample-rate") {
+                wav_sample_rate = read_positive_integer_option(*value, name);
+            } else if (name == "--wav-bits") {
+                const auto bits = read_positive_integer_option(*value, name);
                 if (bits != 8 && bits != 16 && bits != 24 && bits != 32) {
                     throw std::invalid_argument("--wav-bits must be 8, 16, 24, or 32");
                 }
                 wav_bits_per_sample = static_cast<std::uint16_t>(bits);
-                ++i;
-            } else if (arg.rfind("--wav-bits=", 0) == 0) {
-                const auto bits = read_positive_integer_option(arg.substr(std::string("--wav-bits=").size()), "--wav-bits");
-                if (bits != 8 && bits != 16 && bits != 24 && bits != 32) {
-                    throw std::invalid_argument("--wav-bits must be 8, 16, 24, or 32");
-                }
-                wav_bits_per_sample = static_cast<std::uint16_t>(bits);
-            } else if (arg == "--wav-sample-rate" || arg == "--wav-bits") {
-                throw std::invalid_argument(arg + " requires a value");
-            } else if (arg.rfind("--solver-backend=", 0) == 0) {
-                cli_backend = arg.substr(std::string("--solver-backend=").size());
-            } else if (arg.rfind("--solver-fallback-order=", 0) == 0) {
-                std::string list = arg.substr(std::string("--solver-fallback-order=").size());
-                std::stringstream ss(list);
+            } else if (name == "--solver-backend") {
+                cli_backend = *value;
+            } else if (name == "--solver-fallback-order") {
+                std::stringstream ss(*value);
                 std::string item;
                 while (std::getline(ss, item, ',')) {
                     if (!item.empty()) cli_fb_order.push_back(item);
                 }
-            } else if (arg == "--strict-backend") {
-                strict_backend = true;
-            } else if (arg.rfind("--superlu-dist-topology=", 0) == 0) {
-                sld_topology = arg.substr(std::string("--superlu-dist-topology=").size());
-            } else if (arg.rfind("--superlu-dist-grid=", 0) == 0) {
-                sld_grid = arg.substr(std::string("--superlu-dist-grid=").size());
+            } else if (name == "--superlu-dist-topology") {
+                sld_topology = *value;
+            } else if (name == "--superlu-dist-grid") {
+                sld_grid = *value;
             }
+        }
+        if (netlist_file.empty()) {
+            throw std::invalid_argument("no netlist given");
         }
     } catch (const std::exception& e) {
         spdlog::error("Invalid command-line option: {}", e.what());
+        spdlog::info("Usage: {} [options] <netlist.cir>; see --help", argv[0]);
         return 1;
     }
+
+    spdlog::info("kirimaspice v{} - SPICE circuit simulator", KIRIMASPICE_VERSION);
 
     // Apply CLI overrides to solver factory
     solvers::set_cli_backend_override(cli_backend);

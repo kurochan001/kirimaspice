@@ -31,6 +31,11 @@ add_test(NAME install_program_only
         -P ${CMAKE_CURRENT_SOURCE_DIR}/scripts/check_install.cmake
 )
 
+add_test(NAME cli_options
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/scripts/test_cli_options.py
+        --binary $<TARGET_FILE:kirimaspice>
+)
+
 add_test(NAME cli_analyses
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tests/scripts/test_cli_analyses.py
         --binary $<TARGET_FILE:kirimaspice>

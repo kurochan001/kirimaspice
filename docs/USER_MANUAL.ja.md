@@ -53,9 +53,9 @@ ctest --test-dir build --output-on-failure
 - 今は失敗するテストがあり、`tests/known_failures.txt` に並べてあります。
   `python3 tools/local_ci.py` は、ビルドとテストを行い、その一覧にない失敗だけを報告します。
 
-プログラムは `build/kirimaspice` です。`--version` オプションはありません。最初に出すログの行に
-版があります（例：`kirimaspice v0.0.0 - SPICE circuit simulator`）。結果を再現したいときは、
-この行とビルドしたコミットを結果と一緒に残してください。
+プログラムは `build/kirimaspice` です。`build/kirimaspice --version` が版を表示します（例：`kirimaspice 0.0.0`）。
+実行のときに最初に出すログの行にも版があります。結果を再現したいときは、版とビルドしたコミットを結果と
+一緒に残してください。
 
 ## 最初のシミュレーション
 
