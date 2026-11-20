@@ -21,17 +21,18 @@ tests and the review, under the [AI policy](docs/spec/AI_POLICY.md).
 
 ## Status
 
-Measured on 2026-11-15 at commit `02261a2` on macOS 27.2 (arm64) with GCC
-16.2.0, CMake 4.4.4 and SuiteSparse 7.6.1. Homebrew's clang 23.1.4 and
-Apple clang 21.0.0 gave the same results on 2026-11-14 (not checked again
-at this commit).
+Measured on 2026-11-20 at commit `f3d6423` with `tools/local_ci.py` on
+macOS 27.2 (arm64) with GCC 16.2.0, CMake 4.4.4 and SuiteSparse 7.6.1;
+ngspice-47 was installed, so the test that compares BSIM4 with ngspice
+ran. Homebrew's clang 23.1.4 and Apple clang 21.0.0 gave the same results
+on 2026-11-14 (not checked again at this commit).
 
 | CTest tests | Count |
 | --- | --- |
-| Registered | 1188 |
-| Passed | 1158 |
-| Skipped | 22 |
-| Failed (listed in `tests/known_failures.txt`) | 7 |
+| Registered | 1293 |
+| Passed | 1286 |
+| Skipped | 0 |
+| Failed (listed in `tests/known_failures.txt`) | 6 |
 | Disabled | 1 |
 
 In CI on Ubuntu 24.04 (x86-64), GCC 13.3.0 and clang 18.1.3 build

@@ -66,7 +66,7 @@ GoogleTest programs are registered with `gtest_discover_tests`, so CTest
 lists each test case as `Suite.Name`. The command-line tests (`cli_*`,
 among them the `.TEMP` runs `cli_temperature_*`), the examples
 (`example_*`), the Python tools (`python_tools_*`), `bsim4_dc_smoke` and `MutualInductanceFixTest` are registered with
-`add_test`, one CTest test each. At commit `02261a2` CTest has 1188 tests
+`add_test`, one CTest test each. At commit `f3d6423` CTest has 1293 tests
 on macOS.
 
 Tests write their files under the build tree, each in a directory of its

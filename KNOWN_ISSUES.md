@@ -274,12 +274,6 @@ says otherwise.
 - There is no `--version` option.
 - Options the program does not know are ignored without a message, and the
   netlist must be the first argument.
-- A non-numeric value of `--wav-sample-rate` ends the program with an
-  uncaught `std::invalid_argument` (exit code 134 on macOS).
-- A netlist with no analysis line whose operating point does not converge
-  prints error messages and exits with 0.
-- The CSV of an AC analysis says `# Simulator: kirimaspice v0.27`; the
-  version is written there as fixed text.
 - Log lines and results both go to standard output.
 - No SSF file is written for a DC sweep.
 - The SSF output format has no published specification in this repository.

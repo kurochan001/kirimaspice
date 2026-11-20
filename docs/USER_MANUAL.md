@@ -450,11 +450,8 @@ options are listed in the
 | Exit code | Meaning |
 | --- | --- |
 | 0 | the requested analyses finished |
-| 1 | no netlist was given, the file could not be read, the netlist could not be parsed, an analysis failed, or an option value was rejected |
-| other | the program was stopped by an uncaught error, for example a non-numeric `--wav-sample-rate` |
-
-One case returns 0 without a result: a netlist that asks for no analysis,
-whose operating point does not converge.
+| 1 | no netlist was given, the file could not be read, the netlist could not be parsed, an analysis failed (also the operating point of a netlist without analysis lines), or an option value was rejected (for example a non-numeric `--wav-sample-rate`) |
+| other | the program was stopped by a crash |
 
 A parse error names a line: `Parse error at line 3: ...`. The number counts
 lines after `.INCLUDE` and `.LIB` files have been inserted, continuation

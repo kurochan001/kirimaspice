@@ -19,16 +19,17 @@ kirimaspice は、開発初期のオープンソースの SPICE 回路シミュ�
 
 ## 現状
 
-2026-11-15 に、コミット `02261a2` で、macOS 27.2（arm64）、GCC 16.2.0、CMake 4.4.4、SuiteSparse 7.6.1 で
-測った結果です。Homebrew の clang 23.1.4 と Apple clang 21.0.0 でも、2026-11-14 には同じ結果でした
+2026-11-20 に、コミット `f3d6423` で、`tools/local_ci.py` を使い、macOS 27.2（arm64）、GCC 16.2.0、
+CMake 4.4.4、SuiteSparse 7.6.1 で測った結果です。ngspice-47 を入れてあったので、BSIM4 を ngspice と比べる
+テストも走りました。Homebrew の clang 23.1.4 と Apple clang 21.0.0 でも、2026-11-14 には同じ結果でした
 （このコミットでは確かめ直していません）。
 
 | CTest のテスト | 件数 |
 | --- | --- |
-| 登録 | 1188 |
-| 合格 | 1158 |
-| スキップ | 22 |
-| 失敗（`tests/known_failures.txt` に記載） | 7 |
+| 登録 | 1293 |
+| 合格 | 1286 |
+| スキップ | 0 |
+| 失敗（`tests/known_failures.txt` に記載） | 6 |
 | 無効 | 1 |
 
 Ubuntu 24.04（x86-64）の CI では、GCC 13.3.0 と clang 18.1.3 でビルドでき、

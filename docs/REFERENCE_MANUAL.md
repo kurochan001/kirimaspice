@@ -74,11 +74,8 @@ stops with exit code 1.
 | Code | Meaning |
 | --- | --- |
 | 0 | the requested analyses finished, or `--help` |
-| 1 | no netlist, unreadable file, parse error, failed analysis, rejected option value, unavailable backend in strict mode |
-| other | uncaught error, for example a non-numeric `--wav-sample-rate` (134 on macOS) |
-
-A netlist that asks for no analysis returns 0 even when its operating point
-does not converge.
+| 1 | no netlist, unreadable file, parse error, failed analysis (also the operating point of a netlist without analysis lines), rejected option value such as a non-numeric `--wav-sample-rate`, unavailable backend in strict mode |
+| other | the program was stopped by a signal, or by an exception not derived from `std::exception` (`main` catches those that are) |
 
 ## Netlist syntax
 

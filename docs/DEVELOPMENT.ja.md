@@ -59,8 +59,8 @@ ctest --test-dir build --output-on-failure
 GoogleTest のプログラムは `gtest_discover_tests` で登録するので、CTest はテストケースを 1 つずつ
 `Suite.Name` として並べます。コマンドラインのテスト（`cli_*`。`.TEMP` の実行を調べる `cli_temperature_*`
 もその中にあります）、例題（`example_*`）、Python のツール（`python_tools_*`）、`bsim4_dc_smoke`、
-`MutualInductanceFixTest` は `add_test` で登録し、それぞれが CTest の 1 つのテストです。コミット `02261a2`
-では、macOS で CTest のテストは 1188 個です。
+`MutualInductanceFixTest` は `add_test` で登録し、それぞれが CTest の 1 つのテストです。コミット `f3d6423`
+では、macOS で CTest のテストは 1293 個です。
 
 テストは、ファイルをビルドのツリーの下の、テストごとのディレクトリに書きます。GoogleTest のケースは
 `build/tests/test_output/<Suite.Name>/`、それ以外は `build/tests/test_output/<テストかプログラムの名前>/` です
