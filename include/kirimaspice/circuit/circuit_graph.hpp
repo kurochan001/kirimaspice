@@ -239,7 +239,10 @@ public:
                   const std::string& anode,
                   const std::string& cathode,
                   Real is = 1e-14,
-                  Real n = 1.0);
+                  Real n = 1.0,
+                  Real cj0 = 0.0,
+                  Real vj = 1.0,
+                  Real m = 0.5);
 
     /// Add BJT NPN transistor
     /// @param name Device name (e.g., "Q1")

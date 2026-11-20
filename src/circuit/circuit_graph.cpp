@@ -484,12 +484,15 @@ void CircuitGraph::add_diode(const std::string& name,
                              const std::string& anode,
                              const std::string& cathode,
                              Real is,
-                             Real n) {
+                             Real n,
+                             Real cj0,
+                             Real vj,
+                             Real m) {
     NodeId anode_id = add_node(anode);
     NodeId cathode_id = add_node(cathode);
 
     DeviceId id = next_device_id_++;
-    auto diode = std::make_shared<devices::Diode>(id, name, anode_id, cathode_id, is, n);
+    auto diode = std::make_shared<devices::Diode>(id, name, anode_id, cathode_id, is, n, cj0, vj, m);
 
     register_device(name, diode);
 

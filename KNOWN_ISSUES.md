@@ -99,12 +99,13 @@ document also lists differences not decided there.
   `SFFM` at least `VO VA FC` (read in the code). An `SFFM` source without
   a DC value has `VO` in the operating point, where ngspice-47 gives 0 V
   (measured at `eaf0629`).
-- **The diode reads only `IS` and `N`; the bipolar transistor does not read
-  `RE`, `RC`, `CJS`, `XTF`, `VTF`, `ITF`, `PTF`, `XCJC` and `FC`; the level-1
-  MOSFET has no bulk terminal in its equations and no `LAMBDA`, and its
-  `GAMMA` is a noise coefficient.** Other parameters on the cards of
-  diodes, bipolar transistors, level 1 and BSIM4 are ignored without a
-  warning; the other MOSFET levels warn about parameters they do not know
+- **The diode reads `IS`, `N`, `CJO`, `VJ` and `M` only, not `RS`, `TT`,
+  `BV`, `IBV` and the others, which it names in a warning; the bipolar
+  transistor does not read `RE`, `RC`, `CJS`, `XTF`, `VTF`, `ITF`, `PTF`,
+  `XCJC` and `FC`; the level-1 MOSFET has no bulk terminal in its
+  equations and no `LAMBDA`, and its `GAMMA` is a noise coefficient.**
+  Other parameters on the cards of bipolar transistors, level 1 and BSIM4
+  are ignored without a warning; the other MOSFET levels warn about parameters they do not know
   ([Reference Manual](docs/REFERENCE_MANUAL.md#models)). Level 3 accepts
   `LAMBDA`, `RS`, `RD`, `CJ`, `CJSW` and `MJSW` without a warning and does
   not use them.

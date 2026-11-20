@@ -109,8 +109,8 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
 
 ### Models
 
-- [ ] **The parameters the models read.** The diode reads only `IS` and
-  `N`, and the other models read part of their parameters; some levels
+- [ ] **The parameters the models read.** The diode reads `IS`, `N`,
+  `CJO`, `VJ` and `M`, and the other models read part of their parameters; some levels
   warn about the rest, others ignore it without a message
   ([Reference Manual](REFERENCE_MANUAL.md#models)).
 - [ ] **The `LEVEL` of each MOSFET card.** The levels here are 1, 3,

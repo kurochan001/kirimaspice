@@ -4440,15 +4440,21 @@ static void parse_current_source_device(const std::vector<std::string>& tokens, 
 }
 
 static void parse_diode_device(const std::vector<std::string>& tokens, const std::string& dev_name, ParseState& state) {
-    // Diode: D<name> <anode> <cathode> [model_name | is=<value> n=<value>]
+    // Diode: D<name> <anode> <cathode> [model_name] [is=<value> n=<value>]
+    // The card gives IS, N, CJO (or CJ0), VJ (or PB) and M (or MJ), with the
+    // defaults of ngspice-47 (1e-14 A, 1, 0, 1 V, 0.5); the element line may
+    // give IS and N. Every other name is not used and is named in a warning.
     if (tokens.size() < 3) {
         throw ParseError("Invalid diode syntax: D<name> <anode> <cathode> [model | parameters]", state.line_number);
     }
     std::string anode = tokens[1];
     std::string cathode = tokens[2];
 
-    Real is = 1e-14;  // Default
-    Real n = 1.0;     // Default
+    Real is = 1e-14;
+    Real n = 1.0;
+    Real cj0 = 0.0;
+    Real vj = 1.0;
+    Real m = 0.5;
 
     // Check if tokens[3] is a model reference
     size_t param_start = 3;
@@ -4470,9 +4476,14 @@ static void parse_diode_device(const std::vector<std::string>& tokens, const std
                                    state.line_number);
                 }
 
-                // Apply model parameters
-                if (model.params.count("is")) is = model.params.at("is");
-                if (model.params.count("n")) n = model.params.at("n");
+                for (const auto& [key, value] : model.params) {
+                    if (key == "is") is = value;
+                    else if (key == "n") n = value;
+                    else if (key == "cjo" || key == "cj0") cj0 = value;
+                    else if (key == "vj" || key == "pb") vj = value;
+                    else if (key == "m" || key == "mj") m = value;
+                    else spdlog::warn("Diode model {}: {} is not used", potential_model, key);
+                }
 
                 param_start = 4;  // Skip model name in parameter parsing
             }
@@ -4499,12 +4510,17 @@ static void parse_diode_device(const std::vector<std::string>& tokens, const std
                 is = value;
             } else if (key == "n") {
                 n = value;
+            } else {
+                spdlog::warn("Line {}: {}: '{}' is not used", state.line_number, dev_name, tokens[i]);
             }
+        } else {
+            spdlog::warn("Line {}: {}: '{}' is not used", state.line_number, dev_name, tokens[i]);
         }
     }
 
-    state.circuit->add_diode(dev_name, anode, cathode, is, n);
-    spdlog::debug("Added diode: {} {} {} Is={:.3e}A N={:.3f}", dev_name, anode, cathode, is, n);
+    state.circuit->add_diode(dev_name, anode, cathode, is, n, cj0, vj, m);
+    spdlog::debug("Added diode: {} {} {} Is={:.3e}A N={:.3f} Cj0={:.3e}F Vj={:.3f}V M={:.3f}",
+                  dev_name, anode, cathode, is, n, cj0, vj, m);
 }
 
 static void parse_scr_device(const std::vector<std::string>& tokens, const std::string& dev_name, ParseState& state) {
