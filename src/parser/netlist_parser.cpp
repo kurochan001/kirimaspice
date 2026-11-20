@@ -4488,14 +4488,16 @@ static void parse_diode_device(const std::vector<std::string>& tokens, const std
                                    state.line_number);
                 }
 
+                std::vector<std::string> unused;
                 for (const auto& [key, value] : model.params) {
                     if (key == "is") is = value;
                     else if (key == "n") n = value;
                     else if (key == "cjo" || key == "cj0") cj0 = value;
                     else if (key == "vj" || key == "pb") vj = value;
                     else if (key == "m" || key == "mj") m = value;
-                    else spdlog::warn("Diode model {}: {} is not used", potential_model, key);
+                    else unused.push_back(key);
                 }
+                warn_unused_card_names(state, "Diode model " + potential_model, unused);
 
                 param_start = 4;  // Skip model name in parameter parsing
             }
@@ -5146,11 +5148,13 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
             if (model.params.count("gamma")) gamma_body = model.params.at("gamma");
             if (model.params.count("phi")) phi = model.params.at("phi");
             if (model.params.count("lambda")) lambda = model.params.at("lambda");
+            std::vector<std::string> unused;
             for (const auto& [key, value] : model.params) {
                 if (!kLevel1.count(key)) {
-                    spdlog::warn("MOSFET model {} (level 1): {} is not used", type_or_model, key);
+                    unused.push_back(key);
                 }
             }
+            warn_unused_card_names(state, "MOSFET model " + type_or_model + " (level 1)", unused);
         }
     } else if (type_or_model == "NMOS" || type_or_model == "PMOS") {
         // Direct type specification (no model defined)

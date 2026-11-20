@@ -125,3 +125,12 @@ TEST(ParserUnknownInput, UnusedCardNamesAreNamedOncePerCard) {
         parse_warnings("t\nV1 d 0 1\nZ1 d d 0 ZM\n.model ZM NMF BETA=0.01 QUUX=2\n.end\n");
     EXPECT_EQ(count(mesfet, "MESFET model ZM: quux is not used"), 1u) << mesfet;
 }
+
+TEST(ParserUnknownInput, DiodeAndLevel1CardsNameUnusedNamesOncePerCard) {
+    const std::string diode = parse_warnings(
+        "t\nV1 a 0 1\nR1 a b 1k\nD1 b 0 DM\nD2 b 0 DM\n.model DM D IS=1e-14 RS=10\n.end\n");
+    EXPECT_EQ(count(diode, "Diode model DM: rs is not used"), 1u) << diode;
+    const std::string level1 = parse_warnings(
+        "t\nV1 d 0 1\nM1 d d 0 0 NX\nM2 d d 0 0 NX\n.model NX NMOS LEVEL=1 VTO=0.7 TOX=1e-8\n.end\n");
+    EXPECT_EQ(count(level1, "MOSFET model NX (level 1): tox is not used"), 1u) << level1;
+}
