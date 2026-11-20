@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include "../validation/ngspice_dc_utils.hpp"
+#include "source_path.hpp"
 
 using namespace kirimaspice;
 using namespace kirimaspice::circuit;
@@ -24,8 +25,8 @@ class RCFilterACValidation : public ::testing::Test {
 protected:
     void SetUp() override {
         // Check if reference data exists
-        // ctest runs from CMAKE_SOURCE_DIR (source directory)
-        ref_data_path = "validation/rc_lowpass_ac_ngspice.csv";
+        // The reference in the source tree (source_path.hpp)
+        ref_data_path = kirimaspice::test::source_path("validation/rc_lowpass_ac_ngspice.csv").string();
         if (!fs::exists(ref_data_path)) {
             GTEST_SKIP() << "Reference data not found: " << ref_data_path
                          << "\nRun: cd validation && ngspice -b rc_lowpass_ac.cir";

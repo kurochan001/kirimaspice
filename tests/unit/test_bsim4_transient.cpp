@@ -12,6 +12,7 @@
 #include <vector>
 #include <algorithm>
 #include <cmath>
+#include "source_path.hpp"
 
 using namespace kirimaspice;
 using namespace kirimaspice::circuit;
@@ -29,11 +30,7 @@ struct ReferencePoint {
 };
 
 std::vector<ReferencePoint> load_bsim4_reference(const std::string& basename) {
-    std::vector<std::string> candidates = {
-        basename,
-        "../" + basename,
-        "../../" + basename
-    };
+    std::vector<std::string> candidates = {kirimaspice::test::source_path(basename).string()};
     std::ifstream file;
     for (const auto& candidate : candidates) {
         file.close();

@@ -9,6 +9,7 @@
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/solvers/ac_solver.hpp"
 #include <filesystem>
+#include "source_path.hpp"
 
 using namespace kirimaspice;
 using namespace kirimaspice::circuit;
@@ -23,7 +24,7 @@ namespace fs = std::filesystem;
 class DiodeACValidation : public ::testing::Test {
 protected:
     void SetUp() override {
-        ref_data_path = "validation/diode_ac_ngspice.csv";
+        ref_data_path = kirimaspice::test::source_path("validation/diode_ac_ngspice.csv").string();
         if (!fs::exists(ref_data_path)) {
             GTEST_SKIP() << "Reference data not found: " << ref_data_path;
         }
@@ -93,7 +94,7 @@ TEST_F(DiodeACValidation, MatchesNgspice) {
 class BJTAmplifierACValidation : public ::testing::Test {
 protected:
     void SetUp() override {
-        ref_data_path = "tests/validation/bjt_amplifier_ac_ngspice.csv";
+        ref_data_path = kirimaspice::test::source_path("tests/validation/bjt_amplifier_ac_ngspice.csv").string();
         if (!fs::exists(ref_data_path)) {
             GTEST_SKIP() << "Reference data not found: " << ref_data_path;
         }
@@ -190,7 +191,7 @@ TEST_F(BJTAmplifierACValidation, MatchesNgspice) {
 class MOSFETAmplifierACValidation : public ::testing::Test {
 protected:
     void SetUp() override {
-        ref_data_path = "validation/mosfet_amplifier_ac_ngspice.csv";
+        ref_data_path = kirimaspice::test::source_path("validation/mosfet_amplifier_ac_ngspice.csv").string();
         if (!fs::exists(ref_data_path)) {
             GTEST_SKIP() << "Reference data not found: " << ref_data_path;
         }

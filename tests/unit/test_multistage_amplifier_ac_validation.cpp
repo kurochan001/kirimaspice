@@ -9,6 +9,7 @@
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/solvers/ac_solver.hpp"
 #include <filesystem>
+#include "source_path.hpp"
 
 using namespace kirimaspice;
 using namespace kirimaspice::circuit;
@@ -23,7 +24,7 @@ namespace fs = std::filesystem;
 class BJT2StageAmplifierValidation : public ::testing::Test {
 protected:
     void SetUp() override {
-        ref_data_path = "validation/bjt_2stage_amplifier_ac_ngspice.csv";
+        ref_data_path = kirimaspice::test::source_path("validation/bjt_2stage_amplifier_ac_ngspice.csv").string();
         if (!fs::exists(ref_data_path)) {
             GTEST_SKIP() << "Reference data not found: " << ref_data_path
                          << "\nRun: cd validation && ngspice -b bjt_2stage_amplifier_ac.cir";
@@ -161,7 +162,7 @@ TEST_F(BJT2StageAmplifierValidation, MidbandGainCorrect) {
 class MOSFET2StageAmplifierValidation : public ::testing::Test {
 protected:
     void SetUp() override {
-        ref_data_path = "validation/mosfet_2stage_amplifier_ac_ngspice.csv";
+        ref_data_path = kirimaspice::test::source_path("validation/mosfet_2stage_amplifier_ac_ngspice.csv").string();
         if (!fs::exists(ref_data_path)) {
             GTEST_SKIP() << "Reference data not found: " << ref_data_path
                          << "\nRun: cd validation && ngspice -b mosfet_2stage_amplifier_ac.cir";
@@ -263,7 +264,7 @@ TEST_F(MOSFET2StageAmplifierValidation, MatchesNgspice) {
 class BJTDarlingtonAmplifierValidation : public ::testing::Test {
 protected:
     void SetUp() override {
-        ref_data_path = "validation/bjt_darlington_ac_ngspice.csv";
+        ref_data_path = kirimaspice::test::source_path("validation/bjt_darlington_ac_ngspice.csv").string();
         if (!fs::exists(ref_data_path)) {
             GTEST_SKIP() << "Reference data not found: " << ref_data_path
                          << "\nRun: cd validation && ngspice -b bjt_darlington_ac.cir";

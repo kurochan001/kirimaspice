@@ -47,8 +47,7 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-- ビルドディレクトリは、ソースの直下の `build/` にしてください。テストの一部は、そこからの
-  相対位置でデータを探します。
+- ビルドディレクトリはどこに置いてもかまいません。ここのコマンドは `build/` を使います。
 - SuiteSparse が CMake の探さない場所にある場合は、最初のコマンドに `-DCMAKE_PREFIX_PATH=<その場所>`
   を加えます。
 - 今は失敗するテストがあり、`tests/known_failures.txt` に並べてあります。

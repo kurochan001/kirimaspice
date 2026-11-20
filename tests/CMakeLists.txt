@@ -11,6 +11,8 @@ find_package(Python3 COMPONENTS Interpreter REQUIRED)
 # own (support/test_output.hpp)
 set(KIRIMASPICE_TEST_OUTPUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/test_output)
 add_compile_definitions(KIRIMASPICE_TEST_OUTPUT_DIR="${KIRIMASPICE_TEST_OUTPUT_DIR}")
+# and read their data from the source tree (support/source_path.hpp)
+add_compile_definitions(KIRIMASPICE_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/support)
 
 add_executable(test_analysis_edge_cases unit/test_analysis_edge_cases.cpp)

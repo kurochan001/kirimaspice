@@ -9,6 +9,7 @@
 #include "kirimaspice/solvers/dc_solver.hpp"
 #include <filesystem>
 #include <fstream>
+#include "source_path.hpp"
 
 using namespace kirimaspice;
 
@@ -18,7 +19,7 @@ using namespace kirimaspice;
 TEST(ManufacturerModels, 2N3904_EmitterFollower) {
     // Parse netlist with .INCLUDE directive
     parser::NetlistParser parser;
-    auto result = parser.parse_file("tests/integration/test_2n3904_emitter_follower.cir");
+    auto result = parser.parse_file(kirimaspice::test::source_path("tests/integration/test_2n3904_emitter_follower.cir").string());
 
     ASSERT_NE(result.circuit, nullptr);
 
@@ -61,7 +62,7 @@ TEST(ManufacturerModels, 2N3904_EmitterFollower) {
 TEST(ManufacturerModels, 1N4148_Rectifier) {
     // Parse netlist with .INCLUDE directive
     parser::NetlistParser parser;
-    auto result = parser.parse_file("tests/integration/test_1n4148_rectifier.cir");
+    auto result = parser.parse_file(kirimaspice::test::source_path("tests/integration/test_1n4148_rectifier.cir").string());
 
     ASSERT_NE(result.circuit, nullptr);
 
@@ -99,7 +100,7 @@ TEST(ManufacturerModels, 1N4148_Rectifier) {
 TEST(ManufacturerModels, MultiDevice_BJT_Diode) {
     // Parse netlist with multiple .INCLUDE directives
     parser::NetlistParser parser;
-    auto result = parser.parse_file("tests/integration/test_multi_device.cir");
+    auto result = parser.parse_file(kirimaspice::test::source_path("tests/integration/test_multi_device.cir").string());
 
     ASSERT_NE(result.circuit, nullptr);
 
@@ -143,7 +144,7 @@ TEST(ManufacturerModels, ModelFilePathResolution) {
 
     // This should succeed if path resolution works correctly
     EXPECT_NO_THROW({
-        auto result = parser.parse_file("tests/integration/test_2n3904_emitter_follower.cir");
+        auto result = parser.parse_file(kirimaspice::test::source_path("tests/integration/test_2n3904_emitter_follower.cir").string());
         EXPECT_NE(result.circuit, nullptr);
     });
 }
@@ -154,7 +155,7 @@ TEST(ManufacturerModels, ModelFilePathResolution) {
 TEST(ManufacturerModels, MultipleModelFiles) {
     // Test loading multiple .INCLUDE files in one netlist
     parser::NetlistParser parser;
-    auto result = parser.parse_file("tests/integration/test_multi_device.cir");
+    auto result = parser.parse_file(kirimaspice::test::source_path("tests/integration/test_multi_device.cir").string());
 
     ASSERT_NE(result.circuit, nullptr);
 

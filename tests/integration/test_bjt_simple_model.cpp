@@ -7,13 +7,14 @@
 #include <gtest/gtest.h>
 #include "kirimaspice/parser/netlist_parser.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
+#include "source_path.hpp"
 
 using namespace kirimaspice;
 
 TEST(BJTModelTest, SimpleCommonEmitter) {
     // Parse netlist with 2N3904 model reference
     parser::NetlistParser parser;
-    auto result = parser.parse_file("tests/integration/test_bjt_simple_ce.cir");
+    auto result = parser.parse_file(kirimaspice::test::source_path("tests/integration/test_bjt_simple_ce.cir").string());
 
     ASSERT_NE(result.circuit, nullptr);
 

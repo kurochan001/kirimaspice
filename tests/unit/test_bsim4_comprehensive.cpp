@@ -13,6 +13,7 @@
 #include <sstream>
 #include <cctype>
 #include <cstdlib>
+#include "source_path.hpp"
 
 using namespace kirimaspice;
 using namespace kirimaspice::devices;
@@ -425,11 +426,9 @@ struct NgspiceResult {
 NgspiceResult run_ngspice_dc(const std::string& vgs_str, std::string& error_msg) {
     NgspiceResult result;
 
-    // Read template - try multiple paths for flexibility
+    // The template in the source tree
     std::vector<std::string> template_paths = {
-        "tests/netlists/bsim4_qa_dc.template.sp",           // From source root
-        "../../tests/netlists/bsim4_qa_dc.template.sp",     // From build/tests/
-        "../tests/netlists/bsim4_qa_dc.template.sp",        // From build/
+        kirimaspice::test::source_path("tests/netlists/bsim4_qa_dc.template.sp").string(),
     };
 
     std::ifstream template_file;

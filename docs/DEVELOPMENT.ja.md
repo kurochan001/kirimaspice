@@ -30,8 +30,8 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-- ビルドディレクトリは、ソースの直下の `build/` でなければなりません。テストの一部が、そこからの相対位置で
-  データを探すためです。
+- ビルドディレクトリはどこに置いてもかまいません。テストは、データをソースのツリーから絶対パスで読みます
+  （`tests/support/source_path.hpp`）。`tools/local_ci.py` は `build/` を使います。
 - SuiteSparse（KLU）はシステムのものを使います。ほかの場所に入れたものは `-DCMAKE_PREFIX_PATH=<prefix>` で
   渡します。`tools/local_ci.py` には `--cmake-arg=-DCMAKE_PREFIX_PATH=<prefix>` として渡します。
 - CMake のオプション（`BUILD_TESTS`、`BUILD_BENCHMARKS`、`SANITIZE_ADDRESS`、`ENABLE_COVERAGE` など）は

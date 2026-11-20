@@ -52,8 +52,7 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-- Use `build/` directly under the source tree as the build directory. Some
-  tests look for their data relative to it.
+- The build directory may be anywhere; the commands here use `build/`.
 - If SuiteSparse is installed somewhere CMake does not search, add
   `-DCMAKE_PREFIX_PATH=<its prefix>` to the first command.
 - Some tests fail today; they are listed in `tests/known_failures.txt`.

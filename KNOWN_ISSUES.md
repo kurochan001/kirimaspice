@@ -66,8 +66,6 @@ table. They are not an additional set of tests.
   skipped (the twenty comparison tests, which looked for their data in the
   wrong directory then, `TemperatureSweepValidation` and
   `VdsatBranchSelection`), 7 failed and 1 was disabled.
-- Some tests find their data relative to the build directory and pass only
-  when it is `build/` directly under the source tree.
 
 ## Netlist input
 

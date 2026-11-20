@@ -11,6 +11,7 @@
 #include <cmath>
 #include <iostream>
 #include <iomanip>
+#include "source_path.hpp"
 
 using namespace kirimaspice::devices;
 using json = nlohmann::json;
@@ -133,7 +134,7 @@ protected:
 // (BSIM4.8.3) by scripts/bench/generate_bsim4_temperature_refs.py.
 TEST_F(BSIM4TemperatureValidationTest, TemperatureSweepValidation) {
     // Load ngspice reference data
-    const std::string ref_file = "tests/validation/bsim4_temperature_refs.json";
+    const std::string ref_file = kirimaspice::test::source_path("tests/validation/bsim4_temperature_refs.json").string();
     json refs;
 
     try {

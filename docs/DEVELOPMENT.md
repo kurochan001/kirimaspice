@@ -32,8 +32,9 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-- The build directory must be `build/` directly under the source tree:
-  some tests find their data relative to it.
+- The build directory may be anywhere: tests read their data from the
+  source tree by its absolute path (`tests/support/source_path.hpp`).
+  `tools/local_ci.py` uses `build/`.
 - SuiteSparse (KLU) comes from the system. For another installation, pass
   `-DCMAKE_PREFIX_PATH=<prefix>`; `tools/local_ci.py` takes it as
   `--cmake-arg=-DCMAKE_PREFIX_PATH=<prefix>`.

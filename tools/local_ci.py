@@ -20,8 +20,8 @@ Steps, in order:
      come from KIRIMASPICE_PRIVATE_PATTERNS if it is set
   4. tools/check_spdx.py
 
-Logs go to build/local-ci/. The build directory must be build/: some tests
-find their data relative to it.
+Logs go to build/local-ci/. This script builds in build/; the tests
+themselves read their data from the source tree wherever the build is.
 """
 
 import argparse

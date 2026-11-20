@@ -17,6 +17,7 @@
 #include <sstream>
 #include <cmath>
 #include <algorithm>
+#include "source_path.hpp"
 
 using namespace kirimaspice;
 using namespace kirimaspice::parser;
@@ -142,7 +143,7 @@ namespace {
 struct RefPoint { Real t; Real v; };
 
 std::vector<RefPoint> load_reference(const std::string& path) {
-    std::ifstream ifs(path);
+    std::ifstream ifs(kirimaspice::test::source_path(path));
     if (!ifs) return {};
     std::vector<RefPoint> out;
     std::string line;

@@ -10,6 +10,7 @@
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include <spdlog/spdlog.h>
 #include <cmath>
+#include "source_path.hpp"
 
 using namespace kirimaspice;
 using namespace kirimaspice::parser;
@@ -65,7 +66,7 @@ TEST(CMOSPixelSubcircuitTest, SubcircuitBasedDCAnalysis) {
 
     // Parse netlist with subcircuit definition
     NetlistParser parser;
-    auto result = parser.parse_file("tests/netlists/pixel_3t_subckt.sp");
+    auto result = parser.parse_file(kirimaspice::test::source_path("tests/netlists/pixel_3t_subckt.sp").string());
 
     ASSERT_NE(result.circuit, nullptr) << "Failed to parse netlist";
 
@@ -116,7 +117,7 @@ TEST(CMOSPixelSubcircuitTest, InlineBasedDCAnalysis) {
 
     // Parse netlist without subcircuit
     NetlistParser parser;
-    auto result = parser.parse_file("tests/netlists/pixel_3t_inline.sp");
+    auto result = parser.parse_file(kirimaspice::test::source_path("tests/netlists/pixel_3t_inline.sp").string());
 
     ASSERT_NE(result.circuit, nullptr) << "Failed to parse netlist";
 
@@ -160,8 +161,8 @@ TEST(CMOSPixelSubcircuitTest, SubcircuitInlineEquivalence) {
 
     // Parse both netlists
     NetlistParser parser;
-    auto subcircuit_result = parser.parse_file("tests/netlists/pixel_3t_subckt.sp");
-    auto inline_result = parser.parse_file("tests/netlists/pixel_3t_inline.sp");
+    auto subcircuit_result = parser.parse_file(kirimaspice::test::source_path("tests/netlists/pixel_3t_subckt.sp").string());
+    auto inline_result = parser.parse_file(kirimaspice::test::source_path("tests/netlists/pixel_3t_inline.sp").string());
 
     ASSERT_NE(subcircuit_result.circuit, nullptr);
     ASSERT_NE(inline_result.circuit, nullptr);
@@ -210,7 +211,7 @@ TEST(CMOSPixelSubcircuitTest, ModelParameterLookup) {
     spdlog::set_level(spdlog::level::info);
 
     NetlistParser parser;
-    auto result = parser.parse_file("tests/netlists/pixel_3t_subckt.sp");
+    auto result = parser.parse_file(kirimaspice::test::source_path("tests/netlists/pixel_3t_subckt.sp").string());
 
     ASSERT_NE(result.circuit, nullptr);
 
@@ -244,7 +245,7 @@ TEST(CMOSPixelSubcircuitTest, OptionDirectivesParsing) {
     spdlog::set_level(spdlog::level::warn);
 
     NetlistParser parser;
-    auto result = parser.parse_file("tests/netlists/pixel_3t_subckt.sp");
+    auto result = parser.parse_file(kirimaspice::test::source_path("tests/netlists/pixel_3t_subckt.sp").string());
 
     ASSERT_NE(result.circuit, nullptr);
 
