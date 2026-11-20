@@ -5,10 +5,11 @@
 This is a reference to the command line, the netlist language and the
 output files of the program `kirimaspice`. It was written on
 **2026-11-14** from the source at commit `91af284`, reviewed again on
-**2026-11-15** at commit `db0fef6` and updated the same day for the fixes
-up to commit `eaf0629`; the behaviour it describes was checked by running
-those builds (macOS 27.2, arm64, GCC 16.2.0, `kirimaspice
-v0.0.0`). Where an entry was read in the code but not run, it says so. For a guided first run, use
+**2026-11-15** at commit `db0fef6`, and updated with the program since. On
+**2026-11-21** the whole manual was reviewed again against the code and
+the build of commit `2826a81` (macOS 27.2, arm64, GCC 16.2.0, `kirimaspice
+0.0.0`); the entries corrected then were checked by running that build.
+Where an entry was read in the code but not run, it says so. For a guided first run, use
 the [User Manual](USER_MANUAL.md); for what is wrong or missing, see
 [KNOWN_ISSUES.md](../KNOWN_ISSUES.md).
 
@@ -52,6 +53,7 @@ says which.
 | `--wav-out <file>` | write the transient result as a WAV file |
 | `--wav-sample-rate <Hz>` | WAV sample rate (default 44100) |
 | `--wav-bits <n>` | WAV sample size: 8, 16, 24 or 32 (default 16) |
+| `--log-level <level>` | the lowest level of the messages on standard error: `error`, `warning`, `info` (default) or `debug`; another value is an error |
 
 The linear solver is KLU. The program has no option to choose another:
 the SuperLU_DIST backend of the library is a placeholder.
@@ -68,8 +70,8 @@ the SuperLU_DIST backend of the library is a placeholder.
 
 | Code | Meaning |
 | --- | --- |
-| 0 | the requested analyses finished, or `--help` |
-| 1 | no netlist, unreadable file, parse error, failed analysis (also the operating point of a netlist without analysis lines), rejected option value such as a non-numeric `--wav-sample-rate`, unavailable backend in strict mode |
+| 0 | the requested analyses finished, or `--help` or `--version` |
+| 1 | no netlist, a second netlist, an unknown option or one without its value, a rejected option value such as a non-numeric `--wav-sample-rate` or an unknown `--log-level`, unreadable file, parse error, failed analysis (also the operating point of a netlist without analysis lines) |
 | other | the program was stopped by a signal, or by an exception not derived from `std::exception` (`main` catches those that are) |
 
 ## Netlist syntax
@@ -96,7 +98,8 @@ the SuperLU_DIST backend of the library is a placeholder.
 
 - An included file is found relative to the directory of the file that
   includes it. `.LIB <file>` without a section inserts the whole file; an
-  `.INCLUDE` inside a `.LIB` section is dropped without a message.
+  `.INCLUDE` inside a `.LIB` section is not inserted, and is named in the
+  warning `unknown directive .INCLUDE is ignored`.
 - The first remaining line is the title.
 - A line whose first non-blank character is `*` is a comment. `;` starts a
   comment that runs to the end of the line. There is no other comment
@@ -124,7 +127,7 @@ the SuperLU_DIST backend of the library is a placeholder.
 - `0` is ground, and so is a node named `gnd` in any case, at the top
   level and inside subcircuits.
 - Nodes inside a subcircuit instance are named `<instance>.<node>`, for
-  example `X1.n1`.
+  example `x1.n1`; element names keep their case, `X1.R1`.
 
 ### Numbers
 
@@ -196,7 +199,7 @@ An element means the same inside a subcircuit as at the top level: the
 lines of a body are read by the same element parsers, with the element's
 name, its nodes and the names of the elements it refers to (the control of
 `F` and `H`, the inductors of `K`, the nodes of `V(...)` in `B`) renamed into
-the instance, `X1.R1` and `X1.n1`.
+the instance, `X1.R1` and `x1.n1`.
 
 ### Sources
 
@@ -240,7 +243,8 @@ the instance, `X1.R1` and `X1.n1`.
 is in braces (`V={2*V(in)}`) or, without braces, runs to the end of the
 line, blanks and all (`V=V(a) + 1`), as in ngspice.
 It can use `V(<node>)` or `v(<node>)`, where the node is named as on an
-element line (`V(A)` and `V(a)` are two nodes, and `V(n.1)` is a node),
+element line, without regard to case (`V(A)` and `V(a)` are one node, and
+`V(n.1)` is a node),
 `TIME`, `pi` (not `e`) and
 ExprTk's built-in functions; `.PARAM` names and `I(<source>)` are not
 available. `TIME` is the time of the transient, and 0 in the operating
@@ -254,14 +258,14 @@ method and AC take the derivatives of the expression by central differences.
 
 These are the parameters the parser reads; any other parameter in the
 element line or the `.MODEL` card of `D`, `Q`, `Z` and level-1 `M` is not
-used and is named in a warning, once per card. An instance parameter
-overrides the model's.
+used and is named in a warning: a card's once per card, an element line's
+at that line. An instance parameter overrides the model's.
 
 | Element | Parameters (default) |
 | --- | --- |
 | `D` | `IS` (1e-14 A), `N` (1), `CJO` or `CJ0` (0), `VJ` or `PB` (1 V), `M` or `MJ` (0.5), the defaults of ngspice-47; `IS` and `N` also on the element line; other names, on the card or the line, are named in a warning and not used |
 | `Q` | `IS` (1e-14 A), `BF` (100), `NF` or `N` on the instance (1), `BR` (1), `NR` (1), `VAF` or `VA` (∞), `VAR` or `VB` (∞), `IKF` or `IK` (∞), `IKR` (∞), `RB`, `RBM`, `IRB` (0), `ISE` (0), `NE` (1.5), `ISC` (0), `NC` (2), `CJE` (0), `VJE` or `PE` (0.75 V), `MJE` or `ME` (0.33), `CJC` (0), `VJC` or `PC` (0.75 V), `MJC` or `MC` (0.33), `TF`, `TR` (0), `XTI` (3), `XTB` (0), `EG` (1.11 eV), `TNOM` (27 °C), noise `KF` (0), `AF` (1), `FF` (1); the card first, then the element line |
-| `M`, level 1 | with a card, the defaults of ngspice-47: `KP` (2e-5 A/V²), `W`, `L` (100 µm), `VTO` or `VTH` on the card and `VTH` on the element line, with the device's sign (0; a positive one makes a depletion PMOS), `GAMMA` (0, the body effect), `PHI` (0.6 V), `LAMBDA` (0), noise `KF` (0), `AF` (1), `EF` (1); other names on the card are named in a warning. The line's `NMOS` or `PMOS` without a card gives `W` 10 µm, `L` 1 µm and `VTH` ±0.7 V |
+| `M`, level 1 | with a card, the defaults of ngspice-47: `KP` (2e-5 A/V²), `W`, `L` (100 µm), `VTO` or `VTH` on the card and `VTH` on the element line, with the device's sign (0; a positive one makes a depletion PMOS), `GAMMA` (0, the body effect), `PHI` (0.6 V), `LAMBDA` (0), noise `KF` (0), `AF` (1), `EF` (1); other names, on the card or the line (`M=` among them), are named in a warning. The line's `NMOS` or `PMOS` without a card gives `W` 10 µm, `L` 1 µm and `VTH` ±0.7 V |
 | `Z` | `LEVEL`/`MODEL` (formula), `BETA` (0.1), `VTO` (−2 V; +2 V when the element line says `PMF`), `LAMBDA` (0.05), `ALPHA` (2), `B` (0.3), `VP` (3 V), `CGS` (1 pF), `CGD` (0.5 pF), `CDS` (0.1 pF), `KF`, `AF`, `EF`, `TNOM` (27 °C) |
 | `S` | `VBF` (400 V), `IGT` (20 mA), `IH` (10 mA), `IL` (30 mA), `VGT` (1 V), `RON` (0.1 Ω), `VTM` (1.5 V), `DV_DT` (10), `TNOM` (27 °C) |
 | `Y` | `VBO` (400 V), `IGT` (20 mA), `IH` (10 mA), `VGT` (1 V), `RON` (0.1 Ω), `VTM` (1.5 V), `DV_DT` or `DVDT` (10), `TNOM` (27 °C) |
@@ -304,7 +308,7 @@ For `NMOS` and `PMOS`, `LEVEL` selects the device:
 
 | `LEVEL` | Device | Unknown card parameters | Element-line parameters |
 | --- | --- | --- | --- |
-| 1 (default) | level 1 (square law) | warning | `KP`, `W`, `L`, `VTO`, `VTH`, `GAMMA`, `PHI`, `LAMBDA`, `KF`, `AF`, `EF` |
+| 1 (default) | level 1 (square law) | warning, once per card | `KP`, `W`, `L`, `VTH`, `KF`, `AF`, `EF`; others named in a warning |
 | 3 | SPICE's level 3 | warning | `W`, `L` |
 | 9 | BSIM1, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W`, `L` |
 | 8, 49 | BSIM3, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W`, `L` |
@@ -316,9 +320,9 @@ For `NMOS` and `PMOS`, `LEVEL` selects the device:
 | 21 | IGBT (`M` terminals are collector, gate, emitter) | warning | all, by name |
 
 Any other `LEVEL` is an error at the `.MODEL` line, as in ngspice-47.
-`AD`, `AS`,
-`PD`, `PS`, `NRD` and `NRS` on the element line are ignored without a
-message (read in the code).
+At levels 3, 8/49, 9 and 12, other names on the element line, `AD`, `AS`,
+`PD`, `PS`, `NRD`, `NRS` and `M` among them, are ignored without a
+message.
 
 The parameter names of levels 3, 9, 8/49 and 14/54 follow the respective
 Berkeley model manuals. Level 3 computes SPICE's level 3 equations with
@@ -409,13 +413,14 @@ parser stores it, but the program does not use it (the library can).
 | `.PRINT`, `.SAVE` | `.PRINT DC\|TRAN\|AC <signals>`, `.SAVE <signals>` | `.PRINT TRAN` used: its signals are the transient's table on standard output; `.PRINT DC`, `.PRINT AC` and `.SAVE` read only, named in a warning |
 | `.FOUR` | `.FOUR <frequency> <signal> ...`, each `v(<node>)` or `i(<source>)` | used with `.TRAN`: prints the harmonics and the THD of the last period of each signal after the transient |
 | `.STEP`, `.SENS`, `.MC`, `.TF`, `.PZ`, `.DISTO`, `.PORT`, `.WCASE`, `.OPTIMIZE` | | read only; named in a warning |
-| `.CONTROL` / `.ENDC` | | taken out and run by the parser; the program does not take its analyses from it (see [KNOWN_ISSUES.md](../KNOWN_ISSUES.md)) |
+| `.CONTROL` / `.ENDC` | | taken out and run by the parser; of its analysis commands the program runs `dc` and `ac`, not `tran`, and `op` is named in a warning as an unknown command (see [KNOWN_ISSUES.md](../KNOWN_ISSUES.md)) |
 | `.TITLE`, `.MEASURE`, `.NOISE`, others | | ignored; each name in one warning |
 
 ### How the program chooses analyses
 
 - The program runs the analyses that the parser has read: the operating
-  point for `.OP`, the DC sweep for a complete `.DC` line, the transient
+  point for `.OP`, the DC sweep for a complete `.DC` line (or the `dc`
+  command of a `.control` block), the transient
   for a complete `.TRAN` line, and AC for `.AC` (or the `ac` command of a
   `.control` block). An analysis line counts as every other directive
   does: joined to its `+` continuation lines, in the text of `.INCLUDE`
@@ -449,7 +454,7 @@ each run prints and writes:
 | --- | --- | --- | --- | --- | --- |
 | DC sweep | a summary | — | yes | — | — |
 | operating point | voltages and currents | yes, replaced by a later transient | yes | — | — |
-| transient | the table of `.PRINT TRAN`, then `.FOUR` | yes | yes | yes | — |
+| transient | the results of `.FOUR`, then the table of `.PRINT TRAN` | yes | yes | yes | — |
 | AC | nothing | — | — | — | always, named after `-o` or the netlist |
 
 ## Options
@@ -491,8 +496,8 @@ or unknown option gives a warning and is ignored.
 | `VOLTAGE_LIMITING` | 1 | junction voltage limiting; 0 turns it off |
 
 The options marked "no effect in the program" act only on the adaptive
-time step, which the program does not use: its transient steps by
-`tstep`. How each method is applied when the operating point does not
+time step, which the program does not use: its transient steps by the
+shorter of `tstep` and `tmax`, and onto the breakpoints of the sources. How each method is applied when the operating point does not
 converge is in `src/solvers/dc_solver.cpp`; this manual does not describe
 it.
 
@@ -509,11 +514,12 @@ results are:
   `V(<node>) = <value> V` per node and one `I(<source>) = <value> A` per
   voltage, `E`, `H` and voltage-form `B` source;
 - DC sweep: a summary only;
-- transient, with `.PRINT TRAN <signals>`: `=== Transient Analysis
+- transient: the results of `.FOUR`, if the netlist has it, then, with
+  `.PRINT TRAN <signals>`, `=== Transient Analysis
   Results ===` and a tab-separated table with a `Time (s)` column and one
   column per signal, `v(<node>)` or `i(<voltage source>)` as written on
   the `.PRINT` line, one row per time point; a signal that names no node
-  or source is left out with a warning. Without `.PRINT TRAN`, nothing;
+  or source is left out with a warning. Without either, nothing;
 - AC: nothing.
 
 Under a `.TEMP` list of several values, each run's results follow a line
@@ -521,8 +527,8 @@ Under a `.TEMP` list of several values, each run's results follow a line
 
 ### SPICE3 raw, ASCII (`--raw-out`)
 
-The header has `Title` (`kirimaspice <plot name>`, not the netlist's
-title), `Date`, `Plotname`, `Flags: real`, `No. Variables`, `No. Points`
+The header has `Title` (`kirimaspice <plot name>`, and for a DC sweep
+`kirimaspice <source> sweep`; not the netlist's title), `Date`, `Plotname`, `Flags: real`, `No. Variables`, `No. Points`
 and `Variables`, followed by `Values`.
 
 | Analysis | `Plotname` | Variables |
@@ -531,8 +537,9 @@ and `Variables`, followed by `Values`.
 | DC sweep | `DC Sweep` or `DC Sweep (2D)` | the swept source(s) (type `sweep`), `v(<node>)`, `i(<source>)` |
 | transient | `Transient Analysis` | `time`, `v(<node>)`, `i(<source>)` |
 
-The names are in lower case, as ngspice-47 writes them (`v(out)`,
-`i(v1)`). Ground (the node `0`) is not a variable. Each analysis run appends one plot
+The names of nodes and sources are in lower case, as ngspice-47 writes
+them (`v(out)`, `i(v1)`); a sweep variable keeps the source's name as
+written (`V1`). Ground (the node `0`) is not a variable. Each analysis run appends one plot
 to the same file. Each point holds one value per variable, the first on the
 line with the point index.
 
@@ -540,9 +547,10 @@ line with the point index.
 
 The same header and names, then `Binary:` and the values as 8-byte IEEE doubles in the byte order of
 the machine (little-endian on x86-64 and arm64), point after point. For a
-two-source DC sweep the binary file differs: its plot name is `DC Sweep`,
-its title `kirimaspice DC Sweep Analysis`, and it has one sweep variable,
-named `<src>-<src2>`, holding the value of `<src>`.
+DC sweep the binary file's title is `kirimaspice DC Sweep Analysis`. For a
+two-source DC sweep it also differs in its plot name, `DC Sweep`, and in
+having one sweep variable, named `<src>-<src2>`, holding the value of
+`<src>`.
 
 ngspice-47 loads both raw files: on 2026-11-14 its `load` command read a
 transient plot of 502 points written by kirimaspice, ASCII and binary,
@@ -553,7 +561,8 @@ with the same values. Other plots and other readers are not confirmed.
 A binary file with a fixed header (`SSF`), a list of `key=value` metadata
 (`file.format`, `file.version` 4.3, `file.generator`, `file.analysis`,
 `file.timestamp`, `axis.0.*`, and `signal.<n>.name`, `.node` or
-`.device`, `.quantity`, `.unit`; the signals include `v(0)`), and data
+`.device`, `.quantity`, `.unit`; the signals are `v(<node>)` of every node
+but ground, then `i(<source>)`), and data
 blocks compressed with zstd. Its specification is not
 published in this repository; the writer is `src/output/ssf_writer.cpp`.
 
