@@ -120,7 +120,7 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
 - [ ] **`S` and `Y` parameters on the element line.** `.MODEL` has no
   SCR or TRIAC type.
 - [ ] **No `J` elements.** The library has a JFET, but the parser has no
-  `J` element.
+  `J` element; a `J` line is a parse error.
 
 ### Transient
 

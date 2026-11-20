@@ -1229,6 +1229,10 @@ add_executable(test_element_initial_conditions unit/test_element_initial_conditi
 target_link_libraries(test_element_initial_conditions PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_element_initial_conditions PROPERTIES TIMEOUT 1200)
 
+add_executable(test_parser_unknown_input unit/test_parser_unknown_input.cpp)
+target_link_libraries(test_parser_unknown_input PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_parser_unknown_input PROPERTIES TIMEOUT 1200)
+
 add_executable(test_source_waveforms unit/test_source_waveforms.cpp)
 target_link_libraries(test_source_waveforms PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_source_waveforms PROPERTIES TIMEOUT 1200)

@@ -112,8 +112,9 @@ stops with exit code 1.
 - A line that starts with `.` is a directive; any other line is an element,
   identified by its first letter in either case.
 - Lines after `.END` are read like any other. Unknown directives are
-  ignored without a message; an unknown element letter gives the warning
-  `Unknown device type`.
+  ignored without a message. An element of a letter not in the table
+  below (such as `J`) is a parse error, `Unknown element letter`, also in
+  a subcircuit body.
 - Line numbers in messages count the lines that remain after these steps,
   not the lines of the file. An error in `.INCLUDE`, `.LIB` or `.IF`
   itself gives the line number of the text at that step.

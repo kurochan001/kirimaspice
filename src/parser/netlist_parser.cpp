@@ -5859,6 +5859,19 @@ static void parse_subcircuit_instance_device(const std::vector<std::string>& tok
                  instance_name, subcircuit_type, connected_nodes.size(), instance_params.size());
 }
 
+// The letters of the elements the program simulates; an element of another
+// letter is not dropped, since the circuit would then be another one
+static bool is_element_letter(char letter) {
+    return std::string_view("BCDEFGHIKLMOQRSTVXYZ").find(letter) != std::string_view::npos;
+}
+
+static ParseError unknown_element_letter(char letter, const std::string& name, std::size_t line) {
+    return ParseError(fmt::format("Unknown element letter '{}' in '{}'; the elements are "
+                                  "B C D E F G H I K L M O Q R S T V X Y Z",
+                                  letter, name),
+                      line);
+}
+
 // Parse an element line of the given type letter and name: the type is the
 // first letter of the name on a line of the top level, and that of the
 // element as written in a subcircuit body, whose name is then X1.R1
@@ -5866,6 +5879,9 @@ static void parse_subcircuit_instance_device(const std::vector<std::string>& tok
 static void parse_element(const std::vector<std::string>& tokens, char dev_type,
                           const std::string& dev_name, const std::string& line,
                           ParseState& state) {
+    if (!is_element_letter(dev_type)) {
+        throw unknown_element_letter(dev_type, dev_name, state.line_number);
+    }
     try {
         switch (dev_type) {
             case 'R': parse_resistor_device(tokens, dev_name, state); break;
@@ -5889,8 +5905,7 @@ static void parse_element(const std::vector<std::string>& tokens, char dev_type,
             case 'O': parse_tline_lumped_device(tokens, dev_name, state); break;
             case 'X': parse_subcircuit_instance_device(tokens, dev_name, state); break;
             default:
-                spdlog::warn("Unknown device type: {}", dev_type);
-                break;
+                break;  // rejected above
         }
     } catch (const UnresolvedDefinition& e) {
         if (!state.resolving_deferred) {
@@ -6080,8 +6095,7 @@ static std::vector<std::string> rename_body_line(
             break;
         }
         default:
-            throw ParseError(fmt::format("Unknown element '{}' in a subcircuit", tokens[0]),
-                             line_number);
+            throw unknown_element_letter(type, tokens[0], line_number);
     }
     tokens[0] = prefix + tokens[0];
     return tokens;
