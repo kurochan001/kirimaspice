@@ -212,3 +212,20 @@ TEST(ParserUnknownInput, UnusedElementLineNamesOfBsim4AreNamed) {
     EXPECT_EQ(count(bsim4, "M1: 'bar' is not used"), 1u) << bsim4;
     EXPECT_EQ(count(bsim4, "' is not used"), 2u) << bsim4;
 }
+
+TEST(ParserUnknownInput, UnusedElementLineNamesOfEveryMosfetLevelAreNamed) {
+    // Levels 3, 8/49 and 9 take W and L from the element line, level 12
+    // (FinFET) L only: the other tokens, M= and AD= among them, are not used
+    // and are named, as for level 1 and BSIM4
+    for (const char* level : {"3", "8", "9"}) {
+        const std::string warnings = parse_warnings(std::string("t\nVD d 0 1\nM1 d d 0 0 NX W=2u L=1u AD=1p M=2\n") +
+                                                    ".model NX NMOS LEVEL=" + level + "\n.end\n");
+        EXPECT_EQ(count(warnings, "M1: 'AD=1p' is not used"), 1u) << level << "\n" << warnings;
+        EXPECT_EQ(count(warnings, "M1: 'M=2' is not used"), 1u) << level << "\n" << warnings;
+        EXPECT_EQ(count(warnings, "W=2u"), 0u) << level << "\n" << warnings;
+    }
+    const std::string finfet =
+        parse_warnings("t\nVD d 0 1\nM1 d d 0 0 NX W=2u L=30n\n.model NX NMOS LEVEL=12\n.end\n");
+    EXPECT_EQ(count(finfet, "M1: 'W=2u' is not used"), 1u) << finfet;
+    EXPECT_EQ(count(finfet, "L=30n"), 0u) << finfet;
+}

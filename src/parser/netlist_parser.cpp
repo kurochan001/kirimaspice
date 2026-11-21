@@ -5404,7 +5404,20 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         }
     }
 
+    // The tokens of the element line that a level does not take are not used,
+    // and each is named in a warning (as for the diode and the BJT)
+    auto warn_unread_tokens = [&](const std::set<std::string>& taken) {
+        for (size_t i = param_start_idx; i < tokens.size(); ++i) {
+            std::string key = tokens[i].substr(0, tokens[i].find('='));
+            std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+            if (tokens[i].find('=') == std::string::npos || !taken.count(key)) {
+                spdlog::warn("Line {}: {}: '{}' is not used", state.line_number, dev_name, tokens[i]);
+            }
+        }
+    };
+
     if (mosfet_type == "LEVEL3_N" || mosfet_type == "LEVEL3_P") {
+        warn_unread_tokens({"w", "l"});
         // MOSFET Level 3 model: create MOSFETLevel3Params from model parameters
         const ModelDefinition* found_model = state.config->find_model(type_or_model);
         const ModelDefinition& model = *found_model;
@@ -5485,6 +5498,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
                          dev_name, drain, gate, source, bulk, level3_params.w, level3_params.l, level3_params.vto);
         }
     } else if (mosfet_type == "BSIM1_N" || mosfet_type == "BSIM1_P") {
+        warn_unread_tokens({"w", "l"});
         // BSIM1 model (Level 9): create MOSFETBsim1Params from model parameters
         const ModelDefinition* found_model = state.config->find_model(type_or_model);
         const ModelDefinition& model = *found_model;
@@ -5582,6 +5596,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
                          dev_name, drain, gate, source, bulk, bsim1_params.w, bsim1_params.l);
         }
     } else if (mosfet_type == "BSIM3_N" || mosfet_type == "BSIM3_P") {
+        warn_unread_tokens({"w", "l"});
         // BSIM3 model: create BSIM3Params from model parameters
         const ModelDefinition* found_model = state.config->find_model(type_or_model);
         const ModelDefinition& model = *found_model;
@@ -5820,6 +5835,7 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         set_parameters_by_name(*hemt, instance_params, "GaN HEMT " + dev_name);
         spdlog::debug("Added {}: {} D={} G={} S={}", mosfet_type, dev_name, drain, gate, source);
     } else if (mosfet_type == "FINFET_N" || mosfet_type == "FINFET_P") {
+        warn_unread_tokens({"l"});
         // FinFET (LEVEL=12): the device with its own defaults, then the
         // card's parameters and the gate length through
         // FinFET::set_parameter, so that the defaults are those of the
@@ -5868,15 +5884,8 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         spdlog::debug("Added {}: {} C={} G={} E={}", mosfet_type, dev_name, drain, gate, source);
     } else if (mosfet_type == "NMOS" || mosfet_type == "PMOS") {
         // The element line of level 1 gives KP, W, L, VTH and the noise
-        // parameters; other tokens are not used
-        static const std::set<std::string> kLine = {"kp", "w", "l", "vth", "kf", "af", "ef"};
-        for (size_t i = param_start_idx; i < tokens.size(); ++i) {
-            std::string key = tokens[i].substr(0, tokens[i].find('='));
-            std::transform(key.begin(), key.end(), key.begin(), ::tolower);
-            if (tokens[i].find('=') == std::string::npos || !kLine.count(key)) {
-                spdlog::warn("Line {}: {}: '{}' is not used", state.line_number, dev_name, tokens[i]);
-            }
-        }
+        // parameters
+        warn_unread_tokens({"kp", "w", "l", "vth", "kf", "af", "ef"});
         // A level-1 card has no overlap capacitances (CGSO, CGDO, CGBO = 0)
         if (mosfet_type == "NMOS") {
             state.circuit->add_mosfet_n(dev_name, drain, gate, source, kp, w, l, vth, 0.0, 0.0, 0.0,
