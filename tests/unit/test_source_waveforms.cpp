@@ -182,9 +182,10 @@ TEST(SourceWaveforms, ArgumentSyntax) {
 
 TEST(SourceWaveforms, MalformedWaveformsAreErrors) {
     // SIN(0 1) and SFFM(0 1 1k 2) take the defaults of .TRAN; one
-    // argument, or more than the waveform has, is still an error
+    // argument, or more than the waveform has (SFFM has eight), is still an
+    // error
     for (const char* line : {"V1 a 0 EXP(1 2 0)", "V1 a 0 PWL(0 1 1m)", "V1 a 0 PWL(1m 1 0 2)",
-                             "V1 a 0 SIN(0)", "V1 a 0 PULSE(0 1 0", "V1 a 0 SFFM(0 1 1k 2 1k 9)",
+                             "V1 a 0 SIN(0)", "V1 a 0 PULSE(0 1 0", "V1 a 0 SFFM(0 1 1k 2 1k 0 0 0 9)",
                              "V1 a 0 1 2"}) {
         EXPECT_THROW(parse(std::string("bad\n") + line + "\nR1 a 0 1k\n.end\n"),
                      parser::ParseError)
@@ -208,7 +209,8 @@ TEST(SourceWaveforms, DcSweepRestoresTheSourceSetting) {
 
 // The arguments SPICE defaults from .TRAN: PULSE's TD 0, TR and TF TSTEP,
 // PW and PER TSTOP; SIN's FREQ 1/TSTOP; EXP's TD1, TAU1 and TAU2 TSTEP and
-// TD2 TD1 + TSTEP; SFFM's FC and FS 1/TSTOP. ngspice-47 gives these
+// TD2 TD1 + TSTEP; SFFM's FC 5/TSTOP (Sffm has its other defaults).
+// ngspice-47 gives these
 // waveforms for PULSE, SIN and EXP (run 2026-11-21). A source before the
 // .TRAN line takes them as well. Before, the arguments had to be given.
 TEST(SourceWaveforms, OmittedArgumentsTakeTheDefaultsOfTran) {
@@ -237,8 +239,9 @@ TEST(SourceWaveforms, OmittedArgumentsTakeTheDefaultsOfTran) {
     // TD1 = TAU1 = TAU2 = TSTEP, TD2 = 2 TSTEP
     EXPECT_NEAR(value_at("EXP(0 1)", ".tran 0.1u 2u", 0.4e-6), std::exp(-2.0) - std::exp(-3.0), 1e-9);
     EXPECT_NEAR(value_at("EXP(0 1)", ".tran 0.1u 2u", 0.1e-6), 0.0, 1e-12);
-    // FC = 1/TSTOP, MDI = 0
-    EXPECT_NEAR(value_at("SFFM(0 1)", ".tran 1u 1m", 0.25e-3), 1.0, 1e-9);
+    // FC = 5/TSTOP: the peak at TSTOP/20 (the modulation, FS = 500/TSTOP,
+    // is 0 on the points of 1 us)
+    EXPECT_NEAR(value_at("SFFM(0 1)", ".tran 1u 1m", 0.05e-3), 1.0, 1e-9);
     // The .TRAN line after the source: the line waits for the end of the
     // netlist, and takes the same FREQ
     auto parsed = parse("after\nV1 a 0 SIN(0 1)\nR1 a 0 1k\n.tran 1u 1m\n.end\n");
