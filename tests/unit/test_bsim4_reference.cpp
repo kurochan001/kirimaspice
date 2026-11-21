@@ -560,3 +560,39 @@ TEST(BSIM4AgainstNgspice, ResistanceBodyBiasCoefficient) {
         EXPECT_NEAR(row.gmb, p.gmbs, std::max(1e-3 * p.gmbs, 1e-5 * p.gm)) << at;
     }
 }
+
+// Strong body bias: Vbseff follows Vbs down to VBSC and then levels off
+// (BSIM4 4.8.3 b4ld.c), where VBSC is 0.9 (phi - (K1 / (2 K2))^2) limited to
+// -30 V to -3 V for K2 < 0, and at most VBM (b4temp.c). K2 = -0.3 (with
+// K1 = 0.53, the default when only K2 is given) gives VBSC = -3 V; the
+// reference card gives about -6.7 V. ngspice-47, run 2026-11-21: `id gm gds
+// gmbs` of m1 for the reference card with <extra>, L = 0.18 um, W = 1 um.
+TEST(BSIM4AgainstNgspice, StrongBodyBias) {
+    struct Point {
+        const char* extra;
+        Real vgs, vds, vbs;
+        Real id, gm, gds, gmbs;
+    };
+    const Point points[] = {
+        {"k2=-0.3", 1.0, 1.0, -1.0, 1.503119e-04, 5.796334e-04, 3.663403e-05, -7.845208e-05},
+        {"k2=-0.3", 1.0, 1.0, -3.0, 3.732647e-04, 6.935759e-04, 8.200463e-05, -7.217976e-05},
+        {"k2=-0.3", 1.0, 1.0, -5.0, 3.809922e-04, 6.958078e-04, 8.357128e-05, -1.100030e-07},
+        {"k2=-0.3", 1.8, 1.8, -5.0, 1.071010e-03, 8.101868e-04, 1.108232e-04, -1.381891e-07},
+        {"k2=-0.3", 0.6, 1.0, -3.0, 1.106824e-04, 5.977090e-04, 3.141091e-05, -5.790727e-05},
+        {"", 1.0, 1.0, -5.0, 4.737332e-05, 4.382350e-04, 1.864956e-05, -2.670049e-06},
+        {"", 1.8, 1.8, -5.0, 5.990866e-04, 7.428428e-04, 7.508538e-05, -8.650276e-06},
+    };
+    for (const auto& p : points) {
+        const std::string card =
+            std::string(".model nch nmos level=14 version=4.8.1 toxe=3e-9 vth0=0.5 u0=0.067 "
+                        "vsat=8e4 ") + p.extra + "\n";
+        const DrainRow row =
+            drain_row_of_m1("M1 d g s b nch L=0.18u W=1u", card, p.vds, p.vgs, 0.0, p.vbs);
+        const std::string at = std::string(p.extra) + " VGS=" + std::to_string(p.vgs) +
+                               " VDS=" + std::to_string(p.vds) + " VBS=" + std::to_string(p.vbs);
+        EXPECT_NEAR(row.ids, p.id, 2e-4 * p.id) << at;
+        EXPECT_NEAR(row.gm, p.gm, 1e-3 * p.gm) << at;
+        EXPECT_NEAR(row.gds, p.gds, 1e-3 * p.gds) << at;
+        EXPECT_NEAR(row.gmb, p.gmbs, std::max(1e-3 * std::abs(p.gmbs), 1e-5 * p.gm)) << at;
+    }
+}

@@ -23,6 +23,7 @@
 
 #include "kirimaspice/devices/mosfet_bsim4_params.hpp"
 #include "kirimaspice/core/constants.hpp"
+#include <algorithm>
 #include <cmath>
 #include <spdlog/spdlog.h>
 
@@ -174,6 +175,19 @@ void BSIM4Params::compute_derived_params(Real temp) {
         k2 = t0 * t1 / (2.0 * t2 + vbm_eff);
         k1 = g2 - 2.0 * k2 * std::sqrt(phi - vbm_eff);
     }
+
+    // VBSC, the body bias below which Vbseff no longer follows Vbs (BSIM4
+    // 4.8.3 b4temp.c): where K2 < 0, 0.9 (phi - (K1 / (2 K2))^2) limited to
+    // -30 V to -3 V, else -30 V, and at most VBM (taken as negative when K1
+    // and K2 follow from the doping, as above)
+    if (k2 < 0.0) {
+        const Real t0 = 0.5 * k1 / k2;
+        vbsc = std::clamp(0.9 * (phi - t0 * t0), -30.0, -3.0);
+    } else {
+        vbsc = -30.0;
+    }
+    const Real vbm_limit = (!k1_given && !k2_given && vbm > 0.0) ? -vbm : vbm;
+    vbsc = std::min(vbsc, vbm_limit);
 
     // Calculate k1ox (oxide-thickness corrected body-effect coefficient)
     // From ngspice b4temp.c line 1516-1517:
