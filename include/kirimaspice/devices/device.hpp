@@ -3,6 +3,7 @@
 
 // include/kirimaspice/devices/device.hpp
 #pragma once
+#include <limits>
 #include "kirimaspice/core/types.hpp"
 #include "kirimaspice/core/matrix_types.hpp"
 #include <vector>
@@ -124,6 +125,12 @@ public:
     virtual void accept_operating_point(const DenseVector& node_voltages) {
         accept_solution(node_voltages);
     }
+
+    /// The longest time step the device's transient model allows: a
+    /// transmission line reads its delayed waves from the accepted points,
+    /// so a step longer than its delay TD would delay by the step instead,
+    /// and SPICE limits the step to TD. The transient takes no longer step.
+    virtual Real max_time_step() const { return std::numeric_limits<Real>::infinity(); }
 
     /// Get charge/flux (for error estimation, dynamic elements only)
     virtual Real get_charge() const { return 0.0; }

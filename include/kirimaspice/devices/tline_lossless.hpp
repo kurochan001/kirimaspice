@@ -31,6 +31,9 @@ namespace kirimaspice::devices {
 /// History buffer: Stores (time, V_A, V_B, I_A, I_B) for delayed signal retrieval
 class TLineLossless : public Device {
 public:
+    /// The delay TD: the step is no longer than it (Device::max_time_step)
+    Real max_time_step() const override { return td_; }
+
     TLineLossless(DeviceId id, const std::string& name,
                   NodeId ap, NodeId an, NodeId bp, NodeId bn,
                   Real z0, Real td);

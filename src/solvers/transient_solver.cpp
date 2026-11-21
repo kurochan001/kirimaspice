@@ -135,6 +135,20 @@ TransientResult TransientSolver::solve(Real t_start, Real t_stop, Real timestep)
         ~OutsideTransientOnExit() { solver.set_device_time(std::nullopt); }
     } outside_on_exit{*this};
 
+    // No step longer than a device's model allows (Device::max_time_step:
+    // the delay of a transmission line), as SPICE limits the step to the
+    // shortest line delay
+    for (const auto& device : circuit_.get_devices()) {
+        const Real limit = device->max_time_step();
+        if (limit > 0.0 && limit < timestep) {
+            spdlog::info("The step is limited to {:g} s by {}", limit, device->name());
+            timestep = limit;
+        }
+        if (limit > 0.0 && limit < config_.transient.max_step) {
+            config_.transient.max_step = limit;
+        }
+    }
+
     spdlog::info("Starting transient analysis: t=[{}, {}], dt={}",
                  t_start, t_stop, timestep);
 

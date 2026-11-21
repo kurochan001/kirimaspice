@@ -16,6 +16,9 @@ namespace kirimaspice::devices {
 /// approximation (KNOWN_ISSUES).
 class TLineLossy : public Device {
 public:
+    /// The delay TD: the step is no longer than it (Device::max_time_step)
+    Real max_time_step() const override { return td_; }
+
     TLineLossy(DeviceId id, const std::string& name,
                NodeId ap, NodeId an, NodeId bp, NodeId bn,
                Real r_per_m, Real l_per_m, Real c_per_m, Real g_per_m,
