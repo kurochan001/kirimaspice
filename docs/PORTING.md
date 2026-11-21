@@ -87,8 +87,6 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
   that is not a number too (`.param r = 2*1k` is an error).
 - [ ] **Nothing but letters after a number.** ngspice-47 reads `1k5` as 1k
   and `1.5.3k` as 1.5; here they are errors.
-- [ ] **`.IC` and `.NODESET` with an upper-case `V(`.** `v(out)=1` is
-  skipped with a warning.
 
 ### Sources
 

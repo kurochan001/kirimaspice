@@ -120,8 +120,6 @@ document also lists differences not decided there.
   Which default ngspice-47 takes is not confirmed: its BSIM1 (its
   `LEVEL` 4) gives `nan` for a card without parameters (run on
   2026-11-21). Levels 3, 8/49 and 14/54 take ngspice-47's.
-- **`.IC` and `.NODESET` need an upper-case `V(`;** `v(out)=1` is skipped
-  with a warning.
 - **Waveform arguments that SPICE defaults from `.TRAN` must be given:**
   `PULSE` takes all seven, `SIN` at least `VO VA FREQ`, `EXP` all six,
   `SFFM` at least `VO VA FC` (read in the code). An `SFFM` source without
@@ -159,7 +157,6 @@ document also lists differences not decided there.
   `.WCASE`, `.OPTIMIZE`, `.PRINT DC` and `.PRINT AC` are read but not run,
   each named in a warning; `.PRINT TRAN` is printed.** `.NOISE`,
   `.MEASURE`, `.TITLE` and unknown directives are ignored with a warning.
-- **Lines after `.END` are read.**
 - **Empty lines before the title are skipped: the first line that is not
   empty is the title.** ngspice-47 takes the first line as the title even
   when it is empty, so a netlist that starts with an empty line loses its

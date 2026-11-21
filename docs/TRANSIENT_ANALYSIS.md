@@ -212,8 +212,7 @@ first-step current or convergence trouble.
 
 There are important input limits:
 
-- Write upper-case `V(` in `.IC` and `.NODESET`, and keep node spelling
-  consistent. A ground-node initial voltage is ignored.
+- Keep node spelling consistent in `.IC` and `.NODESET` (`V(` or `v(`). A ground-node initial voltage is ignored.
 - An inductor without `IC=` starts with no current under `UIC`.
 - `IC=` on a capacitor or inductor line gives that element's voltage or
   current at the start under `UIC`, after the node voltages of `.IC`; it

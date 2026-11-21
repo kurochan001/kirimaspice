@@ -2749,7 +2749,7 @@ static void parse_ic_directive(const std::vector<std::string>& tokens, ParseStat
         std::string value_str = ic_spec.substr(eq_pos + 1);  // "value"
 
         // Extract node name from V(node)
-        if (node_spec.size() < 3 || node_spec[0] != 'V' || node_spec[1] != '(') {
+        if (node_spec.size() < 3 || std::toupper(static_cast<unsigned char>(node_spec[0])) != 'V' || node_spec[1] != '(') {
             spdlog::warn("Invalid .IC node specification (expected V(node)): {}", node_spec);
             continue;
         }
@@ -2789,7 +2789,7 @@ static void parse_nodeset_directive(const std::vector<std::string>& tokens, Pars
         std::string value_str = nodeset_spec.substr(eq_pos + 1);  // "value"
 
         // Extract node name from V(node)
-        if (node_spec.size() < 3 || node_spec[0] != 'V' || node_spec[1] != '(') {
+        if (node_spec.size() < 3 || std::toupper(static_cast<unsigned char>(node_spec[0])) != 'V' || node_spec[1] != '(') {
             spdlog::warn("Invalid .NODESET node specification (expected V(node)): {}", node_spec);
             continue;
         }

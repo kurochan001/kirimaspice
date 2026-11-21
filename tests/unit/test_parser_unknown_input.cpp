@@ -249,3 +249,17 @@ TEST(ParserUnknownInput, Bsim4MobilityModelNotComputedIsNamed) {
         EXPECT_EQ(count(warnings, "is not computed"), 0u) << warnings;
     }
 }
+
+TEST(ParserUnknownInput, InitialConditionsTakeVInEitherCase) {
+    // SPICE reads node names and V( in any case: `.ic v(a)=1` and
+    // `.nodeset v(b)=2` set them, as `V(` does; they were skipped with a
+    // warning before
+    SimulationConfig config;
+    const std::string warnings = parse_warnings(
+        "t\nR1 a 0 1k\nR2 b 0 1k\n.ic v(a)=1\n.nodeset v(b)=2\n.end\n", &config);
+    EXPECT_EQ(count(warnings, "expected V(node)"), 0u) << warnings;
+    ASSERT_EQ(config.ic.count("a"), 1u);
+    EXPECT_DOUBLE_EQ(config.ic.at("a"), 1.0);
+    ASSERT_EQ(config.nodeset.count("b"), 1u);
+    EXPECT_DOUBLE_EQ(config.nodeset.at("b"), 2.0);
+}

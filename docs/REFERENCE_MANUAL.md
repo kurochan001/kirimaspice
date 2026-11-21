@@ -122,7 +122,8 @@ alike.
   on it ends at the end of its own line.
 - A line that starts with `.` is a directive; any other line is an element,
   identified by its first letter in either case.
-- Lines after `.END` are read like any other. A directive the parser does
+- Lines after `.END` are read like any other, as ngspice-47 reads them,
+  and so is an `.END` in an included file (run on 2026-11-21). A directive the parser does
   not read is ignored and named in one warning (`unknown directive`, or
   `is not supported` for `.NOISE`, `.MEASURE` and `.TITLE`), and the
   program names once each directive it reads but does not run
@@ -450,7 +451,7 @@ parser stores it, but the program does not use it (the library can).
 | `.INCLUDE`, `.INC` | `.INCLUDE <file>` | used; relative to the directory of the file that includes it |
 | `.LIB` / `.ENDL` | `.LIB <file> [<section>]` | used; without a section, the whole file |
 | `.IF` / `.ELIF` / `.ELSE` / `.ENDIF` | `.IF (<expr>)` or `.IF(<expr>)`; `.ELSEIF` for `.ELIF` | used, but `.PARAM` values are not visible; an expression that cannot be evaluated keeps all branches; ngspice-47 has `.ELSEIF` and not `.ELIF` |
-| `.END` | `.END` | ignored; lines after it are read |
+| `.END` | `.END` | ignored; lines after it are read, as in ngspice-47 |
 | `.PRINT`, `.SAVE` | `.PRINT DC\|TRAN\|AC <signals>`, `.SAVE <signals>` | `.PRINT TRAN` used: its signals are the transient's table on standard output; `.PRINT DC`, `.PRINT AC` and `.SAVE` read only, named in a warning |
 | `.FOUR` | `.FOUR <frequency> <signal> ...`, each `v(<node>)` or `i(<source>)` | used with `.TRAN`: prints the harmonics and the THD of the last period of each signal after the transient; the phase of each harmonic is that of a sine from the start of that period, as ngspice-47 prints it |
 | `.STEP`, `.SENS`, `.MC`, `.TF`, `.PZ`, `.DISTO`, `.PORT`, `.WCASE`, `.OPTIMIZE` | | read only; named in a warning |
