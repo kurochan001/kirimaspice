@@ -115,9 +115,6 @@ private:
     /// @return Solution vector x
     DenseVector solve_linear_system(MNASystem& system);
 
-    /// Add small conductance (Gmin) from every node to ground in AC admittance matrix
-    void add_ac_gmin(ComplexMNASystem& system) const;
-
     // ========================================================================
     // Member variables
     // ========================================================================

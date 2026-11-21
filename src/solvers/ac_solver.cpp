@@ -291,8 +291,8 @@ ComplexDenseVector ACSolver::solve_at_frequency(Real omega) {
         device->stamp_ac(*complex_system, omega, dc_solution_);
     }
 
-    // Add small conductance to ground for each node (prevents floating singularities)
-    add_ac_gmin(*complex_system);
+    // No conductance is added from the nodes to ground: as in SPICE and in
+    // the operating point, a device's GMIN is the device's own
 
     spdlog::trace("Built complex MNA system: size={}, nnz={}",
                  complex_system->size(), complex_system->Y.nnz());
@@ -436,23 +436,5 @@ DenseVector ACSolver::solve_linear_system(MNASystem& system) {
     return x;
 }
 
-void ACSolver::add_ac_gmin(ComplexMNASystem& system) const {
-    Real gmin = config_.gmin;
-    if (gmin <= 0.0) {
-        return;
-    }
-
-    std::uint32_t num_nodes = system.num_nodes;
-    if (num_nodes == 0) {
-        return;
-    }
-
-    Complex gmin_complex(gmin, 0.0);
-    for (std::uint32_t i = 0; i < num_nodes; ++i) {
-        system.Y.add_entry(i, i, gmin_complex);
-    }
-
-    spdlog::trace("AC Gmin added to {} nodes ({} S)", num_nodes, gmin);
-}
 
 } // namespace kirimaspice::solvers

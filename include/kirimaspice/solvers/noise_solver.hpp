@@ -126,12 +126,6 @@ private:
     std::uint32_t count_branch_devices() const;
 
     /**
-     * @brief Add Gmin to diagonal for numerical stability
-     * @param system Complex MNA system
-     */
-    void add_gmin(ComplexMNASystem& system) const;
-
-    /**
      * @brief Solve adjoint system Y^H × Λ = rhs
      * @param Y Admittance matrix
      * @param rhs Right-hand side vector (e_out)

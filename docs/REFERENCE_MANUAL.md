@@ -507,7 +507,7 @@ or unknown option gives a warning and is ignored.
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `TEMP` | 27 | temperature in °C at which every analysis evaluates the devices, also without `.TEMP` |
-| `GMIN` | 1e-12 | minimum conductance (S); AC adds it from every node to ground ([known issues](../KNOWN_ISSUES.md#analyses)) |
+| `GMIN` | 1e-12 | minimum conductance (S): the least shunt of dynamic gmin, a convergence aid of the operating point; no analysis adds it from the nodes to ground |
 | `ABSTOL` | 1e-12 | absolute current tolerance (DC and transient) |
 | `RELTOL` | 1e-3 | relative tolerance (DC and transient) |
 | `VNTOL` | 1e-6 | voltage tolerance (DC and transient) |

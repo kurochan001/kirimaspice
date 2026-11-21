@@ -82,10 +82,10 @@ NoiseResult NoiseSolver::solve(NodeId input_node, NodeId output_node) {
         system.resize(num_nodes, num_branches);
         system.zero();
 
+        // The AC analysis's matrix: no conductance from the nodes to ground
         for (const auto& device : circuit_.get_devices()) {
             device->stamp_ac(system, omega, dc_solution_);
         }
-        add_gmin(system);
 
         // Solve adjoint system: Y^H × Λ = e_out
         // e_out has 1 at output node, 0 elsewhere
@@ -239,18 +239,6 @@ std::uint32_t NoiseSolver::count_branch_devices() const {
     // One branch current variable per device to which CircuitGraph gave a
     // branch id: voltage sources, VCVS, CCVS and voltage-mode B sources.
     return static_cast<std::uint32_t>(circuit_.get_voltage_sources().size());
-}
-
-void NoiseSolver::add_gmin(ComplexMNASystem& system) const {
-    Real gmin = config_.gmin;
-    if (gmin <= 0.0) {
-        return;
-    }
-
-    Complex gmin_complex(gmin, 0.0);
-    for (std::uint32_t i = 0; i < system.num_nodes; ++i) {
-        system.Y.add_entry(i, i, gmin_complex);
-    }
 }
 
 ComplexDenseVector NoiseSolver::solve_adjoint_system(const ComplexSparseMatrix& Y,

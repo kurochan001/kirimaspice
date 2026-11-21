@@ -217,10 +217,6 @@ says otherwise.
   points, took 2.1 s; ngspice-47 with `tmax` 1 ns, 10 024 points, took
   0.36 to 0.40 s (macOS arm64, 2026-11-21). The cause is not
   investigated.
-- **AC and noise add `GMIN` from every node to ground; DC does not.**
-  `I1 0 a DC 1m AC 1m` and `R1 a 0 1k` with `.options gmin=1e-4` give
-  1 V in the operating point and 0.909091 V in AC; ngspice-47 gives 1 V
-  in both (both run on 2026-11-21, this program at `21bb991`).
 - **Of the devices, only the diode (since `36d8f96`) and the bipolar
   transistor carry a GMIN across their junctions.** The level-1 and
   level-3 MOSFETs, BSIM3, the SiC MOSFET, the VDMOS and the JFET stamp
