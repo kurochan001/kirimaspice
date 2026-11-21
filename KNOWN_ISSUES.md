@@ -369,13 +369,6 @@ says otherwise.
   steps of 0.1 ns and R = 5 Ω/m the far end is 0.37 V 0.2 ns after the
   edge arrives, where LTRA gives 0.45 V, and 0.02 ns steps agree (run on
   2026-11-21). Each section's delay TD/M bounds the step.
-- **Three or more inductors coupled to each other are coupled pair by
-  pair.** Each `K` adds what the inverse of its own 2 × 2 inductance matrix
-  adds to the two inductors (`MutualInductance::inverse_inductance`), in AC
-  and in the transient. That is exact for one pair, not for three inductors
-  that `K` lines couple among themselves: for three of 1 H with k = 0.5
-  between each two, the diagonal of the inverse of the 3 × 3 matrix is 3/2,
-  and the pairs add up to 5/3 (computed in exact fractions).
 - KLU is the only working linear solver. The SuperLU_DIST backend of the
   library is a placeholder, and the program has no option to choose it.
 

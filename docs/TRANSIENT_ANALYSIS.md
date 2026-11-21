@@ -571,7 +571,7 @@ request; each device determines its actual discretization.
 | Device/path | Relevant transient behaviour or limitation |
 | --- | --- |
 | Discrete `C`, `L` | Dedicated BE, trapezoidal, BDF2, BDF3 and TR-BDF2 companions |
-| Mutual inductance | Accepted after inductors; networks with more than two coupled inductors use pairwise corrections rather than a full coupled inverse; `k = 1` keeps the magnetizing inductance |
+| Mutual inductance | Accepted after inductors; inductors that two or more `K` lines couple among themselves take the inverse of their whole inductance matrix (`MutualInductance::CoupledGroup`); a single pair at `k = 1` keeps the magnetizing inductance |
 | Diode | A card sets `CJO`, `VJ`, `M` and `TT`, so the capacitance (junction and diffusion) depends on the voltage; the shared capacitor helper integrates it for every method |
 | BJT | Integrates differential capacitances rather than junction charge, through the shared helper for every method; a cross derivative is missing |
 | Level-1 MOSFET | No capacitance from a netlist (the parser names `CGSO`, `CGDO` and `CGBO` as not used); overlap capacitors set through the API use BE regardless of the requested method |

@@ -197,7 +197,7 @@ are the same element, and a second is an error.
 | Resistor | `R<name> <n+> <n-> <value> [TC1=<v>] [TC2=<v>]` | R(T) = R (1 + TC1 (T − TNOM) + TC2 (T − TNOM)²), TNOM 27 °C, as in SPICE; other tokens are named in a warning and not used |
 | Capacitor | `C<name> <n+> <n-> <value> [IC=<V>]` | `IC=`: the voltage from `<n+>` to `<n->` at the start of a transient under `UIC`, not used without it; other tokens are named in a warning and not used |
 | Inductor | `L<name> <n+> <n-> <value> [IC=<A>]` | `IC=`: the current from `<n+>` through the inductor to `<n->` at the start of a transient under `UIC`, not used without it; other tokens are named in a warning and not used |
-| Mutual inductance | `K<name> <L1> <L2> <k>` | `<L1>`, `<L2>` are inductor names; `<k>` outside 0 to 1 is an error |
+| Mutual inductance | `K<name> <L1> <L2> <k>` | `<L1>`, `<L2>` are inductor names; `<k>` outside 0 to 1 is an error; inductors that several `K` lines couple among themselves take the inverse of their whole inductance matrix, as in ngspice-47 |
 | Voltage source | `V<name> <n+> <n-> [[DC] <value>] [AC [<mag> [<phase>]]] [<waveform>]` | see below |
 | Current source | `I<name> <n+> <n-> [[DC] <value>] [AC [<mag> [<phase>]]] [<waveform>]` | see below |
 | VCVS | `E<name> <n+> <n-> <nc+> <nc-> <gain>` |

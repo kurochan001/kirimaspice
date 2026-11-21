@@ -1999,6 +1999,60 @@ void CircuitGraph::resolve_mutual_inductance_references() {
         }
     }
 
+    // Inductors that two or more K lines couple among themselves form one
+    // group, whose inductance matrix is inverted as a whole
+    // (MutualInductance::CoupledGroup): the inductors joined by K lines,
+    // found by union-find, in the order the K lines name them
+    std::vector<std::shared_ptr<devices::MutualInductance>> mutuals;
+    for (auto& device : devices_) {
+        if (device->type() == DeviceType::MUTUAL_INDUCTANCE) {
+            mutuals.push_back(std::dynamic_pointer_cast<devices::MutualInductance>(device));
+        }
+    }
+    std::vector<const devices::Device*> inductors;
+    std::map<const devices::Device*, std::size_t> index_of;
+    auto index = [&](const devices::Device* d) {
+        auto [it, inserted] = index_of.try_emplace(d, inductors.size());
+        if (inserted) inductors.push_back(d);
+        return it->second;
+    };
+    std::vector<std::pair<std::size_t, std::size_t>> pairs;
+    for (const auto& k : mutuals) {
+        pairs.emplace_back(index(get_device(k->inductor1_name()).get()),
+                           index(get_device(k->inductor2_name()).get()));
+    }
+    std::vector<std::size_t> parent(inductors.size());
+    for (std::size_t i = 0; i < parent.size(); ++i) parent[i] = i;
+    std::function<std::size_t(std::size_t)> find = [&](std::size_t i) {
+        return parent[i] == i ? i : (parent[i] = find(parent[i]));
+    };
+    for (const auto& [a, b] : pairs) parent[find(a)] = find(b);
+    std::map<std::size_t, std::vector<std::size_t>> k_of_root;
+    for (std::size_t m = 0; m < mutuals.size(); ++m) k_of_root[find(pairs[m].first)].push_back(m);
+    for (const auto& [root, ks] : k_of_root) {
+        if (ks.size() < 2) {
+            mutuals[ks.front()]->clear_group();  // a pair keeps its own stamps
+            continue;
+        }
+        auto group = std::make_shared<devices::MutualInductance::CoupledGroup>();
+        std::map<std::size_t, std::size_t> local;
+        auto local_index = [&](std::size_t global) {
+            auto [it, inserted] = local.try_emplace(global, group->inductors.size());
+            if (inserted) group->inductors.push_back(inductors[global]);
+            return it->second;
+        };
+        for (const std::size_t m : ks) {
+            const std::size_t i = local_index(pairs[m].first);
+            const std::size_t j = local_index(pairs[m].second);
+            group->couplings.push_back({i, j, mutuals[m].get()});
+        }
+        for (std::size_t n = 0; n < ks.size(); ++n) {
+            mutuals[ks[n]]->set_group(group, n == 0);
+        }
+        spdlog::debug("Coupled inductors: {} K lines couple {} inductors, stamped by {}", ks.size(),
+                      group->inductors.size(), mutuals[ks.front()]->name());
+    }
+
     spdlog::debug("Resolved all mutual inductance references");
 }
 

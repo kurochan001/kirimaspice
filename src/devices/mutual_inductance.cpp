@@ -160,6 +160,78 @@ void MutualInductance::stamp_transient(MNASystem& mna,
             break;
     }
 
+    // A group of inductors that K lines couple among themselves: its lead
+    // stamps the companion of the group's whole inductance matrix, as below
+    // for a pair, and its other K lines nothing (CoupledGroup)
+    if (group_) {
+        if (!lead_) {
+            stamped_ = false;
+            return;
+        }
+        const auto& inductors = group_->inductors;
+        const std::size_t n = inductors.size();
+        const auto gamma = group_->inverse();
+        const Real scale = beta0 / alpha0;
+        const Real coeff1 = -alpha1 / alpha0, coeff2 = -alpha2 / alpha0, coeff3 = -alpha3 / alpha0;
+        const bool trapezoidal_like =
+            method == IntegrationMethod::TRAPEZOIDAL ||
+            (method == IntegrationMethod::TR_BDF2 && tr_bdf2_coef && tr_bdf2_coef->stage == 1);
+        const bool second_stage = method == IntegrationMethod::TR_BDF2 && tr_bdf2_coef &&
+                                  tr_bdf2_coef->stage == 2;
+        auto idx = [](NodeId node) { return (node == NODE_GND) ? -1 : static_cast<int>(node - 1); };
+        std::vector<const Inductor*> ind(n);
+        std::vector<int> np(n), nn(n);
+        std::vector<Real> v_prev(n), base(n);
+        for (std::size_t i = 0; i < n; ++i) {
+            ind[i] = static_cast<const Inductor*>(inductors[i]);
+            np[i] = idx(ind[i]->np());
+            nn[i] = idx(ind[i]->nn());
+            v_prev[i] = ind[i]->voltage_prev();
+            // The history each inductor stamps of its own (Inductor::
+            // stamp_transient); TR-BDF2's second stage takes I(t + gamma h)
+            // and I(t)
+            const Real i1 = second_stage ? ind[i]->current_gamma() : ind[i]->current_prev();
+            const Real i2 = second_stage ? ind[i]->current_prev() : (need_hist2 ? ind[i]->current_prev2() : 0.0);
+            const Real i3 = need_hist3 ? ind[i]->current_prev3() : 0.0;
+            base[i] = coeff1 * i1 + coeff2 * i2 + coeff3 * i3;
+        }
+        group_g_.assign(n, std::vector<Real>(n, 0.0));
+        group_dg_.assign(n, std::vector<Real>(n, 0.0));
+        group_i_ = base;
+        group_di_.assign(n, 0.0);
+        for (std::size_t i = 0; i < n; ++i) {
+            const Real g_self = scale / ind[i]->inductance();
+            for (std::size_t j = 0; j < n; ++j) {
+                group_g_[i][j] = scale * gamma[i][j];
+                group_dg_[i][j] = group_g_[i][j] - ((i == j) ? g_self : 0.0);
+            }
+            if (trapezoidal_like) {
+                for (std::size_t j = 0; j < n; ++j) {
+                    group_i_[i] += group_g_[i][j] * v_prev[j];
+                }
+                group_di_[i] = group_i_[i] - (base[i] + g_self * v_prev[i]);
+            }
+        }
+        // The current dG_ij v_j from np_i to nn_i, and the history di_i
+        for (std::size_t i = 0; i < n; ++i) {
+            for (std::size_t j = 0; j < n; ++j) {
+                const Real g = group_dg_[i][j];
+                if (g == 0.0) continue;
+                if (np[i] >= 0 && np[j] >= 0) mna.G.add_entry(np[i], np[j], g);
+                if (np[i] >= 0 && nn[j] >= 0) mna.G.add_entry(np[i], nn[j], -g);
+                if (nn[i] >= 0 && np[j] >= 0) mna.G.add_entry(nn[i], np[j], -g);
+                if (nn[i] >= 0 && nn[j] >= 0) mna.G.add_entry(nn[i], nn[j], g);
+            }
+            if (np[i] >= 0) mna.b[static_cast<std::size_t>(np[i])] -= group_di_[i];
+            if (nn[i] >= 0) mna.b[static_cast<std::size_t>(nn[i])] += group_di_[i];
+        }
+        stamped_ = true;
+        stamped_dt_ = second_stage || (method == IntegrationMethod::TR_BDF2 && tr_bdf2_coef)
+                          ? tr_bdf2_coef->full_dt
+                          : timestep;
+        return;
+    }
+
     // Companion conductances derived from coupled inductance matrix
     // dI/dt ≈ (α₀ I_{n+1} + α₁ I_n + α₂ I_{n-1} + α₃ I_{n-2}) / β₀
     // I_{n+1} = (β₀/α₀) L^{-1} V_{n+1} - Σ (α_i/α₀) I_{n+1-i}
@@ -305,6 +377,36 @@ void MutualInductance::stamp_transient(MNASystem& mna,
 }
 
 Real MutualInductance::get_physical_lte(Real chgtol, const DenseVector& node_voltages) const {
+    auto node_voltage = [&](NodeId n) { return (n == NODE_GND) ? 0.0 : node_voltages[n]; };
+    if (group_) {
+        // The group's fluxes L I, predicted and from the stamped companion
+        if (!lead_ || !stamped_ || stamped_dt_ <= 0.0) {
+            return 0.0;
+        }
+        const std::size_t n = group_->inductors.size();
+        const auto lm = group_->inductance_matrix();
+        std::vector<Real> v(n), i_new(n, 0.0), i_old(n);
+        for (std::size_t i = 0; i < n; ++i) {
+            const auto* ind = static_cast<const Inductor*>(group_->inductors[i]);
+            v[i] = node_voltage(ind->np()) - node_voltage(ind->nn());
+            i_old[i] = ind->current_prev();
+        }
+        for (std::size_t i = 0; i < n; ++i) {
+            for (std::size_t j = 0; j < n; ++j) i_new[i] += group_g_[i][j] * v[j];
+            i_new[i] += group_i_[i];
+        }
+        Real worst = 0.0;
+        for (std::size_t i = 0; i < n; ++i) {
+            const auto* ind = static_cast<const Inductor*>(group_->inductors[i]);
+            Real pred = stamped_dt_ * ind->voltage_prev(), corr = 0.0;
+            for (std::size_t j = 0; j < n; ++j) {
+                pred += lm[i][j] * i_old[j];
+                corr += lm[i][j] * i_new[j];
+            }
+            worst = std::max(worst, Inductor::flux_lte(pred, corr, chgtol));
+        }
+        return worst;
+    }
     auto* ind1 = dynamic_cast<const Inductor*>(L1_);
     auto* ind2 = dynamic_cast<const Inductor*>(L2_);
     if (!ind1 || !ind2 || !stamped_ || stamped_dt_ <= 0.0) {
@@ -344,6 +446,23 @@ Real MutualInductance::get_physical_lte(Real chgtol, const DenseVector& node_vol
 // as get_physical_lte evaluates, for every method and stage.
 void MutualInductance::accept_solution(const DenseVector& node_voltages) {
     if (!L1_ || !L2_ || !stamped_) return;  // no step stamped (the start under UIC)
+    if (group_) {
+        // The lead adds to each inductor of the group the current it stamped
+        if (!lead_) return;
+        auto node_voltage = [&](NodeId n) { return (n == NODE_GND) ? 0.0 : node_voltages[n]; };
+        const std::size_t n = group_->inductors.size();
+        std::vector<Real> v(n);
+        for (std::size_t i = 0; i < n; ++i) {
+            const auto* ind = static_cast<const Inductor*>(group_->inductors[i]);
+            v[i] = node_voltage(ind->np()) - node_voltage(ind->nn());
+        }
+        for (std::size_t i = 0; i < n; ++i) {
+            Real delta = group_di_[i];
+            for (std::size_t j = 0; j < n; ++j) delta += group_dg_[i][j] * v[j];
+            const_cast<Inductor*>(static_cast<const Inductor*>(group_->inductors[i]))->add_current_delta(delta);
+        }
+        return;
+    }
     auto* ind1 = const_cast<Inductor*>(dynamic_cast<const Inductor*>(L1_));
     auto* ind2 = const_cast<Inductor*>(dynamic_cast<const Inductor*>(L2_));
     if (!ind1 || !ind2) return;
@@ -413,10 +532,31 @@ void MutualInductance::stamp_ac(ComplexMNASystem& sys,
             fmt::format("Mutual inductance {}: failed to cast inductors", name()));
     }
 
-    const InverseInductance inverse = inverse_inductance();
     const Complex factor = Complex(1.0, 0.0) / Complex(0.0, omega);
-
     auto idx = [](NodeId n) { return (n == NODE_GND) ? -1 : static_cast<int>(n - 1); };
+
+    // A group: its lead adds (L^-1 - diag(1/L_i)) / (j omega) of the group
+    if (group_) {
+        if (!lead_) return;
+        const std::size_t n = group_->inductors.size();
+        const auto gamma = group_->inverse();
+        for (std::size_t i = 0; i < n; ++i) {
+            const auto* a = static_cast<const Inductor*>(group_->inductors[i]);
+            const int pi = idx(a->np()), ni = idx(a->nn());
+            for (std::size_t j = 0; j < n; ++j) {
+                const auto* b = static_cast<const Inductor*>(group_->inductors[j]);
+                const int pj = idx(b->np()), nj = idx(b->nn());
+                const Complex y = factor * (gamma[i][j] - ((i == j) ? 1.0 / a->inductance() : 0.0));
+                if (pi >= 0 && pj >= 0) sys.Y.add_entry(pi, pj, y);
+                if (pi >= 0 && nj >= 0) sys.Y.add_entry(pi, nj, -y);
+                if (ni >= 0 && pj >= 0) sys.Y.add_entry(ni, pj, -y);
+                if (ni >= 0 && nj >= 0) sys.Y.add_entry(ni, nj, y);
+            }
+        }
+        return;
+    }
+
+    const InverseInductance inverse = inverse_inductance();
     const int np1 = idx(ind1->np()), nn1 = idx(ind1->nn());
     const int np2 = idx(ind2->np()), nn2 = idx(ind2->nn());
 
@@ -434,6 +574,56 @@ void MutualInductance::stamp_ac(ComplexMNASystem& sys,
 
     spdlog::trace("AC stamp: Mutual inductance {}, M={:.3e}H, omega={}",
                   name(), mutual_inductance(), omega);
+}
+
+std::vector<std::vector<Real>> MutualInductance::CoupledGroup::inductance_matrix() const {
+    const std::size_t n = inductors.size();
+    std::vector<std::vector<Real>> l(n, std::vector<Real>(n, 0.0));
+    for (std::size_t i = 0; i < n; ++i) {
+        l[i][i] = static_cast<const Inductor*>(inductors[i])->inductance();
+    }
+    for (const auto& c : couplings) {
+        const Real m = c.k->coupling_coefficient() * std::sqrt(l[c.i][c.i] * l[c.j][c.j]);
+        l[c.i][c.j] += m;
+        l[c.j][c.i] += m;
+    }
+    return l;
+}
+
+std::vector<std::vector<Real>> MutualInductance::CoupledGroup::inverse() const {
+    auto a = inductance_matrix();
+    const std::size_t n = a.size();
+    for (std::size_t i = 0; i < n; ++i) {
+        a[i][i] *= 1.0 + 1e-9;
+    }
+    std::vector<std::vector<Real>> inv(n, std::vector<Real>(n, 0.0));
+    for (std::size_t i = 0; i < n; ++i) inv[i][i] = 1.0;
+    for (std::size_t col = 0; col < n; ++col) {
+        std::size_t pivot = col;
+        for (std::size_t r = col + 1; r < n; ++r) {
+            if (std::abs(a[r][col]) > std::abs(a[pivot][col])) pivot = r;
+        }
+        if (!(std::abs(a[pivot][col]) > 0.0)) {
+            throw std::runtime_error("Coupled inductors: the inductance matrix is singular");
+        }
+        std::swap(a[col], a[pivot]);
+        std::swap(inv[col], inv[pivot]);
+        const Real d = a[col][col];
+        for (std::size_t k = 0; k < n; ++k) {
+            a[col][k] /= d;
+            inv[col][k] /= d;
+        }
+        for (std::size_t r = 0; r < n; ++r) {
+            if (r == col) continue;
+            const Real f = a[r][col];
+            if (f == 0.0) continue;
+            for (std::size_t k = 0; k < n; ++k) {
+                a[r][k] -= f * a[col][k];
+                inv[r][k] -= f * inv[col][k];
+            }
+        }
+    }
+    return inv;
 }
 
 } // namespace kirimaspice::devices

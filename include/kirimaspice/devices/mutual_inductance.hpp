@@ -4,7 +4,9 @@
 // include/kirimaspice/devices/mutual_inductance.hpp
 #pragma once
 #include "kirimaspice/devices/device.hpp"
+#include <memory>
 #include <string>
+#include <vector>
 
 namespace kirimaspice::devices {
 
@@ -110,7 +112,46 @@ public:
     };
     InverseInductance inverse_inductance() const;
 
+    /// Inductors that two or more K lines couple among themselves form one
+    /// group, whose inductance matrix L (L_ii = L_i, L_ij the sum of
+    /// k sqrt(L_i L_j) of the K lines between them) is inverted as a whole:
+    /// the pair-by-pair sum of 2 x 2 inverses is not the inverse of L, and
+    /// two inductors without a K between them couple through the others.
+    /// The group's first K (its lead) stamps L^-1 - diag(1/L_i) of the whole
+    /// group, as a pair does its own; the group's other K lines stamp
+    /// nothing. CircuitGraph::resolve_mutual_inductance_references makes
+    /// the groups; a K alone keeps the pair's stamps.
+    struct CoupledGroup {
+        struct Coupling {
+            std::size_t i, j;
+            const MutualInductance* k;
+        };
+        std::vector<const Device*> inductors;
+        std::vector<Coupling> couplings;
+        /// L, from the inductors' and the K lines' present values
+        std::vector<std::vector<Real>> inductance_matrix() const;
+        /// L^-1 (Gauss-Jordan with partial pivoting); L's diagonal is
+        /// raised by 1e-9 of itself, so that k = 1 stays solvable
+        std::vector<std::vector<Real>> inverse() const;
+    };
+    void set_group(std::shared_ptr<const CoupledGroup> group, bool lead) {
+        group_ = std::move(group);
+        lead_ = lead;
+    }
+    void clear_group() {
+        group_.reset();
+        lead_ = false;
+    }
+
 private:
+    std::shared_ptr<const CoupledGroup> group_;
+    bool lead_ = false;
+    // The group's companion of the last stamped step, as stamped_g11_ ...
+    // for a pair: I = G V + i, and what the lead stamped on top of the
+    // inductors' own companions, dG = G - diag(g_L) and di
+    mutable std::vector<std::vector<Real>> group_g_, group_dg_;
+    mutable std::vector<Real> group_i_, group_di_;
+
     std::string inductor1_name_;  // Name of L1
     std::string inductor2_name_;  // Name of L2
     Real k_;                      // Coupling coefficient (0 <= k <= 1)
