@@ -241,10 +241,12 @@ void MOSFET_BSIM4<P>::stamp_transient(MNASystem& mna, const DenseVector& node_vo
     cap_dt_ = timestep;
     cap_method_ = method;
     cap_bdf_ = bdf_coef ? std::optional<BDFCoefficients>(*bdf_coef) : std::nullopt;
+    cap_tr_bdf2_ = tr_bdf2_coef ? std::optional<TR_BDF2_Coefficients>(*tr_bdf2_coef) : std::nullopt;
     auto stamp_capacitance = [&](Real c_now, Real v_prev, Real v_prev2, Real v_prev3,
                                  Real i_prev, int node_p_idx, int node_n_idx) {
         const auto cc = device_utils::capacitor_companion(method, c_now, timestep, v_prev,
-                                                          v_prev2, v_prev3, i_prev, bdf_coef);
+                                                          v_prev2, v_prev3, i_prev, bdf_coef,
+                                                          tr_bdf2_coef);
         device_utils::stamp_capacitor_companion(mna, node_p_idx, node_n_idx, cc.g, cc.i_eq, 1.0);
     };
 
@@ -417,9 +419,10 @@ void MOSFET_BSIM4<P>::accept_solution(const DenseVector& node_voltages) {
         const Real v2[5] = {vgs_prev2_, vgd_prev2_, vgb_prev2_, vbd_prev2_, vbs_prev2_};
         const Real v3[5] = {vgs_prev3_, vgd_prev3_, vgb_prev3_, vbd_prev3_, vbs_prev3_};
         const BDFCoefficients* bdf = cap_bdf_ ? &*cap_bdf_ : nullptr;
+        const TR_BDF2_Coefficients* tr = cap_tr_bdf2_ ? &*cap_tr_bdf2_ : nullptr;
         for (int k = 0; k < 5; ++k) {
             const auto cc = device_utils::capacitor_companion(cap_method_, c[k], cap_dt_, v1[k], v2[k],
-                                                              v3[k], icap_prev_[k], bdf);
+                                                              v3[k], icap_prev_[k], bdf, tr);
             icap_prev_[k] = (cap_dt_ > 0.0) ? cc.g * v_new[k] + cc.i_eq : 0.0;
         }
     }
@@ -470,6 +473,7 @@ void MOSFET_BSIM4<P>::reset_state() {
     cap_dt_ = 0.0;
     cap_method_ = IntegrationMethod::BACKWARD_EULER;
     cap_bdf_.reset();
+    cap_tr_bdf2_.reset();
 }
 
 //==============================================================================

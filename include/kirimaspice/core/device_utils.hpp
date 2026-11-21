@@ -640,7 +640,12 @@ inline void stamp_capacitor_companion(MNA& mna, int n1_idx, int n2_idx,
 /// the trapezoidal rule needs (i = 2C/dt (v - v1) - i1). BDF2 and BDF3 take
 /// the variable-step coefficients when given, as Capacitor does (g = C
 /// alpha0 / beta0 and i_eq = C / beta0 sum alpha_k v_k, beta0 being the
-/// step), and the fixed-step formulas otherwise. TR-BDF2 is taken as
+/// step), and the fixed-step formulas otherwise. TR-BDF2 takes the
+/// coefficients of its stage when given: stage 1 is the trapezoidal rule
+/// over gamma dt (its stage_dt), stage 2 the modified BDF2 through v(n),
+/// v(n + gamma) and v(n + 1), i = C (alpha0 v + alpha1 v1 + alpha2 v2) /
+/// (beta0 full_dt), for a device that accepts the stage-1 point into its
+/// history (v1 = v(n + gamma), v2 = v(n)); without them it is taken as
 /// backward Euler. The same function gives the current at an accepted
 /// point (g v + i_eq), which becomes i1 of the next step.
 struct CapacitorCompanion {
@@ -649,7 +654,8 @@ struct CapacitorCompanion {
 };
 inline CapacitorCompanion capacitor_companion(IntegrationMethod method, Real c, Real dt, Real v1,
                                               Real v2, Real v3, Real i1,
-                                              const BDFCoefficients* bdf) {
+                                              const BDFCoefficients* bdf,
+                                              const TR_BDF2_Coefficients* tr_bdf2 = nullptr) {
     CapacitorCompanion cc;
     if (c <= 0.0 || dt <= 0.0) {
         return cc;
@@ -677,7 +683,22 @@ inline CapacitorCompanion capacitor_companion(IntegrationMethod method, Real c, 
                 cc.i_eq = (c / dt) * (-3.0 * v1 + 1.5 * v2 - v3 / 3.0);
             }
             break;
-        default:  // backward Euler, and TR-BDF2 taken as it
+        case IntegrationMethod::TR_BDF2:
+            if (tr_bdf2 && tr_bdf2->stage == 1 && tr_bdf2->stage_dt > 0.0) {
+                cc.g = 2.0 * c / tr_bdf2->stage_dt;
+                cc.i_eq = -cc.g * v1 - i1;
+                break;
+            }
+            if (tr_bdf2 && tr_bdf2->stage == 2 && tr_bdf2->beta0 * tr_bdf2->full_dt > 0.0) {
+                const Real d = tr_bdf2->beta0 * tr_bdf2->full_dt;
+                cc.g = c * tr_bdf2->alpha0 / d;
+                cc.i_eq = c * (tr_bdf2->alpha1 * v1 + tr_bdf2->alpha2 * v2) / d;
+                break;
+            }
+            cc.g = c / dt;
+            cc.i_eq = -cc.g * v1;
+            break;
+        default:  // backward Euler
             cc.g = c / dt;
             cc.i_eq = -cc.g * v1;
             break;

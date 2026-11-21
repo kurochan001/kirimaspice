@@ -118,6 +118,7 @@ public:
         cap_dt_ = 0.0;
         cap_method_ = IntegrationMethod::BACKWARD_EULER;
         cap_bdf_.reset();
+        cap_tr_bdf2_.reset();
         first_accept_ = true;
     }
     void accept_solution(const DenseVector& node_voltages, Real time) {
@@ -258,6 +259,7 @@ private:
     mutable Real cap_dt_ = 0.0;
     mutable IntegrationMethod cap_method_ = IntegrationMethod::BACKWARD_EULER;
     mutable std::optional<BDFCoefficients> cap_bdf_;
+    mutable std::optional<TR_BDF2_Coefficients> cap_tr_bdf2_;
 
     mutable Real timestep_ = 0.0;
     mutable IntegrationMethod last_method_ = IntegrationMethod::BACKWARD_EULER;

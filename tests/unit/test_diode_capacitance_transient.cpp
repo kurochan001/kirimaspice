@@ -7,7 +7,8 @@
 // With M nearly 0 the capacitance is CJO at every voltage, so a 1 kohm
 // resistor driving the reverse-biased diode from a ramp of 0 to -1 V over
 // 1 ms (RC = 1 ms) is the RC circuit: v(t) = -(t - RC (1 - exp(-t/RC)))/T,
-// which is -exp(-1) at t = T = RC.
+// which is -exp(-1) at t = T = RC, and the circuit with a capacitor in
+// place of the diode gives the same for every method.
 
 #include <gtest/gtest.h>
 
@@ -43,6 +44,23 @@ TEST(DiodeCapacitanceTransient, TrapezoidalFollowsTheRcSolution) {
 TEST(DiodeCapacitanceTransient, EveryMethodFollowsTheRcSolution) {
     EXPECT_NEAR(final_voltage("gear"), -std::exp(-1.0), 1e-4);
     EXPECT_NEAR(final_voltage("euler"), -std::exp(-1.0), 3e-3);
+}
+
+TEST(DiodeCapacitanceTransient, IntegratesAsTheCapacitorDoesForEveryMethod) {
+    // The same circuit with a 1 uF capacitor in place of the diode: the
+    // companion of each method, TR-BDF2's two stages among them, is the
+    // capacitor's, so the two agree to the rounding of the diode's current
+    for (const std::string method : {"trap", "gear", "gear3", "euler", "tr_bdf2"}) {
+        parser::NetlistParser parser;
+        auto parsed = parser.parse_string("t\nV1 in 0 PWL(0 0 1m -1)\nR1 in out 1k\nC1 out 0 1u\n"
+                                          ".options method=" + method + "\n.end\n");
+        solvers::TransientSolver solver(*parsed.circuit, parsed.config);
+        const auto result = solver.solve(0.0, 1e-3, 1e-5);
+        ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS) << method;
+        const NodeId out = parsed.circuit->get_node_id("out");
+        const double capacitor = result.timepoints.back().node_voltages.at(out - 1);
+        EXPECT_NEAR(final_voltage(method), capacitor, 1e-6) << method;
+    }
 }
 
 TEST(DiodeCapacitanceTransient, TwoRunsOfOneCircuitAgree) {

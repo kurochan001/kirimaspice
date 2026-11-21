@@ -287,10 +287,11 @@ void Diode::stamp_transient(MNASystem& mna,
     // current at the last accepted point
     Real cj = get_junction_capacitance(voltage_prev_);
     cap_bdf_ = bdf_coef ? std::optional<BDFCoefficients>(*bdf_coef) : std::nullopt;
+    cap_tr_bdf2_ = tr_bdf2_coef ? std::optional<TR_BDF2_Coefficients>(*tr_bdf2_coef) : std::nullopt;
     cap_stamped_ = true;
     const auto cc = device_utils::capacitor_companion(method, cj, timestep, voltage_prev_,
                                                       voltage_prev2_, voltage_prev3_,
-                                                      current_prev_, bdf_coef);
+                                                      current_prev_, bdf_coef, tr_bdf2_coef);
     const int anode_idx = (anode_node == NODE_GND) ? -1 : static_cast<int>(anode_node - 1);
     const int cathode_idx = (cathode_node == NODE_GND) ? -1 : static_cast<int>(cathode_node - 1);
     device_utils::stamp_capacitor_companion(mna, anode_idx, cathode_idx, cc.g, cc.i_eq, 1.0);
@@ -425,6 +426,7 @@ void Diode::reset_state() {
     last_method_ = method_saved_ = IntegrationMethod::BACKWARD_EULER;
     current_prev_ = current_saved_ = 0.0;
     cap_bdf_.reset();
+    cap_tr_bdf2_.reset();
     cap_stamped_ = false;
     first_accept_ = true;
     v_last_eval_ = 0.0;
@@ -452,9 +454,10 @@ void Diode::accept_solution(const DenseVector& node_voltages) {
     if (cap_stamped_ && cj0_ > 0.0) {
         const Real cj = get_junction_capacitance(voltage_prev_);
         const BDFCoefficients* bdf = cap_bdf_ ? &*cap_bdf_ : nullptr;
+        const TR_BDF2_Coefficients* tr = cap_tr_bdf2_ ? &*cap_tr_bdf2_ : nullptr;
         const auto cc = device_utils::capacitor_companion(last_method_, cj, timestep_, voltage_prev_,
                                                           voltage_prev2_, voltage_prev3_,
-                                                          current_prev_, bdf);
+                                                          current_prev_, bdf, tr);
         current_prev_ = cc.g * voltage_new + cc.i_eq;
     } else {
         current_prev_ = 0.0;

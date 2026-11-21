@@ -287,7 +287,6 @@ template <BJTPolarity Pol>
 void BJT<Pol>::stamp_transient(MNASystem& mna, const DenseVector& node_voltages, Real timestep,
                                IntegrationMethod method, const BDFCoefficients* bdf_coef,
                                const TR_BDF2_Coefficients* tr_bdf2_coef) const {
-    (void)tr_bdf2_coef;
     stamp_dc_nonlinear(mna, node_voltages);
     if (!is_dynamic()) {
         return;
@@ -295,6 +294,7 @@ void BJT<Pol>::stamp_transient(MNASystem& mna, const DenseVector& node_voltages,
     cap_dt_ = timestep;
     cap_method_ = method;
     cap_bdf_ = bdf_coef ? std::optional<BDFCoefficients>(*bdf_coef) : std::nullopt;
+    cap_tr_bdf2_ = tr_bdf2_coef ? std::optional<TR_BDF2_Coefficients>(*tr_bdf2_coef) : std::nullopt;
     cap_stamped_ = true;
 
     // Each junction capacitance at the present iterate, integrated as a
@@ -308,9 +308,9 @@ void BJT<Pol>::stamp_transient(MNASystem& mna, const DenseVector& node_voltages,
     const bool npn = Pol == BJTPolarity::NPN;
     const auto& h = history_;
     const auto be = device_utils::capacitor_companion(method, c.cbe, timestep, h.vbe[0], h.vbe[1],
-                                                      h.vbe[2], h.ibe, bdf_coef);
+                                                      h.vbe[2], h.ibe, bdf_coef, tr_bdf2_coef);
     const auto bc = device_utils::capacitor_companion(method, c.cbc, timestep, h.vbc[0], h.vbc[1],
-                                                      h.vbc[2], h.ibc, bdf_coef);
+                                                      h.vbc[2], h.ibc, bdf_coef, tr_bdf2_coef);
     device_utils::stamp_capacitor_companion(mna, npn ? nb : ne, npn ? ne : nb, be.g, be.i_eq, 1.0);
     device_utils::stamp_capacitor_companion(mna, npn ? nb : nc, npn ? nc : nb, bc.g, bc.i_eq, 1.0);
 }
@@ -355,10 +355,11 @@ void BJT<Pol>::accept_solution(const DenseVector& node_voltages) {
         // the step that ended there
         const Capacitances c = capacitances(vbe, vbc);
         const BDFCoefficients* bdf = cap_bdf_ ? &*cap_bdf_ : nullptr;
+        const TR_BDF2_Coefficients* tr = cap_tr_bdf2_ ? &*cap_tr_bdf2_ : nullptr;
         const auto be = device_utils::capacitor_companion(cap_method_, c.cbe, cap_dt_, h.vbe[0],
-                                                          h.vbe[1], h.vbe[2], h.ibe, bdf);
+                                                          h.vbe[1], h.vbe[2], h.ibe, bdf, tr);
         const auto bc = device_utils::capacitor_companion(cap_method_, c.cbc, cap_dt_, h.vbc[0],
-                                                          h.vbc[1], h.vbc[2], h.ibc, bdf);
+                                                          h.vbc[1], h.vbc[2], h.ibc, bdf, tr);
         h.ibe = be.g * vbe + be.i_eq;
         h.ibc = bc.g * vbc + bc.i_eq;
     } else {
@@ -393,6 +394,8 @@ void BJT<Pol>::reset_state() {
     vbe_last_eval_ = 0.0;
     vbc_last_eval_ = 0.0;
     cap_stamped_ = false;
+    cap_bdf_.reset();
+    cap_tr_bdf2_.reset();
 }
 
 template <BJTPolarity Pol>

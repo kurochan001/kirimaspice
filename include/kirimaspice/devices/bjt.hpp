@@ -184,6 +184,7 @@ private:
     mutable Real cap_dt_ = 0.0;
     mutable IntegrationMethod cap_method_ = IntegrationMethod::BACKWARD_EULER;
     mutable std::optional<BDFCoefficients> cap_bdf_;
+    mutable std::optional<TR_BDF2_Coefficients> cap_tr_bdf2_;
     mutable bool cap_stamped_ = false;
 };
 

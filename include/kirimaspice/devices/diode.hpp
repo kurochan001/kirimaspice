@@ -153,12 +153,13 @@ private:
 
     // The companion of the junction capacitance (device_utils::
     // capacitor_companion): the capacitor's current at the last accepted
-    // point, which the trapezoidal rule needs, the BDF coefficients of the
-    // last stamp, and whether a transient step was stamped since the last
+    // point, which the trapezoidal rule needs, the BDF and TR-BDF2
+    // coefficients of the last stamp, and whether a transient step was stamped since the last
     // accepted point
     mutable Real current_prev_ = 0.0;
     mutable Real current_saved_ = 0.0;
     mutable std::optional<BDFCoefficients> cap_bdf_;
+    mutable std::optional<TR_BDF2_Coefficients> cap_tr_bdf2_;
     mutable bool cap_stamped_ = false;
 
     // Physical constants
