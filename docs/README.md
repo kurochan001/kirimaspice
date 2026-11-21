@@ -38,6 +38,8 @@ a result.
   terms the documents use.
 - [KNOWN_ISSUES](../KNOWN_ISSUES.md): what is known to be wrong or
   missing, with the commit at which each was measured.
+- [To do](../TODO.md): the work still to do about it, in the order
+  recommended.
 
 ## Change kirimaspice
 

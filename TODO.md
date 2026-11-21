@@ -1,0 +1,148 @@
+# To do
+
+[日本語](TODO.ja.md) · This English text is the main version; the Japanese version follows it, and where they differ, this text holds.
+
+**Written 2026-11-21** at commit `6004202`. The work still to do, in the
+order recommended. [KNOWN_ISSUES](KNOWN_ISSUES.md) describes each item
+with what was measured; this list says what to do about it. Size: S is a
+day or less, M a few days, L a week or more (estimates, not measured).
+Tick an item when its fix is pushed, and remove its entry from
+KNOWN_ISSUES in the same commit.
+
+## 1. Netlist compatibility with ngspice
+
+Small items with a direct effect on netlists written for ngspice.
+
+- [ ] **`.IF` reads `.PARAM` values** (S). The conditions are evaluated
+  before the `.PARAM` lines are read; `read_global_definitions` now solves
+  the global parameters first, so the conditions can take them
+  ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+- [ ] **`.FUNC` in element values** (S). Functions can be called in
+  `.PARAM` only ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+- [ ] **`I(<source>)` in `B` expressions** (M). The current of a
+  voltage source as a variable of the expression
+  ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+- [ ] **`POLY` form of `E`, `F`, `G` and `H`** (M)
+  ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+- [ ] **`J` elements** (M). The library has a JFET; the parser has no `J`
+  element, and its gate capacitances need the transient method's
+  companion (`device_utils::CapacitorHistory`)
+  ([device models](KNOWN_ISSUES.md#device-models)).
+- [ ] **Scale factors in `.OPTIONS` values** (S), as in expressions
+  (`util::expand_scale_factors`)
+  ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+- [ ] **An empty first line is the title** (S), as in ngspice-47. Many
+  tests write their netlists starting with an empty line, so the tests
+  change with it (a person's approval)
+  ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+- [ ] **`S` and `Y` with a model not defined before them** (S): an error
+  or a warning, not the defaults without a message
+  ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+- [ ] **Directives read but not run** (M each): `.STEP`, `.SAVE`,
+  `.PRINT DC` and `.PRINT AC` first; then `.SENS`, `.TF`, `.MC`, `.PZ`,
+  `.DISTO`, `.PORT`, `.WCASE`, `.OPTIMIZE`, `.NOISE` and `.MEASURE`
+  ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+- [ ] **`.OP` with `.DC` runs both** (S)
+  ([analyses](KNOWN_ISSUES.md#analyses)).
+- [ ] **Analyses in `.control` blocks** (M), or an error for those not
+  run ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+
+## 2. Analyses
+
+- [ ] **The transient's speed** (M). A ladder of 200 sections takes longer
+  than in ngspice-47; profile it first
+  ([analyses](KNOWN_ISSUES.md#analyses)).
+- [ ] **The adaptive time step** (L): make the library's adaptive path
+  correct (BDF2 and BDF3 of fixed order on a circuit at rest, the first
+  step of the trapezoidal rule), then decide with a person whether the
+  program uses it, which would also give `TRTOL`, `CHGTOL` and the `LTE_*`
+  options an effect ([analyses](KNOWN_ISSUES.md#analyses)).
+- [ ] **Convergence aids by default** (M): measure what ngspice-47 does
+  when Newton's method alone fails, then decide with a person
+  ([analyses](KNOWN_ISSUES.md#analyses)).
+- [ ] **GMIN in the other devices' junctions** (M): only the diode and
+  the bipolar transistor have it ([analyses](KNOWN_ISSUES.md#analyses)).
+- [ ] **Input-referred noise** (S): divide by the gain from the input
+  source ([analyses](KNOWN_ISSUES.md#analyses)).
+- [ ] **A gradient for `LD_SLSQP`** (S)
+  ([analyses](KNOWN_ISSUES.md#analyses)).
+
+## 3. Test quality
+
+Changes to existing tests need a person's approval, each in its own
+commit.
+
+- [ ] **The time-step and LTE tests whose circuits do not move** (M):
+  about 34 tests start at rest, so they check nothing of the LTE code
+  ([tests](KNOWN_ISSUES.md#tests)).
+- [ ] **Tests that cannot fail or check little** (M): the VDMOS region
+  tests, the transmission-line "validation" against DC values,
+  `bsim4_dc_smoke`, `BSIM4NgspiceCompareTest.IdsVsNgspice_T27C` (errors up
+  to 100 %), the BJT validation programs, the level-3 Meyer tests
+  ([tests](KNOWN_ISSUES.md#tests)).
+- [ ] **The six known failures** (M): decide for each whether the model
+  or the expected value is wrong ([tests](KNOWN_ISSUES.md#tests)).
+
+## 4. Device models
+
+- [ ] **The bipolar transistor's parasitics** (M): RB, RE, RC, the
+  substrate junction, XTF, VTF, ITF, PTF, XCJC, FC, the charges' cross
+  derivative and the temperature of the junction potentials
+  ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+- [ ] **The level-1 MOSFET's capacitances and bulk junctions** (M)
+  ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+- [ ] **The diode's remaining parameters** (S): FC, KF, AF, TNOM, EG, XTI
+  ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+- [ ] **BSIM4's charge model** (L), in place of the Meyer capacitances,
+  and its source and drain junctions in DC
+  ([device models](KNOWN_ISSUES.md#device-models)).
+- [ ] **BSIM4's noise and parameter extractor through the device's
+  equations** (M), not a separate model
+  ([device models](KNOWN_ISSUES.md#device-models)).
+- [ ] **BSIM4's remaining parameters and limits** (M): MOBMOD 3 to 6,
+  `RDSMOD`, `TEMPMOD`, `RDSWMIN`, `DROUT = 0`, `DSUB = 0`, `MAX_EXP`
+  ([device models](KNOWN_ISSUES.md#device-models)).
+- [ ] **BSIM4's threshold with body bias** (S): find the cause of the
+  10 µV ([device models](KNOWN_ISSUES.md#device-models)).
+- [ ] **BSIM3v3** (L), in place of the simplified BSIM3
+  ([device models](KNOWN_ISSUES.md#device-models)).
+- [ ] **BSIM1** (L): port ngspice's BSIM1 (its `LEVEL` 4) or remove the
+  library's class ([device models](KNOWN_ISSUES.md#device-models)).
+- [ ] **The FinFET** (M): the jump at the threshold, W<sub>eff</sub>, the
+  reverse mode, `TFIN` and `VSAT`
+  ([device models](KNOWN_ISSUES.md#device-models)).
+- [ ] **The MESFET's gate junctions and charges** (M)
+  ([device models](KNOWN_ISSUES.md#device-models)).
+- [ ] **Noise** (S): the 8/3 of BSIM3, BSIM4 and the GaN HEMT, the
+  level-1 flicker noise, the temperatures of level 3, the MESFET and the
+  SCR ([device models](KNOWN_ISSUES.md#device-models)).
+- [ ] **The level-1 overlap capacitances by the transient's method** (S),
+  through `device_utils::CapacitorHistory`
+  ([TRANSIENT_ANALYSIS](docs/TRANSIENT_ANALYSIS.md)).
+- [ ] **The lossy line `O` without its approximation** (L): the LTRA
+  convolution of Roychowdhury and Pederson
+  ([device models](KNOWN_ISSUES.md#device-models)).
+
+## 5. Output and tools
+
+- [ ] **SSF** (M): a written specification, a scale for small values,
+  exact block times, the version, and a file for DC sweeps
+  ([command line and output](KNOWN_ISSUES.md#command-line-and-output)).
+- [ ] **`run_netlist` of the Python tools with relative `.include`** (S)
+  ([command line and output](KNOWN_ISSUES.md#command-line-and-output)).
+
+## 6. Source code
+
+- [ ] **The capacitor, the inductor and the mutual inductance through
+  `device_utils::capacitor_companion`** (S), so that the companion is
+  written once ([source code](KNOWN_ISSUES.md#source-code)).
+- [ ] **Compiler warnings** (S): 150 in kirimaspice's own sources
+  ([source code](KNOWN_ISSUES.md#source-code)).
+- [ ] **Comments in Japanese** to English (S)
+  ([source code](KNOWN_ISSUES.md#source-code)).
+- [ ] **One directory of helpers** (S): `util/` and `utils/`
+  ([source code](KNOWN_ISSUES.md#source-code)).
+- [ ] **Split the large files** (M), `netlist_parser.cpp` first
+  ([source code](KNOWN_ISSUES.md#source-code)).
+- [ ] **The Monte Carlo "GPU" path** (S): remove the name or write the
+  code ([source code](KNOWN_ISSUES.md#source-code)).

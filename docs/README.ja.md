@@ -30,6 +30,7 @@
 - [ngspice からの移行](PORTING.ja.md)：同じ点、コマンドの対応、ネットリストの確認項目。
 - [FAQ](FAQ.ja.md) と[用語集](GLOSSARY.ja.md)：よくある質問と、文書で使う用語。
 - [KNOWN_ISSUES](../KNOWN_ISSUES.ja.md)：間違っていることや足りないことと、それぞれを測ったコミット。
+- [やること](../TODO.ja.md)：それについてまだ残っている作業を、おすすめの順に並べたもの。
 
 ## kirimaspice を変える
 
