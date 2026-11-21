@@ -36,6 +36,7 @@ void TLineLossless::stamp_dc_linear(MNASystem& mna,
     // c = (+1 at ap, -1 at an, -1 at bp, +1 at bn). Exactly I_A = -I_B, and
     // V_A - V_B = I_A / kDcCoupling.
     last_stamp_was_dc_ = true;
+    last_stamp_was_first_stage_ = false;
 
     const int idx[4] = {
         (nodes_[0] == NODE_GND) ? -1 : static_cast<int>(nodes_[0] - 1),
@@ -62,11 +63,13 @@ void TLineLossless::stamp_transient(MNASystem& mna,
                                    IntegrationMethod method,
                                    const BDFCoefficients* bdf_coef,
                                    const TR_BDF2_Coefficients* tr_bdf2_coef) const {
-    (void)method; (void)bdf_coef; (void)tr_bdf2_coef;  // Not needed for T-line
+    (void)bdf_coef;  // Not needed for T-line
 
     // Cache timestep for later use in accept_solution
     last_timestep_ = timestep;
     last_stamp_was_dc_ = false;
+    last_stamp_was_first_stage_ = method == IntegrationMethod::TR_BDF2 && tr_bdf2_coef != nullptr &&
+                                  tr_bdf2_coef->stage == 1;
 
     // Get delayed signals: V_A((t+dt)-TD), V_B((t+dt)-TD), I_A((t+dt)-TD), I_B((t+dt)-TD)
     // stamp_transient builds equations for the NEXT time point (t+dt)
@@ -232,9 +235,17 @@ void TLineLossless::reset_state() {
     history_.push_back(initial);
     current_time_ = 0.0;
     last_stamp_was_dc_ = false;
+    last_stamp_was_first_stage_ = false;
 }
 
 void TLineLossless::accept_solution(const DenseVector& node_voltages) {
+    // TR-BDF2's first stage ends at t_n + gamma h, between two time points:
+    // the line's clock and history stay at t_n, from which the second stage
+    // steps the whole h (stamp_transient), as for any other method
+    if (last_stamp_was_first_stage_) {
+        return;
+    }
+
     // Update current time (increment by last timestep); an accepted operating
     // point is at the present time
     if (!last_stamp_was_dc_) {

@@ -504,3 +504,33 @@ TEST(TLineDevice, LossyLineInAcIsTheTelegrapherTwoPort) {
     const Complex i2 = 1.0 / (a * 50.0 + b + 50.0 * (c * 50.0 + a));
     EXPECT_NEAR(std::abs(vb - 50.0 * i2), 0.0, 1e-9);
 }
+
+// A line delays by TD whatever the integration method: the first stage of
+// TR-BDF2 ends between two time points, and the line's clock, history and
+// filter stay at the last point until the second stage (accept_solution).
+// A 1 V step at 1 ns (1 ps rise) through 50 Ohm into a line of TD = 10 ns
+// loaded with 50 Ohm: nothing reaches the far end before 11 ns, and the
+// lossless line puts 0.5 V there after it, as at its near end.
+TEST(TLineDevice, EveryMethodDelaysByTd) {
+    for (const std::string line : {"T1 a 0 b 0 Z0=50 TD=10n",
+                                   "O1 a 0 b 0 R=0.5 L=500n C=200p G=0 TD=10n"}) {
+        for (const std::string method : {"trap", "gear", "tr_bdf2"}) {
+            SCOPED_TRACE(line + " " + method);
+            parser::NetlistParser parser;
+            auto parsed = parser.parse_string("t\nV1 in 0 PULSE(0 1 1n 1p 1p 1 2)\nR1 in a 50\n" +
+                                              line + "\nR2 b 0 50\n.options method=" + method +
+                                              "\n.end\n");
+            solvers::TransientSolver solver(*parsed.circuit, parsed.config);
+            const auto result = solver.solve(0.0, 20e-9, 0.25e-9);
+            ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
+            const NodeId b = parsed.circuit->get_node_id("b");
+            for (const auto& tp : result.timepoints) {
+                if (tp.time <= 11e-9 * (1 - 1e-9)) {
+                    EXPECT_NEAR(tp.node_voltages[b - 1], 0.0, 1e-9) << "t=" << tp.time;
+                } else if (line[0] == 'T' && tp.time >= 11.25e-9) {
+                    EXPECT_NEAR(tp.node_voltages[b - 1], 0.5, 1e-6) << "t=" << tp.time;
+                }
+            }
+        }
+    }
+}

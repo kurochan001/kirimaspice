@@ -169,9 +169,11 @@ void TLineLossy::stamp_transient(MNASystem& mna,
                          IntegrationMethod method,
                          const BDFCoefficients* bdf_coef,
                          const TR_BDF2_Coefficients* tr_bdf2_coef) const {
-    (void)method; (void)bdf_coef; (void)tr_bdf2_coef;
+    (void)bdf_coef;
 
     last_timestep_ = timestep;
+    last_stamp_was_first_stage_ = method == IntegrationMethod::TR_BDF2 && tr_bdf2_coef != nullptr &&
+                                  tr_bdf2_coef->stage == 1;
 
     // The delayed, attenuated and filtered port voltages at the end of this
     // step, from the state accepted at its start; the stamp does not change
@@ -268,9 +270,16 @@ void TLineLossy::reset_state() {
     current_time_ = 0.0;
     filt_a_ = filt_b_ = 0.0;
     filt_a2_ = filt_b2_ = 0.0;
+    last_stamp_was_first_stage_ = false;
 }
 
 void TLineLossy::accept_solution(const DenseVector& node_voltages) {
+    // TR-BDF2's first stage ends at t_n + gamma h, between two time points:
+    // the line's clock, filter and history stay at t_n, from which the
+    // second stage steps the whole h (stamp_transient)
+    if (last_stamp_was_first_stage_) {
+        return;
+    }
     current_time_ += last_timestep_;
 
     const NodeId ap = nodes_[0];

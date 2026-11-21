@@ -131,6 +131,9 @@ private:
     mutable Real current_time_ = 0.0;
     mutable Real last_timestep_ = 0.0;  // Cached from stamp_transient
     mutable bool last_stamp_was_dc_ = false;  // The last stamp was the DC one
+    // The last stamp was TR-BDF2's first stage, whose point t_n + gamma h is
+    // not a time point of the line (accept_solution)
+    mutable bool last_stamp_was_first_stage_ = false;
 
     // Saved state (for timestep rejection)
     std::deque<HistoryPoint> history_saved_;

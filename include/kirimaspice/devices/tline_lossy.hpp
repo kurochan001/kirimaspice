@@ -93,6 +93,9 @@ private:
     mutable Real current_time_ = 0.0;
     mutable Real current_time_saved_ = 0.0;
     mutable Real last_timestep_ = 0.0;
+    // The last stamp was TR-BDF2's first stage, whose point t_n + gamma h is
+    // not a time point of the line (accept_solution)
+    mutable bool last_stamp_was_first_stage_ = false;
     /// The filtered delayed port voltages after a step of timestep ending at
     /// time: a1/b1 after the first pole, a2/b2 after the second, a/b the
     /// ones the line uses
