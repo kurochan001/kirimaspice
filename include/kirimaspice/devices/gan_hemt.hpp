@@ -237,9 +237,15 @@ private:
         }
     }
 
+    // The threshold that the N-like gate voltage vgs_eff = polarity_sign
+    // (vg - vs) is compared with. VTO carries the device's sign, as for the
+    // MOSFETs, the MESFET, the SiC MOSFET, the VDMOS and the FinFET (a P
+    // device's -1 V is a threshold of +1 V for its VSG), and KT1 and KT2 move
+    // the N-like threshold, as for the SiC MOSFET, so that the defaults
+    // (-2 V and +2 V, KT1 the same for both) mirror each other
     [[nodiscard]] Real compute_temperature_scaled_vth() const {
         Real temp_diff = temperature_ - tnom_;
-        return vth_ + kt1_ * temp_diff + kt2_ * temp_diff * temp_diff;
+        return polarity_sign * vth_ + kt1_ * temp_diff + kt2_ * temp_diff * temp_diff;
     }
 
     // Whether the channel conducts: the gate against the source, or against
