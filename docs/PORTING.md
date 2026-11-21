@@ -120,11 +120,11 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
 ### Models
 
 - [ ] **The parameters the models read.** The diode reads `IS`, `N`,
-  `CJO`, `VJ` and `M`, and the other models read part of their parameters.
-  Every model names the rest of its card in a warning, except a few names
-  that level 3 accepts without using them; on the element line, levels 3,
-  8/49, 9 and 12 drop the names they do not read, `M=` among them,
-  without a message ([Reference Manual](REFERENCE_MANUAL.md#models)).
+  `CJO`, `VJ`, `M`, `RS`, `TT`, `BV` and `IBV`, and the other models read
+  part of their parameters. Every model names the rest of its card and of
+  its element line in a warning, except a few names that level 3 accepts
+  on its card without using them
+  ([Reference Manual](REFERENCE_MANUAL.md#models)).
 - [ ] **The `LEVEL` of each MOSFET card.** The levels here are 1, 3,
   8/49 (BSIM3), 9 (BSIM1), 10 (SiC), 11 (GaN HEMT), 12 (FinFET), 14/54
   (BSIM4), 20 (VDMOS) and 21 (IGBT)

@@ -108,9 +108,9 @@ alike.
   ```
 
 - An included file is found relative to the directory of the file that
-  includes it; a `.LIB` file, also one named in an included file, relative
-  to the main netlist's directory
-  ([known issues](../KNOWN_ISSUES.md#netlist-input)). `.LIB <file>`
+  includes it; a `.LIB` file named in an included file, relative to that
+  file's directory when the library is there, and otherwise, as one named
+  in the netlist, relative to the netlist's directory. `.LIB <file>`
   without a section inserts the whole file; an
   `.INCLUDE` inside a `.LIB` section is not inserted, and is named in the
   warning `unknown directive .INCLUDE is ignored`.
@@ -211,7 +211,7 @@ are the same element, and a second is an error.
 | MESFET | `Z<name> <d> <g> <s> [<NMF\|PMF\|model>] [parameters]` |
 | SCR | `S<name> <anode> <cathode> <gate> [parameters]` |
 | TRIAC | `Y<name> <mt2> <mt1> <gate> [parameters]` |
-| Lossless line | `T<name> <a+> <a-> <b+> <b-> Z0=<v> TD=<v>` | both required and positive; `ZO` is accepted for `Z0` |
+| Lossless line | `T<name> <a+> <a-> <b+> <b-> Z0=<v> TD=<v>` | both required and positive; `ZO` is accepted for `Z0`; the transient takes no step longer than `TD` |
 | Lossy line | `O<name> <a+> <a-> <b+> <b-> R=<v> L=<v> C=<v> G=<v> TD=<v>` | per unit length; `TD`, `L` and `C` above 0; the length is `TD`/√(`L`·`C`); DC and AC use the line's exact two-port; the transient's model is wrong ([known issues](../KNOWN_ISSUES.md#device-models)) |
 | Subcircuit instance | `X<name> <nodes...> <subckt> [NAME=<v> ...]` |
 
@@ -284,7 +284,7 @@ at that line. An instance parameter overrides the model's.
 
 | Element | Parameters (default) |
 | --- | --- |
-| `D` | `IS` (1e-14 A), `N` (1), `CJO` or `CJ0` (0), `VJ` or `PB` (1 V), `M` or `MJ` (0.5), the defaults of ngspice-47; `IS` and `N` also on the element line; other names, on the card or the line, are named in a warning and not used (`TNOM`, `EG` and `XTI` among them) |
+| `D` | `IS` (1e-14 A), `N` (1), `CJO` or `CJ0` (0), `VJ` or `PB` (1 V), `M` or `MJ` (0.5), `RS` (0 Ω), `TT` (0 s), `BV` (none), `IBV` (1 mA), the defaults of ngspice-47; `IS` and `N` also on the element line; other names, on the card or the line, are named in a warning and not used (`TNOM`, `EG`, `XTI` and `FC` among them) |
 | `Q` | `IS` (1e-14 A), `BF` (100), `NF` or `N` on the instance (1), `BR` (1), `NR` (1), `VAF` or `VA` (∞), `VAR` or `VB` (∞), `IKF` or `IK` (∞), `IKR` (∞), `RB`, `RBM`, `IRB` (0), `ISE` (0), `NE` (1.5), `ISC` (0), `NC` (2), `CJE` (0), `VJE` or `PE` (0.75 V), `MJE` or `ME` (0.33), `CJC` (0), `VJC` or `PC` (0.75 V), `MJC` or `MC` (0.33), `TF`, `TR` (0), `XTI` (3), `XTB` (0), `EG` (1.11 eV), `TNOM` (27 °C), noise `KF` (0), `AF` (1), `FF` (1); the card first, then the element line |
 | `M`, level 1 | with a card, the defaults of ngspice-47: `KP` (2e-5 A/V²), `W`, `L` (100 µm), `VTO` or `VTH` on the card and `VTH` on the element line, with the device's sign (0; a positive one makes a depletion PMOS), `GAMMA` (0, the body effect), `PHI` (0.6 V), `LAMBDA` (0), noise `KF` (0), `AF` (1), `EF` (1); other names, on the card or the line (`M=` among them), are named in a warning. The line's `NMOS` or `PMOS` without a card gives `W` 10 µm, `L` 1 µm and `VTH` ±0.7 V |
 | `Z` | `LEVEL`/`MODEL` (formula), `BETA` (0.1), `VTO` (−2 V; +2 V when the element line says `PMF` or the card is a `PMF` card), `LAMBDA` (0.05), `ALPHA` (2), `B` (0.3), `VP` (3 V), `CGS` (1 pF), `CGD` (0.5 pF), `CDS` (0.1 pF), `KF`, `AF`, `EF`, `TNOM` (27 °C) |
@@ -303,7 +303,11 @@ at that line. An instance parameter overrides the model's.
 - The diode carries 10<sup>−12</sup> S in parallel with its junction, as
   SPICE's GMIN, in DC, transient and AC; the `GMIN` option does not change
   it. With temperature, IS, VJ and CJO follow SPICE's diode laws with
-  `XTI` 3, `EG` 1.11 eV and TNOM 27 °C.
+  `XTI` 3, `EG` 1.11 eV and TNOM 27 °C. As in SPICE, `RS` lies between the
+  anode and the internal node `<name>#internal`, and the junction between
+  that node and the cathode; `TT` adds the diffusion capacitance TT·gd to
+  the junction capacitance; with `BV` the diode carries `IBV` at −BV, and
+  the reverse current grows by e every N·Vt below it.
 - With temperature, the bipolar transistor scales IS, BF, BR, ISE and ISC
   by SPICE's Gummel–Poon laws with `XTI`, `XTB` and `EG`; its junction
   potentials and capacitances do not change
@@ -443,7 +447,7 @@ parser stores it, but the program does not use it (the library can).
 | `.MODEL` | see [Models](#models) | used |
 | `.SUBCKT` / `.ENDS` | `.SUBCKT <name> <pins...> [NAME=<default> ...]` | used; no nesting of definitions; no `PARAMS:`; a `.SUBCKT` without `.ENDS` is an error |
 | `.GLOBAL` | `.GLOBAL <node> ...` | used in subcircuit expansion |
-| `.INCLUDE`, `.INC` | `.INCLUDE <file>` | used; relative to the netlist's directory |
+| `.INCLUDE`, `.INC` | `.INCLUDE <file>` | used; relative to the directory of the file that includes it |
 | `.LIB` / `.ENDL` | `.LIB <file> [<section>]` | used; without a section, the whole file |
 | `.IF` / `.ELIF` / `.ELSE` / `.ENDIF` | `.IF (<expr>)` or `.IF(<expr>)`; `.ELSEIF` for `.ELIF` | used, but `.PARAM` values are not visible; an expression that cannot be evaluated keeps all branches; ngspice-47 has `.ELSEIF` and not `.ELIF` |
 | `.END` | `.END` | ignored; lines after it are read |

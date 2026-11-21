@@ -574,7 +574,7 @@ request; each device determines its actual discretization.
 | --- | --- |
 | Discrete `C`, `L` | Dedicated BE, trapezoidal, BDF2, BDF3 and TR-BDF2 companions |
 | Mutual inductance | Accepted after inductors; networks with more than two coupled inductors use pairwise corrections rather than a full coupled inverse; `k = 1` keeps the magnetizing inductance |
-| Diode | A card sets `CJO`, `VJ` and `M`, so the capacitance depends on the voltage; the shared capacitor helper integrates it for every method |
+| Diode | A card sets `CJO`, `VJ`, `M` and `TT`, so the capacitance (junction and diffusion) depends on the voltage; the shared capacitor helper integrates it for every method |
 | BJT | Integrates differential capacitances rather than junction charge, through the shared helper for every method; a cross derivative is missing |
 | Level-1 MOSFET | No capacitance from a netlist (the parser names `CGSO`, `CGDO` and `CGBO` as not used); overlap capacitors set through the API use BE regardless of the requested method |
 | Level-3 MOSFET | Transient stamp has no intrinsic capacitance contribution; AC capacitances do not establish transient support |
@@ -583,7 +583,7 @@ request; each device determines its actual discretization.
 | BSIM4 | Simplified Meyer capacitances, not a complete terminal-charge formulation; inverter-chain transient reference test is disabled |
 | SiC, GaN, VDMOS, FinFET, MESFET | Capacitance paths force BE |
 | IGBT | `CGE` and `CCE` through the shared capacitor helper for every method; the tail current depends on the step |
-| Lossless transmission line | Delays by the step when the step is longer than `TD` |
+| Lossless transmission line | The step is no longer than `TD` (`Device::max_time_step`) |
 | Lossy transmission line | Wrong: the arriving wave lacks the delayed current term; delayed waves start at zero during the first propagation delay |
 
 A netlist probe checks the diode against a capacitor: with nearly

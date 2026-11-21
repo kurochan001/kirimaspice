@@ -129,11 +129,6 @@ document also lists differences not decided there.
   first: with `dm` IS = 1e-14 at the top level and IS = 1e-10 in the
   subcircuit, its diode at 0.6 V draws 0.119 mA outside and 1.19 A inside
   (ngspice-47 run on 2026-11-21; the warning is given since `4487d91`).
-- **`.LIB` in an included file is looked up from the main netlist's
-  directory,** not from the included file's: `.include sub/inc.cir`
-  whose `.lib models.lib tt` names `sub/models.lib` fails with
-  `Cannot resolve library path`, where ngspice-47 finds the file (run on
-  2026-11-21 at `21bb991`).
 - **The default `W` and `L` of MOSFET levels 3, 8/49, 9 and 14/54 are
   10 µm and 1 µm.** ngspice-47 takes 100 µm by 100 µm for level 3 and
   5 µm by 5 µm for BSIM3 and BSIM4: a level-3 card without parameters at
@@ -146,8 +141,9 @@ document also lists differences not decided there.
   `SFFM` at least `VO VA FC` (read in the code). An `SFFM` source without
   a DC value has `VO` in the operating point, where ngspice-47 gives 0 V
   (measured at `eaf0629`).
-- **The diode reads `IS`, `N`, `CJO`, `VJ` and `M` only, not `RS`, `TT`,
-  `BV`, `IBV` and the others, which it names in a warning; the bipolar
+- **The diode reads `IS`, `N`, `CJO`, `VJ`, `M`, `RS`, `TT`, `BV` and
+  `IBV` only, not `FC`, `KF`, `AF` and the others, which it names in a
+  warning (its FC is 0.5); the bipolar
   transistor does not read `RE`, `RC`, `CJS`, `XTF`, `VTF`, `ITF`, `PTF`,
   `XCJC` and `FC`; the level-1 MOSFET has no capacitances and no bulk
   junctions.** Other parameters on the cards of these devices and of the
@@ -156,10 +152,7 @@ document also lists differences not decided there.
   `TNOM` of the diode and of the level-1 MOSFET, which take 27 °C, and
   `EG` and `XTI` of the diode, which takes 1.11 eV and 3 (run on
   2026-11-21 at `21bb991`). Level 3 accepts `LAMBDA`, `RS`, `RD`, `CJ`,
-  `CJSW` and `MJSW` without a warning and does not use them. On the
-  element line, levels 3, 8/49, 9 and 12 drop the
-  names they do not read, `M=` and `AD=` among them, without a message
-  (run at `2826a81`).
+  `CJSW` and `MJSW` without a warning and does not use them.
 - **The bipolar transistor implements the Gummel–Poon currents in one
   device for NPN and PNP, with limits on its parasitics.** The currents
   and their analytic derivatives share `BJT::evaluate`. Forward-active,
@@ -414,12 +407,6 @@ says otherwise.
   2026-11-21, this program at `21bb991`). For the first TD of a transient its
   delayed waves are those of 0 V, not those of the operating point (read
   in the code).
-- **The lossless line `T` delays by the step when the step is longer than
-  `TD`.** A 10 MHz `SIN` of 1 V between 50 Ω and 50 Ω through `TD = 1n`,
-  `.tran 5n 200n`, gives v(b) = 0.1545 V at 150 ns, the wave of 5 ns
-  before; the analytic value, which ngspice-47 gives, is 0.0314 V. The
-  fixed step is not limited to the shortest delay of a line (both run on
-  2026-11-21, this program at `21bb991`).
 - **Three or more inductors coupled to each other are coupled pair by
   pair.** Each `K` adds what the inverse of its own 2 × 2 inductance matrix
   adds to the two inductors (`MutualInductance::inverse_inductance`), in AC
