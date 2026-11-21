@@ -4398,7 +4398,8 @@ M1 in in 0 0 NCH W=10u L=1u
     EXPECT_DOUBLE_EQ(mosfet->process_transconductance(), 100e-6);
 }
 
-// A .MODEL whose name differs from an earlier one only in case redefines it.
+// A .MODEL whose name differs from an earlier one only in case defines it
+// again: the first definition is used, as in ngspice-47 (run 2026-11-21).
 TEST(NetlistParser, ModelRedefinitionIgnoresCase) {
     std::string netlist = R"(
 Model redefined with other case
@@ -4416,7 +4417,7 @@ D1 in 0 dm
     EXPECT_EQ(result.config.models.size(), 1u);
     auto diode = std::dynamic_pointer_cast<devices::Diode>(result.circuit->get_device("D1"));
     ASSERT_NE(diode, nullptr);
-    EXPECT_DOUBLE_EQ(diode->saturation_current(), 3e-9);
+    EXPECT_DOUBLE_EQ(diode->saturation_current(), 1e-9);
 }
 
 // A .MODEL line applies to the whole netlist wherever it stands, so elements

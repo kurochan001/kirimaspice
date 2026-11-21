@@ -161,22 +161,26 @@ TEST(ParserUnknownInput, Bsim4JunctionNamesAreNotNamedAsUnused) {
     EXPECT_EQ(count(warnings, "BSIM4 model NB: jss is not used"), 1u) << warnings;
 }
 
-// A .MODEL that gives a name a model already has replaces it for the elements
-// after it and in subcircuits, also from inside a .SUBCKT, so it is named in a
-// warning (parse_model_directive). ngspice-47 (run 2026-11-21) keeps a .MODEL
-// in a .SUBCKT to the subcircuit: with dm IS=1e-14 at the top and IS=1e-10 in
-// the subcircuit, a diode at 0.6 V draws 0.119 mA outside it and 1.19 A in
-// it; and of two definitions at the top level it uses the first.
+// A .MODEL that gives a name a model already has in its scope (the top level,
+// or one .SUBCKT) is named in a warning, and the first is used
+// (parse_model_directive). A .MODEL in a .SUBCKT is local to it, so one there
+// of a top-level model's name is no second definition; ngspice-47 (run
+// 2026-11-21) keeps it to the subcircuit: with dm IS=1e-14 at the top and
+// IS=1e-10 in the subcircuit, a diode at 0.6 V draws 0.119 mA outside it and
+// 1.19 A in it; and of two definitions at the top level it uses the first.
 TEST(ParserUnknownInput, ModelDefinedAgainIsNamed) {
     const std::string twice = parse_warnings(
         "t\n.model dm D IS=1e-14\n.model DM D IS=1e-10\nV1 a 0 0.6\nD1 a 0 dm\n.end\n");
-    EXPECT_EQ(count(twice, "model dm is defined again"), 1u) << twice;
+    EXPECT_EQ(count(twice, "model dm is defined again; the first definition is used"), 1u) << twice;
     const std::string in_subcircuit = parse_warnings(
         "t\n.model dm D IS=1e-14\n.subckt sub a\n.model dm D IS=1e-10\nD1 a 0 dm\n.ends\n"
         "V1 a 0 0.6\nD2 a 0 dm\nX1 b sub\nV2 b 0 0.6\n.end\n");
-    EXPECT_EQ(count(in_subcircuit, "model dm is defined again"), 1u) << in_subcircuit;
-    EXPECT_EQ(count(in_subcircuit, "a .MODEL in .SUBCKT sub is not local to it"), 1u)
-        << in_subcircuit;
+    EXPECT_EQ(count(in_subcircuit, "defined again"), 0u) << in_subcircuit;
+    const std::string twice_in_subcircuit = parse_warnings(
+        "t\n.subckt sub a\n.model dm D IS=1e-14\n.model dm D IS=1e-10\nD1 a 0 dm\n.ends\n"
+        "X1 b sub\nV2 b 0 0.6\n.end\n");
+    EXPECT_EQ(count(twice_in_subcircuit, "model dm is defined again in .SUBCKT sub"), 1u)
+        << twice_in_subcircuit;
     const std::string once =
         parse_warnings("t\n.model dm D IS=1e-14\nV1 a 0 0.6\nD1 a 0 dm\n.end\n");
     EXPECT_EQ(count(once, "defined again"), 0u) << once;
