@@ -102,9 +102,11 @@ bool SSFWriter::should_save_signal(const std::string& signal_name) const {
         return true;
     }
 
-    // Check if signal is in save_signals list
+    // Check if signal is in save_signals list. Names are not case-sensitive:
+    // .SAVE keeps its tokens as written, the signal names are lower case
+    const std::string wanted = lower_case(signal_name);
     for (const auto& sig : output_config_->save_signals) {
-        if (sig == signal_name) {
+        if (lower_case(sig) == wanted) {
             return true;
         }
     }

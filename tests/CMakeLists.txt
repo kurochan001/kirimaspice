@@ -351,6 +351,10 @@ add_executable(test_ssf_writer unit/test_ssf_writer.cpp)
 target_link_libraries(test_ssf_writer PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_ssf_writer PROPERTIES TIMEOUT 1200)
 
+add_executable(test_ssf_save_case unit/test_ssf_save_case.cpp)
+target_link_libraries(test_ssf_save_case PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_ssf_save_case PROPERTIES TIMEOUT 1200)
+
 add_executable(test_wav_writer unit/test_wav_writer.cpp)
 target_link_libraries(test_wav_writer PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_wav_writer PROPERTIES TIMEOUT 1200)
