@@ -3935,6 +3935,7 @@ static void parse_model_directive(const std::vector<std::string>& tokens, ParseS
 
     // Parse parameters from parentheses or space-separated
     std::map<std::string, Real> params;
+    std::string model_version;  // VERSION, as text
 
     // Reconstruct parameter string (may span multiple tokens)
     // Include tokens[2] in case it contains parameters (e.g., "NPN(IS=1e-14")
@@ -3981,6 +3982,18 @@ static void parse_model_directive(const std::vector<std::string>& tokens, ParseS
 
             // Convert key to lowercase
             std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+
+            // VERSION is text, such as 4.8.3, not a number: it is kept as
+            // written, for the model that compares it (bsim4_params_from_model)
+            if (key == "version") {
+                model_version = value_str;
+                if (model_version.size() >= 2 &&
+                    (model_version.front() == '\'' || model_version.front() == '"') &&
+                    model_version.back() == model_version.front()) {
+                    model_version = model_version.substr(1, model_version.size() - 2);
+                }
+                continue;
+            }
 
             // Parse value (support expressions in { } )
             Real value;
@@ -4119,6 +4132,7 @@ static void parse_model_directive(const std::vector<std::string>& tokens, ParseS
     model.name = model_name;
     model.device_type = device_type;
     model.params = params;
+    model.version = model_version;
 
     // Model names are compared without regard to case (find_model), so a
     // definition replaces an earlier one spelled with other cases: the
@@ -5686,7 +5700,8 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
 
         std::vector<std::string> bsim4_unused;
         devices::BSIM4Params bsim4_params =
-            devices::bsim4_params_from_model(model.params, type_or_model, &bsim4_unused);
+            devices::bsim4_params_from_model(model.params, type_or_model, &bsim4_unused,
+                                             model.version);
         warn_unused_card_names(state, "BSIM4 model " + type_or_model, bsim4_unused);
 
         bsim4_params.w = w;

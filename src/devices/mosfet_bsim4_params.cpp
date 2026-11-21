@@ -23,6 +23,7 @@
 
 #include "kirimaspice/devices/mosfet_bsim4_params.hpp"
 #include "kirimaspice/core/constants.hpp"
+#include "kirimaspice/util/units.hpp"
 #include <algorithm>
 #include <cmath>
 #include <spdlog/spdlog.h>
@@ -374,7 +375,8 @@ bool set_bsim4_instance_parameter(BSIM4Params& p, const std::string& key, Real v
 
 BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_params,
                                     const std::string& model_name,
-                                    std::vector<std::string>* unused) {
+                                    std::vector<std::string>* unused,
+                                    const std::string& version) {
     BSIM4Params bsim4_params;
 
     // Which of the parameters that change the computation of others were
@@ -582,7 +584,24 @@ BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_par
     }
 
     const Real target_bsim4_version = 4.83;
-    if (bsim4_params.version <= 0.0) {
+    if (!version.empty()) {
+        // The VERSION of a card is text: 4.8.3 is the version followed, and
+        // so is the number 4.83 (BSIM4Params::version), as before; anything
+        // else is named with the text as written (4.8.1, not 4.8)
+        bool followed = version == "4.8.3";
+        try {
+            const Real number = util::parse_value_with_unit(version);
+            bsim4_params.version = number;
+            followed = followed || std::abs(number - target_bsim4_version) <= 1e-3;
+        } catch (const std::runtime_error&) {
+            // not a number, such as 4.8.1
+        }
+        if (!followed) {
+            spdlog::warn("BSIM4 model {} targets version {}; KirimaSpice currently follows 4.8.3. "
+                         "Results may differ.",
+                         model_name, version);
+        }
+    } else if (bsim4_params.version <= 0.0) {
         spdlog::warn("BSIM4 model {} declared non-positive version {:.3f}; defaulting to {:.2f}",
                      model_name, bsim4_params.version, target_bsim4_version);
         bsim4_params.version = target_bsim4_version;

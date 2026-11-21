@@ -182,6 +182,24 @@ TEST(ParserUnknownInput, ModelDefinedAgainIsNamed) {
     EXPECT_EQ(count(once, "defined again"), 0u) << once;
 }
 
+// VERSION on a card is text, not a number (ModelDefinition::version): 4.8.3
+// is the version the BSIM4 code follows (bsim4_params_from_model), and is not
+// warned of as 4.8; another is named as written
+TEST(ParserUnknownInput, Bsim4VersionIsReadAsText) {
+    const std::string netlist =
+        "t\nVD d 0 1\nM1 d d 0 0 NB W=1u L=0.1u\nM2 d d 0 0 NC W=1u L=0.1u\n"
+        "M3 d d 0 0 ND W=1u L=0.1u\n.model NB NMOS LEVEL=14 version=4.8.3\n"
+        ".model NC NMOS LEVEL=14 VERSION=4.8.1\n.model ND NMOS LEVEL=14 version=4.83\n.end\n";
+    const std::string warnings = parse_warnings(netlist);
+    EXPECT_EQ(count(warnings, "targets version"), 1u) << warnings;
+    EXPECT_EQ(count(warnings, "BSIM4 model NC targets version 4.8.1;"), 1u) << warnings;
+    EXPECT_EQ(count(warnings, "version is not used"), 0u) << warnings;
+    SimulationConfig config;
+    parse_warnings(netlist, &config);
+    EXPECT_EQ(config.find_model("NB")->version, "4.8.3");
+    EXPECT_EQ(config.find_model("NB")->params.count("version"), 0u);
+}
+
 // The BSIM4 element line takes W, L, NF, M, AS, AD, PS, PD, NRD, NRS and the
 // MULT_ multipliers (set_bsim4_instance_parameter); another token is named as
 // on a level-1 line. ngspice-47 (run 2026-11-21) stops on FOO=3 with

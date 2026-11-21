@@ -146,6 +146,9 @@ struct ModelDefinition {
     std::string name;                      ///< Model name (e.g., "2N3904", "1N4148")
     DeviceType device_type;                ///< Device type (BJT_NPN, BJT_PNP, DIODE, MOSFET_N, MOSFET_P)
     std::map<std::string, Real> params;    ///< Model parameters (e.g., "is", "bf", "vaf")
+    /// VERSION as the card writes it, text such as "4.8.3" (not a number,
+    /// so it is not in params); empty when the card has none
+    std::string version;
 };
 
 /// Measure type
