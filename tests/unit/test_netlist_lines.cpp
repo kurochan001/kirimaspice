@@ -340,6 +340,22 @@ TEST(NetlistLines, LossyLineValuesInBraces) {
     EXPECT_DOUBLE_EQ(o1->td(), 2e-9);
 }
 
+// The .FUNC keyword is read in any case (parse_func_directive); the name of
+// the function is the text before its '('. ngspice-47 (run 2026-11-21) gives
+// I(V1) = -0.5 mA for .Func dbl(x) {2*x}, .param r={dbl(1000)}, R1 a 0 {r}.
+TEST(NetlistLines, FuncKeywordInAnyCase) {
+    for (const std::string keyword : {".func", ".FUNC", ".Func", ".fUnC"}) {
+        parser::NetlistParser parser;
+        const auto parsed = parser.parse_string("t\n" + keyword +
+                                                " dbl(x) {2*x}\n.param r={dbl(1000)}\n"
+                                                "V1 a 0 1\nR1 a 0 {r}\n.op\n.end\n");
+        ASSERT_NE(parsed.circuit, nullptr) << keyword;
+        EXPECT_EQ(parsed.config.global_funcs.count("dbl"), 1u) << keyword;
+        EXPECT_DOUBLE_EQ(device_as<devices::Resistor>(parsed, "R1")->resistance(), 2e3)
+            << keyword;
+    }
+}
+
 // An element value that opens a brace and does not close it is an error
 // (read_element_value), not the expression without its last character:
 // ngspice-47 (run 2026-11-21) stops with 'Closing "}" not found' for {1k

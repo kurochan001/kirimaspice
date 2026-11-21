@@ -3814,13 +3814,21 @@ static void parse_func_directive(const std::vector<std::string>& tokens, const s
                         state.line_number);
     }
 
-    // Reconstruct full line (to handle spaces in expression)
+    // The definition is the text of the line after the keyword (to handle
+    // spaces in the expression). The keyword is in any case, .func, .FUNC or
+    // .Func, as every directive's.
+    static constexpr std::string_view kKeyword = ".FUNC";
     std::string func_def = line;
-    size_t func_start = func_def.find(".FUNC");
-    if (func_start == std::string::npos) {
-        func_start = func_def.find(".func");
+    const auto keyword = std::search(func_def.begin(), func_def.end(), kKeyword.begin(),
+                                     kKeyword.end(), [](char a, char b) {
+                                         return std::toupper(static_cast<unsigned char>(a)) ==
+                                                std::toupper(static_cast<unsigned char>(b));
+                                     });
+    if (keyword == func_def.end()) {
+        throw ParseError("Invalid .FUNC syntax: .FUNC name(args) {expr}", state.line_number);
     }
-    func_def = func_def.substr(func_start + 5);  // Skip ".FUNC"
+    func_def = func_def.substr(static_cast<std::size_t>(keyword - func_def.begin()) +
+                               kKeyword.size());  // Skip ".FUNC"
 
     // Trim whitespace
     func_def.erase(0, func_def.find_first_not_of(" \t"));
