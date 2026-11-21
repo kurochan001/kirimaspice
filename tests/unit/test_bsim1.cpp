@@ -7,7 +7,7 @@
 //   1. Parameter validation helpers
 //   2. Basic device construction (N/P)
 //   3. IV behavior monotonicity
-//   4. Parser recognition for LEVEL=9 models
+//   4. LEVEL=9 cards, which the parser does not offer
 
 #include <gtest/gtest.h>
 #include <string>
@@ -85,46 +85,14 @@ TEST(BSIM1Device, PChannelCurrentRespondsToGateBias) {
     EXPECT_LT(ids_low, ids_high);
 }
 
-TEST(BSIM1Parser, RecognizesLevel9Nmos) {
-    std::string netlist = R"(* BSIM1 NMOS
-.MODEL L9NMOS NMOS LEVEL=9 VFB=-0.5 PHI=0.7 K1=0.5
-M1 out in 0 0 L9NMOS W=10u L=1u
-VDD out 0 1.8
-.END
-)";
-
-    NetlistParser parser;
-    auto result = parser.parse_string(netlist);
-    ASSERT_NE(result.circuit, nullptr);
-
-    bool found = false;
-    for (const auto& dev : result.circuit->get_devices()) {
-        if (dev->type() == DeviceType::MOSFET_BSIM1_N) {
-            found = true;
-            break;
-        }
+// A LEVEL=9 card is an error: ngspice's LEVEL 9 is MOS9, and the parser
+// does not offer this BSIM1, which the tests above build directly
+TEST(BSIM1Parser, Level9CardsAreErrors) {
+    for (const char* netlist : {"* BSIM1 NMOS\n.MODEL L9NMOS NMOS LEVEL=9 VFB=-0.5 PHI=0.7 K1=0.5\n"
+                                "M1 out in 0 0 L9NMOS W=10u L=1u\nVDD out 0 1.8\n.END\n",
+                                "* BSIM1 PMOS\n.MODEL L9PMOS PMOS LEVEL=9 VFB=0.5 PHI=0.7 K1=0.5\n"
+                                "M1 out in vdd vdd L9PMOS W=10u L=1u\nVDD vdd 0 1.8\n.END\n"}) {
+        NetlistParser parser;
+        EXPECT_THROW(parser.parse_string(netlist), kirimaspice::parser::ParseError) << netlist;
     }
-    EXPECT_TRUE(found);
-}
-
-TEST(BSIM1Parser, RecognizesLevel9Pmos) {
-    std::string netlist = R"(* BSIM1 PMOS
-.MODEL L9PMOS PMOS LEVEL=9 VFB=0.5 PHI=0.7 K1=0.5
-M1 out in vdd vdd L9PMOS W=10u L=1u
-VDD vdd 0 1.8
-.END
-)";
-
-    NetlistParser parser;
-    auto result = parser.parse_string(netlist);
-    ASSERT_NE(result.circuit, nullptr);
-
-    bool found = false;
-    for (const auto& dev : result.circuit->get_devices()) {
-        if (dev->type() == DeviceType::MOSFET_BSIM1_P) {
-            found = true;
-            break;
-        }
-    }
-    EXPECT_TRUE(found);
 }
