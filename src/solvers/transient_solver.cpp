@@ -138,10 +138,9 @@ TransientResult TransientSolver::solve(Real t_start, Real t_stop, Real timestep)
     spdlog::info("Starting transient analysis: t=[{}, {}], dt={}",
                  t_start, t_stop, timestep);
 
-    // Apply global temperature to all devices before analysis starts (only if explicitly set)
-    if (config_.temperature_explicitly_set) {
-        apply_temperature_to_devices(circuit_, config_.temperature);
-    }
+    // Every device at the circuit temperature, 27 C unless .TEMP or
+    // .OPTIONS TEMP gives another (as DCSolver::solve)
+    apply_temperature_to_devices(circuit_, config_.temperature);
     apply_voltage_limiting_option(circuit_, config_);
 
     // Step 1: Initialize simulation (DC operating point / UIC mode / Pure DC),

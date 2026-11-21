@@ -1362,6 +1362,11 @@ add_executable(test_parameters_at_tnom unit/test_parameters_at_tnom.cpp)
 target_link_libraries(test_parameters_at_tnom PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_parameters_at_tnom)
 
+# Every analysis evaluates the devices at the circuit temperature, 27 C by default
+add_executable(test_circuit_temperature unit/test_circuit_temperature.cpp)
+target_link_libraries(test_circuit_temperature PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_circuit_temperature)
+
 # The level 3 MOSFET against its published equations and ngspice-47
 add_executable(test_mosfet_level3_reference unit/test_mosfet_level3_reference.cpp)
 target_link_libraries(test_mosfet_level3_reference PRIVATE kirimaspice_lib GTest::gtest_main)

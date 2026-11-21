@@ -487,11 +487,9 @@ ConvergenceStatus DCSolver::solve_standard(DenseVector& solution, SolverStats& s
 
 ConvergenceStatus DCSolver::solve(DenseVector& solution, SolverStats& stats) {
     last_solution_.clear();
-    // Apply global temperature before starting analysis (only if explicitly set via .TEMP or .OPTIONS TEMP)
-    // This preserves device-level temperature settings when no global temperature is specified
-    if (config_.temperature_explicitly_set) {
-        apply_temperature_to_devices(circuit_, config_.temperature);
-    }
+    // Every device at the circuit temperature, 27 C unless .TEMP or
+    // .OPTIONS TEMP gives another, as SPICE evaluates them
+    apply_temperature_to_devices(circuit_, config_.temperature);
     apply_voltage_limiting_option(circuit_, config_);
 
     // Check if source stepping is enabled
@@ -1100,10 +1098,8 @@ ConvergenceStatus DCSolver::solve_sweep(const DCSweepConfig& config, DCSweepResu
     using namespace std::chrono;
     auto start_time = high_resolution_clock::now();
 
-    // Apply temperature before sweeping (only if explicitly set)
-    if (config_.temperature_explicitly_set) {
-        apply_temperature_to_devices(circuit_, config_.temperature);
-    }
+    // Every device at the circuit temperature (see solve)
+    apply_temperature_to_devices(circuit_, config_.temperature);
     apply_voltage_limiting_option(circuit_, config_);
 
     // Check if this is a nested (2D) sweep
