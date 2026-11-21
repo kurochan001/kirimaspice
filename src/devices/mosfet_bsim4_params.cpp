@@ -34,12 +34,36 @@ static constexpr Real kBoltz = 1.380649e-23;  // Boltzmann constant [J/K]
 static constexpr Real qElectron = 1.602176634e-19;  // Electron charge [C]
 static constexpr Real epsSi = 11.7 * 8.854187817e-12;  // Silicon permittivity [F/m]
 static constexpr Real eps0 = 8.854187817e-12;  // Vacuum permittivity [F/m]
-static constexpr Real ni = 1.45e10;  // Intrinsic carrier concentration at 300K [cm⁻³]
+
+namespace {
+
+// The band gap of silicon at T [eV] (BSIM4 4.8.3 b4temp.c, MTRLMOD = 0)
+Real silicon_band_gap(Real T) {
+    return 1.16 - 7.02e-4 * T * T / (T + 1108.0);
+}
+
+// The intrinsic carrier density of silicon at T [cm^-3]: BSIM4 4.8.3
+// (b4temp.c, MTRLMOD = 0) takes 1.45e10 (T / 300.15)^1.5
+// exp(21.5565981 - Eg0(T) / (2 k T / q)), where 21.5565981 is
+// Eg0 / (2 k T / q) at 300.15 K with its k/q, so that the density is 1.45e10
+// there. That exponent is computed here with this file's k/q, so that it
+// stays 1.45e10 at 300.15 K.
+Real intrinsic_density(Real T) {
+    constexpr Real kRoom = 300.15;
+    const Real vt_room = kBoltz * kRoom / qElectron;
+    const Real vt = kBoltz * T / qElectron;
+    return 1.45e10 * std::pow(T / kRoom, 1.5) *
+           std::exp(silicon_band_gap(kRoom) / (2.0 * vt_room) - silicon_band_gap(T) / (2.0 * vt));
+}
+
+}  // namespace
 
 void BSIM4Params::compute_derived_params(Real temp) {
     const Real T = (temp > 0) ? temp : tnom;
     const Real Vt = kBoltz * T / qElectron;  // Thermal voltage at operating temperature
     const Real Vtm0 = kBoltz * tnom / qElectron;  // Thermal voltage at NOMINAL temperature (for phi/vbi)
+    // The intrinsic carrier density at TNOM, which phi and Vbi take [cm^-3]
+    const Real ni = intrinsic_density(tnom);
 
     // U0 and EU that the card does not give take the defaults of its TYPE
     // (BSIM4 manual, appendix A; the BSIM4 4.8.3 code): U0 = 0.067 m^2/Vs

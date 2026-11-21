@@ -596,3 +596,42 @@ TEST(BSIM4AgainstNgspice, StrongBodyBias) {
         EXPECT_NEAR(row.gmb, p.gmbs, std::max(1e-3 * std::abs(p.gmbs), 1e-5 * p.gm)) << at;
     }
 }
+
+// A TNOM other than 27 C: phi and Vbi take the intrinsic carrier density at
+// TNOM, 1.45e10 (TNOM / 300.15)^1.5 exp(Eg0(300.15) / (2 Vt(300.15)) -
+// Eg0(TNOM) / (2 Vt(TNOM))) cm^-3 (BSIM4 4.8.3 b4temp.c). ngspice-47, run
+// 2026-11-21: `id gm gds gmbs` of m1 for the reference card with TNOM (and
+// PRT) added, ".options temp=<T>", L = 0.18 um, W = 1 um.
+TEST(BSIM4AgainstNgspice, NominalTemperatureOtherThan27C) {
+    struct Point {
+        const char* extra;
+        Real celsius, vgs, vds, vbs;
+        Real id, gm, gds, gmbs;
+    };
+    const Point points[] = {
+        {"tnom=50", 50.0, 1.0, 1.0, 0.0, 1.241101e-04, 5.402347e-04, 2.974885e-05, 6.766748e-05},
+        {"tnom=50", 50.0, 0.4, 1.0, 0.0, 8.056049e-10, 2.576318e-08, 4.821972e-10, 3.643659e-09},
+        {"tnom=50", 50.0, 1.0, 0.05, 0.0, 2.994819e-05, 9.312431e-05, 5.202889e-04, 1.364839e-05},
+        {"tnom=50", 50.0, 1.0, 1.0, -1.0, 7.951818e-05, 4.990304e-04, 2.211452e-05, 2.907137e-05},
+        {"tnom=-20", 27.0, 1.0, 1.0, 0.0, 1.063593e-04, 4.490570e-04, 2.629736e-05, 5.185238e-05},
+        {"tnom=-20", 27.0, 0.4, 1.0, 0.0, 5.202638e-10, 1.796777e-08, 3.309658e-10, 2.318965e-09},
+        {"tnom=25 prt=100", 27.0, 1.0, 1.0, 0.0,
+         1.221796e-04, 5.294826e-04, 2.954339e-05, 6.527108e-05},
+    };
+    for (const auto& p : points) {
+        const std::string card =
+            std::string(".model nch nmos level=14 version=4.8.1 toxe=3e-9 vth0=0.5 u0=0.067 "
+                        "vsat=8e4 ") + p.extra + "\n";
+        char options[64];
+        std::snprintf(options, sizeof options, ".options temp=%.1f\n", p.celsius);
+        const DrainRow row =
+            drain_row_of_m1("M1 d g s b nch L=0.18u W=1u", card, p.vds, p.vgs, 0.0, p.vbs, options);
+        const std::string at = std::string(p.extra) + " " + options + "VGS=" +
+                               std::to_string(p.vgs) + " VDS=" + std::to_string(p.vds) +
+                               " VBS=" + std::to_string(p.vbs);
+        EXPECT_NEAR(row.ids, p.id, 2e-4 * p.id) << at;
+        EXPECT_NEAR(row.gm, p.gm, 1e-3 * p.gm) << at;
+        EXPECT_NEAR(row.gds, p.gds, 1e-3 * p.gds) << at;
+        EXPECT_NEAR(row.gmb, p.gmbs, 1e-3 * p.gmbs) << at;
+    }
+}
