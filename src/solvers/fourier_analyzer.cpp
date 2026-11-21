@@ -86,8 +86,10 @@ FourierResult FourierAnalyzer::analyze(const std::vector<Real>& time,
         // Magnitude: A_n = sqrt(a_n^2 + b_n^2)
         harmonic.magnitude = std::sqrt(a_n * a_n + b_n * b_n);
 
-        // Phase: phi_n = atan2(-b_n, a_n) in degrees
-        harmonic.phase_degrees = std::atan2(-b_n, a_n) * 180.0 / std::numbers::pi;
+        // Phase from a sine, as SPICE prints it: the harmonic is
+        // A_n sin(n omega t + phi_n) with t from the start of the last
+        // period, so a_n = A_n sin(phi_n), b_n = A_n cos(phi_n)
+        harmonic.phase_degrees = std::atan2(a_n, b_n) * 180.0 / std::numbers::pi;
 
         // Normalized values (relative to fundamental)
         if (n == 1) {

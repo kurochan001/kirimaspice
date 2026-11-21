@@ -434,3 +434,54 @@ TEST(FourierDirective, AnalysesEverySignalOfTheLine) {
     EXPECT_NEAR(fundamental("i(V1)"), square * 1e-3, 2e-3 * square * 1e-3);
     EXPECT_NEAR(fundamental("v(in)"), square, 2e-3 * square);
 }
+
+// The phase of a harmonic is measured from a sine, as ngspice-47 prints it:
+// A sin(n omega t + phi) has the phase phi, with t from the start of the
+// last period. ngspice-47 gives 30 degrees for SIN(0.5 1 1k 0 0 30) with
+// .tran 1u 3m .four 1k (the last period starts at 2 ms, a whole number of
+// periods) and 120 degrees with .tran 1u 2.25m (it starts at 1.25 ms,
+// 450 degrees later); run 2026-11-21. A rectangle of 1 V from 0 to T/4 of
+// each period has the harmonics (2/(n pi)) sin(n pi/4) cos(n omega (t - T/8)),
+// that is the phases 90 - 45 n degrees (plus 180 where sin(n pi/4) < 0):
+// 45, 0 and -45 degrees for n = 1, 2, 3 (ngspice-47 prints 44.1, -1.8 and
+// -47.7 from its grid of 200 points for PULSE(0 1 0 1n 1n 0.25m 1m)).
+TEST(FourierAnalyzer, PhaseIsMeasuredFromASine) {
+    const Real freq = 1000.0;
+    const Real omega = 2.0 * std::numbers::pi * freq;
+    auto sampled = [&](Real t_stop, auto&& f) {
+        std::vector<Real> time, signal;
+        for (int i = 0; i <= static_cast<int>(std::lround(t_stop / 1e-6)); ++i) {
+            time.push_back(i * 1e-6);
+            signal.push_back(f(i * 1e-6));
+        }
+        return FourierAnalyzer::analyze(time, signal, freq, "v(a)", 3);
+    };
+    auto sine = [&](Real t) { return 0.5 + std::sin(omega * t + std::numbers::pi / 6.0); };
+
+    const FourierResult whole = sampled(3e-3, sine);
+    ASSERT_TRUE(whole.success);
+    EXPECT_NEAR(whole.harmonics[0].magnitude, 1.0, 1e-4);
+    EXPECT_NEAR(whole.harmonics[0].phase_degrees, 30.0, 0.01);
+
+    const FourierResult shifted = sampled(2.25e-3, sine);
+    ASSERT_TRUE(shifted.success);
+    EXPECT_NEAR(shifted.harmonics[0].phase_degrees, 120.0, 0.01);
+
+    // The rectangle over three periods, sampled every 1 us and 1 ns after
+    // each corner, as a transient steps onto its corners
+    std::vector<Real> time, signal;
+    for (int j = 0; j <= 3000; ++j) {
+        const int in_period = j % 1000;
+        time.push_back(j * 1e-6);
+        signal.push_back(in_period >= 1 && in_period <= 250 ? 1.0 : 0.0);
+        if ((in_period == 0 || in_period == 250) && j < 3000) {
+            time.push_back(j * 1e-6 + 1e-9);
+            signal.push_back(in_period == 0 ? 1.0 : 0.0);
+        }
+    }
+    const FourierResult rectangle = FourierAnalyzer::analyze(time, signal, freq, "v(b)", 3);
+    ASSERT_TRUE(rectangle.success);
+    EXPECT_NEAR(rectangle.harmonics[0].phase_degrees, 45.0, 0.1);
+    EXPECT_NEAR(rectangle.harmonics[1].phase_degrees, 0.0, 0.1);
+    EXPECT_NEAR(rectangle.harmonics[2].phase_degrees, -45.0, 0.1);
+}
