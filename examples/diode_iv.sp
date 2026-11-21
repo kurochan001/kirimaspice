@@ -1,5 +1,6 @@
 * Diode I-V curve with a DC sweep
-* With IS = 1e-14 A and N = 1 at 27 C, I = IS * (exp(V / Vt) - 1), Vt = kT/q = 25.865 mV.
+* With IS = 1e-14 A and N = 1 at 27 C, I = IS * (exp(V / Vt) - 1) + GMIN * V, Vt = kT/q = 25.865 mV,
+* with SPICE's GMIN of 1e-12 S in parallel with the junction.
 * The current of V1 is positive into its + terminal, so I(V1) = -I(D1).
 V1 a 0 DC 0
 D1 a 0 DMOD

@@ -158,7 +158,9 @@ def case_diode_iv(binary: Path, examples: Path, tmp: Path) -> bool:
     results = []
     for row in read_raw(raw, "DC Sweep"):
         v = row["V1"]
-        diode = 1e-14 * (math.exp(v / vt) - 1.0)
+        # The junction current with SPICE's GMIN of 1e-12 S in parallel with
+        # it (ngspice-47 gives -7.53051e-9 A at 0.35 V, run 2026-11-21).
+        diode = 1e-14 * (math.exp(v / vt) - 1.0) + 1e-12 * v
         # Relative 1e-6 is far above rounding and far below any model change.
         tol = max(1e-6 * abs(diode), 1e-18)
         results.append(check(f"I(V1) at {v:.2f} V", row["i(v1)"], -diode, tol))

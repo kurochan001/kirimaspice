@@ -63,7 +63,8 @@ build/kirimaspice examples/diode_iv.sp --raw-out diode_iv.raw
 
 The program prints only a summary of a sweep; the values are in the raw
 file. With `IS=1e-14` and `N=1` at 27 °C the current follows
-I = IS·(exp(V/V<sub>T</sub>) − 1), V<sub>T</sub> = kT/q = 25.865 mV, and
+I = IS·(exp(V/V<sub>T</sub>) − 1) + GMIN·V, V<sub>T</sub> = kT/q = 25.865 mV,
+with SPICE's GMIN of 10⁻¹² S in parallel with the junction, and
 `i(v1)` is −I. The program agrees with this to better than one part in a
 million at every point of the sweep, for example −1.18719×10⁻⁴ A at 0.6 V
 and −0.270827 A at 0.8 V. ngspice-47 gives −1.18720×10⁻⁴ A and −0.270830 A,

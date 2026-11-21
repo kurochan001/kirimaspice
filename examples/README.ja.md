@@ -57,7 +57,8 @@ build/kirimaspice examples/diode_iv.sp --raw-out diode_iv.raw
 ```
 
 プログラムはスイープの要約しか表示しないので、値は raw ファイルにあります。27 °C で `IS=1e-14`、`N=1` の
-とき、電流は I = IS·(exp(V/V<sub>T</sub>) − 1)、V<sub>T</sub> = kT/q = 25.865 mV に従い、`i(v1)` は −I
+とき、電流は I = IS·(exp(V/V<sub>T</sub>) − 1) + GMIN·V（V<sub>T</sub> = kT/q = 25.865 mV。GMIN は SPICE が接合に
+並列に入れる 10⁻¹² S）に従い、`i(v1)` は −I
 です。スイープのどの点でも、プログラムはこの式と 100 万分の 1 より良く一致します。たとえば 0.6 V で
 −1.18719×10⁻⁴ A、0.8 V で −0.270827 A です。ngspice-47 は −1.18720×10⁻⁴ A と −0.270830 A で、
 値に対して最大 1.1×10⁻⁵ の差があります。これが ngspice の k と q の値によるものかは未確認です。約 0.73 V より上では、
