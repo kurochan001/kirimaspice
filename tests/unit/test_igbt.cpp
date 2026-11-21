@@ -479,10 +479,13 @@ TEST(IGBTNetlist, StronglyDrivenStageConverges) {
     EXPECT_NEAR(solution[parsed.circuit->get_node_id("c") - 1], 100.0 / 10001.0, 1e-9);
 }
 
-// After a turn-off the collector carries the tail current I0 exp(-(t - t0) /
-// TAU) from the first accepted point with the gate below threshold (t0), I0
-// being the current accepted before it. Without CCE and CGE, the collector of
-// the stage above follows V(c) = 100 - 100 I0 exp(-(t - t0) / TAU) after t0.
+// After a turn-off the collector carries the stored-carrier current, which
+// decays as exp(-t / TAU) once the channel is off (IGBT, stored_carrier_
+// current). The gate is on from the operating point, where the stored charge
+// is in its steady state, Is = I0, and falls from 10 us to 10.01 us, within
+// which the channel turns off: so I(c) lies between I0 exp(-(t - 10.00 us) /
+// TAU) and I0 exp(-(t - 10.01 us) / TAU), and from one point to the next it
+// falls by exactly exp(-dt / TAU). Without CCE and CGE, V(c) = 100 - 100 I(c).
 TEST(IGBTNetlist, TailCurrentDecaysAfterTurnOff) {
     parser::NetlistParser parser;
     auto parsed = parser.parse_string(
@@ -495,24 +498,20 @@ TEST(IGBTNetlist, TailCurrentDecaysAfterTurnOff) {
     const auto result = solver.solve(0.0, 20e-6, 0.5e-6);
     ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
     const NodeId c = parsed.circuit->get_node_id("c");
-    const NodeId g = parsed.circuit->get_node_id("g");
     const Real i0 = (100.0 - 100.0 / 10001.0) / 100.0;
-    // t0: the first accepted point with the gate below threshold; the step
-    // lands on the end of the gate's fall, 10.01 us (a breakpoint of VG)
-    const Real vge_th = *parsed.circuit->get_device("M1")->get_parameter("vge_th");
-    Real t0 = -1.0;
-    for (const auto& tp : result.timepoints) {
-        if (tp.time > 10e-6 && tp.node_voltages[g - 1] < vge_th) {
-            t0 = tp.time;
-            break;
-        }
-    }
-    ASSERT_GT(t0, 10e-6);
+    const Real tau = 2e-6;
     int checked = 0;
+    Real t_last = -1.0, i_last = 0.0;
     for (const auto& tp : result.timepoints) {
-        if (tp.time > t0 + 1e-9) {
-            const Real expected = 100.0 - 100.0 * i0 * std::exp(-(tp.time - t0) / 2e-6);
-            EXPECT_NEAR(tp.node_voltages[c - 1], expected, 1e-6) << "t=" << tp.time;
+        if (tp.time > 10.01e-6 + 1e-9) {
+            const Real i = (100.0 - tp.node_voltages[c - 1]) / 100.0;
+            EXPECT_LE(i, i0 * std::exp(-(tp.time - 10.01e-6) / tau) + 1e-9) << "t=" << tp.time;
+            EXPECT_GE(i, i0 * std::exp(-(tp.time - 10.00e-6) / tau) - 1e-9) << "t=" << tp.time;
+            if (t_last > 0.0) {
+                EXPECT_NEAR(i, i_last * std::exp(-(tp.time - t_last) / tau), 1e-9) << "t=" << tp.time;
+            }
+            t_last = tp.time;
+            i_last = i;
             ++checked;
         }
     }
