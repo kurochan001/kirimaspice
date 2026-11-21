@@ -340,6 +340,21 @@ TEST(NetlistLines, LossyLineValuesInBraces) {
     EXPECT_DOUBLE_EQ(o1->td(), 2e-9);
 }
 
+// An element value that opens a brace and does not close it is an error
+// (read_element_value), not the expression without its last character:
+// ngspice-47 (run 2026-11-21) stops with 'Closing "}" not found' for {1k
+TEST(NetlistLines, ElementValueWithoutItsClosingBrace) {
+    for (const std::string r : {"R1 a 0 {1k", "R1 a 0 {", "C1 a 0 {1n"}) {
+        parser::NetlistParser parser;
+        EXPECT_THROW(parser.parse_string("t\nV1 a 0 1\n" + r + "\n.op\n.end\n"),
+                     parser::ParseError)
+            << r;
+    }
+    parser::NetlistParser parser;
+    const auto parsed = parser.parse_string("t\nV1 a 0 1\nR1 a 0 {2*1000}\n.op\n.end\n");
+    EXPECT_DOUBLE_EQ(device_as<devices::Resistor>(parsed, "R1")->resistance(), 2e3);
+}
+
 // Element names are not case-sensitive (CircuitGraph's device_key): R1 and
 // r1 are one name, and F names its control in any case. ngspice-47 stops on
 // the first ("device already exists") and gives V(out) = 2 V for the second.

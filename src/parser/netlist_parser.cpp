@@ -2173,9 +2173,15 @@ static char element_letter(const std::string& name) {
 }
 
 // The value of a token on an element line: a brace expression, evaluated with
-// the parameters read so far, or a number with an optional scale factor.
+// the parameters read so far, or a number with an optional scale factor. A
+// '{' without its '}' at the end of the token is an error, as in ngspice-47
+// ("Closing \"}\" not found"), not the expression without its last character.
 static Real read_element_value(const std::string& token, ParseState& state) {
     if (!token.empty() && token.front() == '{') {
+        if (token.size() < 2 || token.back() != '}') {
+            throw ParseError(fmt::format("closing '}}' not found in '{}'", token),
+                             state.line_number);
+        }
         return state.evaluator->evaluate(token.substr(1, token.size() - 2));
     }
     return parse_value_with_unit(token);
