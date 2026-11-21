@@ -480,3 +480,43 @@ TEST(BSIM4AgainstNgspice, DsubDefaultsToDrout) {
         EXPECT_NEAR(row.gmb, p.gmbs, 1e-3 * std::abs(p.gmbs)) << at;
     }
 }
+
+// XL and XW, the offsets of the drawn length and width due to mask and etch,
+// add to L and to the width of one finger before LINT and WINT are taken off
+// (BSIM4 4.8.3 b4temp.c: Lnew = L + XL, Wnew = W / NF + XW). ngspice-47, run
+// 2026-11-21: `id gm gds gmbs` of m1 for the reference card with XL and XW
+// added, VBS = 0.
+TEST(BSIM4AgainstNgspice, MaskAndEtchOffsets) {
+    struct Point {
+        const char* extra;
+        const char* instance;
+        Real vgs, vds;
+        Real id, gm, gds, gmbs;
+    };
+    const Point points[] = {
+        {"xl=-20n", "M1 d g s b nch L=0.18u W=1u", 1.0, 1.0,
+         1.334358e-04, 5.740063e-04, 3.692863e-05, 6.702098e-05},
+        {"xw=50n", "M1 d g s b nch L=0.18u W=1u", 1.0, 1.0,
+         1.295435e-04, 5.603433e-04, 3.126674e-05, 6.926451e-05},
+        {"xl=-20n xw=50n", "M1 d g s b nch L=0.18u W=1u", 1.8, 1.8,
+         7.837104e-04, 8.193489e-04, 9.333495e-05, 8.931589e-05},
+        {"xl=-20n xw=50n", "M1 d g s b nch L=0.18u W=1u", 1.0, 0.05,
+         3.361626e-05, 1.063809e-04, 5.789036e-04, 1.457901e-05},
+        {"xl=20n xw=-0.2u", "M1 d g s b nch L=0.18u W=1u", 1.0, 1.0,
+         9.059279e-05, 3.980001e-04, 1.967083e-05, 5.103348e-05},
+        {"xw=50n", "M1 d g s b nch L=0.18u W=2u nf=2", 1.8, 1.8,
+         1.464495e-03, 1.564875e-03, 1.566237e-04, 1.816377e-04},
+    };
+    for (const auto& p : points) {
+        const std::string card =
+            std::string(".model nch nmos level=14 version=4.8.1 toxe=3e-9 vth0=0.5 u0=0.067 "
+                        "vsat=8e4 ") + p.extra + "\n";
+        const DrainRow row = drain_row_of_m1(p.instance, card, p.vds, p.vgs, 0.0, 0.0);
+        const std::string at = std::string(p.extra) + " " + p.instance + " VGS=" +
+                               std::to_string(p.vgs) + " VDS=" + std::to_string(p.vds);
+        EXPECT_NEAR(row.ids, p.id, 2e-4 * p.id) << at;
+        EXPECT_NEAR(row.gm, p.gm, 1e-3 * p.gm) << at;
+        EXPECT_NEAR(row.gds, p.gds, 1e-3 * p.gds) << at;
+        EXPECT_NEAR(row.gmb, p.gmbs, 1e-3 * p.gmbs) << at;
+    }
+}

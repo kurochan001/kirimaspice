@@ -422,8 +422,8 @@ struct BSIM4Params {
     // Geometry Scaling Parameters (幾何学的スケーリングパラメータ)
     //==========================================================================
 
-    Real xl = 0.0;          ///< Length offset for CV model [m]
-    Real xw = 0.0;          ///< Width offset for CV model [m]
+    Real xl = 0.0;          ///< Length offset due to mask and etch [m]
+    Real xw = 0.0;          ///< Width offset due to mask and etch [m]
     Real lint = 0.0;        ///< Length offset for I-V model [m]
     Real ll = 0.0;          ///< Length reduction parameter [m·m]
     Real llc = 0.0;         ///< Length reduction parameter for C-V [m·m]
@@ -502,16 +502,18 @@ struct BSIM4Params {
     // Helper Methods
     //==========================================================================
 
-    /// Calculate effective channel length [m]
+    /// Effective channel length [m]: the drawn length with the mask and etch
+    /// offset XL, less 2 LINT (BSIM4 4.8.3 b4temp.c: Lnew = L + XL)
     Real get_leff() const {
-        return l - 2.0 * lint;
+        return l + xl - 2.0 * lint;
     }
 
     /// Effective channel width of one finger [m]: W is the width of all NF
     /// fingers together (BSIM4 manual, geometry), and the current of one
-    /// finger is multiplied by NF (BSIM4Core::evaluate)
+    /// finger is multiplied by NF (BSIM4Core::evaluate); the mask and etch
+    /// offset XW is that of one finger (b4temp.c: Wnew = W / NF + XW)
     Real get_weff() const {
-        return w / std::max(nf, 1.0) - 2.0 * wint;
+        return w / std::max(nf, 1.0) + xw - 2.0 * wint;
     }
 
     /// Initialize derived parameters from basic parameters
