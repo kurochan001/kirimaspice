@@ -313,11 +313,10 @@ factorization still occurs; do not interpret that as one factorization per
 step. The first stage stamps the sources at `t + gamma*h`, its own time,
 and the second at `t + h` (`solve_timestep_tr_bdf2`); the ramp experiment
 below shows second-order error reduction. The discrete capacitor and
-inductor, and the diode, BJT, BSIM3, BSIM4 and IGBT through
-`device_utils::capacitor_companion`, take the coefficients of each stage.
-The models that use backward Euler for every method (see
-[Device model limits](#device-model-limits)) do so under TR-BDF2 too, so a
-circuit containing them does not use a uniform TR-BDF2 discretization.
+inductor, the diode, BJT, BSIM3, BSIM4 and IGBT through
+`device_utils::capacitor_companion`, and the SiC MOSFET, GaN HEMT, VDMOS,
+FinFET and MESFET through `device_utils::CapacitorHistory`, take the
+coefficients of each stage.
 Transmission lines keep their own clock at the time points, not at the
 first stage's time.
 
@@ -581,7 +580,7 @@ request; each device determines its actual discretization.
 | BSIM1 | Capacitances use BE regardless of the requested method |
 | BSIM3 / BSIM4 | Shared capacitor helper for every method |
 | BSIM4 | Simplified Meyer capacitances, not a complete terminal-charge formulation; inverter-chain transient reference test is disabled |
-| SiC, GaN, VDMOS, FinFET, MESFET | Capacitance paths force BE |
+| SiC, GaN, VDMOS, FinFET, MESFET | Capacitances through `device_utils::CapacitorHistory`, by the chosen method |
 | IGBT | `CGE` and `CCE` through the shared capacitor helper for every method; the tail is the stored-carrier current, a lag of `TAU` behind the channel current, integrated exactly between accepted points |
 | Lossless transmission line | The step is no longer than `TD` (`Device::max_time_step`) |
 | Lossy transmission line | Up to 16 sections of the constant-parameter (Bergeron) line, lossless with the loss lumped at their ends; the step is no longer than a section's delay; the history starts from the operating point |

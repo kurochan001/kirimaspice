@@ -421,7 +421,7 @@ V<sub>SD</sub>, with its current from source to drain:
   n = `SS`/(V<sub>t</sub> ln 10), so the current changes by one decade per
   `SS` of gate voltage.
 - 10<sup>−12</sup> S lies between drain and source. `CGS` and `CGD` are
-  constant, and the transient integrates them by backward Euler. The noise
+  constant, and the transient integrates them by its method. The noise
   sources are 4kT·(2/3)·g<sub>m</sub> and `KF`·|I<sub>D</sub>|<sup>`AF`</sup>/f.
 
 [KNOWN_ISSUES](../KNOWN_ISSUES.md#device-models) lists what this model

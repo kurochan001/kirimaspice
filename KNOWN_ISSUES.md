@@ -359,9 +359,6 @@ says otherwise.
   NFIN·HFIN, without the fin's other side and top. Drain and source are not
   swapped when V<sub>DS</sub> < 0, and `TFIN` and `VSAT` are read but not
   used ([reference manual](docs/REFERENCE_MANUAL.md#finfet-level12)).
-- **The SiC MOSFET, GaN HEMT, VDMOS, FinFET and MESFET integrate their
-  capacitances by backward Euler** whatever integration method the
-  transient uses (read in the code).
 - **The lossy line `O`'s transient is an approximation.** DC and AC take
   its exact two-port; the transient takes up to 16 sections of the
   constant-parameter (Bergeron) line, each lossless with its loss lumped

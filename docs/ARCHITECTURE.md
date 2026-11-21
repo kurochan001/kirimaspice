@@ -377,12 +377,11 @@ steps in time.
 - **Methods** (`IntegrationMethod`): backward Euler, trapezoidal (the
   default), BDF2 (`gear`, `gear2`, `bdf2`), BDF3 (`gear3`, `bdf3`), and
   TR-BDF2, chosen with `.OPTIONS METHOD=`. Each device's
-  `stamp_transient` writes the companion model of the method, except that
-  the SiC MOSFET, GaN HEMT, VDMOS, FinFET and MESFET integrate their
-  capacitances by backward Euler whatever the method
-  ([KNOWN_ISSUES](../KNOWN_ISSUES.md#device-models)). The diode, BJT,
-  BSIM3, BSIM4 and IGBT integrate theirs through
-  `device_utils::capacitor_companion`.
+  `stamp_transient` writes the companion model of the method. The diode,
+  BJT, BSIM3, BSIM4 and IGBT integrate their capacitances through
+  `device_utils::capacitor_companion`, and the SiC MOSFET, GaN HEMT,
+  VDMOS, FinFET and MESFET through `device_utils::CapacitorHistory`, which
+  keeps the history it needs.
 - **Fixed steps, the path the program uses.** The step is the shorter of
   TSTEP and TMAX (`main.cpp`; the parser sets TMAX to TSTEP when it is
   absent or 0). `run_timestepping_loop` ends a segment at each source

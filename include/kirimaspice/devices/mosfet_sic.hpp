@@ -6,6 +6,7 @@
 #pragma once
 
 #include "kirimaspice/devices/device.hpp"
+#include "kirimaspice/core/device_utils.hpp"
 #include "kirimaspice/devices/polarity.hpp"
 #include <cmath>
 
@@ -264,6 +265,7 @@ private:
     mutable Real vgs_prev_ = 0.0;
     mutable Real vgd_prev_ = 0.0;
     mutable Real vds_prev_ = 0.0;
+    device_utils::CapacitorHistory cgs_hist_, cgd_hist_;  // CGSO W, CGDO W
 };
 
 // Explicit template instantiation declarations

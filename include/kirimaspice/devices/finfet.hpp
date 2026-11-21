@@ -6,6 +6,7 @@
 #pragma once
 
 #include "kirimaspice/devices/device.hpp"
+#include "kirimaspice/core/device_utils.hpp"
 #include "kirimaspice/devices/polarity.hpp"
 #include <cmath>
 
@@ -123,6 +124,12 @@ public:
                                                Real frequency) const override;
 
     void accept_solution(const DenseVector& node_voltages) override;
+    void reset_state() override {
+        v_gs_prev_ = 0.0;
+        v_gd_prev_ = 0.0;
+        cgs_hist_.reset();
+        cgd_hist_.reset();
+    }
 
     // Parameter access
     std::optional<Real> get_parameter(const std::string& param_name) const override;
@@ -218,6 +225,7 @@ private:
     Real cgd_;      ///< Gate-drain capacitance [F]
     mutable Real v_gs_prev_ = 0.0;  ///< Accepted Vg - Vs
     mutable Real v_gd_prev_ = 0.0;  ///< Accepted Vg - Vd
+    device_utils::CapacitorHistory cgs_hist_, cgd_hist_;
 
     // Noise parameters
     Real kf_;       ///< Flicker noise coefficient

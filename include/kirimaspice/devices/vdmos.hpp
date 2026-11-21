@@ -144,10 +144,16 @@ public:
         vgs_prev_ = 0.0;
         vgd_prev_ = 0.0;
         vds_prev_ = 0.0;
+        cgs_hist_.reset();
+        cgd_hist_.reset();
+        cds_hist_.reset();
     }
 
     void accept_solution(const DenseVector& node_voltages) override {
         update_operating_point(node_voltages);
+        cgs_hist_.accept(vgs_prev_);
+        cgd_hist_.accept(vgd_prev_);
+        cds_hist_.accept(vds_prev_);
     }
 
     // Parameter access for sensitivity analysis
@@ -227,6 +233,7 @@ private:
     mutable Real vgs_prev_ = 0.0;
     mutable Real vgd_prev_ = 0.0;
     mutable Real vds_prev_ = 0.0;
+    device_utils::CapacitorHistory cgs_hist_, cgd_hist_, cds_hist_;
 
     // The drain current of the model and its derivatives
     struct DrainCurrent {
@@ -452,22 +459,15 @@ void VDMOS<Pol>::stamp_transient(MNASystem& mna, const DenseVector& node_voltage
     Real vds_eff = is_n_channel ? vds : -vds;
     Real cgd = compute_cgd(std::abs(vds_eff));
 
-    // The capacitances by backward Euler, whatever the method: the current
-    // C / dt (V - V_prev), with V_prev accepted at the last time point
-    // (update_operating_point)
-    (void)method;
-    (void)bdf_coef;
-    (void)tr_bdf2_coef;
+    // The capacitances, integrated by the transient's method as a capacitor
+    // is (device_utils::CapacitorHistory), with the voltages accepted at the
+    // time points (accept_solution); Cgd at the present iterate
     auto nd_idx = (nd == NODE_GND) ? -1 : static_cast<int>(nd - 1);
     auto ng_idx = (ng == NODE_GND) ? -1 : static_cast<int>(ng - 1);
     auto ns_idx = (ns == NODE_GND) ? -1 : static_cast<int>(ns - 1);
-    auto companion = [&](Real c, int n1, int n2, Real v_prev) {
-        const Real g = c / timestep;
-        device_utils::stamp_capacitor_companion(mna, n1, n2, g, -g * v_prev, 1.0);
-    };
-    companion(cgs_, ng_idx, ns_idx, vgs_prev_);
-    companion(cgd, ng_idx, nd_idx, vgd_prev_);
-    companion(cds_, nd_idx, ns_idx, vds_prev_);
+    cgs_hist_.stamp(mna, ng_idx, ns_idx, cgs_, method, timestep, bdf_coef, tr_bdf2_coef);
+    cgd_hist_.stamp(mna, ng_idx, nd_idx, cgd, method, timestep, bdf_coef, tr_bdf2_coef);
+    cds_hist_.stamp(mna, nd_idx, ns_idx, cds_, method, timestep, bdf_coef, tr_bdf2_coef);
     (void)vgs;
     (void)vgd;
 }

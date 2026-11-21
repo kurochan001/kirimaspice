@@ -135,33 +135,25 @@ public:
         const NodeId g = nodes_[1];
         const NodeId s = nodes_[2];
 
-        // CGS, CGD and CDS by backward Euler, whatever the method: the current
-        // C / dt (V - V_prev) from the first node to the second, with V_prev
-        // accepted at the last time point (accept_solution). For the
-        // P-channel device the voltages are S-G, D-G and S-D.
-        (void)tr_bdf2_coef;
+        // CGS, CGD and CDS, integrated by the transient's method as a
+        // capacitor is (device_utils::CapacitorHistory), from the first node
+        // to the second; for the P-channel device the voltages are S-G, D-G
+        // and S-D (accept_solution)
         const int di = (d > 0) ? static_cast<int>(d - 1) : -1;
         const int gi = (g > 0) ? static_cast<int>(g - 1) : -1;
         const int si = (s > 0) ? static_cast<int>(s - 1) : -1;
-        auto companion = [&](Real c, int n1, int n2, Real v_prev) {
-            if (c <= 0.0) {
-                return;
-            }
-            const Real geq = c / timestep;
-            device_utils::stamp_capacitor_companion(mna, n1, n2, geq, -geq * v_prev, 1.0);
+        auto companion = [&](const device_utils::CapacitorHistory& h, Real c, int n1, int n2) {
+            h.stamp(mna, n1, n2, c, method, timestep, bdf_coef, tr_bdf2_coef);
         };
         if constexpr (Pol == MESFETPolarity::N) {
-            companion(cgs_, gi, si, v_gs_prev_);
-            companion(cgd_, gi, di, v_gd_prev_);
-            companion(cds_, di, si, v_ds_prev_);
+            companion(cgs_hist_, cgs_, gi, si);
+            companion(cgd_hist_, cgd_, gi, di);
+            companion(cds_hist_, cds_, di, si);
         } else {
-            companion(cgs_, si, gi, v_gs_prev_);
-            companion(cgd_, di, gi, v_gd_prev_);
-            companion(cds_, si, di, v_ds_prev_);
+            companion(cgs_hist_, cgs_, si, gi);
+            companion(cgd_hist_, cgd_, di, gi);
+            companion(cds_hist_, cds_, si, di);
         }
-
-        (void)method;
-        (void)bdf_coef;
     }
 
     bool is_linear() const override { return false; }
@@ -300,6 +292,9 @@ public:
     }
 
     void reset_state() override {
+        cgs_hist_.reset();
+        cgd_hist_.reset();
+        cds_hist_.reset();
         v_gs_prev_ = 0.0;
         v_gd_prev_ = 0.0;
         v_ds_prev_ = 0.0;
@@ -351,6 +346,10 @@ public:
             v_gd_prev_ = vd - vg;
             v_ds_prev_ = vs - vd;
         }
+
+        cgs_hist_.accept(v_gs_prev_);
+        cgd_hist_.accept(v_gd_prev_);
+        cds_hist_.accept(v_ds_prev_);
 
         charge_gs_prev_ = cgs_ * v_gs_prev_;
         charge_gd_prev_ = cgd_ * v_gd_prev_;
@@ -609,6 +608,7 @@ private:
     mutable Real v_gs_prev_ = 0.0;
     mutable Real v_gd_prev_ = 0.0;
     mutable Real v_ds_prev_ = 0.0;
+    device_utils::CapacitorHistory cgs_hist_, cgd_hist_, cds_hist_;
     mutable Real v_gs_prev2_ = 0.0;
     mutable Real v_gd_prev2_ = 0.0;
     mutable Real v_ds_prev2_ = 0.0;

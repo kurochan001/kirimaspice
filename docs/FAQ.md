@@ -130,9 +130,8 @@ The default, `trap`, is second order. On an RC discharge from 1 V
 | `euler` | backward Euler | 1 | 0.369711 | 1.8·10⁻³ |
 
 Set the method with `.OPTIONS METHOD=<name>`
-([examples](../examples/README.md#rc-discharge-and-the-integration-methods)). The SiC MOSFET, GaN
-HEMT, VDMOS, FinFET and MESFET integrate their own capacitances by backward Euler
-whatever the method ([KNOWN_ISSUES](../KNOWN_ISSUES.md#device-models)).
+([examples](../examples/README.md#rc-discharge-and-the-integration-methods)). Every device
+integrates its capacitances by the method chosen.
 
 ### Is the time step adaptive?
 

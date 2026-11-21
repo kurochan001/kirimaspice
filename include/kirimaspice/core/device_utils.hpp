@@ -9,6 +9,7 @@
 #include <cmath>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -724,6 +725,65 @@ inline CapacitorCompanion capacitor_companion(IntegrationMethod method, Real c, 
     }
     return cc;
 }
+
+/// The history of one capacitance between two nodes, integrated by the
+/// transient's method as capacitor_companion gives it: the voltages
+/// accepted at the last three time points, the capacitor's current at the
+/// last one (which the trapezoidal rule needs), and the capacitance, step,
+/// method and coefficients of the last stamp, so that accept() takes the
+/// current of the companion that ended at the accepted point. stamp() may
+/// run at every Newton iteration and changes only the latter; accept()
+/// runs once per accepted point (an operating point included, where no
+/// step ended and the current is 0).
+class CapacitorHistory {
+public:
+    /// Stamp the companion of c from node n1 to node n2 (MNA indices, -1
+    /// for ground) over this step
+    template<typename MNA>
+    void stamp(MNA& mna, int n1, int n2, Real c, IntegrationMethod method, Real dt,
+               const BDFCoefficients* bdf, const TR_BDF2_Coefficients* tr_bdf2) const {
+        c_ = c;
+        dt_ = dt;
+        method_ = method;
+        bdf_ = bdf ? std::optional<BDFCoefficients>(*bdf) : std::nullopt;
+        tr_bdf2_ = tr_bdf2 ? std::optional<TR_BDF2_Coefficients>(*tr_bdf2) : std::nullopt;
+        stamped_ = true;
+        if (c <= 0.0) {
+            return;
+        }
+        const CapacitorCompanion cc = capacitor_companion(method, c, dt, v1_, v2_, v3_, i1_, bdf, tr_bdf2);
+        stamp_capacitor_companion(mna, n1, n2, cc.g, cc.i_eq, 1.0);
+    }
+
+    /// The accepted voltage v (from n1 to n2) at a time point
+    void accept(Real v) {
+        if (stamped_ && c_ > 0.0) {
+            const CapacitorCompanion cc = capacitor_companion(method_, c_, dt_, v1_, v2_, v3_, i1_,
+                                                              bdf_ ? &*bdf_ : nullptr,
+                                                              tr_bdf2_ ? &*tr_bdf2_ : nullptr);
+            i1_ = cc.g * v + cc.i_eq;
+        } else {
+            i1_ = 0.0;
+        }
+        stamped_ = false;
+        v3_ = v2_;
+        v2_ = v1_;
+        v1_ = v;
+    }
+
+    void reset() { *this = CapacitorHistory(); }
+
+    /// The voltage accepted at the last time point
+    Real last_voltage() const { return v1_; }
+
+private:
+    Real v1_ = 0.0, v2_ = 0.0, v3_ = 0.0, i1_ = 0.0;
+    mutable Real c_ = 0.0, dt_ = 0.0;
+    mutable IntegrationMethod method_ = IntegrationMethod::BACKWARD_EULER;
+    mutable std::optional<BDFCoefficients> bdf_;
+    mutable std::optional<TR_BDF2_Coefficients> tr_bdf2_;
+    mutable bool stamped_ = false;
+};
 
 /// Stamp complex VCCS for AC analysis: the small-signal current gm × (vg - vs)
 /// from drain to source, the same for both polarities (stamp_vccs_3terminal)

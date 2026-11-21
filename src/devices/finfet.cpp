@@ -185,27 +185,19 @@ void FinFET<P>::stamp_dc_nonlinear(MNASystem& mna, const DenseVector& node_volta
 
 template<Polarity P>
 void FinFET<P>::stamp_transient(MNASystem& mna, const DenseVector& node_voltages,
-                                 Real timestep, IntegrationMethod /*method*/,
-                                 const BDFCoefficients* /*bdf_coef*/,
-                                 const TR_BDF2_Coefficients* /*tr_bdf2_coef*/) const {
+                                 Real timestep, IntegrationMethod method,
+                                 const BDFCoefficients* bdf_coef,
+                                 const TR_BDF2_Coefficients* tr_bdf2_coef) const {
     stamp_dc_nonlinear(mna, node_voltages);
 
-    // CGS and CGD by backward Euler: the current C / dt (V - V_prev) from the
-    // gate, with V = Vg - Vs and Vg - Vd and V_prev the accepted values
+    // CGS and CGD from the gate, with V = Vg - Vs and Vg - Vd, integrated by
+    // the transient's method as a capacitor is (device_utils::
+    // CapacitorHistory), with the voltages accepted at the time points
     const int nd = node_index(nodes_[0]);
     const int ng = node_index(nodes_[1]);
     const int ns = node_index(nodes_[2]);
-    auto stamp_capacitance = [&](Real c, int other, Real v_prev) {
-        if (c <= 0.0) {
-            return;
-        }
-        const Real g = c / timestep;
-        stamp_admittance(mna.G, ng, other, g);
-        if (ng >= 0) mna.b[ng] += g * v_prev;
-        if (other >= 0) mna.b[other] -= g * v_prev;
-    };
-    stamp_capacitance(cgs_, ns, v_gs_prev_);
-    stamp_capacitance(cgd_, nd, v_gd_prev_);
+    cgs_hist_.stamp(mna, ng, ns, cgs_, method, timestep, bdf_coef, tr_bdf2_coef);
+    cgd_hist_.stamp(mna, ng, nd, cgd_, method, timestep, bdf_coef, tr_bdf2_coef);
 }
 
 template<Polarity P>
@@ -274,6 +266,8 @@ void FinFET<P>::accept_solution(const DenseVector& node_voltages) {
     const Real v_s = (nodes_[2] == NODE_GND) ? 0.0 : node_voltages[nodes_[2]];
     v_gs_prev_ = v_g - v_s;
     v_gd_prev_ = v_g - v_d;
+    cgs_hist_.accept(v_gs_prev_);
+    cgd_hist_.accept(v_gd_prev_);
 }
 
 template<Polarity P>

@@ -1280,6 +1280,10 @@ add_executable(test_sic_reverse unit/test_sic_reverse.cpp)
 target_link_libraries(test_sic_reverse PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_sic_reverse PROPERTIES TIMEOUT 1200)
 
+add_executable(test_device_capacitor_methods unit/test_device_capacitor_methods.cpp)
+target_link_libraries(test_device_capacitor_methods PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_device_capacitor_methods PROPERTIES TIMEOUT 1200)
+
 add_executable(test_breakdown unit/test_breakdown.cpp)
 target_link_libraries(test_breakdown PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_breakdown PROPERTIES TIMEOUT 1200)

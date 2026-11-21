@@ -112,8 +112,7 @@ RC の充電（厳密な値 0.632121 に対して 0.632105）です。
 | `euler` | 後退オイラー法 | 1 | 0.369711 | 1.8·10⁻³ |
 
 方法は `.OPTIONS METHOD=<名前>` で選びます（[例題](../examples/README.ja.md#rc-の放電と積分法)）。
-SiC MOSFET、GaN HEMT、VDMOS、FinFET、MESFET は、方法にかかわらず自分の容量を後退オイラー法で積分します
-（[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#デバイスモデル)）。
+どのデバイスも、選んだ方法で自分の容量を積分します。
 
 ### 時間刻みは可変ですか？
 

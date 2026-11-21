@@ -353,7 +353,7 @@ V<sub>SG</sub> と V<sub>SD</sub> で使い、電流はソースからドレイ�
   (1 − exp(−V<sub>DS</sub>/V<sub>t</sub>)) で、n = `SS`/(V<sub>t</sub> ln 10) です。ゲート電圧が
   `SS` 変わるごとに、電流は 1 桁変わります。
 - ドレインとソースの間に 10<sup>−12</sup> S があります。`CGS` と `CGD` は一定で、過渡解析では
-  後退オイラーで積分します。ノイズ源は 4kT·(2/3)·g<sub>m</sub> と
+  その積分法で積分します。ノイズ源は 4kT·(2/3)·g<sub>m</sub> と
   `KF`·|I<sub>D</sub>|<sup>`AF`</sup>/f です。
 
 このモデルが含まないものは [KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#デバイスモデル) にあります。

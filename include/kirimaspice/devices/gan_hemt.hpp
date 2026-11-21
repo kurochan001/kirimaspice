@@ -146,6 +146,9 @@ public:
         vgs_prev_ = vg - vs;
         vgd_prev_ = vg - vd;
         vds_prev_ = vd - vs;
+        cgs_hist_.accept(vgs_prev_);
+        cgd_hist_.accept(vgd_prev_);
+        cds_hist_.accept(vds_prev_);
     }
 
     // Temperature methods
@@ -221,6 +224,7 @@ private:
     mutable Real vgs_prev_ = 0.0;
     mutable Real vgd_prev_ = 0.0;
     mutable Real vds_prev_ = 0.0;
+    device_utils::CapacitorHistory cgs_hist_, cgd_hist_, cds_hist_;
 
     // Helper methods
     void stamp_gmin(MNASystem& mna) const {
@@ -393,9 +397,9 @@ template<GaNPolarity Pol>
 void GaN_HEMT<Pol>::stamp_transient(MNASystem& mna,
                                      const DenseVector& node_voltages,
                                      Real timestep,
-                                     IntegrationMethod /*method*/,
-                                     const BDFCoefficients* /*bdf_coef*/,
-                                     const TR_BDF2_Coefficients* /*tr_bdf2_coef*/) const {
+                                     IntegrationMethod method,
+                                     const BDFCoefficients* bdf_coef,
+                                     const TR_BDF2_Coefficients* tr_bdf2_coef) const {
     // First stamp DC nonlinear contribution
     stamp_dc_nonlinear(mna, node_voltages);
 
@@ -413,24 +417,16 @@ void GaN_HEMT<Pol>::stamp_transient(MNASystem& mna,
     auto ng_idx = (gate == NODE_GND) ? -1 : static_cast<int>(gate - 1);
     auto ns_idx = (source == NODE_GND) ? -1 : static_cast<int>(source - 1);
 
-    Real dt = timestep;
-
-    // The capacitances by backward Euler: the current C / dt (V - V_prev)
-    // from the first node to the second, with V_prev accepted at the last
-    // time point (accept_solution)
+    // The capacitances, integrated by the transient's method as a capacitor
+    // is (device_utils::CapacitorHistory), from the first node to the
+    // second, with the voltages accepted at the time points
+    // (accept_solution)
     (void)vgs;
     (void)vgd;
     (void)vds;
-    auto companion = [&](Real c, int n1, int n2, Real v_prev) {
-        if (c <= 0.0) {
-            return;
-        }
-        const Real g = c / dt;
-        device_utils::stamp_capacitor_companion(mna, n1, n2, g, -g * v_prev, 1.0);
-    };
-    companion(cgs_, ng_idx, ns_idx, vgs_prev_);
-    companion(cgd_, ng_idx, nd_idx, vgd_prev_);
-    companion(cds_, nd_idx, ns_idx, vds_prev_);
+    cgs_hist_.stamp(mna, ng_idx, ns_idx, cgs_, method, timestep, bdf_coef, tr_bdf2_coef);
+    cgd_hist_.stamp(mna, ng_idx, nd_idx, cgd_, method, timestep, bdf_coef, tr_bdf2_coef);
+    cds_hist_.stamp(mna, nd_idx, ns_idx, cds_, method, timestep, bdf_coef, tr_bdf2_coef);
 }
 
 template<GaNPolarity Pol>
