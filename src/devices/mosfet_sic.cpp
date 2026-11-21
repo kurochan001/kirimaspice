@@ -180,8 +180,11 @@ typename MOSFET_SiC<P>::DrainCurrent MOSFET_SiC<P>::drain_current(Real v_gs_eff,
         const Real beta_eff = beta_temp / (1.0 + theta_ * vds);
         const Real id0 = (vds < v_ov) ? beta_eff * (v_ov * vds - 0.5 * vds * vds)
                                       : 0.5 * beta_eff * v_ov * v_ov;
-        if (rdrift_temp > 0.0 && vds > 1e-6) {
-            return id0 / (1.0 + id0 * rdrift_temp / vds);
+        // Id0 / Vds, the channel's conductance, in closed form below
+        // saturation so that it holds down to Vds = 0
+        const Real g0 = (vds < v_ov) ? beta_eff * (v_ov - 0.5 * vds) : id0 / vds;
+        if (rdrift_temp > 0.0) {
+            return id0 / (1.0 + g0 * rdrift_temp);
         }
         return id0;
     };

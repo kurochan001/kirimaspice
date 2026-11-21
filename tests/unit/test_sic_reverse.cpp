@@ -14,6 +14,7 @@
 #include <string>
 
 #include "kirimaspice/parser/netlist_parser.hpp"
+#include "kirimaspice/solvers/ac_solver.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
 
 using namespace kirimaspice;
@@ -40,4 +41,24 @@ TEST(SicReverse, ConductsTheSameInBothDirections) {
     EXPECT_NEAR(reverse, -forward, 1e-8);  // within the Newton tolerances
     // About 1 mV / 2.1 ohm through R1 (the channel is not quite linear)
     EXPECT_NEAR(1e-3 - forward, 1e-3 / 2.1, 2e-6);
+}
+
+TEST(SicReverse, DriftResistanceHoldsAtZeroDrainVoltage) {
+    // At VDS = 0 the channel (KP W/L VOV = 10 S) is in series with RDRIFT
+    // = 1 ohm: gds = 10 / (1 + 10) = 0.909 S, not the 10 S of the channel
+    // alone. An AC source on the drain at VDS = 0 drives gds amperes.
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "t\n.model msic nmos level=10 kp=1 w=1 l=1 vto=2.5 theta=0 rdrift=1 cgs=0 cgd=0\nVg g 0 12.5\n"
+        "VD d 0 DC 0 AC 1\nM1 d g 0 msic\n.end\n");
+    SimulationConfig config = parsed.config;
+    config.ac.sweep_type = SimulationConfig::AC::SweepType::LIN;
+    config.ac.start_freq = 1.0;
+    config.ac.stop_freq = 1.0;
+    config.ac.num_points = 1;
+    solvers::ACSolver solver(*parsed.circuit, config);
+    const auto result = solver.solve();
+    ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
+    const auto& x = result.frequency_points.at(0).solution;
+    EXPECT_NEAR(std::abs(x.back()), 10.0 / 11.0, 1e-4);  // I(VD), the last unknown
 }
