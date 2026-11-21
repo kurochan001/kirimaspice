@@ -850,13 +850,9 @@ std::vector<NoiseSource> MOSFET_BSIM1<P>::get_noise_sources(
         return sources;  // Device off, no noise
     }
 
-    // Thermal noise coefficient
-    Real thermal_coef;
-    if constexpr (P == Polarity::N) {
-        thermal_coef = 2.0 / 3.0;
-    } else {
-        thermal_coef = 8.0 / 3.0;
-    }
+    // Thermal noise coefficient: 2/3, as SPICE's, for the N device and its
+    // mirror the P device alike
+    const Real thermal_coef = 2.0 / 3.0;
 
     // Thermal noise: I_n^2 = 4kT × coef × gm
     Real thermal_psd = 4.0 * k_boltzmann * temperature_ * thermal_coef * gm;

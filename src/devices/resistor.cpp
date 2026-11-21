@@ -120,7 +120,8 @@ std::vector<NoiseSource> Resistor::get_noise_sources(const DenseVector& dc_solut
     //
     // Physical constants:
     // - k_B = 1.380649e-23 J/K (Boltzmann constant)
-    // - T = 300.15 K (27°C, typical room temperature)
+    // - T = the resistor's temperature (set_temperature; 27 °C by default),
+    //   as SPICE takes the circuit's temperature, with R at that temperature
     //
     // The noise current source is placed in parallel with the resistor (Norton equivalent).
 
@@ -128,7 +129,7 @@ std::vector<NoiseSource> Resistor::get_noise_sources(const DenseVector& dc_solut
     (void)frequency;    // White noise - frequency-independent
 
     constexpr Real k_B = 1.380649e-23;  // Boltzmann constant (J/K)
-    constexpr Real T = 300.15;          // Temperature (K) - 27°C
+    const Real T = temperature_;
 
     // Calculate equivalent current spectral density: I_n² = 4kT/R = 4kTG (A²/Hz)
     Real G = 1.0 / resistance_;  // Conductance

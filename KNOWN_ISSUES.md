@@ -345,16 +345,17 @@ says otherwise.
   with VBS, but ngspice-47 reports g<sub>mbs</sub> = 3.348e-4 S, which is
   g<sub>m</sub>·GAMMA/(2·sarg) with sarg the expression that replaces the
   root for a forward bias (run on 2026-11-21 at `21bb991`).
-- **The noise sources differ from SPICE's** (library only: the program
-  does not run `.NOISE`; read in the code at `63ce9a6`). The channel
-  thermal noise of level 3 is 4kT·(8/3)·g<sub>m</sub>, four times SPICE's
-  4kT·(2/3)·g<sub>m</sub>, and 0 in reverse mode; BSIM3, BSIM4, the GaN
-  HEMT and the BSIM1 P device take 8/3 too, and level 1, the MESFET, the
-  FinFET, the IGBT and the BSIM1 N device 2/3. The level-1 flicker noise
-  lacks C<sub>ox</sub> and takes `EF` on the area, where ngspice-47 has
-  KF·I<sub>d</sub><sup>AF</sup>/(f<sup>EF</sup>·C<sub>ox</sub>·W·L).
-  The resistor, level 1 and level 3 take 300.15 K as their noise
-  temperature, and the MESFET and the SCR their TNOM. The diode gives no
+- **Some noise sources differ from SPICE's** (library only: the program
+  does not run `.NOISE`; read in the code). The channel thermal noise of
+  BSIM3, BSIM4 and the GaN HEMT is 4kT·(8/3)·g<sub>m</sub>, where level 1,
+  level 3, BSIM1, the MESFET, the FinFET and the IGBT take SPICE's
+  4kT·(2/3)·g<sub>m</sub> (level 3 and BSIM1 since 2026-11-21). The
+  level-1 flicker noise lacks C<sub>ox</sub> and takes `EF` on the area,
+  where ngspice-47 has
+  KF·I<sub>d</sub><sup>AF</sup>/(f<sup>EF</sup>·C<sub>ox</sub>·W·L) (not
+  compared by running it). Level 3, which has no temperature model, takes
+  300.15 K as its noise temperature, and the MESFET and the SCR their TNOM;
+  the resistor and level 1 take their own temperature. The diode gives no
   shot noise below 1 fA.
 - **The MESFET's levels are not ngspice's.** Here `LEVEL=1` is Curtice's
   model (tanh) and `LEVEL=2` Statz's; ngspice-47's `LEVEL=1` is Statz's

@@ -1280,6 +1280,10 @@ add_executable(test_sic_reverse unit/test_sic_reverse.cpp)
 target_link_libraries(test_sic_reverse PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_sic_reverse PROPERTIES TIMEOUT 1200)
 
+add_executable(test_noise_coefficients unit/test_noise_coefficients.cpp)
+target_link_libraries(test_noise_coefficients PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_noise_coefficients PROPERTIES TIMEOUT 1200)
+
 add_executable(test_igbt_tail unit/test_igbt_tail.cpp)
 target_link_libraries(test_igbt_tail PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_igbt_tail PROPERTIES TIMEOUT 1200)

@@ -247,14 +247,13 @@ ngspice について書いていることは、それぞれのマニュアルに
   VGS = 1.5 V、VDS = 2 V、VBS = 0.2 V で、どちらも 373.723 µA で、VBS に対して 2.79e-4 A/V で増えますが、
   ngspice-47 は g<sub>mbs</sub> = 3.348e-4 S を出します。これは g<sub>m</sub>·GAMMA/(2·sarg) で、sarg は
   順バイアスで平方根の代わりになる式です（2026-11-21 に `21bb991` で実行）。
-- **ノイズ源が SPICE と違います**（ライブラリだけです。プログラムは `.NOISE` を実行しません。`63ce9a6` で
-  コードを読みました）。レベル 3 のチャネルの熱雑音は 4kT·(8/3)·g<sub>m</sub> で、SPICE の
-  4kT·(2/3)·g<sub>m</sub> の 4 倍で、逆方向のモードでは 0 です。BSIM3、BSIM4、GaN HEMT、BSIM1 の P の
-  デバイスも 8/3 を使い、レベル 1、MESFET、FinFET、IGBT、BSIM1 の N のデバイスは 2/3 です。レベル 1 の
-  フリッカーノイズには C<sub>ox</sub> がなく、`EF` を面積に掛けています。ngspice-47 では
-  KF·I<sub>d</sub><sup>AF</sup>/(f<sup>EF</sup>·C<sub>ox</sub>·W·L) です。抵抗、レベル 1、レベル 3 は
-  ノイズの温度に 300.15 K を、MESFET と SCR は TNOM を使います。ダイオードは 1 fA より下でショット雑音を
-  出しません。
+- **ノイズ源のいくつかが SPICE と違います**（ライブラリだけです。プログラムは `.NOISE` を実行しません。
+  コードで読みました）。BSIM3、BSIM4、GaN HEMT のチャネルの熱雑音は 4kT·(8/3)·g<sub>m</sub> で、レベル 1、
+  レベル 3、BSIM1、MESFET、FinFET、IGBT は SPICE の 4kT·(2/3)·g<sub>m</sub> です（レベル 3 と BSIM1 は
+  2026-11-21 から）。レベル 1 のフリッカーノイズには C<sub>ox</sub> がなく、`EF` を面積に掛けています。
+  ngspice-47 では KF·I<sub>d</sub><sup>AF</sup>/(f<sup>EF</sup>·C<sub>ox</sub>·W·L) です（実行して比べては
+  いません）。温度のモデルのないレベル 3 はノイズの温度に 300.15 K を、MESFET と SCR は TNOM を使います。
+  抵抗とレベル 1 は自分の温度を使います。ダイオードは 1 fA より下でショット雑音を出しません。
 - **MESFET のレベルは ngspice のものと違います。** ここでは `LEVEL=1` が Curtice のモデル（tanh）、`LEVEL=2` が
   Statz のモデルです。ngspice-47 の `LEVEL=1` は Statz のモデルで（このプログラムの `LEVEL=2` と同じ電流です。
   BETA 0.1、VTO −2 V、B 0.3、ALPHA 2、VGS = 0、VDS = 1 V で 0.240741 A）、その `LEVEL=2` は別のモデルです。

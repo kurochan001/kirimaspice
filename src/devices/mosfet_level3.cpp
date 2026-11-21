@@ -436,9 +436,13 @@ std::vector<NoiseSource> MOSFET_Level3<P>::get_noise_sources(const DenseVector& 
     constexpr Real gm_threshold = 1e-15;
     constexpr Real I_threshold = 1e-15;
 
-    // Channel thermal noise: I²n = 4kT × (8/3) × gm
+    // Channel thermal noise: I²n = 4kT × (2/3) × gm, SPICE's for level 3
+    // (and level 1), at 300.15 K, the temperature level 3 is computed at.
+    // In reverse mode gm, dIds/dVgs at fixed Vds, is the negative of the
+    // reversed device's, so its magnitude is taken.
+    gm = std::abs(gm);
     if (gm > gm_threshold) {
-        Real thermal_psd = 4.0 * k_boltzmann * 300.15 * (8.0 / 3.0) * gm;
+        Real thermal_psd = 4.0 * k_boltzmann * 300.15 * (2.0 / 3.0) * gm;
 
         NoiseSource thermal;
         thermal.name = name_ + "_thermal";

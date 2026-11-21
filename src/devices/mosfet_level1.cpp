@@ -586,9 +586,10 @@ std::vector<NoiseSource> MOSFET_Level1<P>::get_noise_sources(const DenseVector& 
 
     constexpr Real gm_threshold = 1e-15;
 
-    // Channel thermal noise
+    // Channel thermal noise, 4kT gamma gm at the device's temperature
+    // (set_temperature), as SPICE takes the circuit's
     if (g_m > gm_threshold) {
-        Real I_n_th_squared = 4.0 * k_boltzmann * T_nominal * gamma_ * g_m;
+        Real I_n_th_squared = 4.0 * k_boltzmann * temperature_ * gamma_ * g_m;
 
         NoiseSource thermal;
         thermal.name = name_ + "_thermal";
