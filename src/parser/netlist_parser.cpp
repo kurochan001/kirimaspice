@@ -260,6 +260,49 @@ std::string preprocess_continuations(const std::string& content) {
 // @param included_files: set of already included files (for circular detection)
 // @param depth: current include depth (for depth limit)
 // @return: preprocessed netlist with all .INCLUDE directives expanded
+// The .LIB lines of an included file name their library relative to that
+// file, but they are read after every include has been inserted, from the
+// netlist's directory (preprocess_lib_sections). Each such line names a
+// library that lies next to the included file by its absolute path, so it
+// is found where the manual says, relative to the file that names it.
+static std::string anchor_library_paths(const std::string& content,
+                                        const std::filesystem::path& dir) {
+    std::istringstream input(content);
+    std::ostringstream output;
+    std::string line;
+    while (std::getline(input, line)) {
+        const std::size_t start = line.find_first_not_of(" \t");
+        if (start != std::string::npos && line.size() >= start + 5) {
+            std::string keyword = line.substr(start, 4);
+            std::transform(keyword.begin(), keyword.end(), keyword.begin(), ::toupper);
+            const char after = line[start + 4];
+            if (keyword == ".LIB" && (after == ' ' || after == '\t')) {
+                const std::size_t path_start = line.find_first_not_of(" \t", start + 4);
+                if (path_start != std::string::npos) {
+                    std::size_t path_end = line.find_first_of(" \t;", path_start);
+                    if (path_end == std::string::npos) {
+                        path_end = line.size();
+                    }
+                    std::string name = line.substr(path_start, path_end - path_start);
+                    const bool quoted = name.size() >= 2 && (name.front() == '"' || name.front() == '\'') &&
+                                        name.back() == name.front();
+                    if (quoted) {
+                        name = name.substr(1, name.size() - 2);
+                    }
+                    const std::filesystem::path path(name);
+                    std::error_code ec;
+                    if (!name.empty() && !path.is_absolute() &&
+                        std::filesystem::is_regular_file(dir / path, ec)) {
+                        line = line.substr(0, path_start) + (dir / path).string() + line.substr(path_end);
+                    }
+                }
+            }
+        }
+        output << line << '\n';
+    }
+    return output.str();
+}
+
 std::string preprocess_includes(
     const std::string& content,
     const std::filesystem::path& base_path,
@@ -370,7 +413,8 @@ std::string preprocess_includes(
                         line_number);
                 }
 
-                const std::string include_content = read_netlist_file(include_file);
+                const std::string include_content =
+                    anchor_library_paths(read_netlist_file(include_file), canonical_path.parent_path());
 
                 spdlog::debug("Including file: {} (depth {})", canonical_path.string(), depth);
 

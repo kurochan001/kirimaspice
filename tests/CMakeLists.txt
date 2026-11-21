@@ -1280,6 +1280,10 @@ add_executable(test_sic_reverse unit/test_sic_reverse.cpp)
 target_link_libraries(test_sic_reverse PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_sic_reverse PROPERTIES TIMEOUT 1200)
 
+add_executable(test_library_paths unit/test_library_paths.cpp)
+target_link_libraries(test_library_paths PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_library_paths PROPERTIES TIMEOUT 1200)
+
 add_executable(test_tline_step_limit unit/test_tline_step_limit.cpp)
 target_link_libraries(test_tline_step_limit PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_tline_step_limit PROPERTIES TIMEOUT 1200)
