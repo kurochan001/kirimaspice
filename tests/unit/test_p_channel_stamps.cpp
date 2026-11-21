@@ -89,11 +89,12 @@ void expect_mirror(const AddDevice& add, Real vs, Real vg, Real vd, Real vdd, Re
 }  // namespace
 
 TEST(PChannelStamps, GaNHemtMirrorsTheNChannel) {
-    // Threshold -2 V for both: the P-channel device conducts for VSG > -2 V
+    // Threshold -2 V for N and +2 V for P, in the device's sign: the
+    // P-channel device conducts for VSG > -2 V
     expect_mirror(
         [](CircuitGraph& c, bool p) {
             if (p) {
-                c.add_gan_hemt_p("M1", "d", "g", "s", 0.1, -2.0);
+                c.add_gan_hemt_p("M1", "d", "g", "s", 0.1, 2.0);
             } else {
                 c.add_gan_hemt_n("M1", "d", "g", "s", 0.1, -2.0);
             }
