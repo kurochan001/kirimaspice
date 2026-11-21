@@ -405,9 +405,12 @@ TEST(MOSFET_Circuit, MOSFETSwitchClosed) {
 //==============================================================================
 
 // Test 1: Basic Temperature Effect - VTO(T) with KT1 (Linear)
+// KT1 and KT2 add to VTO(T) whatever else the temperature does to it (SPICE's
+// level 1 moves VTO through the band gap as well), so the KT terms are
+// checked against the same device without them, at the same temperature
 TEST(MOSFET_N, TemperatureEffect_KT1_Linear) {
     // VTO temperature coefficient (linear term)
-    // VTO(T) = VTO(Tnom) + KT1 * (T - Tnom)
+    // VTO(T) = VTO(T without KT1) + KT1 * (T - Tnom)
     // KT1 is typically negative for MOSFETs (-2 to -5 mV/K)
 
     Real kt1 = -0.003;  // -3 mV/K (typical value)
@@ -416,6 +419,11 @@ TEST(MOSFET_N, TemperatureEffect_KT1_Linear) {
                     0.0, 0.0, 0.0,            // cgso, cgdo, cgbo
                     0.0, 1.0, 1.0, 0.667,     // kf, af, ef, gamma
                     kt1, 0.0, -1.5, 300.15);  // KT1, KT2, UTE, TNOM
+    MOSFET_N without_kt(2, "M2", 1, 2, 0,
+                        2e-5, 10e-6, 1e-6, 0.7,
+                        0.0, 0.0, 0.0,
+                        0.0, 1.0, 1.0, 0.667,
+                        0.0, 0.0, -1.5, 300.15);
 
     // At nominal temperature (300.15K = 27°C)
     Real vth_nom = mosfet.threshold_voltage();
@@ -423,27 +431,29 @@ TEST(MOSFET_N, TemperatureEffect_KT1_Linear) {
 
     // At higher temperature (350K = 77°C, ΔT = 350 - 300.15 = 49.85K)
     mosfet.set_temperature(350.0);
+    without_kt.set_temperature(350.0);
     Real vth_hot = mosfet.threshold_voltage();
 
-    // Expected VTO change: ΔVto = KT1 * ΔT = -0.003 * 49.85 = -0.14955V
+    // Expected VTO change from KT1: ΔVto = KT1 * ΔT = -0.003 * 49.85 = -0.14955V
     Real delta_t_hot = 350.0 - 300.15;
-    Real expected_vth_hot = 0.7 + kt1 * delta_t_hot;
+    Real expected_vth_hot = without_kt.threshold_voltage() + kt1 * delta_t_hot;
     EXPECT_NEAR(vth_hot, expected_vth_hot, 1e-10);
 
     // At lower temperature (250K = -23°C, ΔT = 250 - 300.15 = -50.15K)
     mosfet.set_temperature(250.0);
+    without_kt.set_temperature(250.0);
     Real vth_cold = mosfet.threshold_voltage();
 
-    // Expected VTO change: ΔVto = KT1 * ΔT = -0.003 * (-50.15) = +0.15045V
+    // Expected VTO change from KT1: ΔVto = KT1 * ΔT = -0.003 * (-50.15) = +0.15045V
     Real delta_t_cold = 250.0 - 300.15;
-    Real expected_vth_cold = 0.7 + kt1 * delta_t_cold;
+    Real expected_vth_cold = without_kt.threshold_voltage() + kt1 * delta_t_cold;
     EXPECT_NEAR(vth_cold, expected_vth_cold, 1e-10);
 }
 
 // Test 2: VTO(T) with KT2 (Quadratic)
 TEST(MOSFET_N, TemperatureEffect_KT2_Quadratic) {
     // VTO temperature coefficient (quadratic term)
-    // VTO(T) = VTO(Tnom) + KT1 * (T - Tnom) + KT2 * (T - Tnom)²
+    // VTO(T) = VTO(T without KT1, KT2) + KT1 * (T - Tnom) + KT2 * (T - Tnom)²
     // KT2 is typically very small (1e-5 to 1e-6 V/K²)
 
     Real kt1 = -0.002;   // -2 mV/K
@@ -453,6 +463,11 @@ TEST(MOSFET_N, TemperatureEffect_KT2_Quadratic) {
                     0.0, 0.0, 0.0,
                     0.0, 1.0, 1.0, 0.667,
                     kt1, kt2, -1.5, 300.15);
+    MOSFET_N without_kt(2, "M2", 1, 2, 0,
+                        2e-5, 10e-6, 1e-6, 0.7,
+                        0.0, 0.0, 0.0,
+                        0.0, 1.0, 1.0, 0.667,
+                        0.0, 0.0, -1.5, 300.15);
 
     // At nominal temperature
     Real vth_nom = mosfet.threshold_voltage();
@@ -460,14 +475,15 @@ TEST(MOSFET_N, TemperatureEffect_KT2_Quadratic) {
 
     // At higher temperature (400K = 127°C, ΔT = 400 - 300.15 = 99.85K)
     mosfet.set_temperature(400.0);
+    without_kt.set_temperature(400.0);
     Real vth_hot = mosfet.threshold_voltage();
 
-    // Expected VTO change:
+    // Expected VTO change from KT1 and KT2:
     // ΔVto = KT1 * ΔT + KT2 * ΔT²
     //      = -0.002 * 99.85 + 5e-6 * 99.85²
     //      = -0.1997 + 0.0499 = -0.1498V (approximately)
     Real delta_t = 400.0 - 300.15;
-    Real expected_vth_hot = 0.7 + kt1 * delta_t + kt2 * delta_t * delta_t;
+    Real expected_vth_hot = without_kt.threshold_voltage() + kt1 * delta_t + kt2 * delta_t * delta_t;
     EXPECT_NEAR(vth_hot, expected_vth_hot, 1e-10);
 }
 
