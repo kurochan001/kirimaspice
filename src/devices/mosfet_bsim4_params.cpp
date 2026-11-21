@@ -506,6 +506,12 @@ BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_par
         bsim4_params.uc1 = uc_per_volt ? -0.056 : -0.056e-9;
     }
 
+    // DSUB that the card does not give takes the value of DROUT, as in the
+    // BSIM4 4.8.3 code (b4set.c)
+    if (model_params.count("dsub") == 0) {
+        bsim4_params.dsub = bsim4_params.drout;
+    }
+
     // The junctions: each drain parameter that the card does not give takes
     // the value of its source parameter (ngspice-47 does so: a card with
     // only CJS, MJS and PBS gives the drain junction the same capacitance)

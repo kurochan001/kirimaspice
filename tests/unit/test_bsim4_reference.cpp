@@ -444,3 +444,39 @@ TEST(BSIM4AgainstNgspice, ResistanceTemperatureCoefficient) {
         EXPECT_NEAR(row.gmb, p.gmbs, 1e-3 * p.gmbs) << at;
     }
 }
+
+// DSUB, the DIBL coefficient of the threshold, takes the value of DROUT when
+// the card does not give it (BSIM4 4.8.3 b4set.c); a card that gives DSUB
+// keeps it. ngspice-47, run 2026-11-21: `id gm gds gmbs` of m1 for
+//
+//   .model nch nmos level=14 version=4.8.1 toxe=2e-9 vth0=0.4 u0=0.03 vsat=1e5 <extra>
+//   M1 d g 0 b nch L=0.09u W=1u, VBS = 0
+//
+// With DROUT = 0.3 the DIBL shift is large enough to make gmbs negative.
+TEST(BSIM4AgainstNgspice, DsubDefaultsToDrout) {
+    struct Point {
+        const char* extra;
+        Real vgs, vds;
+        Real id, gm, gds, gmbs;
+    };
+    const Point points[] = {
+        {"drout=0.3", 0.6, 1.2, 1.264765e-04, 1.196847e-03, 1.711610e-04, -1.546362e-05},
+        {"drout=0.3", 1.2, 1.2, 7.051427e-04, 8.888970e-04, 4.472779e-04, -1.611683e-05},
+        {"drout=0.3", 0.6, 0.05, 4.992666e-06, 9.217409e-05, 7.243528e-05, 3.489092e-06},
+        {"drout=1", 0.6, 1.2, 1.407893e-05, 2.880668e-04, 6.125130e-06, 1.069648e-05},
+        {"drout=0.3 dsub=0.56", 0.6, 1.2, 7.424805e-05, 1.041407e-03, 7.952337e-05, 2.898417e-05},
+    };
+    for (const auto& p : points) {
+        const std::string card =
+            std::string(".model nch nmos level=14 version=4.8.1 toxe=2e-9 vth0=0.4 u0=0.03 "
+                        "vsat=1e5 ") + p.extra + "\n";
+        const DrainRow row =
+            drain_row_of_m1("M1 d g s b nch L=0.09u W=1u", card, p.vds, p.vgs, 0.0, 0.0);
+        const std::string at = std::string(p.extra) + " VGS=" + std::to_string(p.vgs) +
+                               " VDS=" + std::to_string(p.vds);
+        EXPECT_NEAR(row.ids, p.id, 2e-4 * p.id) << at;
+        EXPECT_NEAR(row.gm, p.gm, 1e-3 * std::abs(p.gm)) << at;
+        EXPECT_NEAR(row.gds, p.gds, 1e-3 * std::abs(p.gds)) << at;
+        EXPECT_NEAR(row.gmb, p.gmbs, 1e-3 * std::abs(p.gmbs)) << at;
+    }
+}
