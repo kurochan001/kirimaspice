@@ -4659,6 +4659,7 @@ static void parse_diode_device(const std::vector<std::string>& tokens, const std
     Real tt = 0.0;   // transit time
     Real bv = 0.0;   // breakdown voltage, none when 0
     Real ibv = 0.0;  // current at BV, the device's 1 mA when 0
+    Real rs = 0.0;   // series resistance
 
     // Check if tokens[3] is a model reference
     size_t param_start = 3;
@@ -4689,6 +4690,7 @@ static void parse_diode_device(const std::vector<std::string>& tokens, const std
                     else if (key == "m" || key == "mj") m = value;
                     else if (key == "tt") tt = value;
                     else if (key == "bv") bv = value;
+                    else if (key == "rs") rs = value;
                     else if (key == "ibv") ibv = value;
                     else unused.push_back(key);
                 }
@@ -4727,7 +4729,14 @@ static void parse_diode_device(const std::vector<std::string>& tokens, const std
         }
     }
 
-    state.circuit->add_diode(dev_name, anode, cathode, is, n, cj0, vj, m);
+    // RS, as in SPICE: the junction sits between an internal node and the
+    // cathode, and RS between the anode and that node
+    std::string junction_anode = anode;
+    if (rs > 0.0) {
+        junction_anode = dev_name + "#internal";
+        state.circuit->add_resistor(dev_name + "#rs", anode, junction_anode, rs);
+    }
+    state.circuit->add_diode(dev_name, junction_anode, cathode, is, n, cj0, vj, m);
     auto diode = state.circuit->get_device(dev_name);
     if (tt != 0.0) {
         diode->set_parameter("tt", tt);

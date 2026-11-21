@@ -145,3 +145,18 @@ TEST(DiodeCard, BreakdownFollowsBvAndIbv) {
     EXPECT_NEAR(reverse_current(-5.1, ".model DM D IS=1e-14 BV=5 IBV=1e-3 N=1.5"), 1.316411e-02,
                 2e-4 * 1.316411e-02);
 }
+
+TEST(DiodeCard, SeriesResistanceSitsBeforeTheJunction) {
+    // RS between the anode and an internal node, the junction between that
+    // node and the cathode, as in SPICE: 0.8 V across IS = 1e-14, RS = 10
+    // ohm drives 8.84890 mA with 0.711511 V on the junction (ngspice-47,
+    // run 2026-11-21); without RS the junction alone would take 0.27 A
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string("t\nV1 a 0 0.8\nD1 a 0 DM\n.model DM D IS=1e-14 RS=10\n.end\n");
+    solvers::DCSolver solver(*parsed.circuit, parsed.config);
+    DenseVector x;
+    SolverStats stats;
+    ASSERT_EQ(solver.solve(x, stats), ConvergenceStatus::SUCCESS);
+    EXPECT_NEAR(-x.back(), 8.84890e-3, 1e-7);  // ngspice-47 prints 6 digits
+    EXPECT_NEAR(x[parsed.circuit->get_node_id("d1#internal") - 1], 0.711511, 1e-6);
+}
