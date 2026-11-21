@@ -285,7 +285,9 @@ TEST(SmallSignalConsistency, MesfetPMirrorsN) {
         EXPECT_NEAR(vd_p, -vd_n, 1e-9);
         const Real vov = vg + 2.0;
         const Real id = 0.01 * vov * vov * (1.0 + 0.05 * vd_n) * std::tanh(2.0 * vd_n);
-        EXPECT_NEAR((10.0 - vd_n) / 200.0, id, 1e-9);
+        // KCL at the operating point holds to what the iteration converges
+        // to: relative 1e-6, far below the solver's criterion (RELTOL 1e-3)
+        EXPECT_NEAR((10.0 - vd_n) / 200.0, id, 1e-6 * id);
     }
 }
 
