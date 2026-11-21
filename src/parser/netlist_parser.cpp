@@ -101,6 +101,32 @@ inline std::optional<int> safe_stoi(const std::string& str, const std::string& p
 
 using kirimaspice::util::parse_value_with_unit;
 
+// The text of a netlist with each line ended by a line feed alone: the
+// carriage return of a CRLF line end is removed, as ngspice-47 reads such a
+// netlist. Every text the parser reads goes through here once, as it is
+// read (read_netlist_file, parse_string), so that no '\r' is left at the end
+// of a line to be joined into the line a '+' line continues, or to keep a
+// directive such as .ENDIF from being recognized.
+static std::string without_carriage_returns(std::string text) {
+    std::size_t out = 0;
+    for (std::size_t in = 0; in < text.size(); ++in) {
+        if (text[in] == '\r' && (in + 1 == text.size() || text[in + 1] == '\n')) {
+            continue;
+        }
+        text[out++] = text[in];
+    }
+    text.resize(out);
+    return text;
+}
+
+// The whole text of a netlist file, or of a file it includes
+// (without_carriage_returns)
+static std::string read_netlist_file(std::ifstream& file) {
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    return without_carriage_returns(buffer.str());
+}
+
 // Preprocess continuation lines
 // SPICE syntax: lines starting with '+' are continuations of previous line
 // @param content: netlist content with potential continuation lines
@@ -306,8 +332,7 @@ std::string preprocess_includes(
                         line_number);
                 }
 
-                std::stringstream include_content;
-                include_content << include_file.rdbuf();
+                const std::string include_content = read_netlist_file(include_file);
 
                 spdlog::debug("Including file: {} (depth {})", canonical_path.string(), depth);
 
@@ -316,7 +341,7 @@ std::string preprocess_includes(
 
                 // Recursively preprocess included file
                 std::string processed_content = preprocess_includes(
-                    include_content.str(),
+                    include_content,
                     canonical_path.parent_path(),  // Base path for included file
                     included_files,
                     depth + 1
@@ -1771,10 +1796,7 @@ static std::string preprocess_lib_sections(
                         line_number);
                 }
 
-                std::stringstream lib_content;
-                lib_content << lib_file.rdbuf();
-
-                std::string file_content = lib_content.str();
+                std::string file_content = read_netlist_file(lib_file);
 
                 // Extract section if specified
                 if (!section_name.empty()) {
@@ -6353,10 +6375,23 @@ public:
 
         pegtl::memory_input input(preprocessed_content, "netlist");
 
+        // The grammar reads each line up to its line feed. A line it cannot
+        // read ends the parse, so it is an error, not the end of the netlist:
+        // the line and every line after it would be dropped. Only a carriage
+        // return that does not end a line stops it (without_carriage_returns
+        // has removed those that do).
+        bool read_to_end = false;
         try {
-            pegtl::parse<grammar::netlist, action>(input, state);
+            read_to_end = pegtl::parse<grammar::netlist, action>(input, state);
         } catch (const pegtl::parse_error& e) {
             throw ParseError(e.what(), state.line_number);
+        }
+        if (!read_to_end) {
+            throw ParseError(
+                fmt::format("Line {}: the line cannot be read: it holds a carriage return "
+                            "that does not end it",
+                            state.line_number),
+                state.line_number);
         }
 
         // A .SUBCKT must end with .ENDS, as ngspice requires ("Mismatch of
@@ -6536,8 +6571,7 @@ NetlistParser::parse_file(
         throw std::runtime_error("Cannot open file: " + filepath);
     }
 
-    std::stringstream buffer;
-    buffer << file.rdbuf();
+    const std::string text = read_netlist_file(file);
 
     // Preprocess .INCLUDE directives
     std::filesystem::path file_path(filepath);
@@ -6547,7 +6581,7 @@ NetlistParser::parse_file(
     }
 
     std::set<std::filesystem::path> included_files;
-    std::string after_includes = preprocess_includes(buffer.str(), base_path, included_files);
+    std::string after_includes = preprocess_includes(text, base_path, included_files);
 
     // Preprocess .LIB directives
     LibraryChain library_chain;
@@ -6568,7 +6602,8 @@ NetlistParser::parse_string(
     // Preprocess .LIB directives
     std::filesystem::path base_path = std::filesystem::current_path();
     LibraryChain library_chain;
-    std::string after_lib = preprocess_lib_sections(netlist, base_path, library_chain);
+    std::string after_lib =
+        preprocess_lib_sections(without_carriage_returns(netlist), base_path, library_chain);
 
     // Preprocess continuation lines
     std::string preprocessed = preprocess_continuations(after_lib);
@@ -6583,8 +6618,7 @@ NetlistParser::parse_file_legacy(const std::string& filepath) {
         throw std::runtime_error("Cannot open file: " + filepath);
     }
 
-    std::stringstream buffer;
-    buffer << file.rdbuf();
+    const std::string text = read_netlist_file(file);
 
     // Preprocess .INCLUDE directives
     std::filesystem::path file_path(filepath);
@@ -6594,7 +6628,7 @@ NetlistParser::parse_file_legacy(const std::string& filepath) {
     }
 
     std::set<std::filesystem::path> included_files;
-    std::string after_includes = preprocess_includes(buffer.str(), base_path, included_files);
+    std::string after_includes = preprocess_includes(text, base_path, included_files);
 
     // Preprocess .LIB directives
     LibraryChain library_chain;
@@ -6612,7 +6646,8 @@ NetlistParser::parse_string_legacy(const std::string& netlist) {
     // Preprocess .LIB directives
     std::filesystem::path base_path = std::filesystem::current_path();
     LibraryChain library_chain;
-    std::string after_lib = preprocess_lib_sections(netlist, base_path, library_chain);
+    std::string after_lib =
+        preprocess_lib_sections(without_carriage_returns(netlist), base_path, library_chain);
 
     // Preprocess continuation lines
     std::string preprocessed = preprocess_continuations(after_lib);

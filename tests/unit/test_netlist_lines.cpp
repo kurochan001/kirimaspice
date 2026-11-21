@@ -342,3 +342,44 @@ TEST(NetlistLines, ElementNamesWithoutCase) {
     ASSERT_EQ(sweep.points.size(), 3u);
     EXPECT_NEAR(sweep.points.back().node_voltages[parsed.circuit->get_node_id("out") - 1], 2.0, 1e-9);
 }
+
+// A netlist whose lines end with CR LF is read as one whose lines end with LF
+// (without_carriage_returns, as each text is read): a '+' line continues the
+// line before it, .ENDIF and .ENDC end their blocks, and a file it includes
+// is read so too. ngspice-47 (run 2026-11-21) reads the netlist so and gives
+// V(b) = 0.5 V, I(V1) = -1 mA.
+TEST(NetlistLines, LinesEndedByCarriageReturnAndLineFeed) {
+    const std::string netlist =
+        "crlf\r\nV1 a 0 1\r\nR1 a b 1k\r\nR3 b 0\r\n+ 1k\r\n.if (0)\r\nR5 a 0 1\r\n.endif\r\n"
+        ".control\r\nop\r\n.endc\r\nR4 a 0 2k\r\n.op\r\n.end\r\n";
+    auto check = [](const parser::NetlistParseResult& parsed) {
+        ASSERT_NE(parsed.circuit, nullptr);
+        EXPECT_EQ(device_names(parsed), (std::vector<std::string>{"R1", "R3", "R4", "V1"}));
+        EXPECT_DOUBLE_EQ(device_as<devices::Resistor>(parsed, "R3")->resistance(), 1e3);
+        EXPECT_TRUE(parsed.config.op_requested);
+        solvers::DCSolver solver(*parsed.circuit, parsed.config);
+        DenseVector x;
+        SolverStats stats;
+        ASSERT_EQ(solver.solve(x, stats), ConvergenceStatus::SUCCESS);
+        EXPECT_NEAR(x[parsed.circuit->get_node_id("b") - 1], 0.5, 1e-12);
+    };
+    {
+        parser::NetlistParser parser;
+        check(parser.parse_string(netlist));
+    }
+    const TemporaryDirectory directory;
+    directory.write("part.inc", "* part\r\nR3 b 0\r\n+ 1k\r\n");
+    const auto file = directory.write(
+        "top.cir",
+        "crlf\r\nV1 a 0 1\r\nR1 a b 1k\r\n.include part.inc\r\nR4 a 0 2k\r\n.op\r\n.end\r\n");
+    parser::NetlistParser parser;
+    check(parser.parse_file(file.string()));
+}
+
+// A carriage return inside a line is not a line end; the line cannot be read,
+// and that is an error, not the end of the netlist (NetlistParser::Impl::parse)
+TEST(NetlistLines, CarriageReturnInsideALineIsAnError) {
+    parser::NetlistParser parser;
+    EXPECT_THROW(parser.parse_string("t\nV1 a 0 1\nR1 a 0 1k\rR2 a 0 1k\nR3 a 0 2k\n.op\n.end\n"),
+                 parser::ParseError);
+}
