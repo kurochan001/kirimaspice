@@ -350,3 +350,56 @@ TEST(BSIM4AgainstNgspice, LongChannelThreshold) {
         EXPECT_NEAR(std::abs(row.gmb), p.gmbs, 1e-3 * p.gmbs) << at;
     }
 }
+
+// The DIBL factors of long channels: theta0vb0, the factor of the DIBL shift
+// of Vth, of DSUB Leff / lt0, and the factor of thetaRout of the output
+// resistance, of DROUT Leff / lt0, take the same constant 1 / (MAX_EXP - 2)
+// as Theta0 once their argument reaches 34 (BSIM4 4.8.3 b4temp.c). At
+// L = 1.5 um, DROUT Leff / lt0 is about 31.5 with the reference card; with
+// DSUB = 2 at L = 1 um, DSUB Leff / lt0 is about 75. ngspice-47, run
+// 2026-11-21: `id gm gds gmbs` of m1 for the cards
+//
+//   ref:   .model nch nmos level=14 version=4.8.1 toxe=3e-9 vth0=0.5 u0=0.067 vsat=8e4
+//   short: .model nch nmos level=14 version=4.8.1 toxe=2e-9 vth0=0.4 u0=0.03 vsat=1e5
+//   M1 d g 0 b nch W=<W> L=<L>, VBS = 0
+TEST(BSIM4AgainstNgspice, LongChannelDibl) {
+    const std::string ref =
+        ".model nch nmos level=14 version=4.8.1 toxe=3e-9 vth0=0.5 u0=0.067 vsat=8e4\n";
+    const std::string ref_dsub =
+        ".model nch nmos level=14 version=4.8.1 toxe=3e-9 vth0=0.5 u0=0.067 vsat=8e4 dsub=2\n";
+    const std::string short_card =
+        ".model nch nmos level=14 version=4.8.1 toxe=2e-9 vth0=0.4 u0=0.03 vsat=1e5\n";
+    struct Point {
+        const char* instance;
+        const std::string& card;
+        Real vgs, vds;
+        Real id, gm, gds, gmbs;
+    };
+    const Point points[] = {
+        {"M1 d g s b nch L=1.5u W=10u", ref, 1.8, 1.8,
+         1.727650e-03, 2.113506e-03, 6.839317e-05, 2.124033e-04},
+        {"M1 d g s b nch L=1.5u W=10u", ref, 0.7, 1.0,
+         5.309869e-05, 5.825637e-04, 5.659477e-06, 7.897428e-05},
+        {"M1 d g s b nch L=3.1u W=10u", ref, 1.8, 1.8,
+         9.016743e-04, 1.137933e-03, 2.573890e-05, 1.065600e-04},
+        {"M1 d g s b nch L=10u W=10u", ref, 1.8, 1.8,
+         2.944434e-04, 3.808298e-04, 5.489120e-06, 3.366409e-05},
+        {"M1 d g s b nch L=2u W=1u", short_card, 0.6, 1.2,
+         2.117607e-06, 2.616217e-05, 2.027710e-07, 2.366206e-06},
+        {"M1 d g s b nch L=2u W=1u", short_card, 1.2, 1.2,
+         3.479863e-05, 7.668591e-05, 1.497999e-06, 6.133006e-06},
+        {"M1 d g s b nch L=1u W=10u", ref_dsub, 0.5, 1.8,
+         1.356353e-06, 3.899271e-05, 3.127132e-07, 5.498242e-06},
+        {"M1 d g s b nch L=1u W=10u", ref_dsub, 1.0, 1.8,
+         4.870999e-04, 1.749397e-03, 2.818408e-05, 2.276706e-04},
+    };
+    for (const auto& p : points) {
+        const DrainRow row = drain_row_of_m1(p.instance, p.card, p.vds, p.vgs, 0.0, 0.0);
+        const std::string at = p.card + p.instance + " VGS=" + std::to_string(p.vgs) +
+                               " VDS=" + std::to_string(p.vds);
+        EXPECT_NEAR(row.ids, p.id, 2e-4 * p.id) << at;
+        EXPECT_NEAR(row.gm, p.gm, 1e-3 * p.gm) << at;
+        EXPECT_NEAR(row.gds, p.gds, 1e-3 * p.gds) << at;
+        EXPECT_NEAR(row.gmb, p.gmbs, 1e-3 * p.gmbs) << at;
+    }
+}

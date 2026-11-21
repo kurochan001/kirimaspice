@@ -45,6 +45,14 @@ inline bool is_finite(Real value) {
     return std::isfinite(value);
 }
 
+// theta0vb0, the DIBL factor of Vth at Vbs = 0: the short-channel factor of
+// DSUB Leff / lt0 with lt0 = factor1 sqrt(Xdep0), as the BSIM4 4.8.3 code
+// computes it (b4temp.c). Xdep0, factor1 and Leff are positive.
+Real theta0vb0_of(const BSIM4Params& p) {
+    const Real lt0 = p.factor1 * std::sqrt(p.Xdep0);
+    return bsim4_short_channel_factor(p.dsub * p.get_leff() / lt0).value;
+}
+
 }  // namespace
 
 //==============================================================================
@@ -72,24 +80,9 @@ MOSFET_BSIM4<P>::MOSFET_BSIM4(DeviceId id, const std::string& name,
     // Reference: ngspice b4temp.c, BSIM4temp() function (around line 800+)
     const Real leff = params_.get_leff();
     if (params_.Xdep0 > 0.0 && params_.factor1 > 0.0 && leff > 0.0) {
-        const Real tmp = params_.factor1 * std::sqrt(params_.Xdep0);
-        const Real EXP_THRESHOLD = 60.0;
-        const Real MIN_EXP = 1.0e-20;
-        const Real T0 = params_.dsub * leff / tmp;
-
-        if (T0 < EXP_THRESHOLD) {
-            const Real T1 = std::exp(T0);
-            const Real T2 = T1 - 1.0;
-            const Real T3 = T2 * T2;
-            const Real T4 = T3 + 2.0 * T1 * MIN_EXP;
-            theta0vb0_ = T1 / T4;
-            spdlog::debug("{} {}: theta0vb0 = {:.6e} (leff={:.3e} m, T0={:.6f})",
-                          polarity_name(), name, theta0vb0_, leff, T0);
-        } else {
-            theta0vb0_ = 1.0 / (EXP_THRESHOLD - 2.0);
-            spdlog::debug("{} {}: theta0vb0 = {:.6e} (T0={:.6f} >= EXP_THRESHOLD, using max)",
-                          polarity_name(), name, theta0vb0_, T0);
-        }
+        theta0vb0_ = theta0vb0_of(params_);
+        spdlog::debug("{} {}: theta0vb0 = {:.6e} (leff={:.3e} m)", polarity_name(), name,
+                      theta0vb0_, leff);
     } else {
         theta0vb0_ = 0.0;
         spdlog::warn("{} {}: theta0vb0 = 0 (invalid params: Xdep0={:.3e}, factor1={:.3e}, leff={:.3e})",
@@ -116,20 +109,7 @@ void MOSFET_BSIM4<P>::set_temperature(Real temp_kelvin) {
     // Recompute instance-specific theta0vb0 at new temperature
     const Real leff = params_.get_leff();
     if (params_.Xdep0 > 0.0 && params_.factor1 > 0.0 && leff > 0.0) {
-        const Real tmp = params_.factor1 * std::sqrt(params_.Xdep0);
-        const Real EXP_THRESHOLD = 60.0;
-        const Real MIN_EXP = 1.0e-20;
-        const Real T0 = params_.dsub * leff / tmp;
-
-        if (T0 < EXP_THRESHOLD) {
-            const Real T1 = std::exp(T0);
-            const Real T2 = T1 - 1.0;
-            const Real T3 = T2 * T2;
-            const Real T4 = T3 + 2.0 * T1 * MIN_EXP;
-            theta0vb0_ = T1 / T4;
-        } else {
-            theta0vb0_ = 1.0 / (EXP_THRESHOLD - 2.0);
-        }
+        theta0vb0_ = theta0vb0_of(params_);
     }
     spdlog::debug("{} {}: temperature set to {:.2f} K", polarity_name(), name(), temp_kelvin);
 }

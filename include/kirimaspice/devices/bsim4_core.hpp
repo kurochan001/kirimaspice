@@ -94,7 +94,9 @@ struct BSIM4ThresholdState {
 /// and its derivative with respect to x. The BSIM4 4.8.3 code computes it as
 /// e^x / ((e^x - 1)^2 + 2 e^x MIN_EXP), and from x = EXP_THRESHOLD = 34 on
 /// takes the constant 1 / (MAX_EXP - 2) with zero derivative, where the factor
-/// is about e^-x. Theta0 of Vth takes it of DVT1 Leff / lt1.
+/// is about e^-x. Theta0 of Vth takes it of DVT1 Leff / lt1, theta0vb0 of the
+/// DIBL shift of DSUB Leff / lt0, and thetaRout of the output resistance of
+/// DROUT Leff / lt0, with lt0 = factor1 sqrt(Xdep0).
 struct BSIM4ShortChannelFactor {
     Real value = 0.0;
     Real derivative = 0.0;  ///< d value / d x

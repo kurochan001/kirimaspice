@@ -1137,18 +1137,9 @@ BSIM4ThresholdState BSIM4Core::compute_threshold(const BSIM4BiasState& bias,
     // CRITICAL FIX Use correct tmp formula
     // ngspice: tmp = sqrt(epssub / (epsrox * eps0) * toxe * Xdep0)
     const Real tmp_dibl = std::sqrt(epssub_pdibl / (params_.epsrox * eps0) * params_.toxe * Xdep0);
+    // T5 is the short-channel factor of DROUT Leff / tmp
     const Real T0_t5 = params_.drout * leff / std::max(tmp_dibl, 1e-10);
-    Real T5;
-    if (T0_t5 < 30.0) {  // EXP_THRESHOLD check
-        const Real T1_exp = std::exp(T0_t5);
-        const Real T2 = T1_exp - 1.0;
-        const Real T3 = T2 * T2;
-        const Real MIN_T4 = 1e-10;
-        const Real T4 = std::max(T3 + 2.0 * T1_exp * 1e-20, MIN_T4);
-        T5 = T1_exp / T4;
-    } else {
-        T5 = 1.0 / (30.0 - 2.0);  // EXP_THRESHOLD - 2
-    }
+    const Real T5 = bsim4_short_channel_factor(T0_t5).value;
 
     // Calculate thetaRout = pdiblc1 * T5 + pdiblc2
     const Real thetaRout = params_.pdiblc1 * T5 + params_.pdiblc2;
