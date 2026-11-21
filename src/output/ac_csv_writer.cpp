@@ -3,6 +3,7 @@
 
 // src/output/ac_csv_writer.cpp
 #include "kirimaspice/output/ac_csv_writer.hpp"
+#include "kirimaspice/output/output_error.hpp"
 #include <spdlog/spdlog.h>
 #include <fmt/format.h>
 #include <chrono>
@@ -18,7 +19,7 @@ ACCSVWriter::ACCSVWriter(const std::string& filepath,
 
     out_.open(filepath_, std::ios::out);
     if (!out_.is_open()) {
-        throw std::runtime_error(fmt::format("Failed to open file for writing: {}", filepath_));
+        throw OutputFileError(fmt::format("Failed to open file for writing: {}", filepath_));
     }
 
     spdlog::debug("ACCSVWriter created: {}", filepath_);

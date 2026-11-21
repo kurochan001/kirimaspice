@@ -8,6 +8,7 @@
 #include "kirimaspice/solvers/transient_solver.hpp"
 #include "kirimaspice/solvers/ac_solver.hpp"
 #include "kirimaspice/output/ssf_writer.hpp"
+#include "kirimaspice/output/output_error.hpp"
 #include "kirimaspice/output/ac_csv_writer.hpp"
 #include "kirimaspice/output/raw_writer.hpp"  // (Nutmeg ASCII)
 #include "kirimaspice/output/raw_binary_writer.hpp"  // (Raw Binary)
@@ -31,6 +32,13 @@
 #include <charconv>
 
 using namespace kirimaspice;
+
+// The exit codes, as kirimasim's (its docs/spec/CLI.md 5): 0 the analyses
+// finished, 1 an analysis failed, 2 an error of the command line or the
+// input (also an output file that cannot be written), 3 an internal error
+constexpr int kExitAnalysisFailed = 1;
+constexpr int kExitInputError = 2;
+constexpr int kExitInternalError = 3;
 
 // The files a run writes; the SSF, WAV and AC CSV names carry the
 // temperature suffix of a run under a .TEMP list (with_suffix)
@@ -181,7 +189,7 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
 
         if (sweep_status != ConvergenceStatus::SUCCESS) {
             spdlog::error("DC sweep failed; no sweep output written");
-            return 1;
+            return kExitAnalysisFailed;
         }
 
         std::cout << "\n=== DC Sweep Results ===\n";
@@ -322,7 +330,7 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
                 }
             } else {
                 spdlog::error("DC analysis failed to converge");
-                return 1;
+                return kExitAnalysisFailed;
             }
         }
     }
@@ -386,7 +394,7 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
                     }
                 } else {
                     spdlog::error("Transient analysis failed");
-                    return 1;
+                    return kExitAnalysisFailed;
                 }
             }
         }
@@ -411,7 +419,7 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
 
             } else {
                 spdlog::error("AC analysis failed");
-                return 1;
+                return kExitAnalysisFailed;
             }
         }
 
@@ -564,7 +572,7 @@ int main(int argc, char* argv[]) {
     } catch (const std::exception& e) {
         spdlog::error("Invalid command-line option: {}", e.what());
         spdlog::info("Usage: {} [options] <netlist.cir>; see --help", argv[0]);
-        return 1;
+        return kExitInputError;
     }
 
     spdlog::info("kirimaspice v{} - SPICE circuit simulator", KIRIMASPICE_VERSION);
@@ -584,6 +592,9 @@ int main(int argc, char* argv[]) {
                      wav_sample_rate, wav_bits_per_sample);
     }
 
+    // Whether the analyses have started: an exception before is an error of
+    // the input (2), one while an analysis runs an internal error (3)
+    bool analysing = false;
     try {
         // Parse netlist (returns circuit + simulation config)
         parser::NetlistParser parser;
@@ -631,6 +642,7 @@ int main(int argc, char* argv[]) {
             run_temperatures.push_back(std::nullopt);
         }
         const bool several_temperatures = run_temperatures.size() > 1;
+        analysing = true;
         for (const auto& temperature : run_temperatures) {
             SimulationConfig run_config = config;
             std::string suffix;
@@ -663,9 +675,19 @@ int main(int argc, char* argv[]) {
 
     } catch (const parser::ParseError& e) {
         spdlog::error("Parse error at line {}: {}", e.line(), e.what());
-        return 1;
-    } catch (const std::exception& e) {
+        return kExitInputError;
+    } catch (const output::OutputFileError& e) {
         spdlog::error("Error: {}", e.what());
-        return 1;
+        return kExitInputError;
+    } catch (const std::exception& e) {
+        if (analysing) {
+            spdlog::error("Internal error: {}", e.what());
+            return kExitInternalError;
+        }
+        spdlog::error("Error: {}", e.what());
+        return kExitInputError;
+    } catch (...) {
+        spdlog::error("Internal error: an exception of an unknown type");
+        return kExitInternalError;
     }
 }

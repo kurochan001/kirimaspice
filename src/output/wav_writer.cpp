@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include "kirimaspice/output/wav_writer.hpp"
+#include "kirimaspice/output/output_error.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -108,7 +109,7 @@ void WavWriter::write_transient(const std::vector<std::string>& node_names,
     // Open output file
     std::ofstream out(filepath_, std::ios::binary);
     if (!out.is_open() || !out.good()) {
-        throw std::runtime_error("Failed to open WAV output file: " + filepath_);
+        throw OutputFileError("Failed to open WAV output file: " + filepath_);
     }
 
     // Write header (placeholder, will update later)

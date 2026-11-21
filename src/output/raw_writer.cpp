@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include "kirimaspice/output/raw_writer.hpp"
+#include "kirimaspice/output/output_error.hpp"
 #include "kirimaspice/output/signal_names.hpp"
 
 #include <chrono>
@@ -22,7 +23,7 @@ std::ofstream RawWriter::open_stream() {
     std::ofstream out(filepath_, mode);
 
     if (!out.is_open() || !out.good()) {
-        throw std::runtime_error(
+        throw OutputFileError(
             fmt::format("Failed to open RAW output file: {}", filepath_));
     }
 

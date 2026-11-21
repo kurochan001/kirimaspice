@@ -3,6 +3,7 @@
 
 // src/output/ssf_writer.cpp
 #include "kirimaspice/output/ssf_writer.hpp"
+#include "kirimaspice/output/output_error.hpp"
 #include "kirimaspice/output/signal_names.hpp"
 
 #include <fmt/format.h>
@@ -64,7 +65,7 @@ SSFWriter::SSFWriter(const std::string& filename, std::uint8_t compression_type)
     : filename_(filename) {
     file_.open(filename_, std::ios::binary);
     if (!file_) {
-        throw std::runtime_error(fmt::format("Failed to open file: {}", filename_));
+        throw OutputFileError(fmt::format("Failed to open file: {}", filename_));
     }
 
     header_.compression_type = compression_type;
@@ -74,7 +75,7 @@ SSFWriter::SSFWriter(const std::string& filename, std::uint8_t compression_type)
     file_.write(placeholder.data(), 256);
     // Check I/O error after initial write
     if (!file_.good()) {
-        throw std::runtime_error(fmt::format("Failed to write header placeholder: {}", filename_));
+        throw OutputFileError(fmt::format("Failed to write header placeholder: {}", filename_));
     }
 
     spdlog::info("SSF Writer initialized: {}", filename_);
@@ -547,11 +548,11 @@ void SSFWriter::finalize() {
     // Check I/O errors on flush and close
     file_.flush();
     if (!file_.good()) {
-        throw std::runtime_error(fmt::format("SSFWriter: Failed to flush file: {}", filename_));
+        throw OutputFileError(fmt::format("SSFWriter: Failed to flush file: {}", filename_));
     }
     file_.close();
     if (file_.fail()) {
-        throw std::runtime_error(fmt::format("SSFWriter: Failed to close file: {}", filename_));
+        throw OutputFileError(fmt::format("SSFWriter: Failed to close file: {}", filename_));
     }
 
     finalized_ = true;
@@ -732,7 +733,7 @@ void SSFWriter::write_uint8(std::ofstream& out, std::uint8_t value) {
     out.write(reinterpret_cast<const char*>(&value), 1);
     // Check I/O errors after write
     if (!out.good()) {
-        throw std::runtime_error("SSFWriter: Failed to write uint8");
+        throw OutputFileError("SSFWriter: Failed to write uint8");
     }
 }
 
@@ -744,7 +745,7 @@ void SSFWriter::write_uint16(std::ofstream& out, std::uint16_t value) {
     out.write(reinterpret_cast<const char*>(bytes), 2);
     // Check I/O errors after write
     if (!out.good()) {
-        throw std::runtime_error("SSFWriter: Failed to write uint16");
+        throw OutputFileError("SSFWriter: Failed to write uint16");
     }
 }
 
@@ -758,7 +759,7 @@ void SSFWriter::write_uint32(std::ofstream& out, std::uint32_t value) {
     out.write(reinterpret_cast<const char*>(bytes), 4);
     // Check I/O errors after write
     if (!out.good()) {
-        throw std::runtime_error("SSFWriter: Failed to write uint32");
+        throw OutputFileError("SSFWriter: Failed to write uint32");
     }
 }
 
@@ -776,7 +777,7 @@ void SSFWriter::write_uint64(std::ofstream& out, std::uint64_t value) {
     out.write(reinterpret_cast<const char*>(bytes), 8);
     // Check I/O errors after write
     if (!out.good()) {
-        throw std::runtime_error("SSFWriter: Failed to write uint64");
+        throw OutputFileError("SSFWriter: Failed to write uint64");
     }
 }
 
@@ -784,7 +785,7 @@ void SSFWriter::write_bytes(std::ofstream& out, const std::vector<std::byte>& da
     out.write(reinterpret_cast<const char*>(data.data()), data.size());
     // Check I/O errors after write
     if (!out.good()) {
-        throw std::runtime_error("SSFWriter: Failed to write bytes");
+        throw OutputFileError("SSFWriter: Failed to write bytes");
     }
 }
 

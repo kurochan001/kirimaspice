@@ -78,6 +78,25 @@ class CliOptions(unittest.TestCase):
         self.assertIn("V(in) = 1 V", result.stdout)
         self.assert_rejected(self.run_cli("--log-level=loud", "deck.cir"), "--log-level must be")
 
+    def test_exit_codes_are_those_of_kirimasim(self):
+        # 0 finished, 1 an analysis failed, 2 an error of the command line
+        # or the input, 3 an internal error (kirimasim's docs/spec/CLI.md 5)
+        (self.directory / "parse.cir").write_text("t\nV1 a 0 1\nW1 a 0 1k\n.end\n")
+        (self.directory / "fails.cir").write_text("t\nV1 in 0 1\nV2 in 0 2\nR1 in 0 1k\n.end\n")
+        cases = [
+            ((), 0),
+            (("--bogus",), 2),
+            (("missing.cir",), 2),
+            (("parse.cir",), 2),
+            (("--raw-out", str(self.directory / "no" / "such" / "dir.raw")), 2),
+            (("fails.cir",), 1),
+        ]
+        for args, code in cases:
+            with self.subTest(args=args):
+                cli = [*args] if args and args[0].endswith(".cir") else ["deck.cir", *args]
+                result = self.run_cli(*cli)
+                self.assertEqual(result.returncode, code, result.stdout + result.stderr)
+
     def test_version(self):
         result = self.run_cli("--version")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
