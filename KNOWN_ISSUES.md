@@ -356,14 +356,14 @@ says otherwise.
   The resistor, level 1 and level 3 take 300.15 K as their noise
   temperature, and the MESFET and the SCR their TNOM. The diode gives no
   shot noise below 1 fA.
-- **The MESFET's `LEVEL=2` is not Statz's model.** It computes
-  β·v<sub>ov</sub><sup>3</sup>·(1 + λ V<sub>DS</sub>)·(1 − (1 −
-  V<sub>DS</sub>/VP)<sup>3</sup>)/3 and does not use `B`, where Statz's is
-  β·v<sub>ov</sub><sup>2</sup>/(1 + B v<sub>ov</sub>)·(1 − (1 − α
-  V<sub>DS</sub>/3)<sup>3</sup>)·(1 + λ V<sub>DS</sub>): with BETA 0.1,
-  VTO −2 V, B 0.3, ALPHA 2, LAMBDA 0, VGS = 0 and VDS = 1 V it gives
-  0.187654 A, ngspice-47 0.24074 A (both run on 2026-11-21, this program
-  at `21bb991`).
+- **The MESFET's levels are not ngspice's.** Here `LEVEL=1` is Curtice's
+  model (tanh) and `LEVEL=2` Statz's; ngspice-47's `LEVEL=1` is Statz's
+  (it gives the currents of this program's `LEVEL=2`: 0.240741 A for
+  BETA 0.1, VTO −2 V, B 0.3, ALPHA 2, VGS = 0 and VDS = 1 V) and its
+  `LEVEL=2` another model. So an ngspice card without `LEVEL` gives
+  Curtice's currents here (run on 2026-11-21). The gate junctions and the
+  charge model of ngspice's MESFET are not modelled; `CGS`, `CGD` and
+  `CDS` are constant.
 - **The IGBT's tail current depends on the time step.** It starts from
   the collector current of the step after the turn-off: 6.12 A at 1.5 µs
   with `tmax` 100 ns, 1.22 A with 1 ns (run on 2026-11-21 at `63ce9a6`).

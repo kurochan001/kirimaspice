@@ -27,7 +27,11 @@ enum class MESFETModel {
 ///
 /// Two models supported:
 /// 1. Curtice model (Level 1): Id = beta(Vgs-Vto)^2(1+lambda*Vds)tanh(alpha*Vds)
-/// 2. Statz model (Level 2): Id = beta(Vgs-Vto)^3(1+lambda*Vds)(1-(1-Vds/Vp)^3)/3
+/// 2. Statz model (Level 2), as Statz et al. (IEEE Trans. Electron Devices
+///    ED-34, 1987) and ngspice-47's MESFET give it:
+///    Id = beta(Vgs-Vto)^2/(1+B(Vgs-Vto)) (1+lambda*Vds) (1-(1-alpha*Vds/3)^3)
+///    below Vds = 3/alpha, and without the last factor above it.
+/// VP is kept for the API and used by neither.
 ///
 /// @tparam Pol MESFETPolarity::N for N-channel, MESFETPolarity::P for P-channel
 template<MESFETPolarity Pol>
@@ -73,15 +77,15 @@ public:
                          polarity_char(), name);
             lambda_ = 0.05;
         }
-        if (alpha_ <= 0.0 && model_ == MESFETModel::CURTICE) {
-            spdlog::warn("MESFET_{} {}: ALPHA must be positive for Curtice model, using default 2.0",
+        if (alpha_ <= 0.0) {
+            spdlog::warn("MESFET_{} {}: ALPHA must be positive, using default 2.0",
                          polarity_char(), name);
             alpha_ = 2.0;
         }
-        if (vp_ <= 0.0 && model_ == MESFETModel::STATZ) {
-            spdlog::warn("MESFET_{} {}: VP must be positive for Statz model, using default 3.0 V",
+        if (b_ < 0.0) {
+            spdlog::warn("MESFET_{} {}: B must be non-negative, using default 0.3 1/V",
                          polarity_char(), name);
-            vp_ = 3.0;
+            b_ = 0.3;
         }
 
         std::string model_str = (model_ == MESFETModel::CURTICE) ? "Curtice" : "Statz";
@@ -562,19 +566,15 @@ private:
             return 0.0;
         }
 
+        // Statz: the square law with its doping-tail term B, the cubic
+        // approach to saturation at Vds = 3/alpha, and lambda (see the class
+        // comment)
         const Real vov = v_ctrl - threshold();
         const Real v_ds_pos = std::max(0.0, v_ds);
         const Real clm_factor = 1.0 + lambda_ * v_ds_pos;
-
-        Real sat_factor = 0.0;
-        if (v_ds_pos < vp_) {
-            const Real ratio = 1.0 - v_ds_pos / vp_;
-            sat_factor = (1.0 - ratio * ratio * ratio) / 3.0;
-        } else {
-            sat_factor = 1.0 / 3.0;
-        }
-
-        const Real id = beta_ * vov * vov * vov * clm_factor * sat_factor;
+        const Real r = 1.0 - alpha_ * v_ds_pos / 3.0;
+        const Real sat_factor = (r > 0.0) ? 1.0 - r * r * r : 1.0;
+        const Real id = beta_ * vov * vov / (1.0 + b_ * vov) * clm_factor * sat_factor;
 
         return std::max(0.0, id);
     }

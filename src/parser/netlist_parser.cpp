@@ -5022,7 +5022,6 @@ static void parse_mesfet_device(const std::vector<std::string>& tokens, const st
                 if (model_def.params.count("lambda")) lambda = model_def.params.at("lambda");
                 if (model_def.params.count("alpha")) alpha = model_def.params.at("alpha");
                 if (model_def.params.count("b")) b = model_def.params.at("b");
-                if (model_def.params.count("vp")) vp = model_def.params.at("vp");
                 if (model_def.params.count("cgs")) cgs = model_def.params.at("cgs");
                 if (model_def.params.count("cgd")) cgd = model_def.params.at("cgd");
                 if (model_def.params.count("cds")) cds = model_def.params.at("cds");
@@ -5033,7 +5032,7 @@ static void parse_mesfet_device(const std::vector<std::string>& tokens, const st
                 std::vector<std::string> unused;
                 for (const auto& [key, value] : model_def.params) {
                     static const std::set<std::string> kMesfet = {
-                        "level", "beta", "vto", "lambda", "alpha", "b", "vp", "cgs", "cgd",
+                        "level", "beta", "vto", "lambda", "alpha", "b", "cgs", "cgd",
                         "cds", "kf", "af", "ef", "tnom"};
                     if (!kMesfet.count(key)) unused.push_back(key);
                 }
@@ -5077,8 +5076,6 @@ static void parse_mesfet_device(const std::vector<std::string>& tokens, const st
                 alpha = value;
             } else if (key == "b") {
                 b = value;
-            } else if (key == "vp") {
-                vp = value;
             } else if (key == "cgs") {
                 cgs = value;
             } else if (key == "cgd") {

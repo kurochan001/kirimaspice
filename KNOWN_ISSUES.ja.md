@@ -255,11 +255,11 @@ ngspice について書いていることは、それぞれのマニュアルに
   KF·I<sub>d</sub><sup>AF</sup>/(f<sup>EF</sup>·C<sub>ox</sub>·W·L) です。抵抗、レベル 1、レベル 3 は
   ノイズの温度に 300.15 K を、MESFET と SCR は TNOM を使います。ダイオードは 1 fA より下でショット雑音を
   出しません。
-- **MESFET の `LEVEL=2` は Statz のモデルではありません。** β·v<sub>ov</sub><sup>3</sup>·(1 + λ
-  V<sub>DS</sub>)·(1 − (1 − V<sub>DS</sub>/VP)<sup>3</sup>)/3 を計算し、`B` を使いません。Statz のものは
-  β·v<sub>ov</sub><sup>2</sup>/(1 + B v<sub>ov</sub>)·(1 − (1 − α V<sub>DS</sub>/3)<sup>3</sup>)·(1 + λ
-  V<sub>DS</sub>) です。BETA 0.1、VTO −2 V、B 0.3、ALPHA 2、LAMBDA 0、VGS = 0、VDS = 1 V で 0.187654 A、
-  ngspice-47 では 0.24074 A です（どちらも 2026-11-21 に実行。このプログラムは `21bb991`）。
+- **MESFET のレベルは ngspice のものと違います。** ここでは `LEVEL=1` が Curtice のモデル（tanh）、`LEVEL=2` が
+  Statz のモデルです。ngspice-47 の `LEVEL=1` は Statz のモデルで（このプログラムの `LEVEL=2` と同じ電流です。
+  BETA 0.1、VTO −2 V、B 0.3、ALPHA 2、VGS = 0、VDS = 1 V で 0.240741 A）、その `LEVEL=2` は別のモデルです。
+  そのため、`LEVEL` のない ngspice のカードは、ここでは Curtice の電流になります（2026-11-21 に実行）。
+  ngspice の MESFET のゲートの接合と電荷のモデルはなく、`CGS`、`CGD`、`CDS` は一定です。
 - **IGBT のテール電流は時間刻みによって変わります。** ターンオフの次の刻みのコレクタ電流から始まるので、
   1.5 µs で `tmax` 100 ns なら 6.12 A、1 ns なら 1.22 A です（2026-11-21 に `63ce9a6` で実行）。
 - **GaN HEMT は `VBD` より上で g<sub>ds</sub> に 1 mS を加えますが、それに合う電流はありません**
