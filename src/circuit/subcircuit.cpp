@@ -260,7 +260,7 @@ std::vector<std::string> SubcircuitDefinition::substitute_parameters(
         exprtk::expression<Real> expr;
         expr.register_symbol_table(symbol_table);
         exprtk::parser<Real> parser;
-        if (!parser.compile(expression, expr)) {
+        if (!parser.compile(util::expand_scale_factors(expression), expr)) {
             throw std::runtime_error(fmt::format(
                 "Failed to parse parameter expression '{{{}}}' in subcircuit '{}': {}",
                 expression, name, parser.error()));

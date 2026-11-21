@@ -1280,6 +1280,10 @@ add_executable(test_sic_reverse unit/test_sic_reverse.cpp)
 target_link_libraries(test_sic_reverse PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_sic_reverse PROPERTIES TIMEOUT 1200)
 
+add_executable(test_expression_scale_factors unit/test_expression_scale_factors.cpp)
+target_link_libraries(test_expression_scale_factors PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_expression_scale_factors PROPERTIES TIMEOUT 1200)
+
 add_executable(test_coupled_inductor_groups unit/test_coupled_inductor_groups.cpp)
 target_link_libraries(test_coupled_inductor_groups PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_coupled_inductor_groups PROPERTIES TIMEOUT 1200)

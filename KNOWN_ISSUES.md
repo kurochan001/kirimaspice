@@ -98,11 +98,8 @@ document also lists differences not decided there.
 
 - **`B` sources have no `I(<source>)`:** an expression with it is an
   error (`Undefined symbol`).
-- **Scale factors are not accepted in expressions, with or without
-  braces, or in `.OPTIONS` values** (there the option is ignored with a
-  warning). A `.PARAM` value without braces that is not a number is read
-  as an expression, so `.param r = 2k` is 2000 but `.param r = 2*1k` is an
-  error, where ngspice-47 gives 2000 (run on 2026-11-21 at `21bb991`).
+- **Scale factors are not accepted in `.OPTIONS` values;** the option is
+  ignored with a warning. Expressions take them, as in ngspice-47.
 - **`E`, `F`, `G` and `H` have no `POLY` form;** a line with `POLY(...)`
   after the output nodes is an error.
 - **`.FUNC` cannot be called in an element value,** only in `.PARAM`

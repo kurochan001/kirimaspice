@@ -173,7 +173,8 @@ as 1k and `1.5.3k` as 1.5.
 A value written in braces, `{...}`, is evaluated with ExprTk. It can use
 the parameters defined so far, the constants `pi` and `e`, ExprTk's
 built-in functions, and, in `.PARAM` only, functions defined by `.FUNC`.
-Scale suffixes are not accepted inside braces (`{1m}` is an error). A
+Numbers inside take scale suffixes and units, as in ngspice-47
+(`{2*1k}` is 2000; `util::expand_scale_factors`). A
 value that starts with `{` and has no closing `}` is an error. A brace
 group is one token even if it contains spaces, and one that follows `=`
 stays in the same token, so `IS={ISAT}` and `IS={a * 2}` are each one

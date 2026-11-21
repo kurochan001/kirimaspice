@@ -26,7 +26,7 @@ For practical questions see the [FAQ](FAQ.md).
 | `LEVEL` | The model-card parameter that selects the MOSFET model: 1, 3, BSIM1, BSIM3, BSIM4 and others ([Reference Manual](REFERENCE_MANUAL.md#models)) |
 | <a id="subcircuit"></a>subcircuit | A circuit defined between `.SUBCKT` and `.ENDS` and placed with an `X` element. Its name is not case-sensitive. Its internal nodes and elements get names such as `x1.n1` and `X1.R1` ([Reference Manual](REFERENCE_MANUAL.md#elements)) |
 | <a id="parameter"></a>parameter | A name defined with `.PARAM`, used in `{...}` expressions; `.FUNC` defines a function for `.PARAM` expressions |
-| expression | A value in braces, `{...}`, evaluated with the ExprTk library. Scale factors are not accepted inside it |
+| expression | A value in braces, `{...}`, evaluated with the ExprTk library; its numbers take scale factors, as in ngspice |
 | <a id="scale-factor"></a>scale factor | A suffix that scales a number, in any case: `T`, `G`, `MEG`, `K`, `MIL`, `M` (milli), `U`, `N`, `P`, `F`, `A` (atto). Mega is `MEG` |
 
 ## Sources and devices

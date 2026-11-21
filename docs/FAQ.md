@@ -90,11 +90,6 @@ therefore shows a negative current ([branch current](GLOSSARY.md#branch-current)
 Only sources written with `AC` are inputs of an AC analysis. Write
 `AC 1` (or `AC` alone) on the source that drives the circuit.
 
-### Why does `{1m}` give an error?
-
-Scale factors are not accepted inside braces. Write `{0.001}` or a plain
-number.
-
 ### Why does `Undefined BJT model` (or MOSFET, diode, MESFET) appear?
 
 No `.MODEL` in the netlist has that name. Model names are not

@@ -415,7 +415,7 @@ void CircuitGraph::add_behavioral_source(const std::string& name,
     compiled->expr.register_symbol_table(compiled->symbol_table);
     {
         exprtk::parser<Real> parser;
-        if (!parser.compile(processed_expr, compiled->expr)) {
+        if (!parser.compile(util::expand_scale_factors(processed_expr), compiled->expr)) {
             throw std::runtime_error(fmt::format(
                 "cannot compile the expression '{}': {}", expression, parser.error()));
         }

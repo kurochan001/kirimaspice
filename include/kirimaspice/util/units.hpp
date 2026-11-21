@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
+#include <cstdio>
 #include <cstdlib>
 #include <string>
 #include <string_view>
@@ -147,6 +148,62 @@ Real read_parameter_value(const std::string& text, Evaluate&& evaluate) {
     } catch (const std::runtime_error&) {
         return evaluate(text);
     }
+}
+
+/// An expression with each number that carries a SPICE scale factor or unit
+/// (2*1k, 1.5meg, 10uF) written as its plain value, as ngspice-47 reads
+/// numbers in expressions (2*1k is 2000 there, run 2026-11-21), so that
+/// ExprTk, which has no scale factors, can compile it. Names, digits within
+/// them (n1, x1k) included, and numbers without a suffix are kept as written;
+/// a number whose suffix is not a scale factor or unit is kept too, and
+/// ExprTk names it. Every expression is compiled after this
+/// (the .PARAM, element value, .FUNC, subcircuit and B source evaluators).
+inline std::string expand_scale_factors(std::string_view expression) {
+    std::string out;
+    out.reserve(expression.size());
+    auto is_digit = [](char c) { return std::isdigit(static_cast<unsigned char>(c)) != 0; };
+    auto is_alpha = [](char c) { return std::isalpha(static_cast<unsigned char>(c)) != 0; };
+    std::size_t i = 0;
+    while (i < expression.size()) {
+        const char c = expression[i];
+        if (is_alpha(c) || c == '_') {
+            std::size_t j = i;
+            while (j < expression.size() && (is_alpha(expression[j]) || is_digit(expression[j]) || expression[j] == '_')) ++j;
+            out.append(expression.substr(i, j - i));
+            i = j;
+            continue;
+        }
+        if (!(is_digit(c) || (c == '.' && i + 1 < expression.size() && is_digit(expression[i + 1])))) {
+            out += c;
+            ++i;
+            continue;
+        }
+        std::size_t j = i;
+        while (j < expression.size() && (is_digit(expression[j]) || expression[j] == '.')) ++j;
+        if (j + 1 < expression.size() && (expression[j] == 'e' || expression[j] == 'E') &&
+            (is_digit(expression[j + 1]) ||
+             ((expression[j + 1] == '+' || expression[j + 1] == '-') && j + 2 < expression.size() &&
+              is_digit(expression[j + 2])))) {
+            j += 2;
+            while (j < expression.size() && is_digit(expression[j])) ++j;
+        }
+        const std::size_t number_end = j;
+        while (j < expression.size() && is_alpha(expression[j])) ++j;
+        if (j > number_end) {
+            try {
+                char buffer[32];
+                std::snprintf(buffer, sizeof buffer, "%.17g", parse_value_with_unit(expression.substr(i, j - i)));
+                out += buffer;
+                i = j;
+                continue;
+            } catch (const std::exception&) {
+                // not a scale factor or unit: kept as written
+            }
+        }
+        out.append(expression.substr(i, j - i));
+        i = j;
+    }
+    return out;
 }
 
 } // namespace kirimaspice::util

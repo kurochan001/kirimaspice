@@ -2036,7 +2036,7 @@ public:
         expr.register_symbol_table(local_table);
 
         exprtk::parser<Real> parser;
-        if (!parser.compile(expression_, expr)) {
+        if (!parser.compile(util::expand_scale_factors(expression_), expr)) {
             throw std::runtime_error(fmt::format(
                 "Failed to compile .FUNC expression: {}", expression_));
         }
@@ -2099,7 +2099,7 @@ public:
         expr.register_symbol_table(local_table);
 
         exprtk::parser<Real> parser;
-        if (!parser.compile(expression_, expr)) {
+        if (!parser.compile(util::expand_scale_factors(expression_), expr)) {
             throw std::runtime_error(fmt::format(
                 "Failed to compile .FUNC expression: {}", expression_));
         }
@@ -2166,7 +2166,7 @@ public:
         expr.register_symbol_table(local_table);
 
         exprtk::parser<Real> parser;
-        if (!parser.compile(expression_, expr)) {
+        if (!parser.compile(util::expand_scale_factors(expression_), expr)) {
             throw std::runtime_error(fmt::format(
                 "Failed to compile .FUNC expression: {}", expression_));
         }
@@ -3018,7 +3018,7 @@ static void parse_param_directive(const std::vector<std::string>& tokens, ParseS
             exprtk::expression<Real> expression;
             expression.register_symbol_table(symbol_table);
             exprtk::parser<Real> parser;
-            if (!parser.compile(expr, expression)) {
+            if (!parser.compile(util::expand_scale_factors(expr), expression)) {
                 throw std::runtime_error(fmt::format("Failed to parse .PARAM expression '{}': {}",
                                                      expr, parser.error()));
             }
@@ -6899,7 +6899,7 @@ public:
         expr.register_symbol_table(symbol_table_);
 
         exprtk::parser<Real> parser;
-        if (!parser.compile(expression, expr)) {
+        if (!parser.compile(util::expand_scale_factors(expression), expr)) {
             throw std::runtime_error("Expression parse error: " + expression);
         }
 
