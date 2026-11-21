@@ -183,7 +183,12 @@ TEST_F(ACSolverTest, RCLowPassFilter_FrequencyResponseAccuracy) {
 }
 
 // Test: Floating source/capacitor network should converge via AC Gmin injection
-TEST_F(ACSolverTest, FloatingBranchStabilizedByGmin) {
+TEST_F(ACSolverTest, FloatingBranchHasNoOperatingPoint) {
+    // n1 and n2 have no path to ground, so the circuit has no operating
+    // point; dynamic gmin does not leave its shunt in the solution, so the
+    // AC analysis reports the failure of its operating point instead of
+    // solving a circuit with that shunt (ngspice-47 reports that its gmin
+    // and source stepping fail on such a circuit, run 2026-11-21)
     circuit::CircuitGraph circuit;
     // Floating voltage source between nodes n1 and n2
     circuit.add_voltage_source("V1", "n1", "n2", 0.0, 1.0);
@@ -205,13 +210,7 @@ TEST_F(ACSolverTest, FloatingBranchStabilizedByGmin) {
     ACSolver solver(circuit, config);
     ACResult result = solver.solve();
 
-    ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
-    ASSERT_EQ(result.frequency_points.size(), 1u);
-    // Solution vector should contain the floating pair voltages without NaN/inf
-    for (const auto& value : result.frequency_points.front().solution) {
-        EXPECT_TRUE(std::isfinite(std::real(value)));
-        EXPECT_TRUE(std::isfinite(std::imag(value)));
-    }
+    EXPECT_NE(result.status, ConvergenceStatus::SUCCESS);
 }
 
 // Test: Resistor divider (frequency-independent)

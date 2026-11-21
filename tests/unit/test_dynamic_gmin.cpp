@@ -43,7 +43,12 @@ R1 1 0 1k
     EXPECT_DOUBLE_EQ(dc.dynamic_gmin_residual_target, 1e-10);
 }
 
-TEST_F(DynamicGminTest, StabilizesFloatingCurrentSource) {
+TEST_F(DynamicGminTest, DoesNotSolveACircuitWithoutAGroundPath) {
+    // Nodes 1 and 2 have no path to ground: the circuit has no operating
+    // point. Dynamic gmin may converge with its shunt from every node to
+    // ground, but the solution it returns is that of the circuit without
+    // the shunt, so it fails as the plain iteration does; ngspice-47 reports
+    // "Dynamic gmin stepping failed" for this circuit (run 2026-11-21).
     std::string netlist = R"(
 * Floating nodes with ideal current source
 I1 1 2 DC 1m
@@ -65,7 +70,8 @@ C1 1 2 1u
     auto status_no_dyn = solver_no_dyn.solve(solution_no_dyn, stats_no_dyn);
     EXPECT_NE(status_no_dyn, ConvergenceStatus::SUCCESS);
 
-    // Enable dynamic Gmin with aggressive settings to add a ground path
+    // Dynamic Gmin with aggressive settings, which adds a ground path while
+    // it iterates
     SimulationConfig dyn_config = result.config;
     dyn_config.dc.enable_dynamic_gmin = true;
     dyn_config.dc.dynamic_gmin_start = 1e-9;
@@ -81,5 +87,5 @@ C1 1 2 1u
     DenseVector solution_dyn;
     SolverStats stats_dyn;
     auto status_dyn = solver_dyn.solve(solution_dyn, stats_dyn);
-    EXPECT_EQ(status_dyn, ConvergenceStatus::SUCCESS);
+    EXPECT_NE(status_dyn, ConvergenceStatus::SUCCESS);
 }
