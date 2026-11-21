@@ -365,6 +365,46 @@ std::string preprocess_includes(
     return output.str();
 }
 
+// A directive of .IF preprocessing: its name in upper case, .IF, .ELIF, .ELSE
+// or .ENDIF, and the text after it with leading blanks removed
+struct ConditionalDirective {
+    std::string name;
+    std::string rest;
+};
+
+// The directive of .IF preprocessing that a line (without its comment and
+// surrounding blanks) holds, if any. As in ngspice-47, the name ends at a
+// blank or at the '(' of the condition (.if(0)), and .ELSEIF is another
+// spelling of .ELIF. .ELSE and .ENDIF stand alone on their lines.
+static std::optional<ConditionalDirective> conditional_directive(const std::string& trimmed) {
+    if (trimmed.empty() || trimmed[0] != '.') {
+        return std::nullopt;
+    }
+    std::size_t end = 1;
+    while (end < trimmed.size() && std::isalpha(static_cast<unsigned char>(trimmed[end]))) {
+        ++end;
+    }
+    std::string name = trimmed.substr(0, end);
+    std::transform(name.begin(), name.end(), name.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+    if (name == ".ELSEIF") {
+        name = ".ELIF";
+    }
+    if (name != ".IF" && name != ".ELIF" && name != ".ELSE" && name != ".ENDIF") {
+        return std::nullopt;
+    }
+    if (end < trimmed.size() && trimmed[end] != ' ' && trimmed[end] != '\t' &&
+        trimmed[end] != '(') {
+        return std::nullopt;
+    }
+    std::string rest = trimmed.substr(end);
+    rest.erase(0, rest.find_first_not_of(" \t"));
+    if ((name == ".ELSE" || name == ".ENDIF") && !rest.empty()) {
+        return std::nullopt;
+    }
+    return ConditionalDirective{name, rest};
+}
+
 // Preprocess .IF/.ELIF/.ELSE/.ENDIF conditional directives
 // @param content: netlist content (may contain conditional directives)
 // @param evaluator: expression evaluator for condition evaluation
@@ -409,14 +449,13 @@ std::string preprocess_conditionals(
             continue;
         }
 
-        // Check for conditional directives
-        std::string directive_upper = trimmed;
-        std::transform(directive_upper.begin(), directive_upper.end(), directive_upper.begin(), ::toupper);
+        // Check for conditional directives (conditional_directive)
+        const std::optional<ConditionalDirective> directive = conditional_directive(trimmed);
+        const std::string directive_upper = directive ? directive->name : std::string();
 
-        if (directive_upper.rfind(".IF ", 0) == 0 || directive_upper == ".IF") {
+        if (directive_upper == ".IF") {
             // .IF directive
-            std::string condition = (trimmed.length() > 4) ? trimmed.substr(4) : "";
-            condition.erase(0, condition.find_first_not_of(" \t"));
+            const std::string& condition = directive->rest;
 
             if (condition.empty()) {
                 throw ParseError(".IF directive missing condition", line_number);
@@ -440,8 +479,8 @@ std::string preprocess_conditionals(
             cond_stack.push_back({eval_result, false, eval_result});
             continue;  // Don't output .IF directive itself
 
-        } else if (directive_upper.rfind(".ELIF ", 0) == 0 || directive_upper == ".ELIF") {
-            // .ELIF directive
+        } else if (directive_upper == ".ELIF") {
+            // .ELIF directive (or .ELSEIF)
             if (cond_stack.empty()) {
                 throw ParseError(".ELIF without matching .IF", line_number);
             }
@@ -450,8 +489,7 @@ std::string preprocess_conditionals(
                 throw ParseError(".ELIF after .ELSE", line_number);
             }
 
-            std::string condition = (trimmed.length() > 6) ? trimmed.substr(6) : "";
-            condition.erase(0, condition.find_first_not_of(" \t"));
+            const std::string& condition = directive->rest;
 
             if (condition.empty()) {
                 throw ParseError(".ELIF directive missing condition", line_number);

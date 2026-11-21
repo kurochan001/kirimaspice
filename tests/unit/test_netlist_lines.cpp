@@ -147,6 +147,29 @@ TEST(NetlistLines, ElseInsideABranchTaken) {
     EXPECT_EQ(device_names(parsed), (std::vector<std::string>{"R1", "R3", "V1"}));
 }
 
+// The condition of .IF and .ELIF may follow the name with no blank, .if(0),
+// and .ELSEIF is .ELIF (conditional_directive). ngspice-47 (run 2026-11-21)
+// takes the .ELSEIF branch of the first netlist and the .ELSE branch of the
+// second: I(V1) = -0.5 mA and -0.25 mA.
+TEST(NetlistLines, ConditionRightAfterTheNameAndElseif) {
+    {
+        parser::NetlistParser parser;
+        const auto parsed = parser.parse_string(
+            "t\nV1 a 0 1\n.if(0)\nR1 a 0 1k\n.elseif(1)\nR1 a 0 2k\n.else\nR1 a 0 4k\n.endif\n"
+            ".op\n.end\n");
+        ASSERT_NE(parsed.circuit, nullptr);
+        EXPECT_DOUBLE_EQ(device_as<devices::Resistor>(parsed, "R1")->resistance(), 2e3);
+    }
+    {
+        parser::NetlistParser parser;
+        const auto parsed = parser.parse_string(
+            "t\nV1 a 0 1\n.IF(0)\nR1 a 0 1k\n.ELSEIF (0)\nR1 a 0 2k\n.ELSE\nR1 a 0 4k\n.ENDIF\n"
+            ".op\n.end\n");
+        ASSERT_NE(parsed.circuit, nullptr);
+        EXPECT_DOUBLE_EQ(device_as<devices::Resistor>(parsed, "R1")->resistance(), 4e3);
+    }
+}
+
 // A .SUBCKT ends with .ENDS; without it the lines after it are not its body
 // but an error (NetlistParser::Impl::parse)
 TEST(NetlistLines, SubcircuitWithoutEnds) {
