@@ -78,8 +78,9 @@ Rload 2 0 1Meg
         Real output_noise = noise_result.output_noise[i];
         Real expected_noise = std::sqrt(V_n_squared_total);
 
-        // Relaxed tolerance because transfer function calculation is simplified
-        EXPECT_NEAR(output_noise, expected_noise, expected_noise * 0.15)
+        // 4kT (R1 || Rload) is exact: relative 1e-6 is far above rounding
+        // and far below any error in the PSD
+        EXPECT_NEAR(output_noise, expected_noise, expected_noise * 1e-6)
             << "Frequency: " << noise_result.frequency_points[i] << " Hz";
     }
 }

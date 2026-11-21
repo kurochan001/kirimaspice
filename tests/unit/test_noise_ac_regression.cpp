@@ -45,7 +45,7 @@ C1 out 0 1n
         ASSERT_GT(fp.solution.size(), static_cast<size_t>(out_id - 1))
             << "AC solution size too small for output node access";
         Real vout_mag = std::abs(fp.solution[out_id - 1]);
-        EXPECT_NEAR(vout_mag, mag_expected, mag_expected * 0.1);
+        EXPECT_NEAR(vout_mag, mag_expected, mag_expected * 1e-6);
     }
 
     // Noise solve
@@ -70,8 +70,9 @@ C1 out 0 1n
         Real omega = 2.0 * M_PI * freq_hz;
         Real transfer_mag = 1.0 / std::sqrt(1.0 + std::pow(omega * R * C, 2));
         Real expected_output_noise = input_noise * transfer_mag;
-        // Allow 30% tolerance due to numerical differences in noise calculation
+        // The RC low-pass is exact: relative 1e-6 is far above rounding and
+        // far below any error in the PSD (2kTR in place of 4kTR is 0.707 times)
         EXPECT_NEAR(noise_result.output_noise[i], expected_output_noise,
-                    expected_output_noise * 0.3);
+                    expected_output_noise * 1e-6);
     }
 }
