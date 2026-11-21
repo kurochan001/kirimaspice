@@ -358,7 +358,6 @@ For `NMOS` and `PMOS`, `LEVEL` selects the device:
 | --- | --- | --- | --- |
 | 1 (default) | level 1 (square law) | warning, once per card | `KP`, `W`, `L`, `VTH`, `KF`, `AF`, `EF`; others named in a warning |
 | 3 | SPICE's level 3 | warning | `W`, `L` (100 µm, SPICE's `DEFW` and `DEFL`); others named in a warning |
-| 9 | BSIM1, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W` (10 µm), `L` (1 µm); others named in a warning |
 | 8, 49 | BSIM3, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W`, `L` (5 µm); others named in a warning |
 | 14, 54 | BSIM4 (a model card with a `VERSION` other than 4.8.3 or 4.83 gives a warning) | warning, once per card | `W` (the width of all `NF` fingers), `L` (5 µm), `NF`, `M`, `AS`, `AD`, `PS`, `PD`, `NRD`, `NRS`, `MULT_I`, `MULT_Q` (every capacitance), `MULT_FN`; others named in a warning |
 | 10 | SiC MOSFET | warning | all, by name |
@@ -367,8 +366,10 @@ For `NMOS` and `PMOS`, `LEVEL` selects the device:
 | 20 | VDMOS | warning | all, by name |
 | 21 | IGBT (`M` terminals are collector, gate, emitter; in the transient the collector carries the larger of the channel current and the stored-carrier current, which follows the channel current with the lifetime `TAU`, so it decays as exp(−t/`TAU`) after a turn-off) | warning | all, by name |
 
-Any other `LEVEL` is an error at the `.MODEL` line, as in ngspice-47.
-At levels 3, 8/49, 9 and 12, other names on the element line, `AD`, `AS`,
+Any other `LEVEL` is an error at the `.MODEL` line, as in ngspice-47,
+and so is `LEVEL=9`, ngspice's MOS9: the library's BSIM1 is not offered
+([known issues](../KNOWN_ISSUES.md#device-models)).
+At levels 3, 8/49 and 12, other names on the element line, `AD`, `AS`,
 `PD`, `PS`, `NRD`, `NRS` and `M` among them, are named in a warning and
 not used.
 

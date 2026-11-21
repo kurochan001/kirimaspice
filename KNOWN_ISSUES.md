@@ -106,10 +106,6 @@ document also lists differences not decided there.
   expressions (`Expression parse error`).
 - **`.IF` cannot read `.PARAM` values.** When the condition cannot be
   evaluated, the parser warns and keeps every branch.
-- **The default `W` and `L` of BSIM1 (`LEVEL` 9) are 10 µm and 1 µm.**
-  Which default ngspice-47 takes is not confirmed: its BSIM1 (its
-  `LEVEL` 4) gives `nan` for a card without parameters (run on
-  2026-11-21). Levels 3, 8/49 and 14/54 take ngspice-47's.
 - **`SFFM` differs from ngspice-47's.** Its omitted arguments take
   SPICE3's defaults (`FC` and `FS` 1/`TSTOP`, `MDI` 0), where ngspice-47
   modulates `SFFM(0 1)` with the warning `MDI in v1 limited to FC/FM`
@@ -223,8 +219,10 @@ says otherwise.
   junction voltage), which shows below the threshold: for the card of
   `tests/unit/test_bsim4_reference.cpp` at V<sub>GS</sub> = 0.2 V the
   channel currents agree and `i(vd)` is larger by GMIN·V<sub>DB</sub>.
-- **BSIM1 (`LEVEL` 9) is a simplified model whose P device is not the
-  mirror of its N device.** With VFB = −0.8 V (N) or +0.8 V (P), PHI = 0.7,
+- **BSIM1 is not offered from a netlist; `LEVEL=9` is an error.**
+  ngspice's `LEVEL` 9 is MOS9 and its BSIM1 is `LEVEL` 4, and the
+  library's BSIM1 (`MOSFET_BSIM1`) is a simplified model whose P device is
+  not the mirror of its N device: with VFB = −0.8 V (N) or +0.8 V (P), PHI = 0.7,
   K1 = 0.5, TOX = 0.02 µm, MUZ = 600 and W/L = 10 µm / 1 µm at
   |VD| = |VG| = 1 V, the N device carries 1.033e-4 A, ngspice-47's BSIM1 (its
   LEVEL 4) 2.087e-4 A, and the P device 0 A (run on 2026-11-15). The P

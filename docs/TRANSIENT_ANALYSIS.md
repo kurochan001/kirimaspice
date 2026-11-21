@@ -576,7 +576,7 @@ request; each device determines its actual discretization.
 | BJT | Integrates differential capacitances rather than junction charge, through the shared helper for every method; a cross derivative is missing |
 | Level-1 MOSFET | No capacitance from a netlist (the parser names `CGSO`, `CGDO` and `CGBO` as not used); overlap capacitors set through the API use BE regardless of the requested method |
 | Level-3 MOSFET | Transient stamp has no intrinsic capacitance contribution; AC capacitances do not establish transient support |
-| BSIM1 | Capacitances use BE regardless of the requested method |
+| BSIM1 (library only) | Capacitances use BE regardless of the requested method |
 | BSIM3 / BSIM4 | Shared capacitor helper for every method |
 | BSIM4 | Simplified Meyer capacitances, not a complete terminal-charge formulation; inverter-chain transient reference test is disabled |
 | SiC, GaN, VDMOS, FinFET, MESFET | Capacitances through `device_utils::CapacitorHistory`, by the chosen method |

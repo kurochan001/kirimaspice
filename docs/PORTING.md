@@ -124,16 +124,13 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
   on its card without using them
   ([Reference Manual](REFERENCE_MANUAL.md#models)).
 - [ ] **The `LEVEL` of each MOSFET card.** The levels here are 1, 3,
-  8/49 (BSIM3), 9 (BSIM1), 10 (SiC), 11 (GaN HEMT), 12 (FinFET), 14/54
+  8/49 (BSIM3), 10 (SiC), 11 (GaN HEMT), 12 (FinFET), 14/54
   (BSIM4), 20 (VDMOS) and 21 (IGBT)
   ([Reference Manual](REFERENCE_MANUAL.md#models)). Check that each card
   of the netlist means the same device by its number (not compared with
   ngspice's list of levels here). Any other `LEVEL` is an error, as in
-  ngspice.
-- [ ] **`W` and `L` on every BSIM1 (level 9) line.** Its defaults here
-  are 10 µm and 1 µm, and ngspice-47's are not confirmed; levels 3, 8/49
-  and 14/54 take ngspice-47's
-  ([KNOWN_ISSUES](../KNOWN_ISSUES.md#netlist-input)).
+  ngspice, and so is `LEVEL=9`, ngspice's MOS9
+  ([KNOWN_ISSUES](../KNOWN_ISSUES.md#device-models)).
 - [ ] **`S` and `Y` parameters on the element line.** `.MODEL` has no
   SCR or TRIAC type.
 - [ ] **No `J` elements.** The library has a JFET, but the parser has no

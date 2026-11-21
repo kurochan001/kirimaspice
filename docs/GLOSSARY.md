@@ -23,7 +23,7 @@ For practical questions see the [FAQ](FAQ.md).
 | <a id="ground"></a>ground | The reference node, 0 V: `0`, or `gnd` in any case. Inside kirimaspice it is node 0, `NODE_GND` |
 | continuation line | A line that starts with `+` and continues the line before it |
 | <a id="model-card"></a>model card | A `.MODEL` line: a named set of device parameters. Its name is not case-sensitive, and it may stand after the `D`, `Q`, `M` and `Z` elements that use it |
-| `LEVEL` | The model-card parameter that selects the MOSFET model: 1, 3, BSIM1, BSIM3, BSIM4 and others ([Reference Manual](REFERENCE_MANUAL.md#models)) |
+| `LEVEL` | The model-card parameter that selects the MOSFET model: 1, 3, BSIM3, BSIM4 and others ([Reference Manual](REFERENCE_MANUAL.md#models)) |
 | <a id="subcircuit"></a>subcircuit | A circuit defined between `.SUBCKT` and `.ENDS` and placed with an `X` element. Its name is not case-sensitive. Its internal nodes and elements get names such as `x1.n1` and `X1.R1` ([Reference Manual](REFERENCE_MANUAL.md#elements)) |
 | <a id="parameter"></a>parameter | A name defined with `.PARAM`, used in `{...}` expressions; `.FUNC` defines a function for `.PARAM` expressions |
 | expression | A value in braces, `{...}`, evaluated with the ExprTk library; its numbers take scale factors, as in ngspice |

@@ -60,7 +60,7 @@ The parser accepts these elements:
 | `X` | Subcircuit instance |
 
 For `M`, the `LEVEL` of the `.model` selects the model: 1 (default), 3,
-9 (BSIM1), 8 or 49 (BSIM3), 14 or 54 (BSIM4), 10 (SiC MOSFET), 11 (GaN
+8 or 49 (BSIM3), 14 or 54 (BSIM4), 10 (SiC MOSFET), 11 (GaN
 HEMT), 12 (FinFET), 20 (VDMOS) and 21 (IGBT). The library also has a JFET
 model, but the parser has no `J` element yet. How complete each model is
 varies; each has its own tests.

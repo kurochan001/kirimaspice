@@ -263,3 +263,19 @@ TEST(ParserUnknownInput, InitialConditionsTakeVInEitherCase) {
     ASSERT_EQ(config.nodeset.count("b"), 1u);
     EXPECT_DOUBLE_EQ(config.nodeset.at("b"), 2.0);
 }
+
+TEST(ParserUnknownInput, MosfetLevel9IsAnError) {
+    // ngspice's LEVEL 9 is MOS9, and the library's BSIM1 does not follow
+    // ngspice's BSIM1 (its LEVEL 4): a LEVEL=9 card is an error at its line
+    for (const char* type : {"NMOS", "PMOS"}) {
+        parser::NetlistParser parser;
+        try {
+            parser.parse_string(std::string("t\nVD d 0 1\nM1 d d 0 0 m W=1u L=1u\n.model m ") + type +
+                                " LEVEL=9\n.end\n");
+            ADD_FAILURE() << type << ": no error";
+        } catch (const parser::ParseError& e) {
+            EXPECT_EQ(e.line(), 4u) << type;
+            EXPECT_NE(std::string(e.what()).find("LEVEL=9 is not implemented"), std::string::npos) << e.what();
+        }
+    }
+}

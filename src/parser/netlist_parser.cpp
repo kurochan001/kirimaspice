@@ -3997,13 +3997,16 @@ static void parse_model_directive(const std::vector<std::string>& tokens, ParseS
         auto level_it = params.find("level");
         if (level_it != params.end()) {
             int level = static_cast<int>(level_it->second);
-            static constexpr int known_levels[] = {1, 3, 8, 9, 10, 11, 12, 14, 20, 21, 49, 54};
+            // LEVEL 9 is not offered: ngspice's LEVEL 9 is MOS9, and the
+            // library's BSIM1 (MOSFET_BSIM1) is a simplified model that does
+            // not follow ngspice's BSIM1, its LEVEL 4 (KNOWN_ISSUES)
+            static constexpr int known_levels[] = {1, 3, 8, 10, 11, 12, 14, 20, 21, 49, 54};
             if (level_it->second != static_cast<Real>(level) ||
                 std::find(std::begin(known_levels), std::end(known_levels), level) ==
                     std::end(known_levels)) {
                 throw ParseError(
                     fmt::format("MOSFET model {}: LEVEL={} is not implemented (levels 1, 3, "
-                                "8/49, 9, 10, 11, 12, 14/54, 20, 21)",
+                                "8/49, 10, 11, 12, 14/54, 20, 21)",
                                 model_name, level_it->second),
                     state.line_number);
             }
