@@ -194,6 +194,12 @@ BSIM4OperatingPoint BSIM4Core::evaluate(Real vg, Real vd, Real vs, Real vb,
     return op;
 }
 
+Real BSIM4Core::saturation_velocity(Real T) const {
+    // BSIM4 4.8.3 b4temp.c, TEMPMOD 0: vsattemp = VSAT - AT (T/TNOM - 1),
+    // with the ratio of the temperatures, not their difference
+    return std::max(params_.vsat - params_.at * (T / params_.tnom - 1.0), 1e4);
+}
+
 BSIM4Capacitances BSIM4Core::compute_capacitances(Real vg, Real vd, Real vs, Real vb,
                                                   Real vth, Real temperature) const {
     // Reuse bias handling (polarity and drain/source swap)
@@ -225,11 +231,9 @@ BSIM4Capacitances BSIM4Core::compute_capacitances(Real vg, Real vd, Real vs, Rea
     } else {
         // Velocity saturation dependent vdsat (simple)
         Real vdsat = vgs_eff;
-        // optional vsat temp dependence (lightweight)
-        Real delta_temp = temperature - params_.tnom;
-        Real vsat_temp = params_.vsat - params_.at * delta_temp;
-        if (vsat_temp < 0.0) vsat_temp = 0.0;
-        if (vsat_temp > 0.0) {
+        // The saturation velocity at the temperature, as the current takes it
+        const Real vsat_temp = saturation_velocity(temperature);
+        {
             Real mu_eff = compute_mobility(vgs_eff, vth, vbs, temperature);
             Real vsat_l = leff * vsat_temp / guard_positive(mu_eff, params_.u0);
             if (vsat_l > 0.0) {
@@ -287,8 +291,11 @@ BSIM4Capacitances BSIM4Core::compute_capacitances(Real vg, Real vd, Real vs, Rea
 
     // M devices in parallel carry M times every capacitance, as they carry
     // M times the current (evaluate's mult_current); the NF fingers are in
-    // weff already
-    const Real m = std::max(params_.m, 1.0);
+    // weff already. The instance's MULT_Q multiplies every charge, the
+    // gate's, the overlaps' and the junctions' alike, as in ngspice-47
+    // (MULT_Q = 2 doubles both the gate's and the drain's capacitance there,
+    // run 2026-11-21)
+    const Real m = std::max(params_.m, 1.0) * params_.mult_q;
     BSIM4Capacitances caps;
     caps.cgs = m * cgs;
     caps.cgd = m * cgd;
@@ -978,15 +985,7 @@ BSIM4ThresholdState BSIM4Core::compute_threshold(const BSIM4BiasState& bias,
     // This is physically correct: mobility degradation only occurs in strong inversion
     const Real vgsteff_for_mobility = std::max(vgsteff, 0.0);
     th.ueff = compute_mobility(vgsteff_for_mobility, th.vth, bias.vbs_eff, T);
-    // ngspice BSIM4.8.0 tempMod=0 formula (b4temp.c line 2085):
-    // vsattemp = vsat - at * T0, where T0 = (TRatio - 1.0)
-    // TRatio = temperature / tnom (dimensionless)
-    // NOT (T - Tnom) (absolute difference in K)
-    // At T=-40°C with at=3.3e4, vsat=8e4:
-    // Correct (TRatio-1): 8e4 - 3.3e4×(-0.223) = 8.736e4 m/s
-    // Wrong (T-Tnom): 8e4 - 3.3e4×(-67) = 2.219e6 m/s (25x error!)
-    const Real temp_ratio = T / params_.tnom;
-    const Real vsat = std::max(params_.vsat - params_.at * (temp_ratio - 1.0), 1e4);
+    const Real vsat = saturation_velocity(T);
     th.vsat = vsat;
 
     // REMOVED - This AGS correction was DUPLICATE!
@@ -2758,7 +2757,7 @@ Real BSIM4Core::compute_ids(Real vgs, Real vds, Real vbs, Real temperature,
     Real mu_eff = compute_mobility(vgt_eff, vth, vbs, T);
     mu_eff = guard_positive(mu_eff, 1e-4);
 
-    const Real vsat_temp = std::max(params_.vsat - params_.at * delta_temp, 1.0e4);
+    const Real vsat_temp = saturation_velocity(T);
     const Real vsat_volt = std::max(leff * vsat_temp / mu_eff, 1e-3);
     const Real vdsat = vgt_eff / (1.0 + vgt_eff / vsat_volt);
     vdsat_out = vdsat;

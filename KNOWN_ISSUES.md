@@ -270,13 +270,7 @@ says otherwise.
   junction alone is 3.536e-14 F; the rest fits the default sidewall
   capacitance over a perimeter of 2 W (run on 2026-11-15; ngspice's rule
   not read). The outer fringe capacitance CF is not modelled. In the
-  linear region Cgs = Cgd = 2/3 Cox W L (4/3 Cox W L in all). The
-  saturation velocity of the capacitances is VSAT − AT·(T − TNOM), in
-  kelvin, where the current takes AT·(T/TNOM − 1), so with the default
-  AT = 3.3e4 it reaches 0 at TNOM + 2.4 K: the input capacitance is
-  7.67e-14 F at 27 and 28 °C and 1.535e-13 F at 30 °C. `MULT_Q` is not
-  used; a card's is named so, the element line's is not (run on
-  2026-11-21 at `63ce9a6`).
+  linear region Cgs = Cgd = 2/3 Cox W L (4/3 Cox W L in all).
 - **BSIM4's MOBMOD 3 (the high-k mobility model) to 6 are computed as
   MOBMOD 0,** without a warning. MOBMOD 0, 1 and 2 follow the BSIM4 4.8.3
   code.

@@ -140,6 +140,10 @@ private:
     Real compute_ids(Real vgs, Real vds, Real vbs, Real temperature,
                      Real& vth_out, Real& vdsat_out) const;
     Real compute_mobility(Real vgt_eff, Real vth, Real vbs_eff, Real temperature) const;
+    /// The saturation velocity at temperature T, VSAT - AT (T/TNOM - 1)
+    /// (BSIM4 manual, TEMPMOD 0), at least 1e4 m/s: the current, the
+    /// capacitances and compute_ids take it from here
+    Real saturation_velocity(Real T) const;
 
     /// rds0 and rdswmin of the internal Rds(V) at the temperature [Ω]
     /// (TEMPMOD = 0, BSIM4 4.8.3 b4temp.c)

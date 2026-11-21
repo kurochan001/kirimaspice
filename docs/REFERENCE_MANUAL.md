@@ -353,7 +353,7 @@ For `NMOS` and `PMOS`, `LEVEL` selects the device:
 | 3 | SPICE's level 3 | warning | `W`, `L` (100 µm, SPICE's `DEFW` and `DEFL`); others named in a warning |
 | 9 | BSIM1, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W` (10 µm), `L` (1 µm); others named in a warning |
 | 8, 49 | BSIM3, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W`, `L` (5 µm); others named in a warning |
-| 14, 54 | BSIM4 (a model card with a `VERSION` other than 4.8.3 or 4.83 gives a warning) | warning, once per card | `W` (the width of all `NF` fingers), `L` (5 µm), `NF`, `M`, `AS`, `AD`, `PS`, `PD`, `NRD`, `NRS`, `MULT_I`, `MULT_FN`; `MULT_Q` is accepted and not used; others named in a warning |
+| 14, 54 | BSIM4 (a model card with a `VERSION` other than 4.8.3 or 4.83 gives a warning) | warning, once per card | `W` (the width of all `NF` fingers), `L` (5 µm), `NF`, `M`, `AS`, `AD`, `PS`, `PD`, `NRD`, `NRS`, `MULT_I`, `MULT_Q` (every capacitance), `MULT_FN`; others named in a warning |
 | 10 | SiC MOSFET | warning | all, by name |
 | 11 | GaN HEMT (`VTO` with the device's sign, as for the other levels: −2 V for N and +2 V for P by default; `KT1`, `KT2` move the threshold of the N-like voltages) | warning | all, by name |
 | 12 | FinFET | warning | `L` only; others named in a warning |

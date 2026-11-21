@@ -369,6 +369,7 @@ bool set_bsim4_instance_parameter(BSIM4Params& p, const std::string& key, Real v
     else if (key == "m") p.m = value;
     else if (key == "mult_i") p.mult_i = value;
     else if (key == "mult_fn") p.mult_fn = value;
+    else if (key == "mult_q") p.mult_q = value;
     else if (key == "as") p.as = value;
     else if (key == "ad") p.ad = value;
     else if (key == "ps") p.ps = value;
@@ -526,8 +527,8 @@ BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_par
         // names of effects that the model does not compute: the poly-gate
         // depletion (NGATE), the narrow-width short-channel term (DVT0W,
         // DVT1W, DVT2W), the bias dependence of Weff (DWG, DWB), the
-        // impact-ionization current (ALPHA0, ALPHA1, BETA0) and the charge
-        // multiplier MULT_Q
+        // impact-ionization current (ALPHA0, ALPHA1, BETA0) and MULT_Q, which
+        // is the instance's (set_bsim4_instance_parameter)
         else if (key != "level" && unused) {
             unused->push_back(key);
         }
