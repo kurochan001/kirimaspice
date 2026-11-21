@@ -41,8 +41,10 @@ namespace {
 // rounding. Adding up N steps of dt rounds by at most about N^2 1.1e-16 dt,
 // below 1e-5 dt for the 100 000 steps of ITL5, so a rest below that is the
 // rounding of the steps, not a step of its own.
+constexpr Real kStepRounding = 1e-5;
+
 Real step_toward(Real t, Real t_stop, Real dt) {
-    const Real tolerance = 1e-5 * dt;
+    const Real tolerance = kStepRounding * dt;
     const Real rest = t_stop - t;
     if (rest <= tolerance) {
         return 0.0;
@@ -1785,7 +1787,8 @@ bool TransientSolver::run_timestepping_loop(TransientResult& result, Real t_star
     current_time_ = 0.0;
     std::uint32_t step_count = 0;
     const Real t_first = std::min(std::max(t_start, 0.0), t_stop);
-    std::vector<Real> segment_ends;
+    // The breakpoints of the sources, where the integration starts again
+    std::vector<Real> breakpoints;
     for (const auto& device : circuit_.get_devices()) {
         const devices::Waveform* waveform = nullptr;
         if (const auto* v = dynamic_cast<const devices::VoltageSource*>(device.get())) {
@@ -1794,34 +1797,61 @@ bool TransientSolver::run_timestepping_loop(TransientResult& result, Real t_star
             waveform = i->waveform();
         }
         if (waveform) {
-            waveform->breakpoints(t_stop, segment_ends);
+            waveform->breakpoints(t_stop, breakpoints);
         }
     }
-    // The breakpoints of the sources, where the integration starts again
-    std::vector<Real> restarts(segment_ends.begin(), segment_ends.end());
-    std::sort(restarts.begin(), restarts.end());
-    if (t_first > 0.0) {
-        segment_ends.push_back(t_first);
-    }
-    segment_ends.push_back(t_stop);
-    std::sort(segment_ends.begin(), segment_ends.end());
-    segment_ends.erase(std::unique(segment_ends.begin(), segment_ends.end(),
-                                   [&](Real a, Real b) { return b - a <= 1e-9 * timestep; }),
-                       segment_ends.end());
+    std::sort(breakpoints.begin(), breakpoints.end());
 
     // Determine timestep strategy
     bool use_adaptive = config_.transient.use_adaptive_timestep;
     Real dt = use_adaptive ? config_.transient.initial_step : timestep;
 
+    // The ends of the parts: the breakpoints, t_first and t_stop. The loop
+    // takes no step shorter than the rounding of its steps (step_toward), so
+    // an end that close to the one before it is not reached apart from it:
+    // t_stop and t_first take each breakpoint that close to them, so that
+    // the points on t_first and t_stop are kept, and of breakpoints closer
+    // than 1e-9 of a step to each other the first stands for them. An end
+    // is a restart when a breakpoint is among those it stands for.
+    struct SegmentEnd {
+        Real time;
+        bool restart;
+    };
+    const Real longest_step = use_adaptive ? std::max(config_.transient.max_step, timestep)
+                                           : timestep;
+    const Real unreachable = kStepRounding * longest_step;
+    const bool has_first = t_first > 0.0 && t_first < t_stop;
+    bool first_restarts = false;
+    std::vector<SegmentEnd> segment_ends;
+    for (const Real b : breakpoints) {
+        if (t_stop - b <= unreachable) {
+            continue;
+        }
+        if (has_first && std::abs(b - t_first) <= unreachable) {
+            first_restarts = true;
+            continue;
+        }
+        if (!segment_ends.empty() && b - segment_ends.back().time <= 1e-9 * timestep) {
+            continue;
+        }
+        segment_ends.push_back({b, true});
+    }
+    if (has_first) {
+        segment_ends.push_back({t_first, first_restarts});
+    }
+    segment_ends.push_back({t_stop, false});
+    std::stable_sort(segment_ends.begin(), segment_ends.end(),
+                     [](const SegmentEnd& a, const SegmentEnd& b) { return a.time < b.time; });
+
     spdlog::info("Time-stepping: {} (dt={})",
                  use_adaptive ? "adaptive" : "fixed", dt);
 
     // Run appropriate timestepping loop
-    for (const Real segment_stop : segment_ends) {
+    for (const SegmentEnd& segment_end : segment_ends) {
         if (use_adaptive) {
-            run_adaptive_timestepping(result, solution, t, segment_stop, dt, step_count);
+            run_adaptive_timestepping(result, solution, t, segment_end.time, dt, step_count);
         } else {
-            run_fixed_timestepping(result, solution, t, segment_stop, dt, step_count);
+            run_fixed_timestepping(result, solution, t, segment_end.time, dt, step_count);
         }
         if (result.status != ConvergenceStatus::SUCCESS) {
             return false;
@@ -1830,7 +1860,7 @@ bool TransientSolver::run_timestepping_loop(TransientResult& result, Real t_star
         // start again as at time 0, with one backward-Euler step (the
         // trapezoidal rule, not L-stable, rings when that step is many time
         // constants long) and the orders of BDF built up again
-        if (std::binary_search(restarts.begin(), restarts.end(), segment_stop)) {
+        if (segment_end.restart) {
             history_count_ = 0;
         }
     }

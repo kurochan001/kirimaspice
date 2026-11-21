@@ -11,6 +11,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iomanip>
+#include <sstream>
 #include <string>
 
 #include "kirimaspice/parser/netlist_parser.hpp"
@@ -133,5 +135,57 @@ TEST(TransientBreakpoints, PulseWithoutDelayOrRiseStartsFromItsFirstLevel) {
     for (const auto& tp : result.timepoints) {
         EXPECT_NEAR(tp.node_voltages[out - 1], 1.0 - std::exp(-tp.time / tau), 5e-3)
             << "t=" << tp.time;
+    }
+}
+
+namespace {
+
+std::string exact(double t) {
+    std::ostringstream text;
+    text << std::setprecision(17) << t;
+    return text.str();
+}
+
+}  // namespace
+
+// The transient keeps a point on t_start and on t_stop also when a
+// breakpoint lies closer to them than a step can be (a rounding, or 1e-7
+// of TSTEP): that breakpoint is taken by them (run_timestepping_loop)
+TEST(TransientBreakpoints, BreakpointCloseToTheStartOrStopKeepsThem) {
+    for (const double gap : {1e-14, 1e-11}) {
+        SCOPED_TRACE(gap);
+        parser::NetlistParser parser;
+        auto parsed = parser.parse_string("t\nV1 in 0 PWL(0 0 " + exact(0.3e-3 - gap) + " 0.3 " +
+                                          exact(1e-3 - gap) + " 1)\nR1 in out 1k\nC1 out 0 1u\n.end\n");
+        solvers::TransientSolver solver(*parsed.circuit, parsed.config);
+        const auto result = solver.solve(0.3e-3, 1e-3, 0.1e-3);
+        ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
+        ASSERT_FALSE(result.timepoints.empty());
+        EXPECT_EQ(result.timepoints.front().time, 0.3e-3);
+        EXPECT_EQ(result.timepoints.back().time, 1e-3);
+    }
+}
+
+// A breakpoint that t_start takes still starts the integration again: the
+// step after it is a backward-Euler step. A step of 1 kohm into 10 pF
+// (tau = 10 ns) a rounding after t_start, with steps of h = 1 us = 100 tau:
+// the backward-Euler step leaves the error 1/(1 + h/tau) = 0.0099 V, which
+// the trapezoidal steps after it carry with a factor of magnitude below 1;
+// a trapezoidal step over the corner would leave 2/(2 + h/tau) = 0.0196 V.
+TEST(TransientBreakpoints, BreakpointTakenByTheStartStillRestarts) {
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string("t\nV1 in 0 PULSE(0 1 " + exact(2e-6 + 5e-16) +
+                                      " 0 0 1 2)\nR1 in out 1k\nC1 out 0 10p\n.end\n");
+    const NodeId out = parsed.circuit->get_node_id("out");
+    solvers::TransientSolver solver(*parsed.circuit, parsed.config);
+    const auto result = solver.solve(2e-6, 8e-6, 1e-6);
+    ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
+    ASSERT_GT(result.timepoints.size(), 2u);
+    EXPECT_EQ(result.timepoints.front().time, 2e-6);
+    for (const auto& tp : result.timepoints) {
+        if (tp.time > 2e-6) {
+            EXPECT_LE(std::abs(tp.node_voltages[out - 1] - 1.0), 1.0 / 101.0 + 1e-9)
+                << "t=" << tp.time;
+        }
     }
 }
