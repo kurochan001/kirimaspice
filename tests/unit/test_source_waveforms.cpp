@@ -181,8 +181,10 @@ TEST(SourceWaveforms, ArgumentSyntax) {
 }
 
 TEST(SourceWaveforms, MalformedWaveformsAreErrors) {
+    // SIN(0 1) and SFFM(0 1 1k 2) take the defaults of .TRAN; one
+    // argument, or more than the waveform has, is still an error
     for (const char* line : {"V1 a 0 EXP(1 2 0)", "V1 a 0 PWL(0 1 1m)", "V1 a 0 PWL(1m 1 0 2)",
-                             "V1 a 0 SIN(0 1)", "V1 a 0 PULSE(0 1 0", "V1 a 0 SFFM(0 1 1k 2)",
+                             "V1 a 0 SIN(0)", "V1 a 0 PULSE(0 1 0", "V1 a 0 SFFM(0 1 1k 2 1k 9)",
                              "V1 a 0 1 2"}) {
         EXPECT_THROW(parse(std::string("bad\n") + line + "\nR1 a 0 1k\n.end\n"),
                      parser::ParseError)
