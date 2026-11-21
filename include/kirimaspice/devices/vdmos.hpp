@@ -217,6 +217,7 @@ private:
 
     // Parameters
     Real vto_, kp_, rds_, vbd_, lambda_;
+    mutable bool breakdown_warned_ = false;  // stamp_dc_nonlinear
     Real cgs_, cgdmax_, cgdmin_, cds_;
     Real kf_, af_, ef_, gamma_;
     Real kt1_, kt2_, ute_, rtc_, tnom_;
@@ -405,7 +406,9 @@ void VDMOS<Pol>::stamp_dc_nonlinear(MNASystem& mna,
     Real vgs_eff, vds_eff;
     compute_effective_voltages(vd, vg, vs, vgs_eff, vds_eff);
     const DrainCurrent dc = drain_current(vgs_eff, vds_eff);
-    if (vds_eff > vbd_) {
+    // Named once per device, not at every Newton iteration
+    if (vds_eff > vbd_ && !breakdown_warned_) {
+        breakdown_warned_ = true;
         const char* voltage_name = is_n_channel ? "Vds" : "Vsd";
         spdlog::warn("{} entered breakdown region: {}={:.2f}V > Vbd={:.2f}V",
                      name_, voltage_name, vds_eff, vbd_);

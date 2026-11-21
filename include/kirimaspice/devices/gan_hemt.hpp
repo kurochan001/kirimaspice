@@ -129,8 +129,10 @@ public:
     /// and VSD for P) at the device's temperature: the square law with
     /// LAMBDA, divided by 1 + gds_i (RS + RD) for the series resistances
     /// (gds_i that of the square law), times the trapping factor; gm and gds
-    /// are forward differences of it, and above VBD gds has 1 mS more. The
-    /// DC, AC and noise stamps all take it from here.
+    /// are forward differences of it. Above VBD the drain adds the breakdown
+    /// current kBreakdownConductance (VDS - VBD), zero at VBD, with its
+    /// conductance, whether the channel is on or off. The DC, AC and noise
+    /// stamps all take it from here.
     [[nodiscard]] DrainCurrent drain_current(Real vgs_eff, Real vds_eff) const;
 
     [[nodiscard]] Real get_physical_lte(Real /*chgtol*/, const DenseVector& /*node_voltages*/) const override { return 0.0; }
@@ -250,10 +252,15 @@ private:
 
     // Whether the channel conducts: the gate against the source, or against
     // the drain when VDS < 0 and the source acts as the drain
+    /// Whether the drain carries current: the channel is on, or VDS is
+    /// above VBD (drain_current)
     [[nodiscard]] bool conducting(Real vgs_eff, Real vds_eff) const {
         const Real control = (vds_eff < 0.0) ? vgs_eff - vds_eff : vgs_eff;
-        return control >= compute_temperature_scaled_vth();
+        return control >= compute_temperature_scaled_vth() || vds_eff > vbd_;
     }
+    static constexpr Real kBreakdownConductance = 1e-3;  // [S] above VBD
+    // The breakdown is named once per device (stamp_dc_nonlinear)
+    mutable bool breakdown_warned_ = false;
 
     [[nodiscard]] Real compute_temperature_scaled_beta() const {
         Real temp_ratio = temperature_ / tnom_;
@@ -300,8 +307,16 @@ typename GaN_HEMT<Pol>::DrainCurrent GaN_HEMT<Pol>::drain_current(Real vgs_eff,
     const bool reverse = vds_eff < 0.0;
     const Real vgs = reverse ? vgs_eff - vds_eff : vgs_eff;
     const Real vds = reverse ? -vds_eff : vds_eff;
+    // The breakdown current above VBD, with the channel on or off
+    auto add_breakdown = [&](DrainCurrent& out) {
+        if (vds_eff > vbd_) {
+            out.id += kBreakdownConductance * (vds_eff - vbd_);
+            out.gds += kBreakdownConductance;
+        }
+    };
     if (vgs < vth) {
-        return dc;  // cutoff
+        add_breakdown(dc);  // channel cut off
+        return dc;
     }
     constexpr Real delta = 1e-6;
     const Real f = current(vgs, vds);
@@ -317,9 +332,7 @@ typename GaN_HEMT<Pol>::DrainCurrent GaN_HEMT<Pol>::drain_current(Real vgs_eff,
         dc.gm = -gm;
         dc.gds = gm + gds;
     }
-    if (vds_eff > vbd_) {
-        dc.gds += 1e-3;
-    }
+    add_breakdown(dc);
     return dc;
 }
 
@@ -342,7 +355,8 @@ void GaN_HEMT<Pol>::stamp_dc_nonlinear(MNASystem& mna,
         stamp_gmin(mna);
         return;
     }
-    if (vds_eff > vbd_) {
+    if (vds_eff > vbd_ && !breakdown_warned_) {
+        breakdown_warned_ = true;
         spdlog::warn("{} {} exceeds breakdown: Vds={:.2f}V > Vbd={:.2f}V",
                      device_name, name_, vds_eff, vbd_);
     }

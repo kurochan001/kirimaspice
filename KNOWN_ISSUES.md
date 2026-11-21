@@ -345,11 +345,6 @@ says otherwise.
   Curtice's currents here (run on 2026-11-21). The gate junctions and the
   charge model of ngspice's MESFET are not modelled; `CGS`, `CGD` and
   `CDS` are constant.
-- **Above `VBD` the GaN HEMT adds 1 mS to g<sub>ds</sub> without the
-  current that goes with it** (read in the code at `63ce9a6`). **The
-  VDMOS warns "entered breakdown region" at every Newton iteration above
-  `VBD`:** 700 V through 1 MΩ with `VBD = 600` settles at 600.01 V after
-  97 such warnings (run on 2026-11-21 at `abb6804`).
 - **JFET cannot be used from a netlist.** The library has a JFET model
   (`include/kirimaspice/devices/jfet.hpp`), but the parser has no `J`
   element. Its gate capacitances put C/dt (V − V<sub>prev</sub>) of the

@@ -245,10 +245,6 @@ ngspice について書いていることは、それぞれのマニュアルに
   BETA 0.1、VTO −2 V、B 0.3、ALPHA 2、VGS = 0、VDS = 1 V で 0.240741 A）、その `LEVEL=2` は別のモデルです。
   そのため、`LEVEL` のない ngspice のカードは、ここでは Curtice の電流になります（2026-11-21 に実行）。
   ngspice の MESFET のゲートの接合と電荷のモデルはなく、`CGS`、`CGD`、`CDS` は一定です。
-- **GaN HEMT は `VBD` より上で g<sub>ds</sub> に 1 mS を加えますが、それに合う電流はありません**
-  （`63ce9a6` でコードを読みました）。**VDMOS は、`VBD` より上では Newton 法の反復ごとに「entered breakdown region」と警告します。**
-  1 MΩ を通して 700 V を加え、`VBD = 600` とすると、この警告を 97 回出して 600.01 V に落ち着きます
-  （2026-11-21 に `abb6804` で実行）。
 - **JFET はネットリストから使えません。** ライブラリには JFET のモデル
   （`include/kirimaspice/devices/jfet.hpp`）がありますが、パーサーに `J` 素子がありません。ゲートの
   容量は、現在の反復の C/dt (V − V<sub>prev</sub>) を右辺に入れています。GaN HEMT、VDMOS、

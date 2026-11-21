@@ -1280,6 +1280,10 @@ add_executable(test_sic_reverse unit/test_sic_reverse.cpp)
 target_link_libraries(test_sic_reverse PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_sic_reverse PROPERTIES TIMEOUT 1200)
 
+add_executable(test_breakdown unit/test_breakdown.cpp)
+target_link_libraries(test_breakdown PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_breakdown PROPERTIES TIMEOUT 1200)
+
 add_executable(test_bsim4_mult_q unit/test_bsim4_mult_q.cpp)
 target_link_libraries(test_bsim4_mult_q PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_bsim4_mult_q PROPERTIES TIMEOUT 1200)
