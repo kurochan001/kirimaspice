@@ -143,10 +143,10 @@ TEST(BehavioralSource, ExpressionThatDoesNotCompileIsAParseError) {
     kirimaspice::parser::NetlistParser parser;
     try {
         parser.parse_string(R"(
-Scale suffix inside an expression
+Expression without its last operand
 V1 in 0 DC 1
 R1 in 0 1k
-B1 0 out I={1m*V(in)}
+B1 0 out I={0.001*V(in)+}
 R2 out 0 1k
 .end
 )");

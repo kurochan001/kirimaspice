@@ -411,8 +411,8 @@ TEST(NetlistLines, TextAfterANumberIsAnError) {
 // A .PARAM value without braces that is not a number is an expression, at the
 // top level and in a subcircuit (util::read_parameter_value). ngspice-47 (run
 // 2026-11-21) gives r = 2000 for .param r = 2*1000: I(V1) = -0.5 mA, and
-// -0.5 mA with the .PARAM in the subcircuit. Scale factors are not read in
-// expressions here (KNOWN_ISSUES), so .param r = 2*1k is an error, not 2.
+// -0.5 mA with the .PARAM in the subcircuit; .param r = 2*1k is 2000 there
+// as well, with the scale factor read in the expression.
 TEST(NetlistLines, ParameterValueWithoutBraces) {
     {
         parser::NetlistParser parser;
@@ -424,8 +424,8 @@ TEST(NetlistLines, ParameterValueWithoutBraces) {
     }
     {
         parser::NetlistParser parser;
-        EXPECT_THROW(parser.parse_string("t\n.param r = 2*1k\nV1 a 0 1\nR1 a 0 {r}\n.op\n.end\n"),
-                     parser::ParseError);
+        const auto parsed = parser.parse_string("t\n.param r = 2*1k\nV1 a 0 1\nR1 a 0 {r}\n.op\n.end\n");
+        EXPECT_DOUBLE_EQ(parsed.config.global_params.at("r"), 2000.0);
     }
     parser::NetlistParser parser;
     auto parsed = parser.parse_string(
