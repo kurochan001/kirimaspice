@@ -1248,6 +1248,10 @@ add_executable(test_diode_card unit/test_diode_card.cpp)
 target_link_libraries(test_diode_card PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_diode_card PROPERTIES TIMEOUT 1200)
 
+add_executable(test_gmin_aids unit/test_gmin_aids.cpp)
+target_link_libraries(test_gmin_aids PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_gmin_aids PROPERTIES TIMEOUT 1200)
+
 add_executable(test_diode_capacitance_transient unit/test_diode_capacitance_transient.cpp)
 target_link_libraries(test_diode_capacitance_transient PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_diode_capacitance_transient PROPERTIES TIMEOUT 1200)

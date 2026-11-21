@@ -149,7 +149,8 @@ private:
     void apply_pseudo_capacitance_terms(Real capacitance, Real timestep, const DenseVector& prev_state);
     void set_initial_guess_override(const DenseVector& guess);
     void clear_initial_guess_override();
-    ConvergenceStatus solve_standard(DenseVector& solution, SolverStats& stats);
+    ConvergenceStatus solve_standard(DenseVector& solution, SolverStats& stats,
+                                     const DenseVector* initial_guess = nullptr);
 
 private:
     /// Set voltage/current source value by name

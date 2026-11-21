@@ -257,19 +257,29 @@ bool DCSolver::check_convergence(const DenseVector& x_new, const DenseVector& x_
     return !any_device_limited(circuit_);
 }
 
-ConvergenceStatus DCSolver::solve_standard(DenseVector& solution, SolverStats& stats) {
+ConvergenceStatus DCSolver::solve_standard(DenseVector& solution, SolverStats& stats,
+                                           const DenseVector* initial_guess) {
     auto start_time = std::chrono::high_resolution_clock::now();
 
     // Initialize statistics
     stats = SolverStats{};
 
-    // Initialize solution
+    // Initialize solution: the initial guess, or the solution a convergence
+    // aid reached
     DenseVector x_old;
-    initialize_solution(x_old);
+    if (initial_guess != nullptr) {
+        x_old = *initial_guess;
+    } else {
+        initialize_solution(x_old);
+    }
 
     spdlog::info("Starting DC analysis (max_iter={})", config_.dc.max_iterations);
 
-    const bool dynamic_gmin_enabled = config_.dc.enable_dynamic_gmin;
+    // Dynamic gmin adds a shunt from every node to ground while it helps;
+    // once the iteration converges with it, the shunt is removed and the
+    // iteration goes on to a solution of the circuit itself, as SPICE ends
+    // its gmin aids
+    bool dynamic_gmin_enabled = config_.dc.enable_dynamic_gmin;
     Real dynamic_gmin_value = std::clamp(config_.dc.dynamic_gmin_start,
                                          config_.dc.dynamic_gmin_min,
                                          config_.dc.dynamic_gmin_max);
@@ -439,6 +449,13 @@ ConvergenceStatus DCSolver::solve_standard(DenseVector& solution, SolverStats& s
 
         // Check convergence
         if (check_convergence(x_new, x_old, applied_gmin)) {
+            if (applied_gmin > 0.0) {
+                // Converged with the dynamic shunt: go on without it
+                dynamic_gmin_enabled = false;
+                x_old = x_new;
+                spdlog::debug("Dynamic Gmin removed after convergence (iter {})", iter);
+                continue;
+            }
             // Converged!
             solution = x_new;
             last_solution_ = x_new;  // Store for branch current extraction
@@ -899,6 +916,22 @@ ConvergenceStatus DCSolver::solve_with_gmin_stepping(DenseVector& solution, Solv
         if (!step_converged) {
             spdlog::warn("Gmin Stepping: Step {} failed to converge", step + 1);
             return ConvergenceStatus::MAX_ITERATIONS;
+        }
+    }
+
+    // The steps end with gmin_end from every node to ground; the solution is
+    // that of the circuit itself, so a last Newton solve starts from the
+    // last step without the extra gmin, as SPICE ends gmin stepping
+    {
+        SolverStats final_stats;
+        const auto final_status = solve_standard(x_current, final_stats, &x_current);
+        stats.total_iterations += final_stats.total_iterations;
+        stats.jacobian_evals += final_stats.jacobian_evals;
+        stats.linear_solves += final_stats.linear_solves;
+        stats.function_evals += final_stats.function_evals;
+        if (final_status != ConvergenceStatus::SUCCESS) {
+            spdlog::warn("Gmin Stepping: the solve without the extra gmin did not converge");
+            return final_status;
         }
     }
 
