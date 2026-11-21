@@ -55,7 +55,7 @@ license is that of the compiler's runtime library and was not checked here.
 
 | Files | Based on | License |
 | --- | --- | --- |
-| `src/devices/bsim4_core.cpp`, `src/devices/mosfet_bsim4.cpp`, `src/devices/mosfet_bsim4_params.cpp` and their headers in `include/kirimaspice/devices/` | The BSIM4 4.8.3 model code (`b4ld.c`, `b4temp.c`), as distributed by UC Berkeley and in ngspice | ECL-2.0, Copyright (c) 2025 University of California. The notice is kept at the top of each file; the text of ECL-2.0 is below |
+| `src/devices/bsim4_core.cpp`, `src/devices/mosfet_bsim4.cpp`, `src/devices/mosfet_bsim4_params.cpp` and their headers in `include/kirimaspice/devices/` | The BSIM4 4.8.3 model code (`b4ld.c`, `b4temp.c`, `b4set.c`, `b4check.c`), as distributed by UC Berkeley and in ngspice | ECL-2.0, Copyright (c) 2025 University of California. The notice is kept at the top of each file; the text of ECL-2.0 is below |
 
 ### Code whose comments cite other projects
 

@@ -52,7 +52,7 @@ OpenMP が見つかった場合は、コンパイラの OpenMP ランタイム�
 
 | ファイル | 基にしたもの | ライセンス |
 | --- | --- | --- |
-| `src/devices/bsim4_core.cpp`、`src/devices/mosfet_bsim4.cpp`、`src/devices/mosfet_bsim4_params.cpp` と、`include/kirimaspice/devices/` にあるそのヘッダ | BSIM4 4.8.3 のモデルのコード（`b4ld.c`、`b4temp.c`）。UC Berkeley と ngspice が配布しているもの | ECL-2.0、Copyright (c) 2025 University of California。表示は各ファイルの先頭に残してあり、ECL-2.0 の本文は英語版の末尾にあります |
+| `src/devices/bsim4_core.cpp`、`src/devices/mosfet_bsim4.cpp`、`src/devices/mosfet_bsim4_params.cpp` と、`include/kirimaspice/devices/` にあるそのヘッダ | BSIM4 4.8.3 のモデルのコード（`b4ld.c`、`b4temp.c`、`b4set.c`、`b4check.c`）。UC Berkeley と ngspice が配布しているもの | ECL-2.0、Copyright (c) 2025 University of California。表示は各ファイルの先頭に残してあり、ECL-2.0 の本文は英語版の末尾にあります |
 
 ### コメントで他のプロジェクトに触れているコード
 
