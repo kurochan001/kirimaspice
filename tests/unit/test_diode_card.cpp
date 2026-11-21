@@ -95,3 +95,23 @@ TEST(DiodeCard, GminIsInParallelWithTheJunction) {
     ASSERT_EQ(solver.solve(x, stats), ConvergenceStatus::SUCCESS);
     EXPECT_NEAR(x[parsed.circuit->get_node_id("a") - 1], 0.1128295, 2e-7);
 }
+
+TEST(DiodeCard, TransitTimeGivesTheDiffusionCapacitance) {
+    // TT stores the charge TT I, a capacitance TT gd in parallel with the
+    // junction: 0.65 V through 100 ohm into IS = 1e-14, TT = 10 ns, at 1 MHz
+    // gives v(a) = 0.4805643 - 0.0156688j in ngspice-47 (run 2026-11-21)
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "t\nV1 in 0 DC 0.65 AC 1\nR1 in a 100\nD1 a 0 DM\n.model DM D IS=1e-14 TT=10n\n.end\n");
+    SimulationConfig config = parsed.config;
+    config.ac.sweep_type = SimulationConfig::AC::SweepType::LIN;
+    config.ac.start_freq = 1e6;
+    config.ac.stop_freq = 1e6;
+    config.ac.num_points = 1;
+    solvers::ACSolver solver(*parsed.circuit, config);
+    const auto result = solver.solve();
+    ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
+    const auto v = result.frequency_points.at(0).solution.at(parsed.circuit->get_node_id("a") - 1);
+    EXPECT_NEAR(v.real(), 0.4805643, 1e-5);
+    EXPECT_NEAR(v.imag(), -0.0156688, 1e-6);
+}

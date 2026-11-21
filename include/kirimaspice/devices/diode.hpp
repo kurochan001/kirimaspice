@@ -57,7 +57,7 @@ public:
                         const TR_BDF2_Coefficients* tr_bdf2_coef = nullptr) const override;
 
     bool is_linear() const override { return false; }
-    bool is_dynamic() const override { return cj0_ > 0.0; } // Dynamic if junction capacitance present
+    bool is_dynamic() const override { return has_capacitance(); }
 
     // AC analysis: Small-signal linearization
     void stamp_ac(ComplexMNASystem& sys, Real omega,
@@ -100,6 +100,10 @@ public:
     /// @param voltage: DC operating point voltage (anode - cathode)
     /// @return Cj: junction capacitance [F]
     Real get_junction_capacitance(Real voltage) const;
+    /// The capacitance the stamps take: the junction's and the diffusion
+    /// capacitance TT gd of the stored charge TT I (SPICE's diode)
+    Real get_capacitance(Real voltage) const;
+    bool has_capacitance() const { return cj0_ > 0.0 || tt_ > 0.0; }
 
     /// Noise analysis: shot noise
     std::vector<NoiseSource> get_noise_sources(const DenseVector& dc_solution,
@@ -133,6 +137,7 @@ private:
     Real cj0_;  // Zero-bias junction capacitance [F]
     Real vj_;   // Junction potential [V]
     Real m_;    // Grading coefficient
+    Real tt_ = 0.0;  // Transit time [s]: the diffusion charge TT I
 
     // Temperature parameters
     Real xti_;   // Saturation current temperature exponent (default: 3.0 for Si)

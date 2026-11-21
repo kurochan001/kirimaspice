@@ -210,6 +210,10 @@ Real Diode::get_small_signal_conductance(Real voltage) const {
     return is_ * std::exp(v_normalized) / n_vt;
 }
 
+Real Diode::get_capacitance(Real voltage) const {
+    return get_junction_capacitance(voltage) + tt_ * get_small_signal_conductance(voltage);
+}
+
 Real Diode::get_junction_capacitance(Real voltage) const {
     // Junction capacitance (SPICE model):
     // For reverse bias (V < Vj): Cj = Cj0 / (1 - V/Vj)^M
@@ -260,9 +264,8 @@ void Diode::stamp_transient(MNASystem& mna,
     // Step 1: Stamp DC nonlinear model
     stamp_dc_nonlinear(mna, node_voltages);
 
-    // Step 2: Check if junction capacitance is present
-    if (cj0_ == 0.0) {
-        // No junction capacitance, transient = DC
+    // Step 2: Check if the diode has a capacitance (junction or diffusion)
+    if (!has_capacitance()) {
         return;
     }
 
@@ -282,7 +285,7 @@ void Diode::stamp_transient(MNASystem& mna,
     // integrated as a capacitor is (device_utils::capacitor_companion) from
     // the accepted voltages and, for the trapezoidal rule, the capacitor's
     // current at the last accepted point
-    Real cj = get_junction_capacitance(voltage_prev_);
+    Real cj = get_capacitance(voltage_prev_);
     cap_bdf_ = bdf_coef ? std::optional<BDFCoefficients>(*bdf_coef) : std::nullopt;
     cap_tr_bdf2_ = tr_bdf2_coef ? std::optional<TR_BDF2_Coefficients>(*tr_bdf2_coef) : std::nullopt;
     cap_stamped_ = true;
@@ -316,7 +319,7 @@ void Diode::stamp_ac(ComplexMNASystem& sys, Real omega,
 
     // Calculate small-signal parameters
     Real gd = get_conductance(voltage);
-    Real cj = get_junction_capacitance(voltage);
+    Real cj = get_capacitance(voltage);
 
     // Complex admittance: Y = gd + jωCj
     Complex admittance(gd, omega * cj);
@@ -448,8 +451,8 @@ void Diode::accept_solution(const DenseVector& node_voltages) {
     // The capacitor's current at the accepted point, from the companion of
     // the step that ended there; 0 at a point no transient step reached (the
     // operating point, or the start under UIC)
-    if (cap_stamped_ && cj0_ > 0.0) {
-        const Real cj = get_junction_capacitance(voltage_prev_);
+    if (cap_stamped_ && has_capacitance()) {
+        const Real cj = get_capacitance(voltage_prev_);
         const BDFCoefficients* bdf = cap_bdf_ ? &*cap_bdf_ : nullptr;
         const TR_BDF2_Coefficients* tr = cap_tr_bdf2_ ? &*cap_tr_bdf2_ : nullptr;
         const auto cc = device_utils::capacitor_companion(last_method_, cj, timestep_, voltage_prev_,
@@ -544,11 +547,21 @@ std::optional<Real> Diode::get_parameter(const std::string& param_name) const {
         return vj_tnom_;
     } else if (param_name == "M" || param_name == "m") {
         return m_;
+    } else if (param_name == "TT" || param_name == "tt") {
+        return tt_;
     }
     return std::nullopt;  // Parameter not found
 }
 
 bool Diode::set_parameter(const std::string& param_name, Real value) {
+    if (param_name == "TT" || param_name == "tt") {
+        if (value < 0.0) {
+            spdlog::warn("Diode {}: TT must be non-negative (got {}), not updated", name_, value);
+            return false;
+        }
+        tt_ = value;
+        return true;
+    }
     if (param_name == "IS" || param_name == "is") {
         if (value <= 0.0) {
             spdlog::warn("Diode {}: IS must be positive (got {}), not updated",
