@@ -165,7 +165,8 @@ typename MOSFET_SiC<P>::DrainCurrent MOSFET_SiC<P>::drain_current(Real v_gs_eff,
     //   beta_eff = KP(T) W / L / (1 + THETA Vds)
     //   Id0 = beta_eff (Vov Vds - Vds^2 / 2) below Vds = Vov, beta_eff Vov^2 / 2 above
     //   Id = Id0 / (1 + Id0 RDRIFT(T) / Vds), the drop across the drift region
-    // with Vds_eff taken as 0 when it is negative
+    // For Vds_eff < 0 the source acts as the drain, as in SPICE's MOSFETs:
+    // the same current of VGD and VSD flows from source to drain
     const Real kp_temp = compute_temperature_scaled_kp();
     const Real rdrift_temp = compute_temperature_scaled_rdrift();
     const Real beta_temp = kp_temp * w_ / l_;
@@ -186,16 +187,28 @@ typename MOSFET_SiC<P>::DrainCurrent MOSFET_SiC<P>::drain_current(Real v_gs_eff,
     };
 
     DrainCurrent dc;
-    if (v_gs_eff < vth_eff) {
+    const bool reverse = v_ds_eff < 0.0;
+    const Real vgs = reverse ? v_gs_eff - v_ds_eff : v_gs_eff;  // VGD in reverse
+    const Real vds = reverse ? -v_ds_eff : v_ds_eff;           // VSD in reverse
+    if (vgs < vth_eff) {
         return dc;  // cutoff
     }
-    const Real vds = std::max(v_ds_eff, 0.0);
     constexpr Real delta = 1e-6;
-    dc.id = current(v_gs_eff, vds);
+    const Real f = current(vgs, vds);
     // The derivatives of this current as they are: with THETA, gds is
     // negative where the mobility falls faster than the channel opens
-    dc.gm = (current(v_gs_eff + delta, vds) - dc.id) / delta;
-    dc.gds = (current(v_gs_eff, vds + delta) - dc.id) / delta;
+    const Real gm = (current(vgs + delta, vds) - f) / delta;
+    const Real gds = (current(vgs, vds + delta) - f) / delta;
+    if (!reverse) {
+        dc.id = f;
+        dc.gm = gm;
+        dc.gds = gds;
+    } else {
+        // Id = -f(Vgs - Vds, -Vds): its derivatives by Vgs and Vds
+        dc.id = -f;
+        dc.gm = -gm;
+        dc.gds = gm + gds;
+    }
     return dc;
 }
 
@@ -212,9 +225,6 @@ void MOSFET_SiC<P>::stamp_dc_nonlinear(MNASystem& mna,
 
     Real v_gs_eff, v_ds_eff;
     compute_effective_voltages(vd, vg, vs, v_gs_eff, v_ds_eff);
-    if (v_gs_eff < get_effective_threshold()) {
-        return;  // cutoff: only the gmin of stamp_dc_linear
-    }
     if (v_ds_eff > vbd_) {
         spdlog::warn("{} Vds={:.3f}V exceeds breakdown voltage Vbd={:.1f}V",
                      name_, v_ds_eff, vbd_);
@@ -321,8 +331,10 @@ std::vector<NoiseSource> MOSFET_SiC<P>::get_noise_sources(const DenseVector& dc_
     compute_effective_voltages(V_d, V_g, V_s, v_gs_eff, v_ds_eff);
 
     const DrainCurrent dc = drain_current(v_gs_eff, v_ds_eff);
-    const Real I_d = dc.id;
-    const Real g_m = (dc.id > 0.0) ? dc.gm : 0.0;
+    // The channel's noise in either direction: the current and the
+    // transconductance of the device as it conducts
+    const Real I_d = std::abs(dc.id);
+    const Real g_m = std::abs(dc.gm);
 
     constexpr Real gm_threshold = 1e-15;
 
