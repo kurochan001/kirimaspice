@@ -314,16 +314,17 @@ void CircuitGraph::add_current_source(const std::string& name,
 }
 
 // The ExprTk variable of the k-th node that a B source expression names. A
-// number, not the node's name: node names are case-sensitive and may hold
-// any character, where ExprTk names are neither.
+// number, not the node's name: node names may hold any character, where
+// ExprTk names may not.
 static std::string node_voltage_variable(std::size_t k) {
     return "node_voltage_" + std::to_string(k);
 }
 
 // Rewrite each V(node) of a B source expression, with V in either case, as
-// the variable of its node, and list the distinct nodes it names in the
-// order of the variables. This is the only place that reads node references
-// in B expressions.
+// the variable of its node, and each V(n1,n2) as the difference of the
+// variables of its two nodes, as SPICE reads it; list the distinct nodes
+// named in the order of the variables. This is the only place that reads
+// node references in B expressions.
 static std::string rewrite_node_voltages(const std::string& expression,
                                          std::vector<std::string>& nodes) {
     std::string out;
@@ -337,17 +338,35 @@ static std::string rewrite_node_voltages(const std::string& expression,
             expression[i + 1] == '(') {
             const std::size_t close = expression.find(')', i + 2);
             if (close != std::string::npos) {
-                std::string node = expression.substr(i + 2, close - i - 2);
-                node.erase(0, node.find_first_not_of(" \t"));
-                node.erase(node.find_last_not_of(" \t") + 1);
-                if (!node.empty()) {
+                auto trimmed = [](std::string name) {
+                    name.erase(0, name.find_first_not_of(" \t"));
+                    name.erase(name.find_last_not_of(" \t") + 1);
+                    return name;
+                };
+                auto variable_of = [&](const std::string& node) {
                     auto it = std::find(nodes.begin(), nodes.end(), node);
                     if (it == nodes.end()) {
                         it = nodes.insert(nodes.end(), node);
                     }
-                    out += node_voltage_variable(static_cast<std::size_t>(it - nodes.begin()));
-                    i = close + 1;
-                    continue;
+                    return node_voltage_variable(static_cast<std::size_t>(it - nodes.begin()));
+                };
+                const std::string inside = expression.substr(i + 2, close - i - 2);
+                const std::size_t comma = inside.find(',');
+                if (comma == std::string::npos) {
+                    const std::string node = trimmed(inside);
+                    if (!node.empty()) {
+                        out += variable_of(node);
+                        i = close + 1;
+                        continue;
+                    }
+                } else {
+                    const std::string first = trimmed(inside.substr(0, comma));
+                    const std::string second = trimmed(inside.substr(comma + 1));
+                    if (!first.empty() && !second.empty()) {
+                        out += "(" + variable_of(first) + " - " + variable_of(second) + ")";
+                        i = close + 1;
+                        continue;
+                    }
                 }
             }
         }

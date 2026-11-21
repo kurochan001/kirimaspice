@@ -243,3 +243,19 @@ TEST(BehavioralSource, AcIsTheSlopeAtTheOperatingPoint) {
     EXPECT_NEAR(std::abs(v[result.circuit->get_node_id("o2") - 1] - kirimaspice::Complex(-2.0, 0.0)),
                 0.0, 1e-6);
 }
+
+TEST(BehavioralSource, VoltageBetweenTwoNodes) {
+    // V(a,b) is V(a) - V(b), as in SPICE: 2 * (3 V - 1 V) = 4 V (ngspice-47
+    // gives v(c) = 4, run 2026-11-21); V(a, 0) names ground as well
+    kirimaspice::parser::NetlistParser parser;
+    auto result = parser.parse_string(
+        "t\nVA a 0 3\nVB b 0 1\nB1 c 0 V=2*V(a,b)\nR1 c 0 1k\nB2 d 0 V={V(a, 0) + 1}\nR2 d 0 1k\n.end\n");
+    ASSERT_NE(result.circuit, nullptr);
+    kirimaspice::solvers::DCSolver solver(*result.circuit, result.config);
+    DenseVector solution;
+    kirimaspice::SolverStats stats;
+    ASSERT_EQ(solver.solve(solution, stats), kirimaspice::ConvergenceStatus::SUCCESS);
+    EXPECT_NEAR(solution[result.circuit->get_node_id("c") - 1], 4.0, 1e-9);
+    EXPECT_NEAR(solution[result.circuit->get_node_id("d") - 1], 4.0, 1e-9);
+    EXPECT_FALSE(result.circuit->has_node("a,b"));
+}
