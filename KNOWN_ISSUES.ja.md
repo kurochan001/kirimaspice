@@ -231,11 +231,10 @@ ngspice について書いていることは、それぞれのマニュアルに
   ngspice-47 では KF·I<sub>d</sub><sup>AF</sup>/(f<sup>EF</sup>·C<sub>ox</sub>·W·L) です（実行して比べては
   いません）。温度のモデルのないレベル 3 はノイズの温度に 300.15 K を、MESFET と SCR は TNOM を使います。
   抵抗とレベル 1 は自分の温度を使います。ダイオードは 1 fA より下でショット雑音を出しません。
-- **MESFET のレベルは ngspice のものと違います。** ここでは `LEVEL=1` が Curtice のモデル（tanh）、`LEVEL=2` が
-  Statz のモデルです。ngspice-47 の `LEVEL=1` は Statz のモデルで（このプログラムの `LEVEL=2` と同じ電流です。
-  BETA 0.1、VTO −2 V、B 0.3、ALPHA 2、VGS = 0、VDS = 1 V で 0.240741 A）、その `LEVEL=2` は別のモデルです。
-  そのため、`LEVEL` のない ngspice のカードは、ここでは Curtice の電流になります（2026-11-21 に実行）。
-  ngspice の MESFET のゲートの接合と電荷のモデルはなく、`CGS`、`CGD`、`CDS` は一定です。
+- **MESFET は ngspice の `LEVEL=1`、Statz のモデルだけです**（BETA 0.1、VTO −2 V、B 0.3、ALPHA 2、VGS = 0、
+  VDS = 1 V で、ngspice-47 と同じ 0.240741 A。2026-11-21 に実行）。ngspice のほかのレベルは別のモデルで、
+  エラーにします。ngspice の MESFET のゲートの接合と電荷のモデルはなく、`CGS`、`CGD`、`CDS` は一定です。
+  Curtice のモデルはライブラリだけのものです（`MESFETModel::CURTICE`）。
 - **JFET はネットリストから使えません。** ライブラリには JFET のモデル
   （`include/kirimaspice/devices/jfet.hpp`）がありますが、パーサーに `J` 素子がありません。ゲートの
   容量は、現在の反復の C/dt (V − V<sub>prev</sub>) を右辺に入れています。GaN HEMT、VDMOS、

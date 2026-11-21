@@ -76,3 +76,14 @@ TEST(MesfetStatz, Level2IsStatzModel) {
                                     1.0, -0.5),
                 2.40625e-2, 1e-7);
 }
+
+TEST(MesfetLevels, DefaultIsStatzAndOtherLevelsAreErrors) {
+    // An NMF card without LEVEL is Statz's model, as ngspice-47's MESFET is
+    // (its LEVEL 1, run 2026-11-21: 0.240741 A); ngspice's other levels are
+    // other models, which are errors here
+    EXPECT_NEAR(statz_drain_current(".model mm NMF BETA=0.1 VTO=-2 B=0.3 ALPHA=2 LAMBDA=0", 1.0, 0.0), 0.240741,
+                1e-6);
+    parser::NetlistParser parser;
+    EXPECT_THROW(parser.parse_string("t\nVD d 0 1\nZ1 d 0 0 mm\n.model mm NMF LEVEL=2\n.end\n"),
+                 parser::ParseError);
+}

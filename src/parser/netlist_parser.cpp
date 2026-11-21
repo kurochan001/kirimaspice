@@ -5007,7 +5007,7 @@ static void parse_mesfet_device(const std::vector<std::string>& tokens, const st
     std::string source = tokens[3];
 
     // Default MESFET parameters
-    int model = 1;           // 1=Curtice, 2=Statz
+    int model = 1;           // the netlist's LEVEL: 1, Statz's model, as in ngspice
     Real beta = 0.1;         // Transconductance parameter [A/V²]
     // Threshold voltage [V]: the device's default for its polarity
     // (MESFET::default_vto, -2 V for n-channel and +2 V for p-channel
@@ -5150,8 +5150,19 @@ static void parse_mesfet_device(const std::vector<std::string>& tokens, const st
         }
     }
 
-    // Add MESFET to circuit
-    std::string model_str = (model == 1) ? "Curtice" : "Statz";
+    // LEVEL 1, the default, is Statz's model, as ngspice-47's MESFET is (its
+    // LEVEL 1); ngspice's other levels are other models, not modelled here.
+    // Curtice's model is the library's (CircuitGraph::add_mesfet_n with 1),
+    // not a netlist's level.
+    if (model != 1) {
+        throw ParseError(fmt::format("MESFET LEVEL {} is not modelled: LEVEL 1, the default, is "
+                                     "Statz's model, as in ngspice",
+                                     model),
+                         state.line_number);
+    }
+    constexpr int kStatz = 2;  // CircuitGraph::add_mesfet_n's Statz
+    model = kStatz;
+    const std::string model_str = "Statz";
     if (is_p_channel) {
         state.circuit->add_mesfet_p(dev_name, drain, gate, source, model, beta, vto, lambda, alpha, b, vp,
                                     cgs, cgd, cds, kf, af, ef, tnom);

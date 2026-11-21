@@ -325,14 +325,12 @@ says otherwise.
   300.15 K as its noise temperature, and the MESFET and the SCR their TNOM;
   the resistor and level 1 take their own temperature. The diode gives no
   shot noise below 1 fA.
-- **The MESFET's levels are not ngspice's.** Here `LEVEL=1` is Curtice's
-  model (tanh) and `LEVEL=2` Statz's; ngspice-47's `LEVEL=1` is Statz's
-  (it gives the currents of this program's `LEVEL=2`: 0.240741 A for
-  BETA 0.1, VTO −2 V, B 0.3, ALPHA 2, VGS = 0 and VDS = 1 V) and its
-  `LEVEL=2` another model. So an ngspice card without `LEVEL` gives
-  Curtice's currents here (run on 2026-11-21). The gate junctions and the
-  charge model of ngspice's MESFET are not modelled; `CGS`, `CGD` and
-  `CDS` are constant.
+- **The MESFET has ngspice's `LEVEL=1` only,** Statz's model (0.240741 A
+  for BETA 0.1, VTO −2 V, B 0.3, ALPHA 2, VGS = 0 and VDS = 1 V, as
+  ngspice-47 gives, run on 2026-11-21); its other levels, other models,
+  are an error. The gate junctions and the charge model of ngspice's
+  MESFET are not modelled; `CGS`, `CGD` and `CDS` are constant. Curtice's
+  model is the library's only (`MESFETModel::CURTICE`).
 - **JFET cannot be used from a netlist.** The library has a JFET model
   (`include/kirimaspice/devices/jfet.hpp`), but the parser has no `J`
   element. Its gate capacitances put C/dt (V − V<sub>prev</sub>) of the
