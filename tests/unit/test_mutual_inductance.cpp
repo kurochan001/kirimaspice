@@ -908,3 +908,65 @@ TEST(MutualInductanceTransient, AcceptsTheStampedCompanionWithEveryMethod) {
     }
     EXPECT_LT(worst_symmetric_step_error("euler"), 2e-2);
 }
+
+// With k = 1 the pair is an ideal transformer of ratio n = sqrt(L2/L1) with
+// the magnetizing inductance L1 across its primary: the flux L1 i1 + M i2 is
+// L1 i_m with i_m = i1 + n i2, v1 = L1 di_m/dt and v2 = n v1. Driven by e
+// through R1, with R2 across the secondary (i2 = -v2/R2):
+//   v1 = (e - R1 i_m) / c,  c = 1 + R1 n^2 / R2,  di_m/dt = (e - R1 i_m) / (c L1).
+// Here L1 = 1 mH, L2 = 4 mH (n = 2), R1 = 10 ohm, R2 = 40 ohm, so c = 2.
+// In AC, V(p) = 1 / (c + R1 / (j w L1)). For e = sin(w t) from rest,
+// i_m = (alpha sin(w t) - w cos(w t) + w exp(-alpha t)) / ((alpha^2 + w^2) c L1)
+// with alpha = R1 / (c L1). ngspice-47 follows this solution to 2e-8 V for
+// the transient below (with a step limit of 20 ns; run 2026-11-21).
+namespace {
+const std::string kIdealCoupling =
+    "k1\nV1 in 0 DC 0 AC 1 SIN(0 1 10k)\nR1 in p 10\nL1 p 0 1m\nL2 s 0 4m\nK1 L1 L2 1\n"
+    "R2 s 0 40\n";
+}  // namespace
+
+TEST(MutualInductanceTransient, IdealCouplingKeepsTheMagnetizingInductance) {
+    const Real L1 = 1e-3, R1 = 10.0, c = 2.0, w = 2.0 * M_PI * 1e4;
+    const Real alpha = R1 / (c * L1);
+    auto v_primary = [&](Real t) {
+        const Real i_m = (alpha * std::sin(w * t) - w * std::cos(w * t) + w * std::exp(-alpha * t)) /
+                         ((alpha * alpha + w * w) * c * L1);
+        return (std::sin(w * t) - R1 * i_m) / c;
+    };
+    for (const std::string method : {"trap", "gear", "tr_bdf2"}) {
+        SCOPED_TRACE(method);
+        NetlistParser parser;
+        auto parsed = parser.parse_string(kIdealCoupling + ".options method=" + method + "\n.end\n");
+        TransientSolver solver(*parsed.circuit, parsed.config);
+        const auto result = solver.solve(0.0, 200e-6, 0.5e-6);
+        ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
+        const NodeId p = parsed.circuit->get_node_id("p");
+        const NodeId s = parsed.circuit->get_node_id("s");
+        Real worst = 0.0;
+        for (const auto& tp : result.timepoints) {
+            const Real v1 = v_primary(tp.time);
+            worst = std::max({worst, std::abs(tp.node_voltages[p - 1] - v1),
+                              std::abs(tp.node_voltages[s - 1] - 2.0 * v1)});
+        }
+        std::cout << "[ideal coupling] " << method << " worst=" << worst << std::endl;
+        EXPECT_LT(worst, 1e-3);
+    }
+}
+
+TEST(MutualInductanceTest, IdealCouplingKeepsTheMagnetizingInductanceInAc) {
+    NetlistParser parser;
+    auto parsed = parser.parse_string(kIdealCoupling + ".ac lin 1 1k 1k\n.end\n");
+    ACSolver ac_solver(*parsed.circuit, parsed.config);
+    const auto ac_result = ac_solver.solve();
+    ASSERT_EQ(ac_result.status, ConvergenceStatus::SUCCESS);
+    ASSERT_EQ(ac_result.frequency_points.size(), 1u);
+    const Complex expected = 1.0 / Complex(2.0, -10.0 / (2.0 * M_PI * 1e3 * 1e-3));
+    const auto& solution = ac_result.frequency_points[0].solution;
+    const Complex vp = solution[parsed.circuit->get_node_id("p") - 1];
+    const Complex vs = solution[parsed.circuit->get_node_id("s") - 1];
+    // The determinant kept off zero (inverse_inductance) makes the coupling's
+    // admittance about 1e12 times the magnetizing one; the rounding of that
+    // leaves some 1e-5 of the result
+    EXPECT_LT(std::abs(vp - expected), 1e-4 * std::abs(expected));
+    EXPECT_LT(std::abs(vs - 2.0 * expected), 1e-4 * std::abs(expected));
+}

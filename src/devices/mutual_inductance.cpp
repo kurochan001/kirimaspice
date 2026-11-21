@@ -372,13 +372,21 @@ MutualInductance::InverseInductance MutualInductance::inverse_inductance() const
     Real det = L1 * L2 - M * M;
     Real k_eff = std::abs(M) / std::sqrt(std::max(Real(1e-30), L1 * L2));
     // Avoid singular matrix at k≈1. Clamp relative to L1*L2 with k-aware guard (even softer for k→1).
+    // The inverse is then that of the matrix with this determinant, whose
+    // coupling is a little below k: dividing the adjugate for the given M by
+    // the clamped determinant would drop the finite part of the inverse,
+    // 1/(L1 + L2) along the common flux (the magnetizing inductance).
     Real det_min = (1e-12 + 1e-4 * (1.0 - k_eff)) * L1 * L2;
-    if (det < det_min) det = det_min;
+    Real m = M;
+    if (det < det_min) {
+        det = det_min;
+        m = std::copysign(std::sqrt(L1 * L2 - det_min), M);
+    }
 
     InverseInductance inverse;
     inverse.g11 = L2 / det;
     inverse.g22 = L1 / det;
-    inverse.g12 = -M / det;
+    inverse.g12 = -m / det;
     inverse.delta11 = inverse.g11 - 1.0 / L1;
     inverse.delta22 = inverse.g22 - 1.0 / L2;
     return inverse;
