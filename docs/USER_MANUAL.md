@@ -137,8 +137,10 @@ surprise someone who has used another SPICE simulator; the
   `N`, `P`, `F` and `A` in either case, as in ngspice. **`M` is milli
   whatever its case**: write `1MEG` for 10⁶. Letters after a number or a
   scale factor are ignored, so `10mA` is 0.01, `1kHz` is 1000, and `10MHz`
-  is 0.01 and `1A` is 10⁻¹⁸. Scale factors are not accepted inside `{...}`
-  expressions or in `.OPTIONS` values.
+  is 0.01 and `1A` is 10⁻¹⁸; anything else after a number is an error
+  (`2*1k`, `1.5.3k`). Scale factors are not accepted in expressions,
+  `{...}` or a `.PARAM` value that is not a number, or in `.OPTIONS`
+  values.
 - **A `.MODEL` line may stand anywhere** in the netlist, before or after
   the elements that use it.
 - **A source takes a DC value, an AC input and a waveform** (`PULSE`,
@@ -392,7 +394,8 @@ R2 out 0 {RLOAD}
 ```
 
 - A value in braces is an expression. It can use parameters defined
-  earlier, `pi`, `e` and the usual mathematical functions.
+  earlier, `pi`, `e` and the usual mathematical functions. A `.PARAM`
+  value is an expression without braces too (`.param r = 2*1000`).
 - A function defined with `.FUNC` can be called in `.PARAM` expressions,
   but not directly in an element value. Define a parameter with it, as
   above.

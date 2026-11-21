@@ -79,8 +79,11 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
 
 ### Names and numbers
 
-- [ ] **No scale factors inside braces or in `.OPTIONS` values.** Write
-  `{0.001}`, not `{1m}`.
+- [ ] **No scale factors in expressions or in `.OPTIONS` values.** Write
+  `{0.001}`, not `{1m}`; this holds for a `.PARAM` value without braces
+  that is not a number too (`.param r = 2*1k` is an error).
+- [ ] **Nothing but letters after a number.** ngspice-47 reads `1k5` as 1k
+  and `1.5.3k` as 1.5; here they are errors.
 - [ ] **`.IC` and `.NODESET` with an upper-case `V(`.** `v(out)=1` is
   skipped with a warning.
 
@@ -120,6 +123,15 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
   of the netlist means the same device by its number (not compared with
   ngspice's list of levels here). Any other `LEVEL` is an error, as in
   ngspice.
+- [ ] **`W` and `L` on every MOSFET line of levels 3, 8/49, 9 and
+  14/54.** Their defaults here are 10 µm and 1 µm, where ngspice-47 takes
+  100 µm for level 3 and 5 µm for BSIM3 and BSIM4
+  ([KNOWN_ISSUES](../KNOWN_ISSUES.md#netlist-input)).
+- [ ] **One `.MODEL` per name, also across subcircuits.** A `.MODEL`
+  inside a `.SUBCKT` is not local to it here, and a second definition
+  replaces the first for what follows (with a warning).
+- [ ] **`.LIB` paths from the main netlist's directory**, also in an
+  included file.
 - [ ] **`S` and `Y` parameters on the element line.** `.MODEL` has no
   SCR or TRIAC type.
 - [ ] **No `J` elements.** The library has a JFET, but the parser has no

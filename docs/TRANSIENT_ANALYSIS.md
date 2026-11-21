@@ -5,7 +5,10 @@
 Status: **working draft for review**. Checked on **2026-11-15** against
 commit `0cb0ac3`, on the macOS arm64 build, and reviewed again on
 **2026-11-21** against commit `2826a81`: most of its measurements were run
-again on that build, and those that had changed were corrected. This is a description of the
+again on that build, and those that had changed were corrected. It was
+updated on **2026-11-21** at commit `9bc2043` for the fixes since
+`2826a81`; the measurements those fixes changed were run again on that
+build. This is a description of the
 implementation and its measured behaviour, not a new specification.
 Examples and measurements below use kirimaspice unless stated otherwise.
 The diagrams describe this implementation; they are not copied from a
@@ -86,7 +89,8 @@ solve for this dynamic circuit.
 .TRAN TSTEP TSTOP [TSTART [TMAX]] [UIC]
 ```
 
-Use positive `TSTEP` and `TSTOP`, with `0 <= TSTART <= TSTOP`. Time values
+Use positive `TSTEP` and `TSTOP`, with `0 <= TSTART < TSTOP`; a `TSTART`
+that is not below `TSTOP` and a negative `TMAX` are errors. Time values
 are in seconds; `10u` is 10 microseconds and `1m` is 1 millisecond.
 
 | Field | Current CLI behaviour |
@@ -94,7 +98,7 @@ are in seconds; `10u` is 10 microseconds and `1m` is 1 millisecond.
 | `TSTEP` | Nominal integration step, not just the output interval |
 | `TSTOP` | Last simulated time; the final step is shortened to land on it |
 | `TSTART` | Retain points starting here, after simulating from zero; default 0 |
-| `TMAX` | The step is `TSTEP` or `TMAX`, whichever is shorter |
+| `TMAX` | The step is `TSTEP` or `TMAX`, whichever is shorter; a `TMAX` of 0 counts as not given |
 | `UIC` | For a dynamic circuit, initialize from `.IC` and zeros instead of solving DC |
 
 The CLI uses `run_fixed_timestepping`. It reduces a step when Newton
@@ -121,13 +125,20 @@ Three measured examples make the timing rules concrete:
 `TSTART` is an actual step boundary: the solver first ends a segment
 there, then continues. A non-grid `TSTART` therefore adds one point and
 can change the numerical result slightly, rather than merely hiding some
-rows; the other points stay on the grid.
+rows; the other points stay on the grid. A source breakpoint closer to
+`TSTART` or `TSTOP` than the loop can step (10<sup>−5</sup> of `TSTEP`)
+merges into that end, so both ends keep their points.
 Discarding the earlier points happens after successful time stepping;
 partial results returned after a library failure may still contain them.
 
 Both paths step onto every breakpoint of a source: the four corners of
 each `PULSE` period, the points of `PWL` and the delays of `SIN` and
-`EXP` (`Waveform::breakpoints`). The fixed step keeps its points at
+`EXP` (`Waveform::breakpoints`). A `PULSE` corner with a `TR` or `TF`
+of 0 has the level before it on the corner, and the new level from the
+next point on; ngspice-47 instead ramps a zero `TR` or `TF` over
+`TSTEP` (for `PULSE(0 1 0 0 0 1m 2m)` into 1 kΩ and 1 µF with
+`.tran 0.1m 1m`, ngspice-47 gives 0.6131 V at 1 ms, this program
+0.630669 V, the ideal step 0.632121 V). The fixed step keeps its points at
 multiples of the step as well, so a corner between two of them adds
 points without moving the others. After a corner the next step is a
 backward-Euler step and the orders of BDF build up again, as at time 0;
@@ -201,6 +212,7 @@ There are important input limits:
 
 - Write upper-case `V(` in `.IC` and `.NODESET`, and keep node spelling
   consistent. A ground-node initial voltage is ignored.
+- An inductor without `IC=` starts with no current under `UIC`.
 - `IC=` on a capacitor or inductor line gives that element's voltage or
   current at the start under `UIC`, after the node voltages of `.IC`; it
   is not used without `UIC`, as in SPICE. The point at time 0 holds the
@@ -283,7 +295,7 @@ below are for fixed stepping; the adaptive path has its own order control.
 | `trap`, `trapezoidal` | Trapezoidal rule (default) | 2 | First step BE |
 | `gear`, `gear2`, `bdf2` | BDF2 | 2 | First two steps BE |
 | `gear3`, `bdf3` | BDF3 | 3 | First step BE, next two BDF2 |
-| `tr_bdf2`, `trbdf2` | TR-BDF2 | 2 intended | First step BE |
+| `tr_bdf2`, `trbdf2` | TR-BDF2 | 2 | First step BE |
 
 BE is dissipative and can suppress real ringing. Trapezoidal integration
 has less numerical damping but can produce alternating numerical ringing
@@ -296,13 +308,16 @@ TR-BDF2 is implemented as two stages with `gamma = 2 - sqrt(2)`: a
 trapezoidal stage over `gamma*h`, followed by a modified BDF2 stage to the
 end of `h`. The stages share symbolic analysis where possible, but numeric
 factorization still occurs; do not interpret that as one factorization per
-step. The current implementation has two substantial limits:
-
-1. Both stages use the full-step endpoint source time. The intermediate
-   source time is not set to `t + gamma*h`. The ramp experiment below
-   demonstrates first-order error reduction for this case.
-2. Several device models do not consume the TR-BDF2 stage coefficients.
-   A circuit containing them does not use a uniform TR-BDF2 discretization.
+step. The first stage stamps the sources at `t + gamma*h`, its own time,
+and the second at `t + h` (`solve_timestep_tr_bdf2`); the ramp experiment
+below shows second-order error reduction. The discrete capacitor and
+inductor, and the diode, BJT, BSIM3, BSIM4 and IGBT through
+`device_utils::capacitor_companion`, take the coefficients of each stage.
+The models that use backward Euler for every method (see
+[Device model limits](#device-model-limits)) do so under TR-BDF2 too, so a
+circuit containing them does not use a uniform TR-BDF2 discretization.
+Transmission lines keep their own clock at the time points, not at the
+first stage's time.
 
 ## One fixed step and convergence
 
@@ -515,16 +530,15 @@ At 1 ms it is again `exp(-1)` volts.
 
 | Step | TR-BDF2 absolute error at 1 ms |
 | --- | --- |
-| 10 microseconds | `9.36316e-4 V` |
-| 5 microseconds | `4.65525e-4 V` |
-| 2.5 microseconds | `2.32098e-4 V` |
+| 10 microseconds | `1.67985e-5 V` |
+| 5 microseconds | `4.21301e-6 V` |
+| 2.5 microseconds | `1.05494e-6 V` |
 
-The error drops by about 2, indicating first-order behaviour for this
-experiment. Reading `solve_timestep_tr_bdf2` identifies a likely cause:
-both stages inherit `current_time_` at the full-step endpoint instead of
-evaluating stage 1 at its intermediate time. This is a measured limitation
-and a code-based explanation, not a corrected implementation. The other
-four methods gave the discharge table's errors for this ramp as well.
+The error drops by about 4 when the step is halved, second-order
+behaviour. Until commit `d251cbd` both stages took the sources at the end
+of the step, and this ramp gave `9.36316e-4 V`, `4.65525e-4 V` and
+`2.32098e-4 V`, an error that halved with the step. Every method now gives
+the discharge table's errors for this ramp.
 
 ### Apply the same procedure to a real circuit
 
@@ -557,26 +571,29 @@ request; each device determines its actual discretization.
 | Device/path | Relevant transient behaviour or limitation |
 | --- | --- |
 | Discrete `C`, `L` | Dedicated BE, trapezoidal, BDF2, BDF3 and TR-BDF2 companions |
-| Mutual inductance | Accepted after inductors; networks with more than two coupled inductors use pairwise corrections rather than a full coupled inverse |
-| Diode | A card sets `CJO`, `VJ` and `M`, so the capacitance depends on the voltage; BE and BDF2 gave the RC result below, but the trapezoidal (default) and TR-BDF2 paths do not implement the standard stage/history companions |
-| BJT | Integrates differential capacitances rather than junction charge; a cross derivative is missing; TR-BDF2 falls back to BE in the shared helper |
+| Mutual inductance | Accepted after inductors; networks with more than two coupled inductors use pairwise corrections rather than a full coupled inverse; `k = 1` keeps the magnetizing inductance |
+| Diode | A card sets `CJO`, `VJ` and `M`, so the capacitance depends on the voltage; the shared capacitor helper integrates it for every method |
+| BJT | Integrates differential capacitances rather than junction charge, through the shared helper for every method; a cross derivative is missing |
 | Level-1 MOSFET | No capacitance from a netlist (the parser names `CGSO`, `CGDO` and `CGBO` as not used); overlap capacitors set through the API use BE regardless of the requested method |
 | Level-3 MOSFET | Transient stamp has no intrinsic capacitance contribution; AC capacitances do not establish transient support |
 | BSIM1 | Capacitances use BE regardless of the requested method |
-| BSIM3 / BSIM4 | Shared capacitor helper supports BE/trapezoidal/BDF2/BDF3; TR-BDF2 takes its BE fallback |
+| BSIM3 / BSIM4 | Shared capacitor helper for every method |
 | BSIM4 | Simplified Meyer capacitances, not a complete terminal-charge formulation; inverter-chain transient reference test is disabled |
 | SiC, GaN, VDMOS, FinFET, MESFET | Capacitance paths force BE |
-| IGBT | Trapezoidal request takes a BE path |
-| Lossy transmission line | Approximate loss treatment; delayed waves start at zero during the first propagation delay |
+| IGBT | `CGE` and `CCE` through the shared capacitor helper for every method; the tail current depends on the step |
+| Lossless transmission line | Delays by the step when the step is longer than `TD` |
+| Lossy transmission line | Wrong: the arriving wave lacks the delayed current term; delayed waves start at zero during the first propagation delay |
 
-The diode caveat is numerical, as well as an input limitation. Its present
-trapezoidal stamp uses `G=Cj/(2h)` and `H=-G*v_old`, without the previous
-current term of the standard capacitor companion. In a netlist probe
-with nearly constant `CJO=1e-6`, `M=1e-8`, a 1 kohm resistor and a
-0 to -1 V linear ramp over 1 ms, the final node voltages at `h=10 us`
-were about `-0.369711 V` with BE, `-0.367913 V` with BDF2 and
-`-0.569003 V` with the trapezoidal request (2826a81). The constant-capacitance RC limit is `-exp(-1) V`. This probe
-shows why changing the solver option alone cannot establish model accuracy.
+A netlist probe checks the diode against a capacitor: with nearly
+constant `CJO=1e-6`, `M=1e-8`, a 1 kohm resistor and a 0 to -1 V linear
+ramp over 1 ms, the final node voltages at `h=10 us` are `-0.369711 V`
+with BE, `-0.367895 V` with the trapezoidal rule, `-0.367913 V` with
+BDF2, `-0.367905 V` with BDF3 and `-0.367896 V` with TR-BDF2, those of a
+1 µF capacitor in its place; the constant-capacitance RC limit is
+`-exp(-1) V`. Until commits `b9f980a` and `514ec66` the diode wrote its
+own companion, and the trapezoidal rule gave `-0.569003 V` and TR-BDF2
+`-0.500217 V`: changing the solver option alone cannot establish model
+accuracy.
 
 For broader model limits see [KNOWN_ISSUES](../KNOWN_ISSUES.md). This table
 is not an exhaustive validation of every device.
@@ -676,8 +693,9 @@ Separately, the documented CLI timing/accuracy experiments ran 38 netlists:
 two initialization variants, the explicit-DC/waveform comparison and an
 intentional `ITL5` failure. The adaptive API example and two-method diode
 probe were compiled and run. Passing the selected tests does not cover all
-models, the disabled BSIM4 chain, or every error path; the independent
-ramp and diode findings above illustrate that boundary.
+models, the disabled BSIM4 chain, or every error path; the ramp and diode
+errors described above, which those tests did not catch, illustrate that
+boundary.
 
 Mermaid blocks were checked for structure and translation consistency;
 rendering in a Mermaid-capable viewer is **not confirmed**. To verify the

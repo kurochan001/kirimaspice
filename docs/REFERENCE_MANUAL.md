@@ -9,6 +9,8 @@ output files of the program `kirimaspice`. It was written on
 **2026-11-21** the whole manual was reviewed again against the code and
 the build of commit `2826a81` (macOS 27.2, arm64, GCC 16.2.0, `kirimaspice
 0.0.0`); the entries corrected then were checked by running that build.
+The entries that the fixes up to commit `9bc2043` changed were updated
+on the same day.
 Where an entry was read in the code but not run, it says so. For a guided first run, use
 the [User Manual](USER_MANUAL.md); for what is wrong or missing, see
 [KNOWN_ISSUES.md](../KNOWN_ISSUES.md).
@@ -78,11 +80,14 @@ the SuperLU_DIST backend of the library is a placeholder.
 
 ### Lines
 
+- Lines may end with LF or with CR LF; the CR of a CR LF is removed as
+  each file is read.
 - The netlist is read in this order: `.INCLUDE` files are inserted, `.LIB`
   sections are inserted, `+` continuation lines are joined to the line
   before them and empty lines are dropped, `.IF` blocks are resolved, and
   `.CONTROL` blocks are taken out. The lines that remain are read one by
-  one.
+  one; a line that the grammar cannot read (one with a CR inside it) is a
+  parse error.
 
   ```mermaid
   flowchart LR
@@ -97,7 +102,10 @@ the SuperLU_DIST backend of the library is a placeholder.
   ```
 
 - An included file is found relative to the directory of the file that
-  includes it. `.LIB <file>` without a section inserts the whole file; an
+  includes it; a `.LIB` file, also one named in an included file, relative
+  to the main netlist's directory
+  ([known issues](../KNOWN_ISSUES.md#netlist-input)). `.LIB <file>`
+  without a section inserts the whole file; an
   `.INCLUDE` inside a `.LIB` section is not inserted, and is named in the
   warning `unknown directive .INCLUDE is ignored`.
 - The first remaining line is the title.
@@ -134,7 +142,9 @@ the SuperLU_DIST backend of the library is a placeholder.
 A number is a decimal or scientific number followed by an optional scale
 factor, in any case, as in ngspice. Letters after the number that are not
 a scale factor, and letters after a scale factor, are ignored (`10mA` is
-0.01, `10MHz` is 0.01).
+0.01, `10MHz` is 0.01). Anything else after the number is an error:
+`2*1k`, `1k5` and `1.5.3k` are not numbers, where ngspice-47 reads `1k5`
+as 1k and `1.5.3k` as 1.5.
 
 | Scale factor | Scale |
 | --- | --- |
@@ -157,11 +167,15 @@ a scale factor, and letters after a scale factor, are ignored (`10mA` is
 A value written in braces, `{...}`, is evaluated with ExprTk. It can use
 the parameters defined so far, the constants `pi` and `e`, ExprTk's
 built-in functions, and, in `.PARAM` only, functions defined by `.FUNC`.
-Scale suffixes are not accepted inside braces (`{1m}` is an error). A brace
+Scale suffixes are not accepted inside braces (`{1m}` is an error). A
+value that starts with `{` and has no closing `}` is an error. A brace
 group is one token even if it contains spaces, and one that follows `=`
 stays in the same token, so `IS={ISAT}` and `IS={a * 2}` are each one
 parameter, on a `.MODEL` line too. The arguments of a source waveform may
-have spaces inside braces.
+have spaces inside braces. A `.PARAM` value without braces is a number
+or, failing that, an expression (`.param r = 2*1000` gives 2000, as in
+ngspice-47); scale factors are not accepted in such an expression either
+(`.param r = 2*1k` is an error).
 
 ## Elements
 
@@ -174,7 +188,7 @@ are the same element, and a second is an error.
 
 | Element | Syntax | Notes |
 | --- | --- | --- |
-| Resistor | `R<name> <n+> <n-> <value>` | further tokens are ignored |
+| Resistor | `R<name> <n+> <n-> <value> [TC1=<v>] [TC2=<v>]` | R(T) = R (1 + TC1 (T − TNOM) + TC2 (T − TNOM)²), TNOM 27 °C, as in SPICE; other tokens are named in a warning and not used |
 | Capacitor | `C<name> <n+> <n-> <value> [IC=<V>]` | `IC=`: the voltage from `<n+>` to `<n->` at the start of a transient under `UIC`, not used without it; other tokens are named in a warning and not used |
 | Inductor | `L<name> <n+> <n-> <value> [IC=<A>]` | `IC=`: the current from `<n+>` through the inductor to `<n->` at the start of a transient under `UIC`, not used without it; other tokens are named in a warning and not used |
 | Mutual inductance | `K<name> <L1> <L2> <k>` | `<L1>`, `<L2>` are inductor names; `<k>` outside 0 to 1 is an error |
@@ -192,7 +206,7 @@ are the same element, and a second is an error.
 | SCR | `S<name> <anode> <cathode> <gate> [parameters]` |
 | TRIAC | `Y<name> <mt2> <mt1> <gate> [parameters]` |
 | Lossless line | `T<name> <a+> <a-> <b+> <b-> Z0=<v> TD=<v>` | both required and positive; `ZO` is accepted for `Z0` |
-| Lossy line | `O<name> <a+> <a-> <b+> <b-> R=<v> L=<v> C=<v> G=<v> TD=<v>` | per unit length; `TD`, `L` and `C` above 0; the length is `TD`/√(`L`·`C`); DC and AC use the line's exact two-port, the transient an approximation ([known issues](../KNOWN_ISSUES.md#device-models)) |
+| Lossy line | `O<name> <a+> <a-> <b+> <b-> R=<v> L=<v> C=<v> G=<v> TD=<v>` | per unit length; `TD`, `L` and `C` above 0; the length is `TD`/√(`L`·`C`); DC and AC use the line's exact two-port; the transient's model is wrong ([known issues](../KNOWN_ISSUES.md#device-models)) |
 | Subcircuit instance | `X<name> <nodes...> <subckt> [NAME=<v> ...]` |
 
 An element means the same inside a subcircuit as at the top level: the
@@ -215,7 +229,7 @@ the instance, `X1.R1` and `x1.n1`.
 
   | Waveform | Arguments | Value |
   | --- | --- | --- |
-  | `PULSE` | `V1 V2 TD TR TF PW PER`, all seven | `V1` before `TD`, then the rise, `V2` for `PW`, the fall, repeating every `PER` |
+  | `PULSE` | `V1 V2 TD TR TF PW PER`, all seven | `V1` before `TD`, then the rise, `V2` for `PW`, the fall, repeating every `PER`; with a `TR` or `TF` of 0 a corner has the level before it, and the new level follows just after it (ngspice-47 ramps a zero `TR` or `TF` over `TSTEP`) |
   | `SIN` | `VO VA FREQ [TD [THETA [PHASE]]]` | `VO + VA sin(PHASE)` before `TD`, then `VO + VA e^(−THETA (t − TD)) sin(2π FREQ (t − TD) + PHASE)`; `PHASE` in degrees |
   | `EXP` | `V1 V2 TD1 TAU1 TD2 TAU2`, all six | `V1` before `TD1`, then `V1 + (V2 − V1)(1 − e^(−(t − TD1)/TAU1))`, from `TD2` on plus `(V1 − V2)(1 − e^(−(t − TD2)/TAU2))` |
   | `PWL` | `T1 V1 T2 V2 ...` | linear between the points, `V1` before `T1`, the last value after the last point; times must not decrease |
@@ -244,7 +258,8 @@ is in braces (`V={2*V(in)}`) or, without braces, runs to the end of the
 line, blanks and all (`V=V(a) + 1`), as in ngspice.
 It can use `V(<node>)` or `v(<node>)`, where the node is named as on an
 element line, without regard to case (`V(A)` and `V(a)` are one node, and
-`V(n.1)` is a node),
+`V(n.1)` is a node), `V(<n1>,<n2>)`, which is V(n1) − V(n2) at the top
+level and inside subcircuits (either node may be ground),
 `TIME`, `pi` (not `e`) and
 ExprTk's built-in functions; `.PARAM` names and `I(<source>)` are not
 available. `TIME` is the time of the transient, and 0 in the operating
@@ -263,10 +278,10 @@ at that line. An instance parameter overrides the model's.
 
 | Element | Parameters (default) |
 | --- | --- |
-| `D` | `IS` (1e-14 A), `N` (1), `CJO` or `CJ0` (0), `VJ` or `PB` (1 V), `M` or `MJ` (0.5), the defaults of ngspice-47; `IS` and `N` also on the element line; other names, on the card or the line, are named in a warning and not used |
+| `D` | `IS` (1e-14 A), `N` (1), `CJO` or `CJ0` (0), `VJ` or `PB` (1 V), `M` or `MJ` (0.5), the defaults of ngspice-47; `IS` and `N` also on the element line; other names, on the card or the line, are named in a warning and not used (`TNOM`, `EG` and `XTI` among them) |
 | `Q` | `IS` (1e-14 A), `BF` (100), `NF` or `N` on the instance (1), `BR` (1), `NR` (1), `VAF` or `VA` (∞), `VAR` or `VB` (∞), `IKF` or `IK` (∞), `IKR` (∞), `RB`, `RBM`, `IRB` (0), `ISE` (0), `NE` (1.5), `ISC` (0), `NC` (2), `CJE` (0), `VJE` or `PE` (0.75 V), `MJE` or `ME` (0.33), `CJC` (0), `VJC` or `PC` (0.75 V), `MJC` or `MC` (0.33), `TF`, `TR` (0), `XTI` (3), `XTB` (0), `EG` (1.11 eV), `TNOM` (27 °C), noise `KF` (0), `AF` (1), `FF` (1); the card first, then the element line |
 | `M`, level 1 | with a card, the defaults of ngspice-47: `KP` (2e-5 A/V²), `W`, `L` (100 µm), `VTO` or `VTH` on the card and `VTH` on the element line, with the device's sign (0; a positive one makes a depletion PMOS), `GAMMA` (0, the body effect), `PHI` (0.6 V), `LAMBDA` (0), noise `KF` (0), `AF` (1), `EF` (1); other names, on the card or the line (`M=` among them), are named in a warning. The line's `NMOS` or `PMOS` without a card gives `W` 10 µm, `L` 1 µm and `VTH` ±0.7 V |
-| `Z` | `LEVEL`/`MODEL` (formula), `BETA` (0.1), `VTO` (−2 V; +2 V when the element line says `PMF`), `LAMBDA` (0.05), `ALPHA` (2), `B` (0.3), `VP` (3 V), `CGS` (1 pF), `CGD` (0.5 pF), `CDS` (0.1 pF), `KF`, `AF`, `EF`, `TNOM` (27 °C) |
+| `Z` | `LEVEL`/`MODEL` (formula), `BETA` (0.1), `VTO` (−2 V; +2 V when the element line says `PMF` or the card is a `PMF` card), `LAMBDA` (0.05), `ALPHA` (2), `B` (0.3), `VP` (3 V), `CGS` (1 pF), `CGD` (0.5 pF), `CDS` (0.1 pF), `KF`, `AF`, `EF`, `TNOM` (27 °C) |
 | `S` | `VBF` (400 V), `IGT` (20 mA), `IH` (10 mA), `IL` (30 mA), `VGT` (1 V), `RON` (0.1 Ω), `VTM` (1.5 V), `DV_DT` (10), `TNOM` (27 °C) |
 | `Y` | `VBO` (400 V), `IGT` (20 mA), `IH` (10 mA), `VGT` (1 V), `RON` (0.1 Ω), `VTM` (1.5 V), `DV_DT` or `DVDT` (10), `TNOM` (27 °C) |
 
@@ -275,7 +290,18 @@ at that line. An instance parameter overrides the model's.
   VDS)` in the linear region, with `Vth = VTO + GAMMA (√(PHI − VBS) −
   √PHI)`, and `√PHI − VBS/(2√PHI)` in place of the root for a forward
   biased body, as ngspice-47 gives. Its channel thermal noise is
-  4kT (2/3) gm. It has no capacitances and no bulk junctions.
+  4kT (2/3) gm. It has no capacitances and no bulk junctions. With
+  temperature, KP, PHI and VTO follow SPICE's level-1 laws through the
+  band gap of silicon (KP ∝ (T/TNOM)<sup>−1.5</sup>; PHI(T) and the
+  built-in voltage, from which VTO(T) follows), with TNOM 27 °C.
+- The diode carries 10<sup>−12</sup> S in parallel with its junction, as
+  SPICE's GMIN, in DC, transient and AC; the `GMIN` option does not change
+  it. With temperature, IS, VJ and CJO follow SPICE's diode laws with
+  `XTI` 3, `EG` 1.11 eV and TNOM 27 °C.
+- With temperature, the bipolar transistor scales IS, BF, BR, ISE and ISC
+  by SPICE's Gummel–Poon laws with `XTI`, `XTB` and `EG`; its junction
+  potentials and capacitances do not change
+  ([known issues](../KNOWN_ISSUES.md#netlist-input)).
 - `S` and `Y` take parameters only on the element line: `.MODEL` has no
   SCR or TRIAC type, and a model name on their line that is not defined
   before them is ignored without a message.
@@ -295,9 +321,14 @@ at that line. An instance parameter overrides the model's.
 - Parameter names are not case-sensitive; `NAME = value` with spaces is
   accepted; values may be expressions in braces.
 - `TNOM`, on a card or an element line, is in °C, as in SPICE, for every
-  device; so are `.TEMP` and `.OPTIONS TEMP`. The default `TNOM` is 27 °C.
-- Model names are compared without regard to case; a `.MODEL` whose name
-  differs from an earlier one only in case replaces it.
+  device that reads it; so are `.TEMP` and `.OPTIONS TEMP`. The default
+  `TNOM` is 27 °C. The diode and the level-1 MOSFET do not read it (it is
+  named in a warning) and take 27 °C.
+- Model names are compared without regard to case. A second `.MODEL` of
+  a name, in any case, is named in a warning; the elements after it and
+  every subcircuit body use it. A `.MODEL` inside a `.SUBCKT` is not local
+  to that subcircuit, where ngspice-47 keeps it to the subcircuit
+  ([known issues](../KNOWN_ISSUES.md#netlist-input)).
 - A `.MODEL` line applies to the whole netlist: a `D`, `Q`, `M` or `Z`
   element may come before its model. An element whose model is not
   defined anywhere is an error
@@ -312,7 +343,7 @@ For `NMOS` and `PMOS`, `LEVEL` selects the device:
 | 3 | SPICE's level 3 | warning | `W`, `L` |
 | 9 | BSIM1, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W`, `L` |
 | 8, 49 | BSIM3, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W`, `L` |
-| 14, 54 | BSIM4 (a model card with a `VERSION` other than 4.83 gives a warning) | warning, once per card | `W` (the width of all `NF` fingers), `L`, `NF`, `M`, `AS`, `AD`, `PS`, `PD`, `NRD`, `NRS`, `MULT_I`, `MULT_Q`, `MULT_FN` |
+| 14, 54 | BSIM4 (a model card with a `VERSION` other than 4.8.3 or 4.83 gives a warning) | warning, once per card | `W` (the width of all `NF` fingers), `L`, `NF`, `M`, `AS`, `AD`, `PS`, `PD`, `NRD`, `NRS`, `MULT_I`, `MULT_FN`; `MULT_Q` is accepted and not used; others named in a warning |
 | 10 | SiC MOSFET | warning | all, by name |
 | 11 | GaN HEMT | warning | all, by name |
 | 12 | FinFET | warning | `L` only (others ignored without a message) |
@@ -394,8 +425,8 @@ parser stores it, but the program does not use it (the library can).
 | Directive | Syntax | Status |
 | --- | --- | --- |
 | `.OP` | `.OP` | used: operating point (see [below](#how-the-program-chooses-analyses)) |
-| `.DC` | `.DC <src> <start> <stop> <step> [<src2> <start2> <stop2> <step2>]` | used; `<src>` is a voltage or current source and is swept for each value of `<src2>`; a zero step is an error |
-| `.TRAN` | `.TRAN <tstep> <tstop> [<tstart> [<tmax>]] [UIC]` | used; the program steps by `tstep`, or by `tmax` when it is shorter, and onto every breakpoint of a source (the corners of `PULSE` and `PWL`, the delays of `SIN` and `EXP`); as in SPICE, the simulation runs from 0 and keeps the points from `tstart` on, with a point on `tstart` |
+| `.DC` | `.DC <src> <start> <stop> <step> [<src2> <start2> <stop2> <step2>]` | used; `<src>` is a voltage or current source and is swept for each value of `<src2>`; a zero step is an error; so is a line with another number of values than four or eight (fewer than four: skipped with a warning; ngspice-47 ignores a ninth value) |
+| `.TRAN` | `.TRAN <tstep> <tstop> [<tstart> [<tmax>]] [UIC]` | used; the program steps by `tstep`, or by `tmax` when it is shorter, and onto every breakpoint of a source (the corners of `PULSE` and `PWL`, the delays of `SIN` and `EXP`); as in SPICE, the simulation runs from 0 and keeps the points from `tstart` on, with a point on `tstart`; `tstart` must be less than `tstop`, a `tmax` of 0 is not given, and a negative `tmax` is an error |
 | `.AC` | `.AC DEC\|OCT\|LIN <n> <fstart> <fstop>` | used; `DEC`, `OCT`: round(`<n>` × the number of decades or octaves) + 1 points, evenly spaced in log from `<fstart>` to `<fstop>`, both included (`.AC DEC 3 10 50` gives 10, 22.36, 50 Hz, where ngspice-47 gives 10, 21.54, 46.42 Hz); `LIN`: `<n>` points in all; `<n>` is a whole number of at least 1, and another is an error |
 | `.TEMP` | `.TEMP <t1> [<t2> ...]` (°C) | used; one value is `.OPTIONS TEMP=<t1>` (as in ngspice-47, which takes one value only); with several, every analysis runs at each value (see [below](#how-the-program-chooses-analyses)) |
 | `.OPTIONS`, `.OPTION` | `.OPTIONS <name>=<value> ...` | used; see [Options](#options) |
@@ -408,10 +439,10 @@ parser stores it, but the program does not use it (the library can).
 | `.GLOBAL` | `.GLOBAL <node> ...` | used in subcircuit expansion |
 | `.INCLUDE`, `.INC` | `.INCLUDE <file>` | used; relative to the netlist's directory |
 | `.LIB` / `.ENDL` | `.LIB <file> [<section>]` | used; without a section, the whole file |
-| `.IF` / `.ELIF` / `.ELSE` / `.ENDIF` | `.IF (<expr>)` | used, but `.PARAM` values are not visible; an expression that cannot be evaluated keeps all branches |
+| `.IF` / `.ELIF` / `.ELSE` / `.ENDIF` | `.IF (<expr>)` or `.IF(<expr>)`; `.ELSEIF` for `.ELIF` | used, but `.PARAM` values are not visible; an expression that cannot be evaluated keeps all branches; ngspice-47 has `.ELSEIF` and not `.ELIF` |
 | `.END` | `.END` | ignored; lines after it are read |
 | `.PRINT`, `.SAVE` | `.PRINT DC\|TRAN\|AC <signals>`, `.SAVE <signals>` | `.PRINT TRAN` used: its signals are the transient's table on standard output; `.PRINT DC`, `.PRINT AC` and `.SAVE` read only, named in a warning |
-| `.FOUR` | `.FOUR <frequency> <signal> ...`, each `v(<node>)` or `i(<source>)` | used with `.TRAN`: prints the harmonics and the THD of the last period of each signal after the transient |
+| `.FOUR` | `.FOUR <frequency> <signal> ...`, each `v(<node>)` or `i(<source>)` | used with `.TRAN`: prints the harmonics and the THD of the last period of each signal after the transient; the phase of each harmonic is that of a sine from the start of that period, as ngspice-47 prints it |
 | `.STEP`, `.SENS`, `.MC`, `.TF`, `.PZ`, `.DISTO`, `.PORT`, `.WCASE`, `.OPTIMIZE` | | read only; named in a warning |
 | `.CONTROL` / `.ENDC` | | taken out and run by the parser; of its analysis commands the program runs `dc` and `ac`, not `tran`, and `op` is named in a warning as an unknown command (see [KNOWN_ISSUES.md](../KNOWN_ISSUES.md)) |
 | `.TITLE`, `.MEASURE`, `.NOISE`, others | | ignored; each name in one warning |
@@ -465,8 +496,8 @@ or unknown option gives a warning and is ignored.
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `TEMP` | 27 | temperature in °C |
-| `GMIN` | 1e-12 | minimum conductance (S) |
+| `TEMP` | 27 | temperature in °C at which every analysis evaluates the devices, also without `.TEMP` |
+| `GMIN` | 1e-12 | minimum conductance (S); AC adds it from every node to ground ([known issues](../KNOWN_ISSUES.md#analyses)) |
 | `ABSTOL` | 1e-12 | absolute current tolerance (DC and transient) |
 | `RELTOL` | 1e-3 | relative tolerance (DC and transient) |
 | `VNTOL` | 1e-6 | voltage tolerance (DC and transient) |
@@ -481,11 +512,11 @@ or unknown option gives a warning and is ignored.
 | `CHGTOL` | 1e-14 | charge tolerance (C) (no effect in the program) |
 | `LTE_ABSTOL`, `LTE_RELTOL` | 1e-6, 1e-3 | local truncation error tolerances (no effect in the program) |
 | `ERROR_EST`, `ERRMETHOD` | `physical` | `physical`/`charge`/`embedded`, `predictor_corrector`/`pc`/`dvdt`, `combined`/`both` (no effect in the program) |
-| `GMIN_STEPPING` | 0 | 1 turns gmin stepping on |
+| `GMIN_STEPPING` | 0 | 1 turns gmin stepping on; it ends with a solve without its conductance |
 | `GMIN_STEPS`, `GMIN_START`, `GMIN_END` | 5, 1e-6, 1e-12 | its steps and range |
 | `SOURCE_STEPPING` | 0 | 1 turns source stepping on |
 | `SOURCE_STEPS`, `SOURCE_START` | 10, 0.01 | its steps and starting fraction |
-| `DYN_GMIN` | 0 | 1 turns dynamic gmin on |
+| `DYN_GMIN` | 0 | 1 turns dynamic gmin on; once converged, it removes its conductance and solves again |
 | `DYN_GMIN_START`, `DYN_GMIN_MIN`, `DYN_GMIN_MAX` | 1e-12, 1e-12, 1e-3 | its range |
 | `DYN_GMIN_INC`, `DYN_GMIN_DEC` | 10, 0.2 | its factors |
 | `DYN_GMIN_STALL`, `DYN_GMIN_IMPROVE`, `DYN_GMIN_TARGET` | 4, 0.1, 1e-9 | its control |
