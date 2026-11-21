@@ -13,7 +13,8 @@ Resistor::Resistor(DeviceId id, const std::string& name,
     : Device(id, name, DeviceType::RESISTOR)
     , nodes_{np, nn}
     , resistance_(resistance)
-    , conductance_(1.0 / resistance) {
+    , conductance_(1.0 / resistance)
+    , nominal_resistance_(resistance) {
 
     if (resistance <= 0.0) {
         throw std::runtime_error("Resistor resistance must be positive: " + name);
@@ -148,10 +149,37 @@ std::vector<NoiseSource> Resistor::get_noise_sources(const DenseVector& dc_solut
 
 // ========== Sensitivity Analysis: Parameter Access ==========
 
+void Resistor::set_temperature_coefficients(Real tc1, Real tc2) {
+    tc1_ = tc1;
+    tc2_ = tc2;
+    apply_temperature();
+}
+
+void Resistor::set_temperature(Real temp_K) {
+    temperature_ = temp_K;
+    apply_temperature();
+}
+
+void Resistor::apply_temperature() {
+    const Real dt = temperature_ - tnom_;
+    const Real factor = 1.0 + tc1_ * dt + tc2_ * dt * dt;
+    if (factor <= 0.0) {
+        spdlog::warn("Resistor {}: TC1 and TC2 make the resistance non-positive at {:.2f} C; "
+                     "the value at TNOM is used",
+                     name_, temperature_ - 273.15);
+        resistance_ = nominal_resistance_;
+    } else {
+        resistance_ = nominal_resistance_ * factor;
+    }
+    conductance_ = 1.0 / resistance_;
+}
+
 std::optional<Real> Resistor::get_parameter(const std::string& param_name) const {
     if (param_name == "resistance" || param_name == "R") {
-        return resistance_;
+        return nominal_resistance_;
     }
+    if (param_name == "tc1") return tc1_;
+    if (param_name == "tc2") return tc2_;
     return std::nullopt;  // Parameter not found
 }
 
@@ -162,10 +190,15 @@ bool Resistor::set_parameter(const std::string& param_name, Real value) {
                         name_, value);
             return false;
         }
-        resistance_ = value;
-        conductance_ = 1.0 / value;
+        nominal_resistance_ = value;
+        apply_temperature();
         spdlog::trace("Resistor {}: set resistance = {} Ω, conductance = {} S",
                      name_, resistance_, conductance_);
+        return true;
+    }
+    if (param_name == "tc1" || param_name == "tc2") {
+        (param_name == "tc1" ? tc1_ : tc2_) = value;
+        apply_temperature();
         return true;
     }
     return false;  // Parameter not found

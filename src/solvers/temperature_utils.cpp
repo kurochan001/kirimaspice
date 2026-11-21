@@ -5,6 +5,7 @@
 #include "kirimaspice/solvers/temperature_utils.hpp"
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/devices/diode.hpp"
+#include "kirimaspice/devices/resistor.hpp"
 #include "kirimaspice/devices/bjt_npn.hpp"
 #include "kirimaspice/devices/bjt_pnp.hpp"
 #include "kirimaspice/devices/jfet.hpp"  // Unified JFET
@@ -23,6 +24,9 @@ namespace kirimaspice::solvers {
 void apply_temperature_to_devices(const circuit::CircuitGraph& circuit, Real temp_K) {
     for (const auto& device : circuit.get_devices()) {
         switch (device->type()) {
+            case DeviceType::RESISTOR:
+                if (auto* r = dynamic_cast<devices::Resistor*>(device.get())) r->set_temperature(temp_K);
+                break;
             case DeviceType::DIODE:
                 if (auto* d = dynamic_cast<devices::Diode*>(device.get())) d->set_temperature(temp_K);
                 break;

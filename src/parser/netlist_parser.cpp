@@ -8,6 +8,7 @@
 #include "kirimaspice/core/constants.hpp"
 #include "kirimaspice/devices/device.hpp"
 #include "kirimaspice/devices/mesfet.hpp"
+#include "kirimaspice/devices/resistor.hpp"
 #include "kirimaspice/devices/mosfet_level3_params.hpp"
 #include "kirimaspice/devices/mosfet_bsim1_params.hpp"  // BSIM1 (Level 9)
 #include "kirimaspice/devices/mosfet_bsim3_params.hpp"
@@ -4243,7 +4244,26 @@ static void parse_resistor_device(const std::vector<std::string>& tokens, const 
 
     const Real value = read_element_value(value_str, state);
 
+    // TC1= and TC2= after the value, SPICE's temperature coefficients; any
+    // other token is named as not used
+    Real tc1 = 0.0, tc2 = 0.0;
+    for (std::size_t i = 4; i < tokens.size(); ++i) {
+        const std::size_t eq = tokens[i].find('=');
+        std::string key = tokens[i].substr(0, eq);
+        std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+        if (eq != std::string::npos && (key == "tc1" || key == "tc2")) {
+            (key == "tc1" ? tc1 : tc2) = read_element_value(tokens[i].substr(eq + 1), state);
+        } else {
+            spdlog::warn("Line {}: {}: '{}' is not used", state.line_number, dev_name, tokens[i]);
+        }
+    }
+
     state.circuit->add_resistor(dev_name, np, nn, value);
+    if (tc1 != 0.0 || tc2 != 0.0) {
+        if (auto* r = dynamic_cast<devices::Resistor*>(state.circuit->get_device(dev_name).get())) {
+            r->set_temperature_coefficients(tc1, tc2);
+        }
+    }
     spdlog::debug("Added resistor: {} {} {} {}Ω", dev_name, np, nn, value);
 }
 

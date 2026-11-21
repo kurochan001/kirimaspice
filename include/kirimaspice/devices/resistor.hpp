@@ -54,15 +54,30 @@ public:
     NodeId np() const { return nodes_[0]; }
     NodeId nn() const { return nodes_[1]; }
 
-    // Sensitivity analysis: Parameter access
+    /// The first- and second-order temperature coefficients of SPICE's
+    /// resistor: R(T) = R (1 + TC1 (T - TNOM) + TC2 (T - TNOM)^2), with R the
+    /// value at TNOM (27 C)
+    void set_temperature_coefficients(Real tc1, Real tc2);
+    /// The resistance at temp_K (kelvin), from the value at TNOM
+    void set_temperature(Real temp_K);
+
+    // Sensitivity analysis: Parameter access. "R" is the value at TNOM; a
+    // value set through it is kept at TNOM and scaled to the temperature
     std::optional<Real> get_parameter(const std::string& param_name) const override;
     bool set_parameter(const std::string& param_name, Real value) override;
     std::vector<std::string> get_perturbable_parameters() const override;
 
 private:
+    void apply_temperature();
+
     std::vector<NodeId> nodes_;  // [np, nn]
-    Real resistance_;   // Resistance (Ω)
+    Real resistance_;   // Resistance (Ω) at the device's temperature
     Real conductance_;  // Conductance (S) = 1/R
+    Real nominal_resistance_;    // Resistance (Ω) at TNOM
+    Real tc1_ = 0.0;             // [1/K]
+    Real tc2_ = 0.0;             // [1/K^2]
+    Real tnom_ = 300.15;         // [K]
+    Real temperature_ = 300.15;  // [K]
 };
 
 } // namespace kirimaspice::devices
