@@ -104,11 +104,11 @@ document also lists differences not decided there.
 
 - **`B` sources have no `I(<source>)` and cannot read `.PARAM` names:**
   an expression with either is an error (`Undefined symbol`).
-- **Scale factors are not accepted inside braces, in a `.PARAM` value
-  written without braces (which is read as an expression), or in
-  `.OPTIONS` values** (there the option is ignored with a warning).
-  `.param r = 2*1k` is an error, where ngspice-47 gives 2000 (run on
-  2026-11-21 at `21bb991`).
+- **Scale factors are not accepted in expressions, with or without
+  braces, or in `.OPTIONS` values** (there the option is ignored with a
+  warning). A `.PARAM` value without braces that is not a number is read
+  as an expression, so `.param r = 2k` is 2000 but `.param r = 2*1k` is an
+  error, where ngspice-47 gives 2000 (run on 2026-11-21 at `21bb991`).
 - **`PARAMS:` is not accepted** on `.SUBCKT` and `X` lines; parameters are
   written `NAME=value` after the pins.
 - **`E`, `F`, `G` and `H` have no `POLY` form;** a line with `POLY(...)`
