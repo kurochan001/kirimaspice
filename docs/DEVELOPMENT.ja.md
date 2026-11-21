@@ -103,7 +103,10 @@ python3 tools/local_ci.py --history   # すべてのコミットも調べる
 `tools/check_banned.py` は、公開してはいけないものを探します。ホームディレクトリへのパス、GitHub の
 noreply 以外のメールアドレス、半導体ファウンドリの名前、バイナリや大きなファイル、`--history` を付けると
 noreply でないコミットの作者です。出てはいけない名前は、リポジトリに書けません。追跡しないファイルに
-1 行に 1 つ書き、`--private <ファイル>` か環境変数 `KIRIMASPICE_PRIVATE_PATTERNS` で渡します。
+1 行に 1 つ書き、`--private <ファイル>` か環境変数 `KIRIMASPICE_PRIVATE_PATTERNS` で渡します。その最後の
+行と、`tools/local_ci.py` の要約の `check_banned` と `check_banned_history` の行は、
+`private patterns: yes` か `no` を示します。パターンなしの検査は、その名前を探さずに合格します。コメントと
+空の行だけのファイルは no と数えます。
 
 ## 継続的インテグレーション
 

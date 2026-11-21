@@ -137,7 +137,11 @@ kept separate from those accuracy claims.
   paths run by run for resistor and Level1 KP variations (commit
   `97a4ba7`). Sequential and parallel now give the same samples for the
   same seed (commit `9b9c19f`); before the fix 19 of 20 runs differed
-  between the two builds, and a test now checks the per-run seed.
+  between the two builds, and a test now checks the per-run seed. Since
+  commit `c2b1c94` run k is seeded by `MonteCarloExecutor::run_seed(seed,
+  k)`, a mix of the base seed and the run, not by seed + k, so two base
+  seeds share no run (19 of 20 runs were shared by seeds 12345 and 12346
+  before).
 - [ ] Compare equivalent top-level/subcircuit netlists and library/CLI
   paths where the CLI implements that analysis. Include relative includes
   in parameter sweeps.

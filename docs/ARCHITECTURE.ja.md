@@ -98,13 +98,14 @@ SSF、WAV、AC の CSV の名前には、その温度が付きます（`out_27C.
 
 `NetlistParser::parse_file`（`src/parser/netlist_parser.cpp`）は、段階を追って処理します。
 
-1. テキストの前処理。`.INCLUDE`（再帰的で、循環を検出します。`.INC` はその短い形です）、`.LIB` の節
+1. テキストの前処理。ファイルを読むときに CR LF の行の終わりの CR を除き、次に `.INCLUDE`（再帰的で、循環を検出します。`.INC` はその短い形です）、`.LIB` の節
    （10 段まで入れ子にできます）、継続行です。空の行は捨て（空白だけの行は残します）、継続行はつなぎ、
    インクルードしたファイルは差し込み、段階 2 の `.IF` と `.CONTROL` の行は取り除くので、`ParseError` の
    行番号は前処理の後の行を数えます。
 2. 解析の前に分かっているパラメータで評価する `.IF`／`.ELIF`／`.ELSE`／`.ENDIF` と、`.CONTROL` のブロック。
 3. PEGTL による処理。文法はテキストをタイトルの行とほかの行に分けるだけで、それぞれの行は
    `process_line` に渡ります。その中の解析は、手書きの字句の切り出し（`util::split_netlist_tokens`）です。
+   文法が読めないテキストは、捨てずに `ParseError` にします。
 4. あとで定義されるモデルかサブ回路を指していたために後回しにした行（下の「後回しにする素子」）を、もう一度解析します。
 5. 素子どうしの参照の解決。`F` と `H` の制御電源、`K` のインダクタです。
 6. `.CONTROL` のブロックのコマンド。
@@ -123,7 +124,7 @@ flowchart TD
 ```
 
 ディレクティブは `.SUBCKT` の本体かどうかを調べる前に処理するので、サブ回路の中の `.MODEL` はグローバルに
-なります。そこにある `.PARAM` は本体と一緒に保存し、インスタンスごとにその中だけで効きます。`.SUBCKT` の中の素子の行はテキストのまま保存し、展開のときに同じ素子のパーサーで解析します（[回路](#回路)）。入れ子の
+なります（モデル名の 2 つ目の定義は警告で名指しします）。そこにある `.PARAM` は本体と一緒に保存し、インスタンスごとにその中だけで効きます。`.SUBCKT` の中の素子の行はテキストのまま保存し、展開のときに同じ素子のパーサーで解析します（[回路](#回路)）。入れ子の
 `.SUBCKT` の定義はエラーです。パーサーが読まないディレクティブは、1 回警告して無視します（`.NOISE`、
 `.MEASURE`、`.TITLE` は未対応として）。読んだディレクティブは `SimulationConfig::directives_read` に
 記録し、プログラムはそこから、実行しないものを名指しします。`BCDEFGHIKLMOQRSTVXYZ` 以外の文字の素子は
@@ -196,8 +197,13 @@ flowchart TD
 ついて G·x = b を解きます。書き込みは `const` のメソッドで、必要な履歴は `mutable` のメンバーに持ちます。
 
 温度はインターフェースに入っていません。温度に依存するモデルはそれぞれ `set_temperature` を持ち、
-`apply_temperature_to_devices`（`src/solvers/temperature_utils.cpp`）が種類ごとにそれを呼びます。レベル 3、
-MESFET、SCR、TRIAC、受動素子はそこに入っておらず、この関数は飛ばします。
+`apply_temperature_to_devices`（`src/solvers/temperature_utils.cpp`）が種類ごとにそれを呼びます。
+`DCSolver::solve`、`DCSolver::solve_sweep`、`TransientSolver::solve` は、始めに
+`SimulationConfig::temperature`（`.TEMP` か `.OPTIONS TEMP` がなければ 27 °C）でこれを呼ぶので、`.TEMP` が
+なくても、すべての解析が回路の温度でデバイスを評価します。ほかの解析は動作点を `DCSolver::solve` から
+取ります。レベル 3、MESFET、SCR、TRIAC、抵抗以外の受動素子はそこに入っておらず、この関数は飛ばします。
+ダイオード、BJT、レベル 1 の MOSFET、抵抗は、`set_parameter` で設定したパラメーターを TNOM での値として
+持ち、今の温度に合わせて変えます。
 
 | 種類 | ファイル |
 | --- | --- |
@@ -264,7 +270,8 @@ flowchart TD
   G<sub>d</sub>·x − b<sub>d</sub> はデバイス自身の電流になります。各行の和は、その行で最大の寄与の
   `reltol` 倍に `abstol`（枝の行は `vntol`）と、丸めの分として項の大きさの 10<sup>−12</sup> 倍を加えた
   値より小さくなければなりません。反復で解いた gmin（gmin ステッピング、動的 gmin）と固定したノードも
-  寄与に含めます。過渡解析の 1 ステップの Newton 反復も、そのステップの各デバイスの `stamp_transient` で
+  寄与に含めます。gmin ステッピングと動的 gmin は、グラウンドへのシャントを除いた回路の求解で終わるので、
+  グラウンドへの経路のない回路は、これらがあってもなくても失敗します。過渡解析の 1 ステップの Newton 反復も、そのステップの各デバイスの `stamp_transient` で
   同じ判定をします（`TransientSolver::check_convergence`）。そのため、書き込みはデバイスの履歴を変えては
   いけません。履歴を進めるのは `accept_solution` です。
 - **制限。** 未知数が 4 個を超える非線形の回路では、最初の 10 回の反復で、Newton 法の一歩全体を 5 V 以下に
@@ -273,14 +280,16 @@ flowchart TD
   V<sub>DS</sub> の規則で制限します（`core::limit_fet_drain_step`）。レベル 1 の MOSFET と MESFET は、V<sub>GS</sub> を
   SPICE3 の FET のゲートの規則で（`core::limit_fet_gate_step`。逆モードでは V<sub>GD</sub>）、V<sub>DS</sub> をドレインの
   規則で制限します。制限した書き込みから得た解は収束と
-  見なしません（`any_device_limited`）。
+  見なしません（`any_device_limited`）。制限の基にする電圧は、`reset_state`、`save_state`、
+  `restore_state` が扱う状態に含まれます。
 - **DC スイープ。** 入れ子の `.DC` では、最初の電源が内側のループです
   （[NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.ja.md) の規則 4）。点は 1 つずつ順に解き、それぞれ
   前の点からではなく、初期の推定値から始めます。
 
 ## 過渡解析
 
-`TransientSolver::solve`（`src/solvers/transient_solver.cpp`）は、温度を設定し、始点を求め、時間を進めます。
+`TransientSolver::solve`（`src/solvers/transient_solver.cpp`）は、回路の温度（既定は 27 °C）を設定し、始点を
+求め、時間を進めます。
 
 - **始点。** `UIC` があれば `initialize_uic_mode` が `.IC` と、キャパシタとインダクタの `IC=`
   （`apply_initial_condition`）から始めます。なければ始点は動作点で、`.IC` の
@@ -289,10 +298,10 @@ flowchart TD
 - **方法**（`IntegrationMethod`）。後退オイラー法、台形則（既定）、BDF2（`gear`、`gear2`、`bdf2`）、
   BDF3（`gear3`、`bdf3`）、TR-BDF2 で、`.OPTIONS METHOD=` で選びます。各デバイスの `stamp_transient` が、
   その方法のコンパニオンモデルを書きます。ただし、SiC MOSFET、GaN HEMT、VDMOS、FinFET、MESFET は方法に
-  かかわらず容量を後退オイラー法で積分し、IGBT は台形則のときにそうします
-  （[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#デバイスモデル)）。
+  かかわらず容量を後退オイラー法で積分します（[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#デバイスモデル)）。
+  ダイオード、BJT、BSIM3、BSIM4、IGBT は、`device_utils::capacitor_companion` を通して積分します。
 - **固定刻み。プログラムが使う経路です。** 刻みは TSTEP と TMAX の短いほうです（`main.cpp`。TMAX が
-  なければパーサーが TSTEP にします）。`run_timestepping_loop` は電源の折れ点（`Waveform::breakpoints`。
+  ないか 0 ならパーサーが TSTEP にします）。`run_timestepping_loop` は電源の折れ点（`Waveform::breakpoints`。
   `PULSE` の角、`PWL` の点、`SIN` と `EXP` の遅れ）ごとに区間を区切るので、そこに必ず点があります。
   その後、刻みは格子に戻り、積分はそこから後退オイラー法の 1 ステップでやり直します（`history_count_`
   を戻します）。最初のステップ（BDF2 では最初の 2 ステップ）は後退オイラー法で進み、BDF3 は、履歴が 1 点か 2 点の間は
@@ -314,7 +323,8 @@ flowchart TD
 - **ステップの受け入れ。** `accept_timestep_solution` は、要素 0 をグラウンドにしたノードの電圧を、
   すべてのデバイスの `accept_solution` に渡します。相互インダクタンスは、そのインダクタの後、最後に
   受け入れます。
-- **TR-BDF2** は、γ·Δt（γ = 2 − √2）の台形則の段と、Δt までの BDF2 の段を進めます。
+- **TR-BDF2** は、電源を t + γ·Δt で取る γ·Δt（γ = 2 − √2）の台形則の段と、Δt までの BDF2 の段を進めます。
+  伝送線路は第 1 段の受理を無視するので、その時計は時刻の点にとどまります。
 
 ## AC 解析
 
@@ -348,14 +358,14 @@ flowchart TD
 | --- | --- | --- |
 | フーリエ（`.FOUR`） | 過渡解析のソルバーが呼ぶ `FourierAnalyzer` | 使える。`.TRAN` と一緒に |
 | 温度スイープ（`.TEMP`） | DC と過渡解析のソルバーの `solve_temp_sweep` | `.TEMP` は使えるが、これらの関数は通らない。プログラムが `.TEMP` の値ごとに自分で解析を実行する（`main.cpp` の `run_analyses`） |
-| ノイズ | `NoiseSolver`。`get_noise_sources` についての随伴法 | 使えない。`.NOISE` がない |
+| ノイズ | `NoiseSolver`。`get_noise_sources` についての随伴法を、AC 解析の掃引の周波数（`solvers::ac_frequency_points`）で解く | 使えない。`.NOISE` がない |
 | 感度 | `SensitivityAnalyzer`。`set_parameter` による差分 | 使えない。`.SENS` は解析する |
 | 伝達関数 | `TransferFunctionSolver`。入力の電源についての差分 | 使えない。`.TF` は解析する |
 | 極と零点 | `PoleZeroSolver`。仮の実装 | 使えない。`.PZ` は解析する |
 | ひずみ | `DistortionSolver`。小信号の大きさの比 | 使えない。`.DISTO` は解析する |
 | S パラメータ | `SParameterSolver`。`TouchstoneWriter` と一緒に | 使えない。`.PORT` は解析する |
 | パラメータスイープ（`.STEP`） | `ParameterSweepExecutor`。点ごとにネットリストを解析し直す | 使えない。`.STEP` は解析する |
-| モンテカルロ、ワーストケース | `MonteCarloExecutor`、`WCaseAnalyzer`（`src/analysis`） | 使えない |
+| モンテカルロ、ワーストケース | `MonteCarloExecutor`（各回のシードは、基のシードと回の番号から `run_seed` が作る）、`WCaseAnalyzer`（公称はすべて typical の場合）（`src/analysis`） | 使えない |
 | 最適化、BSIM4 の抽出 | NLopt を使う `CircuitOptimizer`、`BSIM4ParameterExtractor` | 使えない |
 | 測定 | `MeasureEngine`（`src/measure`） | 使えない。`.MEASURE` は警告して無視する |
 
@@ -369,6 +379,9 @@ flowchart TD
   BSIM4 を評価しますが、`MOSFET_BSIM4::get_noise_sources` は代わりに簡略化した関数を使い、
   `BSIM4ParameterExtractor` も同じです。SiC MOSFET、GaN HEMT、VDMOS は、DC、AC、ノイズのどれでも、
   電流を 1 つの `drain_current` で評価し、IGBT は `collector_current` で評価します。
+- **キャパシタ、インダクタ、相互インダクタンスは、コンパニオンモデルの式を自分で書いています。** ダイオード、
+  BJT、BSIM3、BSIM4、IGBT が使う `device_utils::capacitor_companion` を使いません。数値は同じです
+  （[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#ソースコード)）。
 - **温度を種類ごとに設定します。** `apply_temperature_to_devices` は、一覧にない種類を飛ばします
   （[デバイス](#デバイス)を参照）。
 - **Newton 法のループを何度も書いています。** `solve_standard`、電源ステッピングと gmin ステッピング、

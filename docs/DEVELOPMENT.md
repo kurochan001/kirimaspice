@@ -120,7 +120,11 @@ names of semiconductor foundries, binary and large files, and, with
 `--history`, commit authors without a noreply address. Names that must not
 appear cannot be written in the repository; keep them in an untracked
 file, one per line, and pass it with `--private <file>` or the
-`KIRIMASPICE_PRIVATE_PATTERNS` environment variable.
+`KIRIMASPICE_PRIVATE_PATTERNS` environment variable. Its last line, and
+the `check_banned` and `check_banned_history` lines of the summary of
+`tools/local_ci.py`, say `private patterns: yes` or `no`:
+a scan without them passes without having looked for those names, and a
+file of comments and blank lines alone counts as no.
 
 ## Continuous integration
 

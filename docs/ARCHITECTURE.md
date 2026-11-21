@@ -112,7 +112,8 @@ A `.FOUR` line is evaluated inside the transient solver.
 `NetlistParser::parse_file` (`src/parser/netlist_parser.cpp`) works in
 steps:
 
-1. Preprocessing of the text: `.INCLUDE` (recursive, with cycle
+1. Preprocessing of the text: the CR of each CR LF line end is removed
+   as a file is read; then `.INCLUDE` (recursive, with cycle
    detection; `.INC` is its short form), `.LIB` sections (nested up to
    10 deep), and continuation lines. Empty lines are dropped (lines of
    blanks are kept), continuation lines are joined, included files are
@@ -122,7 +123,8 @@ steps:
    before parsing, and `.CONTROL` blocks.
 3. A PEGTL pass. The grammar only splits the text into a title line and
    other lines; each line goes to `process_line`, where the parsing is
-   hand-written tokenising (`util::split_netlist_tokens`).
+   hand-written tokenising (`util::split_netlist_tokens`). Text that the
+   grammar cannot read is a `ParseError`, not dropped.
 4. The lines held back because they named a model or a subcircuit
    defined later ("deferred elements", see below), parsed again.
 5. The resolution of references between elements: the controlling
@@ -143,7 +145,8 @@ flowchart TD
 ```
 
 Directives are handled before the check for a `.SUBCKT` body, so a
-`.MODEL` inside a subcircuit is global; a `.PARAM` there is kept with the
+`.MODEL` inside a subcircuit is global (a second definition of a model
+name is named in a warning); a `.PARAM` there is kept with the
 body and is local to each instance. Inside a `.SUBCKT`,
 element lines are stored as text and parsed at expansion, by the same
 element parsers (see [Circuit](#circuit)). Nested
@@ -239,9 +242,16 @@ methods; the history they need is held in `mutable` members.
 
 Temperature is not part of the interface: models that depend on it have
 their own `set_temperature`, and `apply_temperature_to_devices`
-(`src/solvers/temperature_utils.cpp`) calls it type by type. Level 3,
-the MESFET, the SCR, the TRIAC and the passive devices are not among
-them, and the function skips them.
+(`src/solvers/temperature_utils.cpp`) calls it type by type.
+`DCSolver::solve`, `DCSolver::solve_sweep` and `TransientSolver::solve`
+call it at their start with `SimulationConfig::temperature`, 27 °C unless
+`.TEMP` or `.OPTIONS TEMP` gives another, so every analysis evaluates the
+devices at the circuit temperature, also without `.TEMP`; the other
+analyses take their operating point from `DCSolver::solve`. Level 3, the
+MESFET, the SCR, the TRIAC and the passive devices other than the
+resistor are not among them, and the function skips them. The diode, the
+BJT, the level-1 MOSFET and the resistor keep a parameter set through
+`set_parameter` at TNOM and scale it to the present temperature.
 
 | Family | Files |
 | --- | --- |
@@ -307,7 +317,9 @@ flowchart TD
 preference, source stepping, gmin stepping or continuation when an option
 asks for it, and otherwise `solve_standard`, the Newton loop; with
 `PSEUDO_TRANSIENT=1`, pseudo-transient continuation is its fallback (it is
-off by default).
+off by default). Gmin stepping and dynamic gmin end with a solve of the
+circuit without their shunt to ground, so a circuit with no path to
+ground fails with them as without them.
 
 - **Initial guess.** Zero, and the value of `.NODESET` at the nodes it
   names (`DCSolver::initialize_solution`); nothing is guessed from the
@@ -337,7 +349,9 @@ off by default).
   and the level-1 MOSFET and the MESFET limit V<sub>GS</sub> by SPICE3's rule
   for a FET's gate (`core::limit_fet_gate_step`, V<sub>GD</sub> in reverse
   mode) and V<sub>DS</sub> by the drain rule; an iterate that a limited stamp produced is not accepted as
-  converged (`any_device_limited`).
+  converged (`any_device_limited`). The voltages they limit from are part
+  of the state that `reset_state`, `save_state` and `restore_state`
+  handle.
 - **DC sweep.** A nested `.DC` has the first source as the inner loop
   ([NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.md), rule 4). The points
   are solved one after another; each starts from the initial guess, not
@@ -346,7 +360,8 @@ off by default).
 ## Transient analysis
 
 `TransientSolver::solve` (`src/solvers/transient_solver.cpp`) applies the
-temperature, finds the starting point, and steps in time.
+circuit temperature (27 °C by default), finds the starting point, and
+steps in time.
 
 - **Start.** With `UIC`, `initialize_uic_mode` starts from `.IC` and the
   `IC=` of capacitors and inductors (`apply_initial_condition`);
@@ -358,12 +373,13 @@ temperature, finds the starting point, and steps in time.
   TR-BDF2, chosen with `.OPTIONS METHOD=`. Each device's
   `stamp_transient` writes the companion model of the method, except that
   the SiC MOSFET, GaN HEMT, VDMOS, FinFET and MESFET integrate their
-  capacitances by backward Euler whatever the method, and the IGBT does so
-  under the
-  trapezoidal method ([KNOWN_ISSUES](../KNOWN_ISSUES.md#device-models)).
+  capacitances by backward Euler whatever the method
+  ([KNOWN_ISSUES](../KNOWN_ISSUES.md#device-models)). The diode, BJT,
+  BSIM3, BSIM4 and IGBT integrate theirs through
+  `device_utils::capacitor_companion`.
 - **Fixed steps, the path the program uses.** The step is the shorter of
   TSTEP and TMAX (`main.cpp`; the parser sets TMAX to TSTEP when it is
-  absent). `run_timestepping_loop` ends a segment at each source
+  absent or 0). `run_timestepping_loop` ends a segment at each source
   breakpoint (`Waveform::breakpoints`: the corners of `PULSE`, the points
   of `PWL`, the delays of `SIN` and `EXP`), so a point lies on each; the
   steps then return to the grid, and the integration restarts there with
@@ -390,8 +406,10 @@ temperature, finds the starting point, and steps in time.
 - **Accepting a step.** `accept_timestep_solution` passes the node
   voltages, with ground as element 0, to every device's `accept_solution`;
   mutual inductances are accepted last, after their inductors.
-- **TR-BDF2** takes a trapezoidal stage over γ·Δt (γ = 2 − √2) and a BDF2
-  stage to Δt.
+- **TR-BDF2** takes a trapezoidal stage over γ·Δt (γ = 2 − √2), with the
+  sources at t + γ·Δt, and a BDF2 stage to Δt. The transmission lines
+  ignore the accept of the first stage, so their clock stays on the time
+  points.
 
 ## AC analysis
 
@@ -428,14 +446,14 @@ its own solver. The inputs are the sources written with `AC`
 | --- | --- | --- |
 | Fourier (`.FOUR`) | `FourierAnalyzer`, called by the transient solver | yes, with `.TRAN` |
 | Temperature sweep (`.TEMP`) | `solve_temp_sweep` of the DC and transient solvers | `.TEMP` is, but not through these functions: the program runs the analyses once per `.TEMP` value itself (`run_analyses` in `main.cpp`) |
-| Noise | `NoiseSolver`, adjoint method over `get_noise_sources` | no; there is no `.NOISE` |
+| Noise | `NoiseSolver`, adjoint method over `get_noise_sources`, at the frequencies of the AC sweep (`solvers::ac_frequency_points`) | no; there is no `.NOISE` |
 | Sensitivity | `SensitivityAnalyzer`, finite differences through `set_parameter` | no; `.SENS` is parsed |
 | Transfer function | `TransferFunctionSolver`, finite differences on the input source | no; `.TF` is parsed |
 | Pole-zero | `PoleZeroSolver`, a placeholder | no; `.PZ` is parsed |
 | Distortion | `DistortionSolver`, ratios of small-signal magnitudes | no; `.DISTO` is parsed |
 | S-parameters | `SParameterSolver`, with `TouchstoneWriter` | no; `.PORT` is parsed |
 | Parameter sweep (`.STEP`) | `ParameterSweepExecutor`, which parses the netlist again per point | no; `.STEP` is parsed |
-| Monte Carlo, worst case | `MonteCarloExecutor`, `WCaseAnalyzer` (`src/analysis`) | no |
+| Monte Carlo, worst case | `MonteCarloExecutor`, each run seeded by `run_seed` from the base seed and the run; `WCaseAnalyzer`, whose nominal is the all-typical case (`src/analysis`) | no |
 | Optimization, BSIM4 extraction | `CircuitOptimizer`, `BSIM4ParameterExtractor`, with NLopt | no |
 | Measurements | `MeasureEngine` (`src/measure`) | no; `.MEASURE` is ignored with a warning |
 
@@ -451,6 +469,10 @@ lists the directives the program parses but does not run.
   simplified functions instead, and so does `BSIM4ParameterExtractor`.
   The SiC MOSFET, the GaN HEMT and the VDMOS evaluate their current in one
   `drain_current` for DC, AC and noise, and the IGBT in `collector_current`.
+- **The capacitor, the inductor and the mutual inductance write their
+  own companion formulas** instead of `device_utils::capacitor_companion`,
+  which the diode, the BJT, BSIM3, BSIM4 and the IGBT take; the numbers
+  are the same ([KNOWN_ISSUES](../KNOWN_ISSUES.md#source-code)).
 - **Temperature is applied type by type** in
   `apply_temperature_to_devices`, which skips the types it does not list
   (see [Devices](#devices)).
