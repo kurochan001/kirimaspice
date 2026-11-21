@@ -159,8 +159,10 @@ Real CircuitOptimizer::evaluate_objective(const std::vector<Real>& params) {
                     if (close_paren != std::string::npos) {
                         std::string node_name = measure_name.substr(2, close_paren - 2);
                         auto node_id = circuit_.get_node_id(node_name);
-                        if (node_id != NODE_INVALID && node_id < final_tp.node_voltages.size()) {
-                            objective_value = final_tp.node_voltages[node_id];
+                        // node_voltages leaves ground out: node k is element k - 1
+                        if (node_id != NODE_INVALID && node_id > 0 &&
+                            static_cast<std::size_t>(node_id - 1) < final_tp.node_voltages.size()) {
+                            objective_value = final_tp.node_voltages[node_id - 1];
                         }
                     }
                 }

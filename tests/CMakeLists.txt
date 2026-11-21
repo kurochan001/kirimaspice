@@ -1160,6 +1160,10 @@ add_executable(test_optimizer unit/test_optimizer.cpp)
 target_link_libraries(test_optimizer PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_optimizer PROPERTIES TIMEOUT 1200)
 
+add_executable(test_optimizer_tran_objective unit/test_optimizer_tran_objective.cpp)
+target_link_libraries(test_optimizer_tran_objective PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_optimizer_tran_objective PROPERTIES TIMEOUT 1200)
+
 # BSIM4 parameter extraction
 add_executable(test_bsim4_parameter_extractor unit/test_bsim4_parameter_extractor.cpp)
 target_link_libraries(test_bsim4_parameter_extractor PRIVATE kirimaspice_lib GTest::gtest_main)
