@@ -144,28 +144,6 @@ bool KLUSolver::update_csc_inplace(const SparseMatrix& matrix, bool verify_patte
         spdlog::debug("Converted COO to CSC: n={}, nnz={}", n_, values_.size());
     }
 
-    // Disable static counter in OpenMP builds to avoid data race
-    // thread_local provides thread safety even with pthreads.
-    // The #if !defined(_OPENMP) guard completely disables this debug code in parallel builds.
-    // Debug: dump CSC row 3 (collector equation) at iter 1 - ALL columns including branches
-#if !defined(_OPENMP)
-    thread_local static int iter_count = 0;
-    if (n_ == 6 && iter_count == 1) {
-        spdlog::trace("=== CSC Format (Row 3 entries, ALL 6 columns, Iter 1) ===");
-        std::uint32_t target_row = 3;
-        spdlog::trace("Searching for row {} across all {} columns", target_row, n_);
-        for (std::uint32_t col = 0; col < n_; ++col) {
-            std::size_t start = static_cast<std::size_t>(col_ptr_[col]);
-            std::size_t end = static_cast<std::size_t>(col_ptr_[col + 1]);
-            for (std::size_t idx = start; idx < end; ++idx) {
-                if (static_cast<std::uint32_t>(row_idx_[idx]) == target_row) {
-                    spdlog::trace("  G[{}][{}] = {:.6e}", target_row, col, values_[idx]);
-                }
-            }
-        }
-    }
-    if (n_ == 6) iter_count++;
-#endif
 
     return true;
 }
@@ -327,18 +305,6 @@ bool KLUSolver::solve(const DenseVector& b, DenseVector& x) {
     // Copy RHS to solution (KLU solves in-place)
     std::copy(b.begin(), b.end(), x.begin());
 
-    // Disable static counter in OpenMP builds to avoid data race
-    // Debug: dump b vector at iter 1
-#if !defined(_OPENMP)
-    thread_local static int solve_count = 0;
-    if (n_ == 6 && solve_count == 1) {
-        spdlog::trace("=== KLU solve() b vector (Iter 1) ===");
-        for (std::size_t i = 0; i < std::min(b.size(), size_t(6)); ++i) {
-            spdlog::trace("  b[{}] = {:.6e}", i, b[i]);
-        }
-    }
-    if (n_ == 6) solve_count++;
-#endif
 
     // Solve Ax = b
     int status = klu_solve(symbolic_, numeric_, n_, 1, x.data(), &common_);
