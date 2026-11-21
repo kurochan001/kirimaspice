@@ -154,6 +154,14 @@ public:
     /// Accept solution for transient analysis (updates voltage history)
     void accept_solution(const DenseVector& node_voltages) override;
 
+    /// The transient history (MOSFET_Base) and the voltages of the last
+    /// evaluation, from which the step limiting starts: save_state and
+    /// restore_state carry both, reset_state sets both to their initial
+    /// values, the limiting then starting from 0 V as for a new device
+    void save_state() override;
+    void restore_state() override;
+    void reset_state() override;
+
     /// Limiting of VGS (core::limit_fet_gate_step) and VDS
     /// (core::limit_fet_drain_step) between Newton iterations, as SPICE's
     /// level 1 does; on by default
@@ -222,6 +230,8 @@ private:
     bool enable_voltage_limiting_ = true;
     mutable Real vgs_last_eval_ = 0.0;   // VGS_eff of the last Newton evaluation
     mutable Real vds_last_eval_ = 0.0;   // VDS_eff of the last Newton evaluation
+    Real vgs_last_eval_saved_ = 0.0;     // the two at save_state
+    Real vds_last_eval_saved_ = 0.0;
     mutable bool limited_in_last_stamp_ = false;
     Real phi_tnom_ = 0.6;        // PHI [V] of the card, at TNOM
     Real phi_ = 0.6;             // PHI [V] at the present temperature

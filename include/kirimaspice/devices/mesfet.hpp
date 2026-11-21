@@ -305,7 +305,23 @@ public:
         charge_gd_prev_ = 0.0;
         charge_ds_prev_ = 0.0;
         first_accept_ = true;
+        // The step limiting starts from 0 V again, as for a new device
+        ctrl_last_eval_ = ds_last_eval_ = 0.0;
+        ctrl_last_eval_saved_ = ds_last_eval_saved_ = 0.0;
+        limited_in_last_stamp_ = false;
         spdlog::trace("MESFET_{} {}: State reset", polarity_char(), this->name());
+    }
+
+    // The voltages of the last evaluation, from which the step limiting
+    // starts, go with the state that a rejected step restores
+    void save_state() override {
+        ctrl_last_eval_saved_ = ctrl_last_eval_;
+        ds_last_eval_saved_ = ds_last_eval_;
+    }
+
+    void restore_state() override {
+        ctrl_last_eval_ = ctrl_last_eval_saved_;
+        ds_last_eval_ = ds_last_eval_saved_;
     }
 
     void accept_solution(const DenseVector& node_voltages) override {
@@ -575,6 +591,8 @@ private:
     bool enable_voltage_limiting_ = true;
     mutable Real ctrl_last_eval_ = 0.0;  // v_ctrl of the last Newton evaluation
     mutable Real ds_last_eval_ = 0.0;    // v_ds of the last Newton evaluation
+    Real ctrl_last_eval_saved_ = 0.0;    // the two at save_state
+    Real ds_last_eval_saved_ = 0.0;
     mutable bool limited_in_last_stamp_ = false;
     mutable Real v_gs_prev_ = 0.0;
     mutable Real v_gd_prev_ = 0.0;

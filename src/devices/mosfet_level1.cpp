@@ -641,6 +641,28 @@ std::vector<NoiseSource> MOSFET_Level1<P>::get_noise_sources(const DenseVector& 
 }
 
 template<Polarity P>
+void MOSFET_Level1<P>::save_state() {
+    MOSFET_Base::save_state();
+    vgs_last_eval_saved_ = vgs_last_eval_;
+    vds_last_eval_saved_ = vds_last_eval_;
+}
+
+template<Polarity P>
+void MOSFET_Level1<P>::restore_state() {
+    MOSFET_Base::restore_state();
+    vgs_last_eval_ = vgs_last_eval_saved_;
+    vds_last_eval_ = vds_last_eval_saved_;
+}
+
+template<Polarity P>
+void MOSFET_Level1<P>::reset_state() {
+    MOSFET_Base::reset_state();
+    vgs_last_eval_ = vds_last_eval_ = 0.0;
+    vgs_last_eval_saved_ = vds_last_eval_saved_ = 0.0;
+    limited_in_last_stamp_ = false;
+}
+
+template<Polarity P>
 void MOSFET_Level1<P>::accept_solution(const DenseVector& node_voltages) {
     const int nd_idx = (nodes_[0] == NODE_GND) ? -1 : static_cast<int>(nodes_[0]);
     const int ng_idx = (nodes_[1] == NODE_GND) ? -1 : static_cast<int>(nodes_[1]);

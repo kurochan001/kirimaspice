@@ -1377,6 +1377,11 @@ add_executable(test_mosfet_level1_temperature unit/test_mosfet_level1_temperatur
 target_link_libraries(test_mosfet_level1_temperature PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_mosfet_level1_temperature)
 
+# The step limiting's last evaluation is reset, saved and restored with the state
+add_executable(test_limiting_state unit/test_limiting_state.cpp)
+target_link_libraries(test_limiting_state PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_limiting_state)
+
 # The level 3 MOSFET against its published equations and ngspice-47
 add_executable(test_mosfet_level3_reference unit/test_mosfet_level3_reference.cpp)
 target_link_libraries(test_mosfet_level3_reference PRIVATE kirimaspice_lib GTest::gtest_main)
