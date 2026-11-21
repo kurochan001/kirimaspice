@@ -210,7 +210,8 @@ public:
         Real v_ctrl, v_ds;
         compute_effective_voltages(vd, vg, vs, v_ctrl, v_ds);
 
-        const Real id = compute_drain_current(v_ctrl, v_ds);
+        // The channel's noise in either direction
+        const Real id = std::abs(compute_drain_current(v_ctrl, v_ds));
 
         if (id < 1e-15) {
             return noise_sources;
@@ -218,7 +219,7 @@ public:
 
         const Real k_boltzmann = 1.380649e-23;
         const Real T = tnom_;
-        const Real gm = compute_transconductance(v_ctrl, v_ds);
+        const Real gm = std::abs(compute_transconductance(v_ctrl, v_ds));
 
         NoiseSource thermal_noise;
         thermal_noise.name = this->name() + "_thermal";
@@ -526,7 +527,18 @@ private:
     // device's own sign (+2 V by default, the mirror of -2 V)
     Real threshold() const { return polarity_sign * vto_; }
 
+    // The channel is symmetric, as SPICE's MESFET is: for v_ds < 0 the
+    // source acts as the drain, and the same current of the gate against the
+    // drain and of -v_ds flows from source to drain. gm and gds are taken
+    // from this function, so they follow in either direction.
     Real compute_drain_current(Real v_ctrl, Real v_ds) const {
+        if (v_ds < 0.0) {
+            return -compute_forward_drain_current(v_ctrl - v_ds, -v_ds);
+        }
+        return compute_forward_drain_current(v_ctrl, v_ds);
+    }
+
+    Real compute_forward_drain_current(Real v_ctrl, Real v_ds) const {
         return (model_ == MESFETModel::CURTICE) ?
                compute_drain_current_curtice(v_ctrl, v_ds) :
                compute_drain_current_statz(v_ctrl, v_ds);

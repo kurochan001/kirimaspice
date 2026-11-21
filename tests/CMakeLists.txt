@@ -1280,6 +1280,10 @@ add_executable(test_sic_reverse unit/test_sic_reverse.cpp)
 target_link_libraries(test_sic_reverse PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_sic_reverse PROPERTIES TIMEOUT 1200)
 
+add_executable(test_mesfet_reverse unit/test_mesfet_reverse.cpp)
+target_link_libraries(test_mesfet_reverse PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_mesfet_reverse PROPERTIES TIMEOUT 1200)
+
 add_executable(test_resistor_temperature unit/test_resistor_temperature.cpp)
 target_link_libraries(test_resistor_temperature PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_resistor_temperature PROPERTIES TIMEOUT 1200)
