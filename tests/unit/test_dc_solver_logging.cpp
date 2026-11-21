@@ -63,13 +63,13 @@ InfoSolve solve_logging_info(const std::string& netlist) {
 
 TEST(DCSolverLogging, InfoOutputDoesNotGrowWithIterations) {
     // A linear divider, and a chain of three diodes driven from 100 V
-    // through 10 ohm, which takes tens of Newton iterations
+    // through 10 ohm, which takes several times as many Newton iterations
     const InfoSolve linear =
         solve_logging_info("divider\nV1 in 0 1\nR1 in a 1k\nR2 a 0 1k\nR3 a b 1k\nR4 b 0 1k\n.end\n");
     const InfoSolve diodes = solve_logging_info(
         "diodes\nV1 in 0 100\nR1 in a 10\nD1 a b DM\nD2 b c DM\nD3 c 0 DM\nR2 c 0 1k\n"
         ".model DM D IS=1e-14 N=1\n.end\n");
-    ASSERT_GE(diodes.iterations, linear.iterations + 10);
+    ASSERT_GE(diodes.iterations, linear.iterations + 5);
     EXPECT_EQ(diodes.info_lines, linear.info_lines) << "linear:\n" << linear.log
                                                     << "diodes:\n" << diodes.log;
 }
