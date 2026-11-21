@@ -4,7 +4,9 @@
 // The DC solver starts Newton's method from zero, except at the nodes that
 // .NODESET names (DCSolver::initialize_solution); it guesses nothing from
 // the kinds of devices or how they are connected. So a .NODESET that gives
-// every node its solution is a converged start, whatever the devices are.
+// every node its solution is a converged start, whatever the devices are,
+// for the pass with the nodeset nodes held as for the pass that releases
+// them (each at most 2 iterations).
 
 #include <gtest/gtest.h>
 
@@ -47,7 +49,7 @@ TEST(DCInitialGuess, NodesetAtTheSolutionIsAConvergedStart) {
         DenseVector again;
         SolverStats again_stats;
         ASSERT_EQ(solver.solve(again, again_stats), ConvergenceStatus::SUCCESS);
-        EXPECT_LE(again_stats.total_iterations, 2u) << "from scratch: " << stats.total_iterations;
+        EXPECT_LE(again_stats.total_iterations, 4u) << "from scratch: " << stats.total_iterations;
     }
 }
 
