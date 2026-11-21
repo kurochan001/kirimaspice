@@ -62,6 +62,8 @@ public:
                         const BDFCoefficients* bdf_coef = nullptr,
                        const TR_BDF2_Coefficients* tr_bdf2_coef = nullptr) const override;
     void accept_solution(const DenseVector& node_voltages) override;
+    /// A new transient has stamped no step yet
+    void reset_state() override { stamped_ = false; }
 
     /// The coupled inductors take their DC currents themselves; the coupling
     /// integrates nothing at the operating point
@@ -117,12 +119,6 @@ private:
     const Device* L1_;
     const Device* L2_;
 
-    // Inductor voltages V_n of the previous time point that stamp_transient
-    // built the step on. accept_solution needs them after the inductors have
-    // already stored V_{n+1} as their previous voltage.
-    mutable Real stamped_v1_prev_ = 0.0;
-    mutable Real stamped_v2_prev_ = 0.0;
-
     // The coupled companion model of the last stamped step:
     // I1 = g11*V1 + g12*V2 + i1, I2 = g12*V1 + g22*V2 + i2, over a step dt.
     mutable bool stamped_ = false;
@@ -132,6 +128,14 @@ private:
     mutable Real stamped_i1_ = 0.0;
     mutable Real stamped_i2_ = 0.0;
     mutable Real stamped_dt_ = 0.0;
+    // What this device stamped of it, on top of each inductor's own
+    // companion: the diagonal conductances g11 - g_L1 and g22 - g_L2, the
+    // coupling stamped_g12_ and the history currents i1 - i_L1 and
+    // i2 - i_L2. accept_solution adds the current of these to the inductors.
+    mutable Real stamped_dg11_ = 0.0;
+    mutable Real stamped_dg22_ = 0.0;
+    mutable Real stamped_di1_ = 0.0;
+    mutable Real stamped_di2_ = 0.0;
 };
 
 } // namespace kirimaspice::devices

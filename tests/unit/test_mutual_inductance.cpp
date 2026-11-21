@@ -847,3 +847,64 @@ TEST(MutualInductanceTest, AcTransferMatchesTheCoupledEquations) {
         ac_result.frequency_points[0].solution[result.circuit->get_node_id("out") - 1];
     EXPECT_NEAR(std::abs(v2 - expected), 0.0, 1e-9 * std::abs(expected));
 }
+
+namespace {
+
+// V(p) and V(s) for a 1 V step at t0 through R into L1 (p-0), with L2 (s-0)
+// loaded by R and coupled by k, L1 = L2 = L, from rest. With
+// i = p (1, 1) + q (1, -1) the two modes decouple: L di/dt = e - R i gives
+// dp/dt = -a p + 1/(2 L (1 + k)) and dq/dt = -b q + 1/(2 L (1 - k)) with
+// a = R / (L (1 + k)) and b = R / (L (1 - k)), so with tau = t - t0
+//   V(p) = 1 - R i1 = (exp(-a tau) + exp(-b tau)) / 2,
+//   V(s) = -R i2 = (exp(-a tau) - exp(-b tau)) / 2.
+std::pair<Real, Real> symmetric_step(Real R, Real L, Real k, Real tau) {
+    if (tau <= 0.0) {
+        return {0.0, 0.0};
+    }
+    const Real ea = std::exp(-R / (L * (1.0 + k)) * tau);
+    const Real eb = std::exp(-R / (L * (1.0 - k)) * tau);
+    return {(ea + eb) / 2.0, (ea - eb) / 2.0};
+}
+
+// The largest error of V(p) and V(s) against symmetric_step after a step at
+// 10 us (the middle of its 1 ns rise), 10 ohm on both sides, k = 0.9
+Real worst_symmetric_step_error(const std::string& method) {
+    const std::string netlist =
+        "k step\nV1 in 0 PULSE(0 1 10u 1n 1n 1 2)\nR1 in p 10\nL1 p 0 1m\nL2 s 0 1m\n"
+        "K1 L1 L2 0.9\nR2 s 0 10\n.options method=" + method + "\n.end\n";
+    NetlistParser parser;
+    auto parsed = parser.parse_string(netlist);
+    TransientSolver solver(*parsed.circuit, parsed.config);
+    const auto result = solver.solve(0.0, 60e-6, 0.5e-6);
+    EXPECT_EQ(result.status, ConvergenceStatus::SUCCESS) << method;
+    if (result.status != ConvergenceStatus::SUCCESS) {
+        return std::numeric_limits<Real>::infinity();
+    }
+    const NodeId p = parsed.circuit->get_node_id("p");
+    const NodeId s = parsed.circuit->get_node_id("s");
+    Real worst = 0.0;
+    for (const auto& tp : result.timepoints) {
+        const auto [vp, vs] = symmetric_step(10.0, 1e-3, 0.9, tp.time - 10.0005e-6);
+        worst = std::max({worst, std::abs(tp.node_voltages[p - 1] - vp),
+                          std::abs(tp.node_voltages[s - 1] - vs)});
+    }
+    std::cout << "[symmetric step] " << method << " worst=" << worst << std::endl;
+    return worst;
+}
+
+}  // namespace
+
+// The inductors accept the currents of the coupled companion that was
+// stamped (MutualInductance::accept_solution adds what it stamped to each
+// inductor's own), for every method, for both stages of TR-BDF2, and on the
+// backward-Euler step after the corner of the source. L1 = L2 = 1 mH,
+// k = 0.9 and 10 ohm on both sides give a = 5263 /s and b = 1e5 /s, so a
+// step of 0.5 us is b h = 0.05; the backward-Euler step after the corner
+// errs by about (b h)^2 / 2 of 0.5 V, 6e-4 V, and backward Euler
+// throughout by about b h / 2 of 0.5 V.
+TEST(MutualInductanceTransient, AcceptsTheStampedCompanionWithEveryMethod) {
+    for (const std::string method : {"trap", "gear", "gear3", "tr_bdf2"}) {
+        EXPECT_LT(worst_symmetric_step_error(method), 2e-3) << method;
+    }
+    EXPECT_LT(worst_symmetric_step_error("euler"), 2e-2);
+}

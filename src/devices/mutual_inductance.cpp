@@ -219,10 +219,6 @@ void MutualInductance::stamp_transient(MNASystem& mna,
         if (row >= 0) mna.b[static_cast<std::size_t>(row)] += val;
     };
 
-    // The step is built on V_n; accept_solution uses the same values.
-    stamped_v1_prev_ = ind1->voltage_prev();
-    stamped_v2_prev_ = ind2->voltage_prev();
-
     // history currents from inductor states (include cross-history for coupled model)
     Real i1_prev = ind1->current_prev();
     Real i2_prev = ind2->current_prev();
@@ -231,11 +227,14 @@ void MutualInductance::stamp_transient(MNASystem& mna,
     Real i1_prev3 = need_hist3 ? ind1->current_prev3() : 0.0;
     Real i2_prev3 = need_hist3 ? ind2->current_prev3() : 0.0;
 
-    // TR-BDF2 stage2 uses gamma current/voltage for alpha1 term if available
+    // TR-BDF2's second stage: alpha1 multiplies I(t + gamma h) and alpha2
+    // I(t), as in Inductor::stamp_transient
     if (method == IntegrationMethod::TR_BDF2 && tr_bdf2_coef) {
         if (tr_bdf2_coef->stage == 2) {
             i1_prev = ind1->current_gamma();
             i2_prev = ind2->current_gamma();
+            i1_prev2 = ind1->current_prev();
+            i2_prev2 = ind2->current_prev();
         }
     }
 
@@ -299,6 +298,10 @@ void MutualInductance::stamp_transient(MNASystem& mna,
     stamped_i2_ = i2_target;
     stamped_dt_ = (method == IntegrationMethod::TR_BDF2 && tr_bdf2_coef) ? tr_bdf2_coef->full_dt
                                                                          : timestep;
+    stamped_dg11_ = delta_g1;
+    stamped_dg22_ = delta_g2;
+    stamped_di1_ = delta_i1;
+    stamped_di2_ = delta_i2;
 }
 
 Real MutualInductance::get_physical_lte(Real chgtol, const DenseVector& node_voltages) const {
@@ -334,92 +337,24 @@ Real MutualInductance::get_physical_lte(Real chgtol, const DenseVector& node_vol
                     Inductor::flux_lte(phi2_pred, phi2_corr, chgtol));
 }
 
-// After each accepted timestep, recompute coupled inductor currents to keep history
-// consistent with the coupled companion model.
+// Each inductor has accepted the current of its own companion
+// (Inductor::accept_solution); the solution also carries the current that
+// this device stamped on top of it (stamp_transient), which is added here.
+// The two together are the coupled companion of the step, the same model
+// as get_physical_lte evaluates, for every method and stage.
 void MutualInductance::accept_solution(const DenseVector& node_voltages) {
-    if (!L1_ || !L2_) return;
+    if (!L1_ || !L2_ || !stamped_) return;  // no step stamped (the start under UIC)
     auto* ind1 = const_cast<Inductor*>(dynamic_cast<const Inductor*>(L1_));
     auto* ind2 = const_cast<Inductor*>(dynamic_cast<const Inductor*>(L2_));
     if (!ind1 || !ind2) return;
 
-    // Node voltages (MNA includes GND at index 0)
-    auto node_v = [&](NodeId n) -> Real {
-        // node_voltages is 1-based (index 0 = GND) to align with NodeId.
-        return (n == NODE_GND) ? 0.0 : node_voltages[n];
-    };
+    // node_voltages is indexed by node id (index 0 = ground)
+    auto node_v = [&](NodeId n) { return (n == NODE_GND) ? 0.0 : node_voltages[n]; };
+    const Real v1 = node_v(ind1->np()) - node_v(ind1->nn());
+    const Real v2 = node_v(ind2->np()) - node_v(ind2->nn());
 
-    Real v1 = node_v(ind1->np()) - node_v(ind1->nn());
-    Real v2 = node_v(ind2->np()) - node_v(ind2->nn());
-
-    Real L1 = ind1->inductance();
-    Real L2 = ind2->inductance();
-    Real M = mutual_inductance();
-    Real det = L1 * L2 - M * M;
-    Real k_eff = std::abs(M) / std::sqrt(std::max(Real(1e-30), L1 * L2));
-    Real det_guard = (1e-9 + 0.1 * (1.0 - k_eff)) * L1 * L2;
-    if (det <= det_guard) return;
-
-    // Use last_timestep from inductors
-    Real dt = ind1->last_timestep();
-    if (dt <= 0.0) return;
-    IntegrationMethod m = ind1->last_method(); // assume both inductors share the same method
-
-    // Effective coefficients consistent with stamp_transient
-    Real alpha0 = 1.0, alpha1 = -1.0, alpha2 = 0.0, alpha3 = 0.0;
-    Real beta0  = dt;
-
-    if (ind1->use_bdf_var()) {
-        alpha0 = ind1->bdf_alpha0();
-        beta0  = ind1->bdf_beta0();
-    } else if (m == IntegrationMethod::TR_BDF2) {
-        // Stage is tracked inside inductor
-        int stage = ind1->tr_bdf2_stage();
-        if (stage == 1) {
-            beta0 = 0.5 * dt;
-            alpha0 = 1.0; alpha1 = -1.0; alpha2 = alpha3 = 0.0;
-        } else {
-            // Modified BDF2 coefficients: α0,α1,α2 saved in bdf fields when stamped
-            alpha0 = ind1->bdf_alpha0();
-            beta0  = ind1->bdf_beta0() * dt; // bdf_beta0 is normalized; stamp used β0*Δt
-        }
-    } else if (m == IntegrationMethod::GEAR2) {
-        alpha0 = 1.5; alpha1 = -2.0; alpha2 = 0.5; alpha3 = 0.0; beta0 = dt;
-    } else if (m == IntegrationMethod::GEAR3) {
-        alpha0 = 11.0/6.0; alpha1 = -3.0; alpha2 = 1.5; alpha3 = -1.0/3.0; beta0 = dt;
-    } else if (m == IntegrationMethod::TRAPEZOIDAL) {
-        alpha0 = 1.0; alpha1 = -1.0; alpha2 = alpha3 = 0.0; beta0 = 0.5 * dt;
-    } else { // BACKWARD_EULER and default
-        alpha0 = 1.0; alpha1 = -1.0; alpha2 = alpha3 = 0.0; beta0 = dt;
-    }
-
-    Real scale = beta0 / alpha0;
-    Real di1_dt_coupled = ( L2 * v1 - M * v2) / det;
-    Real di2_dt_coupled = (-M * v1 + L1 * v2) / det;
-    Real di1_dt_uncoupled = v1 / L1;
-    Real di2_dt_uncoupled = v2 / L2;
-
-    // ΔI = (β0/α0) * (dI/dt_coupled - dI/dt_uncoupled)
-    Real delta_i1 = scale * (di1_dt_coupled - di1_dt_uncoupled);
-    Real delta_i2 = scale * (di2_dt_coupled - di2_dt_uncoupled);
-
-    // For trapezoidal (and TR-BDF2 stage1), add previous-voltage term
-    if (m == IntegrationMethod::TRAPEZOIDAL ||
-        (m == IntegrationMethod::TR_BDF2 && ind1->tr_bdf2_stage() == 1)) {
-        // V_n of the step: the inductors have already replaced their own
-        // previous voltage with V_{n+1}.
-        Real v1_prev = stamped_v1_prev_;
-        Real v2_prev = stamped_v2_prev_;
-        Real g11_target = scale * L2 / det;
-        Real g22_target = scale * L1 / det;
-        Real g12 = -scale * M / det;
-        Real gL1 = scale / L1;
-        Real gL2 = scale / L2;
-        delta_i1 += (g11_target - gL1) * v1_prev + g12 * v2_prev;
-        delta_i2 += g12 * v1_prev + (g22_target - gL2) * v2_prev;
-    }
-
-    ind1->add_current_delta(delta_i1);
-    ind2->add_current_delta(delta_i2);
+    ind1->add_current_delta(stamped_dg11_ * v1 + stamped_g12_ * v2 + stamped_di1_);
+    ind2->add_current_delta(stamped_g12_ * v1 + stamped_dg22_ * v2 + stamped_di2_);
 }
 
 MutualInductance::InverseInductance MutualInductance::inverse_inductance() const {

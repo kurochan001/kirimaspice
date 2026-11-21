@@ -137,18 +137,15 @@ public:
     Real last_timestep() const { return last_timestep_; }
     IntegrationMethod last_method() const { return last_method_; }
     int tr_bdf2_stage() const { return tr_bdf2_stage_; }
-    // Apply delta to current and keep flux consistent
+    /// Add a coupling's current (MutualInductance::accept_solution) to the
+    /// point the last accept_solution recorded: the gamma point after the
+    /// first stage of TR-BDF2, the new time point otherwise
     void add_current_delta(Real delta);
     void set_current_prev(Real i) { current_prev_ = i; }
     void set_current_prev2(Real i) { current_prev2_ = i; }
     void set_current_prev3(Real i) { current_prev3_ = i; }
     void set_voltage_prev(Real v) { voltage_prev_ = v; }
     void set_coupled(bool c) { is_coupled_ = c; }
-
-    // BDF state accessors for MutualInductance correction
-    bool use_bdf_var() const { return use_bdf_var_; }
-    Real bdf_alpha0() const { return bdf_alpha0_; }
-    Real bdf_beta0() const { return bdf_beta0_; }
 
 private:
     std::optional<Real> initial_current_;  // IC= (A)

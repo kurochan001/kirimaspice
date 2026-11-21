@@ -281,6 +281,12 @@ void Inductor::restore_state() {
 }
 
 void Inductor::add_current_delta(Real delta) {
+    // accept_solution of TR-BDF2's first stage records I(t + gamma h) and
+    // keeps I(t) for the second stage
+    if (last_method_ == IntegrationMethod::TR_BDF2 && tr_bdf2_stage_ == 1) {
+        current_gamma_ += delta;
+        return;
+    }
     current_prev_ += delta;
     flux_ += inductance_ * delta;  // keep flux consistent
 }
