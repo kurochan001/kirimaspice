@@ -285,12 +285,16 @@ BSIM4Capacitances BSIM4Core::compute_capacitances(Real vg, Real vd, Real vs, Rea
     cbs += compute_cj(cj0_sw_s, vbs_raw, params_.pbsws, params_.mjsws);
     cbs += compute_cj(cj0_swg_s, vbs_raw, params_.pbswgs, params_.mjswgs);
 
+    // M devices in parallel carry M times every capacitance, as they carry
+    // M times the current (evaluate's mult_current); the NF fingers are in
+    // weff already
+    const Real m = std::max(params_.m, 1.0);
     BSIM4Capacitances caps;
-    caps.cgs = cgs;
-    caps.cgd = cgd;
-    caps.cgb = cgb;
-    caps.cbd = cbd;
-    caps.cbs = cbs;
+    caps.cgs = m * cgs;
+    caps.cgd = m * cgd;
+    caps.cgb = m * cgb;
+    caps.cbd = m * cbd;
+    caps.cbs = m * cbs;
     return caps;
 }
 

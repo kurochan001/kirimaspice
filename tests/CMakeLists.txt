@@ -1280,6 +1280,10 @@ add_executable(test_sic_reverse unit/test_sic_reverse.cpp)
 target_link_libraries(test_sic_reverse PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_sic_reverse PROPERTIES TIMEOUT 1200)
 
+add_executable(test_bsim4_multiplier_capacitance unit/test_bsim4_multiplier_capacitance.cpp)
+target_link_libraries(test_bsim4_multiplier_capacitance PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_bsim4_multiplier_capacitance PROPERTIES TIMEOUT 1200)
+
 add_executable(test_gan_hemt_reverse unit/test_gan_hemt_reverse.cpp)
 target_link_libraries(test_gan_hemt_reverse PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_gan_hemt_reverse PROPERTIES TIMEOUT 1200)
