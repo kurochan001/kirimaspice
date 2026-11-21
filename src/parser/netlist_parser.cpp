@@ -5672,9 +5672,17 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
         bsim4_params.mult_i = mult_i;
         bsim4_params.mult_q = mult_q;
         bsim4_params.mult_fn = mult_fn;
-        // NF, M, AS, AD, PS, PD, NRD and NRS of the element line
-        for (const auto& [key, value] : instance_params) {
-            devices::set_bsim4_instance_parameter(bsim4_params, key, value);
+        // W, L, NF, M, AS, AD, PS, PD, NRD, NRS and the MULT_ multipliers of
+        // the element line (set_bsim4_instance_parameter); any other token is
+        // not used, and is named in a warning, as on a level-1 line
+        for (size_t i = param_start_idx; i < tokens.size(); ++i) {
+            const size_t eq_pos = tokens[i].find('=');
+            std::string key = tokens[i].substr(0, eq_pos);
+            std::transform(key.begin(), key.end(), key.begin(), ::tolower);
+            if (eq_pos == std::string::npos ||
+                !devices::set_bsim4_instance_parameter(bsim4_params, key, instance_params.at(key))) {
+                spdlog::warn("Line {}: {}: '{}' is not used", state.line_number, dev_name, tokens[i]);
+            }
         }
 
         bsim4_params.compute_derived_params(bsim4_params.tnom);

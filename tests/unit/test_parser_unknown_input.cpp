@@ -160,3 +160,16 @@ TEST(ParserUnknownInput, Bsim4JunctionNamesAreNotNamedAsUnused) {
     }
     EXPECT_EQ(count(warnings, "BSIM4 model NB: jss is not used"), 1u) << warnings;
 }
+
+// The BSIM4 element line takes W, L, NF, M, AS, AD, PS, PD, NRD, NRS and the
+// MULT_ multipliers (set_bsim4_instance_parameter); another token is named as
+// on a level-1 line. ngspice-47 (run 2026-11-21) stops on FOO=3 with
+// "unknown parameter (foo)".
+TEST(ParserUnknownInput, UnusedElementLineNamesOfBsim4AreNamed) {
+    const std::string bsim4 = parse_warnings(
+        "t\nVD d 0 1\nM1 d d 0 0 NB W=1u L=0.1u NF=2 M=2 AS=1p FOO=3 bar\n"
+        ".model NB NMOS LEVEL=14\n.end\n");
+    EXPECT_EQ(count(bsim4, "M1: 'FOO=3' is not used"), 1u) << bsim4;
+    EXPECT_EQ(count(bsim4, "M1: 'bar' is not used"), 1u) << bsim4;
+    EXPECT_EQ(count(bsim4, "' is not used"), 2u) << bsim4;
+}
