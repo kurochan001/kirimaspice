@@ -96,8 +96,8 @@ running ngspice-47 and removed by following ngspice, as
 [NETLIST_CONVENTIONS.md](docs/spec/NETLIST_CONVENTIONS.md) sets out; that
 document also lists differences not decided there.
 
-- **`B` sources have no `I(<source>)` and cannot read `.PARAM` names:**
-  an expression with either is an error (`Undefined symbol`).
+- **`B` sources have no `I(<source>)`:** an expression with it is an
+  error (`Undefined symbol`).
 - **Scale factors are not accepted in expressions, with or without
   braces, or in `.OPTIONS` values** (there the option is ignored with a
   warning). A `.PARAM` value without braces that is not a number is read

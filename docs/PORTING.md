@@ -102,7 +102,7 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
   over `TSTEP`, so its result depends on `TSTEP` (0.6131 V where the ideal
   step gives 0.6321 V for `PULSE(0 1 0 0 0 1m 2m)` into 1 kΩ and 1 µF at
   1 ms). Give the rise you mean when the two must agree.
-- [ ] **`B` expressions cannot use `I(...)` or `.PARAM` names**
+- [ ] **`B` expressions cannot use `I(...)`**
   ([KNOWN_ISSUES](../KNOWN_ISSUES.md#netlist-input)).
 
 ### Subcircuits and parameters

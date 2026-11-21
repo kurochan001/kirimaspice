@@ -276,3 +276,21 @@ TEST(BehavioralSource, VoltageBetweenTwoNodesInsideASubcircuit) {
     ASSERT_EQ(solver.solve(solution, stats), kirimaspice::ConvergenceStatus::SUCCESS);
     EXPECT_NEAR(solution[result.circuit->get_node_id("c") - 1], 3.0, 1e-9);
 }
+
+// A B source reads the global .PARAM names, in any case, as ngspice-47
+// does; the argument of V( is a node, also one with a parameter's name.
+// With .param g=2 a=0.5 k=1m and V(a) = 1 V, V={g*V(a)+a*sin(0)+k*1000}
+// gives 3 V and V={exp(A)*1e-1} 0.164872 V in ngspice-47 (run
+// 2026-11-21). Before, the names were undefined symbols.
+TEST(BehavioralSourceParams, GlobalParamsAreRead) {
+    kirimaspice::parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "t\n.param g=2 a=0.5 k=1m\nV1 a 0 1\nB1 b 0 V={g*V(a)+a*sin(0)+k*1000}\nR1 b 0 1k\n"
+        "B2 c 0 V={exp(A)*1e-1}\nR2 c 0 1k\n.end\n");
+    kirimaspice::solvers::DCSolver solver(*parsed.circuit, parsed.config);
+    kirimaspice::DenseVector x;
+    kirimaspice::SolverStats stats;
+    ASSERT_EQ(solver.solve(x, stats), kirimaspice::ConvergenceStatus::SUCCESS);
+    EXPECT_NEAR(x[parsed.circuit->get_node_id("b") - 1], 3.0, 1e-9);
+    EXPECT_NEAR(x[parsed.circuit->get_node_id("c") - 1], 0.1 * std::exp(0.5), 1e-9);
+}

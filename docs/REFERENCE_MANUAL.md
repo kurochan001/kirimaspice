@@ -271,8 +271,9 @@ element line, without regard to case (`V(A)` and `V(a)` are one node, and
 `V(n.1)` is a node), `V(<n1>,<n2>)`, which is V(n1) − V(n2) at the top
 level and inside subcircuits (either node may be ground),
 `TIME`, `pi` (not `e`) and
-ExprTk's built-in functions; `.PARAM` names and `I(<source>)` are not
-available. `TIME` is the time of the transient, and 0 in the operating
+ExprTk's built-in functions, and the global `.PARAM` names, in any case,
+as in ngspice-47 (the argument of `V(` stays a node, also one with a
+parameter's name); `I(<source>)` is not available. `TIME` is the time of the transient, and 0 in the operating
 point (also in the one that starts a transient). An expression that
 cannot be compiled is an error at the `B` line. Both forms work in the
 operating point, the transient and AC; in AC analysis a `B` source is its
