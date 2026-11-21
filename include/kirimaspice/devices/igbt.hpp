@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <optional>
 #include <spdlog/spdlog.h>
 
 namespace kirimaspice::devices {
@@ -148,11 +149,6 @@ public:
                          IntegrationMethod method,
                          const BDFCoefficients* bdf_coef = nullptr,
                          const TR_BDF2_Coefficients* tr_bdf2_coef = nullptr) const override {
-        (void)bdf_coef;
-        (void)tr_bdf2_coef;
-
-        Real dt = timestep;
-
         // The collector current as in DC, with the tail current after a
         // turn-off (stamp_collector_current)
         const Real ic = stamp_collector_current(mna, node_voltages, true);
@@ -166,70 +162,24 @@ public:
         auto ng_idx = (gate_ == NODE_GND) ? -1 : static_cast<int>(gate_ - 1);
         auto ne_idx = (emitter_ == NODE_GND) ? -1 : static_cast<int>(emitter_ - 1);
 
-        // Gate-Emitter capacitance companion model
-        Real dvge_dt = 0.0;
-        if (method == IntegrationMethod::BACKWARD_EULER) {
-            dvge_dt = (vge - vge_prev_) / dt;
-        } else if (method == IntegrationMethod::TRAPEZOIDAL) {
-            dvge_dt = (vge - vge_prev_) / dt;
-        } else if (method == IntegrationMethod::GEAR2) {
-            dvge_dt = (1.5 * vge - 2.0 * vge_prev_ + 0.5 * vge_prev2_) / dt;
-        } else if (method == IntegrationMethod::GEAR3) {
-            dvge_dt = (11.0/6.0 * vge - 3.0 * vge_prev_ + 1.5 * vge_prev2_ - 1.0/3.0 * vge_prev3_) / dt;
-        }
-
-        Real i_cge = cge_ * dvge_dt;
-        Real g_cge = cge_ / dt;
-        Real ieq_cge = i_cge - g_cge * vge;
-
-        // Stamp Cge (Gate-Emitter capacitance)
-        // Note: For P-channel, the capacitance stamps are the same (between physical nodes)
-        if (ng_idx >= 0) {
-            mna.G.add_entry(ng_idx, ng_idx, g_cge);
-            if (ne_idx >= 0) {
-                mna.G.add_entry(ng_idx, ne_idx, -g_cge);
-            }
-            mna.b[ng_idx] -= polarity_sign * ieq_cge;
-        }
-        if (ne_idx >= 0) {
-            mna.G.add_entry(ne_idx, ne_idx, g_cge);
-            if (ng_idx >= 0) {
-                mna.G.add_entry(ne_idx, ng_idx, -g_cge);
-            }
-            mna.b[ne_idx] += polarity_sign * ieq_cge;
-        }
-
-        // Collector-Emitter capacitance companion model
-        Real dvce_dt = 0.0;
-        if (method == IntegrationMethod::BACKWARD_EULER) {
-            dvce_dt = (vce - vce_prev_) / dt;
-        } else if (method == IntegrationMethod::TRAPEZOIDAL) {
-            dvce_dt = (vce - vce_prev_) / dt;
-        } else if (method == IntegrationMethod::GEAR2) {
-            dvce_dt = (1.5 * vce - 2.0 * vce_prev_ + 0.5 * vce_prev2_) / dt;
-        } else if (method == IntegrationMethod::GEAR3) {
-            dvce_dt = (11.0/6.0 * vce - 3.0 * vce_prev_ + 1.5 * vce_prev2_ - 1.0/3.0 * vce_prev3_) / dt;
-        }
-
-        Real i_cce = cce_ * dvce_dt;
-        Real g_cce = cce_ / dt;
-        Real ieq_cce = i_cce - g_cce * vce;
-
-        // Stamp Cce (Collector-Emitter capacitance)
-        if (nc_idx >= 0) {
-            mna.G.add_entry(nc_idx, nc_idx, g_cce);
-            if (ne_idx >= 0) {
-                mna.G.add_entry(nc_idx, ne_idx, -g_cce);
-            }
-            mna.b[nc_idx] -= polarity_sign * ieq_cce;
-        }
-        if (ne_idx >= 0) {
-            mna.G.add_entry(ne_idx, ne_idx, g_cce);
-            if (nc_idx >= 0) {
-                mna.G.add_entry(ne_idx, nc_idx, -g_cce);
-            }
-            mna.b[ne_idx] += polarity_sign * ieq_cce;
-        }
+        // Cge and Cce, integrated as capacitors are (device_utils::
+        // capacitor_companion) from the accepted points; the voltages are
+        // those of the N-like device, so for P the companion's current flows
+        // the other way between the physical nodes: its nodes are swapped
+        cap_dt_ = timestep;
+        cap_method_ = method;
+        cap_bdf_ = bdf_coef ? std::optional<BDFCoefficients>(*bdf_coef) : std::nullopt;
+        cap_tr_bdf2_ = tr_bdf2_coef ? std::optional<TR_BDF2_Coefficients>(*tr_bdf2_coef) : std::nullopt;
+        cap_stamped_ = true;
+        const bool n_like = is_n_channel;
+        const auto ge = device_utils::capacitor_companion(method, cge_, timestep, vge_prev_, vge_prev2_,
+                                                          vge_prev3_, ige_prev_, bdf_coef, tr_bdf2_coef);
+        const auto ce = device_utils::capacitor_companion(method, cce_, timestep, vce_prev_, vce_prev2_,
+                                                          vce_prev3_, ice_prev_, bdf_coef, tr_bdf2_coef);
+        device_utils::stamp_capacitor_companion(mna, n_like ? ng_idx : ne_idx, n_like ? ne_idx : ng_idx,
+                                                ge.g, ge.i_eq, 1.0);
+        device_utils::stamp_capacitor_companion(mna, n_like ? nc_idx : ne_idx, n_like ? ne_idx : nc_idx,
+                                                ce.g, ce.i_eq, 1.0);
 
         spdlog::trace("IGBT<{}> '{}' TRAN: Vge={:.3f} V, Vce={:.3f} V, Ic={:.6f} A, tail={}",
                       is_n_channel ? "N" : "P", name(), vge, vce, ic, in_tail_mode_);
@@ -532,6 +482,11 @@ public:
         vce_prev2_ = 0.0;
         vce_prev3_ = 0.0;
         ic_prev_ = 0.0;
+        ige_prev_ = 0.0;
+        ice_prev_ = 0.0;
+        cap_stamped_ = false;
+        cap_bdf_.reset();
+        cap_tr_bdf2_.reset();
         in_tail_mode_ = false;
         tail_current_0_ = 0.0;
         tail_start_time_ = 0.0;
@@ -563,6 +518,23 @@ public:
                    (vge >= vge_th || compute_tail_current(current_time_ - tail_start_time_) < 1e-12)) {
             in_tail_mode_ = false;
         }
+
+        // The capacitor currents at the accepted point, from the companion
+        // of the step that ended there; none at a point no step reached
+        if (cap_stamped_) {
+            const BDFCoefficients* bdf = cap_bdf_ ? &*cap_bdf_ : nullptr;
+            const TR_BDF2_Coefficients* tr = cap_tr_bdf2_ ? &*cap_tr_bdf2_ : nullptr;
+            const auto ge = device_utils::capacitor_companion(cap_method_, cge_, cap_dt_, vge_prev_,
+                                                              vge_prev2_, vge_prev3_, ige_prev_, bdf, tr);
+            const auto ce = device_utils::capacitor_companion(cap_method_, cce_, cap_dt_, vce_prev_,
+                                                              vce_prev2_, vce_prev3_, ice_prev_, bdf, tr);
+            ige_prev_ = ge.g * vge + ge.i_eq;
+            ice_prev_ = ce.g * vce + ce.i_eq;
+        } else {
+            ige_prev_ = 0.0;
+            ice_prev_ = 0.0;
+        }
+        cap_stamped_ = false;
 
         // Update history
         vge_prev3_ = vge_prev2_;
@@ -619,6 +591,17 @@ private:
     mutable Real tail_current_0_;   // Initial tail current [A]
     mutable Real tail_start_time_;  // Time when tail current started [s]
     mutable Real current_time_;     // Current simulation time [s]
+
+    // The companion of Cge and Cce (device_utils::capacitor_companion): the
+    // capacitor currents at the last accepted point, which the trapezoidal
+    // rule needs, and the method, step and coefficients of the last stamp
+    mutable Real ige_prev_ = 0.0;
+    mutable Real ice_prev_ = 0.0;
+    mutable Real cap_dt_ = 0.0;
+    mutable IntegrationMethod cap_method_ = IntegrationMethod::BACKWARD_EULER;
+    mutable std::optional<BDFCoefficients> cap_bdf_;
+    mutable std::optional<TR_BDF2_Coefficients> cap_tr_bdf2_;
+    mutable bool cap_stamped_ = false;
 
     // Voltage history (for BDF2/BDF3)
     mutable Real vge_prev2_;
