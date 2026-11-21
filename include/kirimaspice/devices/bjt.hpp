@@ -162,6 +162,7 @@ private:
     Real cje_, vje_, mje_, cjc_, vjc_, mjc_, tf_, tr_;
     Real kf_, af_, ff_, xti_, xtb_, eg_, tnom_;
     Real is_tnom_, isc_tnom_, ise_tnom_, isc_leak_tnom_, beta_f_tnom_, beta_r_tnom_;
+    Real temp_;  // the present temperature [K]: TNOM until set_temperature
     Real vt_;
     bool isc_tracks_is_;
 

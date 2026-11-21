@@ -94,6 +94,7 @@ BJT<Pol>::BJT(DeviceId id, const std::string& name, NodeId collector, NodeId bas
     isc_leak_tnom_ = isc_leak_;
     beta_f_tnom_ = beta_f_;
     beta_r_tnom_ = beta_r_;
+    temp_ = tnom_;
     vt_ = core::compute_thermal_voltage(tnom_);
 }
 
@@ -102,15 +103,12 @@ void BJT<Pol>::set_temperature(Real temp_kelvin) {
     if (temp_kelvin <= 0.0) {
         throw std::runtime_error("Temperature must be positive: " + name_);
     }
+    temp_ = temp_kelvin;
     vt_ = core::compute_thermal_voltage(temp_kelvin);
     is_ = core::scale_saturation_current(is_tnom_, xti_, eg_, nf_, temp_kelvin, tnom_);
     isc_ = core::scale_saturation_current(isc_tnom_, xti_, eg_, nr_, temp_kelvin, tnom_);
-    if (ise_tnom_ > 0.0) {
-        ise_ = core::scale_saturation_current(ise_tnom_, xti_, eg_, ne_, temp_kelvin, tnom_);
-    }
-    if (isc_leak_tnom_ > 0.0) {
-        isc_leak_ = core::scale_saturation_current(isc_leak_tnom_, xti_, eg_, nc_, temp_kelvin, tnom_);
-    }
+    ise_ = core::scale_saturation_current(ise_tnom_, xti_, eg_, ne_, temp_kelvin, tnom_);
+    isc_leak_ = core::scale_saturation_current(isc_leak_tnom_, xti_, eg_, nc_, temp_kelvin, tnom_);
     beta_f_ = core::scale_mobility_temperature(beta_f_tnom_, xtb_, temp_kelvin, tnom_);
     beta_r_ = core::scale_mobility_temperature(beta_r_tnom_, xtb_, temp_kelvin, tnom_);
 }
@@ -433,18 +431,18 @@ std::optional<Real> BJT<Pol>::get_parameter(const std::string& param_name) const
     std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c) { return std::toupper(c); });
     if (key == "BETA_F") key = "BF";
     if (key == "BETA_R") key = "BR";
-    if (key == "IS") return is_;
-    if (key == "BF") return beta_f_;
+    if (key == "IS") return is_tnom_;  // IS, BF, BR, ISE and ISC at TNOM
+    if (key == "BF") return beta_f_tnom_;
     if (key == "NF") return nf_;
-    if (key == "BR") return beta_r_;
+    if (key == "BR") return beta_r_tnom_;
     if (key == "NR") return nr_;
     if (key == "VAF") return vaf_;
     if (key == "VAR") return var_;
     if (key == "IKF") return ikf_;
     if (key == "IKR") return ikr_;
-    if (key == "ISE") return ise_;
+    if (key == "ISE") return ise_tnom_;
     if (key == "NE") return ne_;
-    if (key == "ISC") return isc_leak_;
+    if (key == "ISC") return isc_leak_tnom_;
     if (key == "NC") return nc_;
     if (key == "CJE") return cje_;
     if (key == "CJC") return cjc_;
@@ -458,26 +456,44 @@ bool BJT<Pol>::set_parameter(const std::string& param_name, Real value) {
     if (key == "BETA_F") key = "BF";
     if (key == "BETA_R") key = "BR";
     if (!std::isfinite(value)) return false;
+    // IS, BF, BR, ISE and ISC are the card's, at TNOM; the device then takes
+    // them, and those the emission coefficients scale, at its temperature
     if (key == "IS" && value > 0.0) {
-        is_ = is_tnom_ = value;
-        if (isc_tracks_is_) isc_ = isc_tnom_ = value;
-        return true;
+        is_tnom_ = value;
+        if (isc_tracks_is_) isc_tnom_ = value;
+    } else if (key == "BF" && value > 0.0) {
+        beta_f_tnom_ = value;
+    } else if (key == "NF" && value > 0.0) {
+        nf_ = value;
+    } else if (key == "BR" && value > 0.0) {
+        beta_r_tnom_ = value;
+    } else if (key == "NR" && value > 0.0) {
+        nr_ = value;
+    } else if (key == "VAF" && value >= 0.0) {
+        vaf_ = value;
+    } else if (key == "VAR" && value >= 0.0) {
+        var_ = value;
+    } else if (key == "IKF" && value >= 0.0) {
+        ikf_ = value;
+    } else if (key == "IKR" && value >= 0.0) {
+        ikr_ = value;
+    } else if (key == "ISE" && value >= 0.0) {
+        ise_tnom_ = value;
+    } else if (key == "NE" && value > 0.0) {
+        ne_ = value;
+    } else if (key == "ISC" && value >= 0.0) {
+        isc_leak_tnom_ = value;
+    } else if (key == "NC" && value > 0.0) {
+        nc_ = value;
+    } else if (key == "CJE" && value >= 0.0) {
+        cje_ = value;
+    } else if (key == "CJC" && value >= 0.0) {
+        cjc_ = value;
+    } else {
+        return false;
     }
-    if (key == "BF" && value > 0.0) { beta_f_ = beta_f_tnom_ = value; return true; }
-    if (key == "NF" && value > 0.0) { nf_ = value; return true; }
-    if (key == "BR" && value > 0.0) { beta_r_ = beta_r_tnom_ = value; return true; }
-    if (key == "NR" && value > 0.0) { nr_ = value; return true; }
-    if (key == "VAF" && value >= 0.0) { vaf_ = value; return true; }
-    if (key == "VAR" && value >= 0.0) { var_ = value; return true; }
-    if (key == "IKF" && value >= 0.0) { ikf_ = value; return true; }
-    if (key == "IKR" && value >= 0.0) { ikr_ = value; return true; }
-    if (key == "ISE" && value >= 0.0) { ise_ = ise_tnom_ = value; return true; }
-    if (key == "NE" && value > 0.0) { ne_ = value; return true; }
-    if (key == "ISC" && value >= 0.0) { isc_leak_ = isc_leak_tnom_ = value; return true; }
-    if (key == "NC" && value > 0.0) { nc_ = value; return true; }
-    if (key == "CJE" && value >= 0.0) { cje_ = value; return true; }
-    if (key == "CJC" && value >= 0.0) { cjc_ = value; return true; }
-    return false;
+    set_temperature(temp_);
+    return true;
 }
 
 template <BJTPolarity Pol>

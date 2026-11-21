@@ -1357,6 +1357,11 @@ add_executable(test_netlist_temperatures unit/test_netlist_temperatures.cpp)
 target_link_libraries(test_netlist_temperatures PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_netlist_temperatures)
 
+# Parameters through set_parameter are at TNOM and survive set_temperature
+add_executable(test_parameters_at_tnom unit/test_parameters_at_tnom.cpp)
+target_link_libraries(test_parameters_at_tnom PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_parameters_at_tnom)
+
 # The level 3 MOSFET against its published equations and ngspice-47
 add_executable(test_mosfet_level3_reference unit/test_mosfet_level3_reference.cpp)
 target_link_libraries(test_mosfet_level3_reference PRIVATE kirimaspice_lib GTest::gtest_main)

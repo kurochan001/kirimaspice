@@ -116,7 +116,8 @@ public:
     // Physical quantity-based error estimation
     Real get_physical_lte(Real chgtol, const DenseVector& node_voltages) const override;
 
-    // Sensitivity analysis: Parameter access
+    // Sensitivity analysis: Parameter access. IS is the card's, at TNOM, in
+    // both; set_parameter scales what it sets to the present temperature
     std::optional<Real> get_parameter(const std::string& param_name) const override;
     bool set_parameter(const std::string& param_name, Real value) override;
     std::vector<std::string> get_perturbable_parameters() const override;
@@ -137,6 +138,7 @@ private:
     Real eg_;    // Energy gap [eV] (default: 1.11 for Si)
     Real tnom_;  // Nominal temperature [K] (default: 300.15K = 27°C)
     Real is_tnom_; // IS at nominal temperature (reference value)
+    Real temp_;    // The present temperature [K]: TNOM until set_temperature
 
     // State variables for transient analysis
     mutable Real voltage_prev_;  // V(t) - voltage at previous timestep

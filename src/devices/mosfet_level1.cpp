@@ -41,6 +41,7 @@ MOSFET_Level1<P>::MOSFET_Level1(DeviceId id, const std::string& name,
     kt2_ = kt2;
     ute_ = ute;
     tnom_ = tnom;
+    temperature_ = tnom;
 
     if (kp <= 0.0) {
         throw std::runtime_error("MOSFET process transconductance must be positive: " + name);
@@ -61,7 +62,8 @@ MOSFET_Level1<P>::MOSFET_Level1(DeviceId id, const std::string& name,
 
 template<Polarity P>
 void MOSFET_Level1<P>::set_threshold_voltage(Real vth) {
-    vth_ = vth;
+    vth_tnom_ = vth;  // VTO at TNOM, as set_parameter("VTO") takes it
+    set_temperature(temperature_);
     spdlog::debug("{} set threshold voltage to {:.3f}V", name_, vth_);
 }
 
@@ -70,6 +72,7 @@ void MOSFET_Level1<P>::set_temperature(Real temp_kelvin) {
     if (temp_kelvin <= 0.0) {
         throw std::runtime_error("Temperature must be positive: " + name_);
     }
+    temperature_ = temp_kelvin;
 
     // Temperature difference
     Real temp_diff = temp_kelvin - tnom_;
@@ -716,10 +719,10 @@ Real MOSFET_Level1<P>::get_physical_lte(Real chgtol, const DenseVector& node_vol
 template<Polarity P>
 std::optional<Real> MOSFET_Level1<P>::get_parameter(const std::string& param_name) const {
     if (param_name == "KP" || param_name == "kp") {
-        return kp_;
+        return kp_tnom_;
     } else if (param_name == "VTO" || param_name == "vto" ||
                param_name == "VTH" || param_name == "vth") {
-        return vth_;
+        return vth_tnom_;
     } else if (param_name == "W" || param_name == "w") {
         return w_;
     } else if (param_name == "L" || param_name == "l") {
@@ -737,15 +740,16 @@ bool MOSFET_Level1<P>::set_parameter(const std::string& param_name, Real value) 
                         Traits::type_string, name_, value);
             return false;
         }
-        kp_ = value;
-        beta_ = kp_ * w_ / l_;
+        kp_tnom_ = value;
+        set_temperature(temperature_);  // KP(T) and beta
         spdlog::trace("MOSFET_{} {}: set KP = {} A/V², beta = {} A/V²",
-                     Traits::type_string, name_, kp_, beta_);
+                     Traits::type_string, name_, kp_tnom_, beta_);
         return true;
     } else if (param_name == "VTO" || param_name == "vto" ||
                param_name == "VTH" || param_name == "vth") {
-        vth_ = value;
-        spdlog::trace("MOSFET_{} {}: set VTO = {} V", Traits::type_string, name_, vth_);
+        vth_tnom_ = value;
+        set_temperature(temperature_);  // VTO(T)
+        spdlog::trace("MOSFET_{} {}: set VTO = {} V", Traits::type_string, name_, vth_tnom_);
         return true;
     } else if (param_name == "W" || param_name == "w") {
         if (value <= 0.0) {

@@ -109,7 +109,8 @@ public:
     /// level 1
     void set_body(NodeId bulk, Real gamma, Real phi, Real lambda);
 
-    /// Set threshold voltage (for temperature compensation or parameter sweeps)
+    /// Set the threshold voltage VTO at TNOM (for parameter sweeps); the
+    /// device takes it at its present temperature
     void set_threshold_voltage(Real vth);
 
     /// Set temperature and update temperature-dependent parameters
@@ -158,7 +159,9 @@ public:
     /// Physical local truncation error (charge-based for adaptive timestepping)
     Real get_physical_lte(Real chgtol, const DenseVector& node_voltages) const override;
 
-    // Sensitivity analysis: Parameter access
+    // Sensitivity analysis: Parameter access. KP and VTO are the card's, at
+    // TNOM, in both; set_parameter scales what it sets to the present
+    // temperature
     std::optional<Real> get_parameter(const std::string& param_name) const override;
     bool set_parameter(const std::string& param_name, Real value) override;
     std::vector<std::string> get_perturbable_parameters() const override;
@@ -233,6 +236,7 @@ private:
     // Temperature reference values
     Real vth_tnom_; // VTO at nominal temperature (reference value)
     Real kp_tnom_;  // KP at nominal temperature (reference value)
+    Real temperature_ = 300.15;  // The present temperature [K]: TNOM until set_temperature
 
     // Derived parameter
     Real beta_;  // beta = Kp * W/L [A/V²]

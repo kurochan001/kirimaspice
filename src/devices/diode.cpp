@@ -27,6 +27,7 @@ Diode::Diode(DeviceId id, const std::string& name,
     , eg_(eg)
     , tnom_(tnom)
     , is_tnom_(is)  // Store nominal IS
+    , temp_(tnom)
     , voltage_prev_(0.0)
     , voltage_prev2_(0.0)
     , voltage_prev3_(0.0)
@@ -65,6 +66,7 @@ void Diode::set_temperature(Real temp_kelvin) {
     if (temp_kelvin <= 0.0) {
         throw std::runtime_error("Temperature must be positive: " + name_);
     }
+    temp_ = temp_kelvin;
 
     // Update thermal voltage using utility function
     vt_ = core::compute_thermal_voltage(temp_kelvin);
@@ -512,7 +514,7 @@ Real Diode::get_physical_lte(Real chgtol, const DenseVector& node_voltages) cons
 
 std::optional<Real> Diode::get_parameter(const std::string& param_name) const {
     if (param_name == "IS" || param_name == "is") {
-        return is_;
+        return is_tnom_;
     } else if (param_name == "N" || param_name == "n") {
         return n_;
     } else if (param_name == "CJ0" || param_name == "cj0") {
@@ -532,8 +534,9 @@ bool Diode::set_parameter(const std::string& param_name, Real value) {
                         name_, value);
             return false;
         }
-        is_ = value;
-        spdlog::trace("Diode {}: set IS = {} A", name_, is_);
+        is_tnom_ = value;
+        set_temperature(temp_);  // IS(T)
+        spdlog::trace("Diode {}: set IS = {} A", name_, is_tnom_);
         return true;
     } else if (param_name == "N" || param_name == "n") {
         if (value <= 0.0) {
@@ -542,6 +545,7 @@ bool Diode::set_parameter(const std::string& param_name, Real value) {
             return false;
         }
         n_ = value;
+        set_temperature(temp_);  // IS(T) has N in it
         spdlog::trace("Diode {}: set N = {}", name_, n_);
         return true;
     } else if (param_name == "CJ0" || param_name == "cj0") {
