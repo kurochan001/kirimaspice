@@ -8,11 +8,15 @@
 #include "kirimaspice/devices/mosfet_bsim4.hpp"  // Unified BSIM4 template
 #include "kirimaspice/devices/mosfet_bsim4_params.hpp"
 #include "kirimaspice/devices/bsim4_core.hpp"
+#include <algorithm>
 #include <cmath>
 #include <fstream>
+#include <map>
 #include <sstream>
 #include <cctype>
 #include <cstdlib>
+#include <string>
+#include <vector>
 #include "source_path.hpp"
 
 using namespace kirimaspice;
@@ -1395,4 +1399,28 @@ TEST(BSIM4BodyEffectCoefficients, DefaultWhenOnlyOneIsGiven) {
     only_k2.compute_derived_params(only_k2.tnom);
     EXPECT_DOUBLE_EQ(only_k2.k1, 0.53);
     EXPECT_DOUBLE_EQ(only_k2.k2, 0.01);
+}
+
+// The names of effects that the model does not compute are named in the
+// "is not used" warning of the card: the poly-gate depletion (NGATE), the
+// narrow-width short-channel term (DVT0W, DVT1W, DVT2W), the bias dependence
+// of Weff (DWG, DWB), the impact-ionization current (ALPHA0, ALPHA1, BETA0)
+// and the charge multiplier MULT_Q. ngspice-47 (run 2026-11-21) computes
+// them: with the card of test_bsim4_reference.cpp, L = 0.18 um, W = 1 um and
+// VGS = VDS = 1 V, NGATE = 1e19 gives 4.06e-5 A instead of 1.229e-4 A, and
+// DWG = -1e-8 gives 1.237e-4 A.
+TEST(BSIM4CardNames, EffectsNotModelledAreNamedAsNotUsed) {
+    const std::vector<std::string> not_modelled = {
+        "ngate", "dvt0w", "dvt1w", "dvt2w", "dwg", "dwb", "alpha0", "alpha1", "beta0", "mult_q"};
+    std::map<std::string, Real> card = {{"toxe", 3e-9}, {"vth0", 0.5}};
+    for (const auto& name : not_modelled) {
+        card[name] = 1.0;
+    }
+    std::vector<std::string> unused;
+    bsim4_params_from_model(card, "nch", &unused);
+    for (const auto& name : not_modelled) {
+        EXPECT_NE(std::find(unused.begin(), unused.end(), name), unused.end()) << name;
+    }
+    EXPECT_EQ(std::find(unused.begin(), unused.end(), "toxe"), unused.end());
+    EXPECT_EQ(std::find(unused.begin(), unused.end(), "vth0"), unused.end());
 }

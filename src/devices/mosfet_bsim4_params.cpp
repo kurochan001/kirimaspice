@@ -323,7 +323,6 @@ bool set_bsim4_instance_parameter(BSIM4Params& p, const std::string& key, Real v
     else if (key == "nf") p.nf = value;
     else if (key == "m") p.m = value;
     else if (key == "mult_i") p.mult_i = value;
-    else if (key == "mult_q") p.mult_q = value;
     else if (key == "mult_fn") p.mult_fn = value;
     else if (key == "as") p.as = value;
     else if (key == "ad") p.ad = value;
@@ -387,7 +386,6 @@ BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_par
         else if (key == "ndep") bsim4_params.ndep = value;
         else if (key == "nch") bsim4_params.ndep = value;  // NCH is alias for NDEP in BSIM4
         else if (key == "nsd") bsim4_params.nsd = value;
-        else if (key == "ngate") bsim4_params.ngate = value;
         else if (key == "phi") bsim4_params.phi = value;
         else if (key == "phin") bsim4_params.phin = value;
         else if (key == "gamma1") bsim4_params.gamma1 = value;
@@ -406,9 +404,6 @@ BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_par
         else if (key == "dvt0") bsim4_params.dvt0 = value;
         else if (key == "dvt1") bsim4_params.dvt1 = value;
         else if (key == "dvt2") bsim4_params.dvt2 = value;
-        else if (key == "dvt0w") bsim4_params.dvt0w = value;
-        else if (key == "dvt1w") bsim4_params.dvt1w = value;
-        else if (key == "dvt2w") bsim4_params.dvt2w = value;
         else if (key == "drout") bsim4_params.drout = value;
         else if (key == "dsub") bsim4_params.dsub = value;
         else if (key == "lpe0") bsim4_params.lpe0 = value;
@@ -444,13 +439,8 @@ BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_par
         else if (key == "pscbe2") bsim4_params.pscbe2 = value;
         else if (key == "pvag") bsim4_params.pvag = value;
         else if (key == "wr") bsim4_params.wr = value;
-        else if (key == "dwg") bsim4_params.dwg = value;
-        else if (key == "dwb") bsim4_params.dwb = value;
         else if (key == "b0") bsim4_params.b0 = value;
         else if (key == "b1") bsim4_params.b1 = value;
-        else if (key == "alpha0") bsim4_params.alpha0 = value;
-        else if (key == "alpha1") bsim4_params.alpha1 = value;
-        else if (key == "beta0") bsim4_params.beta0 = value;
         // Temperature Parameters
         else if (key == "tnom") bsim4_params.tnom = core::celsius_to_kelvin(value);
         else if (key == "kt1") bsim4_params.kt1 = value;
@@ -483,8 +473,12 @@ BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_par
         else if (key == "idovvds" || key == "idovvdsc") bsim4_params.idovvdsc = value;
         else if (key == "igbmod") bsim4_params.igbmod = static_cast<int>(value);
         else if (key == "igcmod") bsim4_params.igcmod = static_cast<int>(value);
-        // Note: Additional BSIM4 parameters (200+ more) will be added.4+
-        // For now, warn about unrecognized parameters
+        // Every other name is not used and is named in a warning, also the
+        // names of effects that the model does not compute: the poly-gate
+        // depletion (NGATE), the narrow-width short-channel term (DVT0W,
+        // DVT1W, DVT2W), the bias dependence of Weff (DWG, DWB), the
+        // impact-ionization current (ALPHA0, ALPHA1, BETA0) and the charge
+        // multiplier MULT_Q
         else if (key != "level" && unused) {
             unused->push_back(key);
         }
