@@ -235,17 +235,21 @@ the instance, `X1.R1` and `x1.n1`.
 
   | Waveform | Arguments | Value |
   | --- | --- | --- |
-  | `PULSE` | `V1 V2 TD TR TF PW PER`, all seven | `V1` before `TD`, then the rise, `V2` for `PW`, the fall, repeating every `PER`; with a `TR` or `TF` of 0 a corner has the level before it, and the new level follows just after it (ngspice-47 ramps a zero `TR` or `TF` over `TSTEP`) |
-  | `SIN` | `VO VA FREQ [TD [THETA [PHASE]]]` | `VO + VA sin(PHASE)` before `TD`, then `VO + VA e^(−THETA (t − TD)) sin(2π FREQ (t − TD) + PHASE)`; `PHASE` in degrees |
-  | `EXP` | `V1 V2 TD1 TAU1 TD2 TAU2`, all six | `V1` before `TD1`, then `V1 + (V2 − V1)(1 − e^(−(t − TD1)/TAU1))`, from `TD2` on plus `(V1 − V2)(1 − e^(−(t − TD2)/TAU2))` |
+  | `PULSE` | `V1 V2 [TD [TR [TF [PW [PER]]]]]`; `TD` 0, `TR` and `TF` `TSTEP`, `PW` and `PER` `TSTOP` | `V1` before `TD`, then the rise, `V2` for `PW`, the fall, repeating every `PER`; with a `TR` or `TF` of 0 a corner has the level before it, and the new level follows just after it (ngspice-47 ramps a zero `TR` or `TF` over `TSTEP`) |
+  | `SIN` | `VO VA [FREQ [TD [THETA [PHASE]]]]`; `FREQ` 1/`TSTOP`, the others 0 | `VO + VA sin(PHASE)` before `TD`, then `VO + VA e^(−THETA (t − TD)) sin(2π FREQ (t − TD) + PHASE)`; `PHASE` in degrees |
+  | `EXP` | `V1 V2 [TD1 [TAU1 [TD2 [TAU2]]]]`; `TD1`, `TAU1` and `TAU2` `TSTEP`, `TD2` `TD1` + `TSTEP`, as ngspice-47 takes them | `V1` before `TD1`, then `V1 + (V2 − V1)(1 − e^(−(t − TD1)/TAU1))`, from `TD2` on plus `(V1 − V2)(1 − e^(−(t − TD2)/TAU2))` |
   | `PWL` | `T1 V1 T2 V2 ...` | linear between the points, `V1` before `T1`, the last value after the last point; times must not decrease |
-  | `SFFM` | `VO VA FC [MDI FS]` | `VO + VA sin(2π FC t + MDI sin(2π FS t))` |
+  | `SFFM` | `VO VA [FC [MDI [FS]]]`; `FC` and `FS` 1/`TSTOP`, `MDI` 0 | `VO + VA sin(2π FC t + MDI sin(2π FS t))` |
 
   The arguments are in parentheses, or follow the keyword without them,
-  separated by spaces or commas; each may be an expression in braces. The
-  defaults that SPICE derives from `.TRAN` (for example `TR` and `TF` of
-  `PULSE`, or `FREQ` of `SIN`) are not taken: those arguments must be
-  given, and a wrong number of arguments is an error. ngspice-47 gives an
+  separated by spaces or commas; each may be an expression in braces. An
+  argument left out takes the default above, from `TSTEP` and `TSTOP` of
+  the netlist's `.TRAN`, which may come after the source; without `.TRAN`,
+  `TSTEP` is 0 and `TSTOP` unbounded (an `EXP` then needs its `TAU1` and
+  `TAU2`). Too few or too many arguments are an error. ngspice-47's
+  `SFFM` takes other defaults: `SFFM(0 1)` is modulated there, with the
+  warning `MDI in v1 limited to FC/FM` (run on 2026-11-21; its rule not
+  confirmed). ngspice-47 gives an
   `SFFM` source without a DC value 0 V in the operating point, where
   kirimaspice takes `VO` (its value at time 0).
 - Only a source whose line has `AC` is an input of AC analysis; `AC`

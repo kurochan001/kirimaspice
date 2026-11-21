@@ -4482,30 +4482,63 @@ static std::shared_ptr<const devices::Waveform> make_waveform(const std::string&
                              state.line_number);
         }
     };
+    // The arguments SPICE defaults from .TRAN (ngspice manual, section 4.1,
+    // and ngspice-47's runs): TSTEP and TSTOP of the netlist's .TRAN. A source before its .TRAN waits
+    // for the end of the netlist, as an element before its model does; a
+    // netlist without .TRAN takes TSTEP = 0 and an unbounded TSTOP (the
+    // waveform then holds the values it reaches, which an operating point,
+    // at time 0, does not see)
+    const auto tran = [&]() -> std::pair<Real, Real> {
+        if (state.config->tran_requested) {
+            return {state.config->transient.initial_step, state.config->transient.end_time};
+        }
+        if (!state.resolving_deferred) {
+            throw UnresolvedDefinition(keyword + " takes the defaults of its arguments from .TRAN",
+                                       state.line_number);
+        }
+        return {0.0, std::numeric_limits<Real>::infinity()};
+    };
+    const auto arg = [&](std::size_t k, auto fallback) { return a.size() > k ? a[k] : fallback(); };
+    const auto zero = [] { return 0.0; };
+    const auto tstep = [&] { return tran().first; };
+    const auto tstop = [&] { return tran().second; };
+    const auto per_tstop = [&] { return 1.0 / tran().second; };
     if (keyword == "PULSE") {
-        need(7, 7, "7 arguments: V1 V2 TD TR TF PW PER");
-        return std::make_shared<devices::PulseWaveform>(a[0], a[1], a[2], a[3], a[4], a[5], a[6]);
+        // TD 0, TR and TF TSTEP, PW and PER TSTOP (none: a single pulse)
+        need(2, 7, "2 to 7 arguments: V1 V2 [TD [TR [TF [PW [PER]]]]]");
+        const Real per = arg(6, tstop);
+        return std::make_shared<devices::PulseWaveform>(a[0], a[1], arg(2, zero), arg(3, tstep),
+                                                        arg(4, tstep), arg(5, tstop),
+                                                        std::isfinite(per) ? per : 0.0);
     }
     if (keyword == "SIN") {
-        need(3, 6, "3 to 6 arguments: VO VA FREQ [TD [THETA [PHASE]]]");
-        return std::make_shared<devices::SinWaveform>(a[0], a[1], a[2], a.size() > 3 ? a[3] : 0.0,
-                                                      a.size() > 4 ? a[4] : 0.0,
-                                                      a.size() > 5 ? a[5] : 0.0);
+        // FREQ 1/TSTOP, TD, THETA and PHASE 0
+        need(2, 6, "2 to 6 arguments: VO VA [FREQ [TD [THETA [PHASE]]]]");
+        return std::make_shared<devices::SinWaveform>(a[0], a[1], arg(2, per_tstop), arg(3, zero),
+                                                      arg(4, zero), arg(5, zero));
     }
     if (keyword == "EXP") {
-        need(6, 6, "6 arguments: V1 V2 TD1 TAU1 TD2 TAU2");
-        if (a[3] <= 0.0 || a[5] <= 0.0) {
-            throw ParseError("EXP needs positive TAU1 and TAU2", state.line_number);
+        // TD1, TAU1 and TAU2 TSTEP, TD2 TD1 + TSTEP, as ngspice-47 takes them
+        // (run 2026-11-21: EXP(0 1) stays at 0 for one TSTEP)
+        need(2, 6, "2 to 6 arguments: V1 V2 [TD1 [TAU1 [TD2 [TAU2]]]]");
+        const Real td1 = arg(2, tstep);
+        const Real tau1 = arg(3, tstep);
+        const Real td2 = arg(4, [&] { return td1 + tran().first; });
+        const Real tau2 = arg(5, tstep);
+        if (tau1 <= 0.0 || tau2 <= 0.0) {
+            throw ParseError(state.config->tran_requested || (a.size() > 3 && a.size() > 5)
+                                 ? std::string("EXP needs positive TAU1 and TAU2")
+                                 : std::string("EXP needs positive TAU1 and TAU2, which default to "
+                                               "the TSTEP of .TRAN, and the netlist has no .TRAN"),
+                             state.line_number);
         }
-        return std::make_shared<devices::ExpWaveform>(a[0], a[1], a[2], a[3], a[4], a[5]);
+        return std::make_shared<devices::ExpWaveform>(a[0], a[1], td1, tau1, td2, tau2);
     }
     if (keyword == "SFFM") {
-        need(3, 5, "3 to 5 arguments: VO VA FC [MDI FS]");
-        if (a.size() == 4 && a[3] != 0.0) {
-            throw ParseError("SFFM with a modulation index needs FS", state.line_number);
-        }
-        return std::make_shared<devices::SffmWaveform>(a[0], a[1], a[2], a.size() > 3 ? a[3] : 0.0,
-                                                       a.size() > 4 ? a[4] : 0.0);
+        // FC 1/TSTOP, MDI 0, FS 1/TSTOP
+        need(2, 5, "2 to 5 arguments: VO VA [FC [MDI [FS]]]");
+        return std::make_shared<devices::SffmWaveform>(a[0], a[1], arg(2, per_tstop), arg(3, zero),
+                                                       arg(4, per_tstop));
     }
     // PWL
     if (a.size() < 2 || a.size() % 2 != 0) {

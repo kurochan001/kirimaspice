@@ -90,11 +90,12 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
 
 ### Sources
 
-- [ ] **All waveform arguments written out.** `PULSE`, `SIN`, `EXP`, `PWL`
-  and `SFFM` work on voltage and current sources as in ngspice, but the
-  arguments that ngspice defaults from `.TRAN` (`TR`, `TF`, `PW`, `PER` of
-  `PULSE`, `FREQ` of `SIN`, the `EXP` times, `FC` of `SFFM`) must be given.
-  Anything after the waveform other than `DC` or `AC` is an error.
+- [ ] **`SFFM` arguments written out.** `PULSE`, `SIN`, `EXP`, `PWL`
+  and `SFFM` work on voltage and current sources as in ngspice, and the
+  arguments left out take their defaults from `.TRAN` as ngspice-47 does
+  for `PULSE`, `SIN` and `EXP`; ngspice-47's `SFFM` defaults differ
+  ([KNOWN_ISSUES](../KNOWN_ISSUES.md#netlist-input)). Anything after the
+  waveform other than `DC` or `AC` is an error.
 - [ ] **A `PULSE` with `TR` or `TF` of 0 is an ideal step.** The corner
   takes the level before it and the step after it the new level, which
   gives the analytic step response; ngspice-47 ramps a zero `TR` or `TF`

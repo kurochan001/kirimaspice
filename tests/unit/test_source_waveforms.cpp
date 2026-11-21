@@ -203,3 +203,51 @@ TEST(SourceWaveforms, DcSweepRestoresTheSourceSetting) {
     ASSERT_EQ(dc.solve_sweep(parsed.config.dc_sweep, sweep), ConvergenceStatus::SUCCESS);
     EXPECT_NEAR(operating_point(parsed, "in"), 0.7, 1e-12);
 }
+
+// The arguments SPICE defaults from .TRAN: PULSE's TD 0, TR and TF TSTEP,
+// PW and PER TSTOP; SIN's FREQ 1/TSTOP; EXP's TD1, TAU1 and TAU2 TSTEP and
+// TD2 TD1 + TSTEP; SFFM's FC and FS 1/TSTOP. ngspice-47 gives these
+// waveforms for PULSE, SIN and EXP (run 2026-11-21). A source before the
+// .TRAN line takes them as well. Before, the arguments had to be given.
+TEST(SourceWaveforms, OmittedArgumentsTakeTheDefaultsOfTran) {
+    auto value_at = [](const std::string& source, const std::string& tran, double t) {
+        auto parsed = parse("defaults\nV1 a 0 " + source + "\nR1 a 0 1k\n" + tran + "\n.end\n");
+        TransientSolver solver(*parsed.circuit, parsed.config);
+        const auto result = solver.solve(0.0, parsed.config.transient.end_time,
+                                         parsed.config.transient.initial_step);
+        EXPECT_EQ(result.status, ConvergenceStatus::SUCCESS) << source;
+        const NodeId a = parsed.circuit->get_node_id("a");
+        for (std::size_t i = 1; i < result.timepoints.size(); ++i) {
+            const auto& p = result.timepoints[i - 1];
+            const auto& q = result.timepoints[i];
+            if (q.time >= t) {
+                const double w = (t - p.time) / (q.time - p.time);
+                return p.node_voltages[a - 1] + w * (q.node_voltages[a - 1] - p.node_voltages[a - 1]);
+            }
+        }
+        return result.timepoints.back().node_voltages[a - 1];
+    };
+    // TR = TSTEP: halfway at TSTEP / 2; PW = TSTOP: still high at TSTOP
+    EXPECT_NEAR(value_at("PULSE(0 1)", ".tran 0.1u 2u", 0.1e-6), 1.0, 1e-12);
+    EXPECT_NEAR(value_at("PULSE(0 1)", ".tran 0.1u 2u", 2e-6), 1.0, 1e-12);
+    // FREQ = 1/TSTOP: the peak at TSTOP / 4
+    EXPECT_NEAR(value_at("SIN(0 1)", ".tran 1u 1m", 0.25e-3), 1.0, 1e-9);
+    // TD1 = TAU1 = TAU2 = TSTEP, TD2 = 2 TSTEP
+    EXPECT_NEAR(value_at("EXP(0 1)", ".tran 0.1u 2u", 0.4e-6), std::exp(-2.0) - std::exp(-3.0), 1e-9);
+    EXPECT_NEAR(value_at("EXP(0 1)", ".tran 0.1u 2u", 0.1e-6), 0.0, 1e-12);
+    // FC = 1/TSTOP, MDI = 0
+    EXPECT_NEAR(value_at("SFFM(0 1)", ".tran 1u 1m", 0.25e-3), 1.0, 1e-9);
+    // The .TRAN line after the source: the line waits for the end of the
+    // netlist, and takes the same FREQ
+    auto parsed = parse("after\nV1 a 0 SIN(0 1)\nR1 a 0 1k\n.tran 1u 1m\n.end\n");
+    EXPECT_EQ(parsed.circuit->get_device("V1")->type(), DeviceType::VSOURCE);
+}
+
+TEST(SourceWaveforms, OmittedArgumentsWithoutTran) {
+    // Without .TRAN, TSTEP is 0 and TSTOP unbounded: the operating point
+    // takes the value at time 0; EXP's time constants, which default to
+    // TSTEP, cannot be 0
+    EXPECT_NEAR(operating_point(parse("op\nV1 a 0 PULSE(0.5 1)\nR1 a 0 1k\n.end\n"), "a"), 0.5, 1e-12);
+    EXPECT_NEAR(operating_point(parse("op\nV1 a 0 SIN(0.25 1)\nR1 a 0 1k\n.end\n"), "a"), 0.25, 1e-12);
+    EXPECT_THROW(parse("op\nV1 a 0 EXP(0 1)\nR1 a 0 1k\n.end\n"), parser::ParseError);
+}

@@ -205,15 +205,18 @@ ExprTk の組み込み関数、そして `.PARAM` の中だけは `.FUNC` で定
 
   | 波形 | 引数 | 値 |
   | --- | --- | --- |
-  | `PULSE` | `V1 V2 TD TR TF PW PER`、7 つすべて | `TD` より前は `V1`、その後に立ち上がり、`PW` の間 `V2`、立ち下がりで、`PER` ごとに繰り返す。`TR` や `TF` が 0 なら、角の上では前の値で、そのすぐ後から新しい値（ngspice-47 は 0 の `TR` や `TF` を `TSTEP` にわたる傾きにする） |
-  | `SIN` | `VO VA FREQ [TD [THETA [PHASE]]]` | `TD` より前は `VO + VA sin(PHASE)`、その後は `VO + VA e^(−THETA (t − TD)) sin(2π FREQ (t − TD) + PHASE)`。`PHASE` は度 |
-  | `EXP` | `V1 V2 TD1 TAU1 TD2 TAU2`、6 つすべて | `TD1` より前は `V1`、その後は `V1 + (V2 − V1)(1 − e^(−(t − TD1)/TAU1))`。`TD2` からは、それに `(V1 − V2)(1 − e^(−(t − TD2)/TAU2))` を加える |
+  | `PULSE` | `V1 V2 [TD [TR [TF [PW [PER]]]]]`。`TD` は 0、`TR` と `TF` は `TSTEP`、`PW` と `PER` は `TSTOP` | `TD` より前は `V1`、その後に立ち上がり、`PW` の間 `V2`、立ち下がりで、`PER` ごとに繰り返す。`TR` や `TF` が 0 なら、角の上では前の値で、そのすぐ後から新しい値（ngspice-47 は 0 の `TR` や `TF` を `TSTEP` にわたる傾きにする） |
+  | `SIN` | `VO VA [FREQ [TD [THETA [PHASE]]]]`。`FREQ` は 1/`TSTOP`、ほかは 0 | `TD` より前は `VO + VA sin(PHASE)`、その後は `VO + VA e^(−THETA (t − TD)) sin(2π FREQ (t − TD) + PHASE)`。`PHASE` は度 |
+  | `EXP` | `V1 V2 [TD1 [TAU1 [TD2 [TAU2]]]]`。ngspice-47 と同じく、`TD1`、`TAU1`、`TAU2` は `TSTEP`、`TD2` は `TD1` + `TSTEP` | `TD1` より前は `V1`、その後は `V1 + (V2 − V1)(1 − e^(−(t − TD1)/TAU1))`。`TD2` からは、それに `(V1 − V2)(1 − e^(−(t − TD2)/TAU2))` を加える |
   | `PWL` | `T1 V1 T2 V2 ...` | 点の間は直線。`T1` より前は `V1`、最後の点の後は最後の値。時刻は減ってはならない |
-  | `SFFM` | `VO VA FC [MDI FS]` | `VO + VA sin(2π FC t + MDI sin(2π FS t))` |
+  | `SFFM` | `VO VA [FC [MDI [FS]]]`。`FC` と `FS` は 1/`TSTOP`、`MDI` は 0 | `VO + VA sin(2π FC t + MDI sin(2π FS t))` |
 
   引数は、かっこで囲むか、かっこなしでキーワードの後に続け、空白かカンマで区切ります。どの引数も
-  波かっこの式にできます。SPICE が `.TRAN` から決める既定値（たとえば `PULSE` の `TR` と `TF`、
-  `SIN` の `FREQ`）は取りません。それらの引数は書く必要があり、引数の数が違うとエラーです。
+  波かっこの式にできます。省いた引数は、ネットリストの `.TRAN`（電源より後にあってもよい）の `TSTEP` と
+  `TSTOP` から、上の既定値を取ります。`.TRAN` がなければ `TSTEP` は 0、`TSTOP` は上限なしです（そのとき
+  `EXP` には `TAU1` と `TAU2` が要ります）。引数が少なすぎても多すぎてもエラーです。ngspice-47 の `SFFM`
+  の既定値は違います。`SFFM(0 1)` は変調され、`MDI in v1 limited to FC/FM` と警告します（2026-11-21 に
+  実行。その規則は未確認）。
   ngspice-47 は、DC の値のない `SFFM` の電源を動作点で 0 V としますが、kirimaspice は `VO`（時刻 0
   での値）を取ります。
 - AC 解析の入力になるのは、行に `AC` がある電源だけです。振幅を省いた `AC` は振幅 1 で、位相（度）の
