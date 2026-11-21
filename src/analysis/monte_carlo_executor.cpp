@@ -35,12 +35,28 @@ std::uint32_t MonteCarloExecutor::get_seed() const {
     return rng_->get_seed();
 }
 
-std::map<std::string, Real> MonteCarloExecutor::sample_parameters(std::uint32_t run_index) {
+std::uint32_t MonteCarloExecutor::run_seed(std::uint32_t base_seed, std::uint32_t run) {
+    // One splitmix64 step (Steele, Lea and Flood, 2014) over the pair. The
+    // step is a bijection of 64-bit words, so the pairs give distinct words,
+    // and it mixes every input bit into the upper half: base seeds s and s + 1
+    // give unrelated runs, where base_seed + run gave s + 1 the runs of s
+    // shifted by one.
+    std::uint64_t z = (static_cast<std::uint64_t>(base_seed) << 32) | run;
+    z += 0x9E3779B97F4A7C15ULL;
+    z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+    z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+    z ^= z >> 31;
+    const auto seed = static_cast<std::uint32_t>(z >> 32);
+    return seed != 0 ? seed : 1u;  // 0 would mean "seed from the random device"
+}
+
+std::map<std::string, Real> MonteCarloExecutor::sample_parameters(RandomNumberGenerator& rng,
+                                                                  std::uint32_t run_index) const {
     std::map<std::string, Real> sampled_params;
 
     for (const auto& variation : base_config_.monte_carlo.variations) {
         DistributionSampler sampler(variation);
-        Real sampled_value = sampler.sample(*rng_);
+        Real sampled_value = sampler.sample(rng);
 
         // Use device_name as the parameter key (e.g., "R1.resistance")
         std::string param_key = variation.device_name + "." + variation.parameter_name;
@@ -146,26 +162,10 @@ MonteCarloResult MonteCarloExecutor::execute_dc_monte_carlo_custom(
         try {
             spdlog::debug("Monte Carlo run {}/{}", run + 1, result.num_runs);
 
-            // Per-run seed, so the samples do not depend on the threading
-            // build or on the execution order.
-#ifdef _OPENMP
-            RandomNumberGenerator thread_rng(base_seed + run);
-#else
-            rng_->reset(base_seed + run);
-            RandomNumberGenerator& thread_rng = *rng_;
-#endif
-
-            // Sample parameter values from distributions (thread-local RNG)
-            std::map<std::string, Real> sampled_params;
-            for (const auto& variation : base_config_.monte_carlo.variations) {
-                DistributionSampler sampler(variation);
-                Real sampled_value = sampler.sample(thread_rng);
-                std::string param_key = variation.device_name + "." + variation.parameter_name;
-                sampled_params[param_key] = sampled_value;
-
-                spdlog::debug("  Run {}: {} = {} (nominal: {})",
-                             run + 1, param_key, sampled_value, variation.nominal_value);
-            }
+            // The run's own generator (run_seed), so the samples do not
+            // depend on the threading build or on the execution order
+            RandomNumberGenerator run_rng(run_seed(base_seed, run));
+            const auto sampled_params = sample_parameters(run_rng, run + 1);
             parameter_samples_vec[run] = sampled_params;
 
             parser::NetlistParser parser;
@@ -315,20 +315,9 @@ MonteCarloResult MonteCarloExecutor::execute_dc_monte_carlo_fast(
                 const auto& thread_sim_config = thread_parse_result.config;
                 spdlog::debug("Monte Carlo (fast) run {}/{}", run + 1, result.num_runs);
 
-                // Thread-local RNG (deterministic seed = base_seed + run)
-                RandomNumberGenerator thread_rng(base_seed + run);
-
-                // Sample parameter values from distributions
-                std::map<std::string, Real> sampled_params;
-                for (const auto& variation : base_config_.monte_carlo.variations) {
-                    DistributionSampler sampler(variation);
-                    Real sampled_value = sampler.sample(thread_rng);
-                    std::string param_key = variation.device_name + "." + variation.parameter_name;
-                    sampled_params[param_key] = sampled_value;
-
-                    spdlog::debug("  Run {}: {} = {} (nominal: {})",
-                                 run + 1, param_key, sampled_value, variation.nominal_value);
-                }
+                // The run's own generator, as in the normal path
+                RandomNumberGenerator run_rng(run_seed(base_seed, run));
+                const auto sampled_params = sample_parameters(run_rng, run + 1);
                 parameter_samples_vec[run] = sampled_params;
 
                 // Apply parameters in-place to the thread-local circuit
@@ -364,9 +353,9 @@ MonteCarloResult MonteCarloExecutor::execute_dc_monte_carlo_fast(
     for (std::uint32_t run = 0; run < result.num_runs; ++run) {
         spdlog::debug("Monte Carlo (fast) run {}/{}", run + 1, result.num_runs);
 
-        // Same per-run seed as the parallel branch and the normal path.
-        rng_->reset(base_seed + run);
-        auto sampled_params = sample_parameters(run + 1);
+        // The run's own generator, as in the parallel branch and the normal path
+        RandomNumberGenerator run_rng(run_seed(base_seed, run));
+        const auto sampled_params = sample_parameters(run_rng, run + 1);
         parameter_samples_vec[run] = sampled_params;
 
         apply_parameters_inplace(circuit, sampled_params);

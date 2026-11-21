@@ -113,18 +113,26 @@ public:
     /// @return Number of runs
     std::uint32_t get_num_runs() const;
 
-    /// Get current seed value
-    /// @return Random seed (0 = random device)
+    /// Get the base seed of the runs
+    /// @return Random seed (when .MC gave 0, the one drawn from the random device)
     std::uint32_t get_seed() const;
+
+    /// The seed of the generator of run `run` (from 0) for base seed
+    /// `base_seed`. It depends on the pair alone, not on the threading build
+    /// or the order of the runs, and is never 0 (which RandomNumberGenerator
+    /// takes as "seed from the random device").
+    static std::uint32_t run_seed(std::uint32_t base_seed, std::uint32_t run);
 
 private:
     SimulationConfig base_config_;          ///< Base configuration
-    std::unique_ptr<RandomNumberGenerator> rng_;  ///< Random number generator
+    std::unique_ptr<RandomNumberGenerator> rng_;  ///< Holds the base seed; runs draw from their own
 
     /// Sample parameter values for a single Monte Carlo run
+    /// @param rng The run's generator
     /// @param run_index Current run index (for logging)
     /// @return Map of parameter name -> sampled value
-    std::map<std::string, Real> sample_parameters(std::uint32_t run_index);
+    std::map<std::string, Real> sample_parameters(RandomNumberGenerator& rng,
+                                                  std::uint32_t run_index) const;
 
     /// Extract output value from solution vector
     /// @param circuit Circuit graph
