@@ -6265,8 +6265,9 @@ void process_line(const std::string& raw_line, ParseState& state) {
 }
 
 
-// Each V(node) of a B expression with its node renamed by map_node, V in
-// either case (as CircuitGraph's rewrite_node_voltages reads it)
+// Each V(node) and V(n1,n2) of a B expression with its nodes renamed by
+// map_node, V in either case (as CircuitGraph's rewrite_node_voltages reads
+// it)
 static std::string map_node_voltages(const std::string& expression,
                                      const std::function<std::string(const std::string&)>& map_node) {
     std::string out;
@@ -6279,12 +6280,23 @@ static std::string map_node_voltages(const std::string& expression,
             expression[i + 1] == '(') {
             const std::size_t close = expression.find(')', i + 2);
             if (close != std::string::npos) {
-                std::string node = expression.substr(i + 2, close - i - 2);
-                node.erase(0, node.find_first_not_of(" \t"));
-                node.erase(node.find_last_not_of(" \t") + 1);
-                if (!node.empty()) {
+                auto trimmed = [](std::string name) {
+                    name.erase(0, name.find_first_not_of(" \t"));
+                    name.erase(name.find_last_not_of(" \t") + 1);
+                    return name;
+                };
+                const std::string inside = expression.substr(i + 2, close - i - 2);
+                const std::size_t comma = inside.find(',');
+                const std::string first = trimmed(inside.substr(0, comma));
+                const std::string second =
+                    (comma == std::string::npos) ? std::string() : trimmed(inside.substr(comma + 1));
+                if (!first.empty() && (comma == std::string::npos || !second.empty())) {
                     out += c;
-                    out += '(' + map_node(node) + ')';
+                    out += '(' + map_node(first);
+                    if (comma != std::string::npos) {
+                        out += ',' + map_node(second);
+                    }
+                    out += ')';
                     i = close + 1;
                     continue;
                 }

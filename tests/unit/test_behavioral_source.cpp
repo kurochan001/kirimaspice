@@ -259,3 +259,20 @@ TEST(BehavioralSource, VoltageBetweenTwoNodes) {
     EXPECT_NEAR(solution[result.circuit->get_node_id("d") - 1], 4.0, 1e-9);
     EXPECT_FALSE(result.circuit->has_node("a,b"));
 }
+
+TEST(BehavioralSource, VoltageBetweenTwoNodesInsideASubcircuit) {
+    // Both nodes of V(p,m) are renamed into the instance: p is the pin on a
+    // (3 V) and m the midpoint of two 1 kohm resistors (1.5 V), so the
+    // output is 2 * 1.5 V = 3 V (ngspice-47 gives v(c) = 3, run 2026-11-21)
+    kirimaspice::parser::NetlistParser parser;
+    auto result = parser.parse_string(
+        "t\nVA a 0 3\nX1 a c SUB\n.subckt SUB p o\nR9 p m 1k\nR8 m 0 1k\nB1 o 0 V=2*V(p,m)\n.ends\n"
+        "R1 c 0 1k\n.end\n");
+    ASSERT_NE(result.circuit, nullptr);
+    result.circuit->expand_all_subcircuits();
+    kirimaspice::solvers::DCSolver solver(*result.circuit, result.config);
+    DenseVector solution;
+    kirimaspice::SolverStats stats;
+    ASSERT_EQ(solver.solve(solution, stats), kirimaspice::ConvergenceStatus::SUCCESS);
+    EXPECT_NEAR(solution[result.circuit->get_node_id("c") - 1], 3.0, 1e-9);
+}
