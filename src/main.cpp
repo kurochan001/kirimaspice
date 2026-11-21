@@ -329,9 +329,10 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
 
         // Run transient analysis if requested
         if (config.tran_requested) {
-            // The times of the .TRAN line (parse_tran_directive): the step is
+            // The times of the .TRAN line (read_transient_times): the step is
             // TSTEP, or TMAX when that is shorter (the parser sets TMAX to
-            // TSTEP when the line has none), so no step is longer than TMAX
+            // TSTEP when the line has none or gives 0), so no step is longer
+            // than TMAX
             const Real t_start = config.transient.start_time;
             const Real t_stop = config.transient.end_time;
             const Real t_step = std::min(config.transient.initial_step, config.transient.max_step);

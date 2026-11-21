@@ -343,6 +343,42 @@ TEST(NetlistLines, DcSweepValueCount) {
     EXPECT_EQ(parsed.config.dc_sweep.nested_sweep->source_name, "V2");
 }
 
+// TSTART of a transient analysis is less than TSTOP, and a TMAX of 0 is not
+// given, so the step limit is TSTEP; on a .TRAN line and in the tran command
+// of a .CONTROL block alike (read_transient_times). ngspice-47 (run
+// 2026-11-21) stops on .tran 1n 1u 2u and .tran 1n 1u 1u with "TSTART is
+// invalid, must be less than TSTOP", runs .tran 10n 100n 0 0 with the 63 time
+// points of .tran 10n 100n, and stops the run of .tran 10n 100n 0 -1n with
+// "Timestep too small".
+TEST(NetlistLines, TransientStartAndMaximumStep) {
+    const std::string circuit = "t\nV1 a 0 PULSE(0 1 0 1n 1n 1u 2u)\nR1 a 0 1k\n";
+    for (const std::string tran : {".tran 1n 1u 2u", ".tran 1n 1u 1u", ".tran 10n 100n 0 -1n"}) {
+        parser::NetlistParser parser;
+        EXPECT_THROW(parser.parse_string(circuit + tran + "\n.end\n"), parser::ParseError) << tran;
+    }
+    struct Case {
+        const char* lines;
+        Real max_step;
+    };
+    for (const Case& c : {Case{".tran 10n 100n 0 0\n", 10e-9}, Case{".tran 10n 100n 0 5n\n", 5e-9},
+                          Case{".tran 10n 100n 20n\n", 10e-9},
+                          Case{".tran 1n 1u\n.control\ntran 10n 100n 0 0\n.endc\n", 10e-9}}) {
+        parser::NetlistParser parser;
+        const auto parsed = parser.parse_string(circuit + c.lines + ".end\n");
+        EXPECT_TRUE(parsed.config.tran_requested) << c.lines;
+        EXPECT_DOUBLE_EQ(parsed.config.transient.initial_step, 10e-9) << c.lines;
+        EXPECT_DOUBLE_EQ(parsed.config.transient.end_time, 100e-9) << c.lines;
+        EXPECT_DOUBLE_EQ(parsed.config.transient.max_step, c.max_step) << c.lines;
+    }
+    // A TSTART that the last line omits stays as an earlier line set it
+    // (docs/TRANSIENT_ANALYSIS.md, several .TRAN lines)
+    parser::NetlistParser parser;
+    const auto parsed =
+        parser.parse_string(circuit + ".tran 1n 1u 20n\n.tran 10n 100n\n.end\n");
+    EXPECT_DOUBLE_EQ(parsed.config.transient.start_time, 20e-9);
+    EXPECT_DOUBLE_EQ(parsed.config.transient.max_step, 10e-9);
+}
+
 // The values of an O line are element values, numbers or expressions in
 // braces, as on every element line (read_element_value)
 TEST(NetlistLines, LossyLineValuesInBraces) {

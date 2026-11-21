@@ -101,6 +101,42 @@ inline std::optional<int> safe_stoi(const std::string& str, const std::string& p
 
 using kirimaspice::util::parse_value_with_unit;
 
+// The times of a transient analysis, TSTEP TSTOP [TSTART [TMAX]] (the values
+// of a .TRAN line without UIC, or the arguments of the tran command of a
+// .CONTROL block), into transient. As in ngspice-47: TSTART must be less
+// than TSTOP ("TSTART is invalid, must be less than TSTOP"), and a TMAX of 0
+// is not given (.tran 10n 100n 0 0 runs as .tran 10n 100n), so that no step
+// is limited to 0; a TMAX that is not given is TSTEP. A negative TMAX is an
+// error (ngspice-47 stops that run with "Timestep too small"). A TSTART that
+// is not given stays as an earlier line set it (0 at first). Nothing is
+// written into transient when a value is wrong.
+static void read_transient_times(const std::vector<std::string>& values,
+                                 SimulationConfig::Transient& transient) {
+    const Real tstep = parse_value_with_unit(values.at(0));
+    const Real tstop = parse_value_with_unit(values.at(1));
+    const Real tstart =
+        values.size() >= 3 ? parse_value_with_unit(values[2]) : transient.start_time;
+    Real tmax = tstep;
+    if (values.size() >= 4) {
+        const Real given = parse_value_with_unit(values[3]);
+        if (given < 0.0) {
+            throw std::runtime_error(
+                fmt::format("TMAX of a transient analysis must not be negative, not '{}'", values[3]));
+        }
+        if (given > 0.0) {
+            tmax = given;
+        }
+    }
+    if (!(tstart < tstop)) {
+        throw std::runtime_error(fmt::format(
+            "TSTART ({}) of a transient analysis must be less than TSTOP ({})", tstart, tstop));
+    }
+    transient.initial_step = tstep;
+    transient.max_step = tmax;
+    transient.end_time = tstop;
+    transient.start_time = tstart;
+}
+
 // The text of a netlist with each line ended by a line feed alone: the
 // carriage return of a CRLF line end is removed, as ngspice-47 reads such a
 // netlist. Every text the parser reads goes through here once, as it is
@@ -1006,23 +1042,11 @@ static void execute_control_commands(
                 // Note: tstep is used to set initial_step and max_step
                 if (cmd.args.size() >= 2) {
                     try {
-                        Real tstep = parse_value_with_unit(cmd.args[0]);
-                        Real tstop = parse_value_with_unit(cmd.args[1]);
-
-                        config.transient.initial_step = tstep;
-                        config.transient.max_step = tstep;
-                        config.transient.end_time = tstop;
-
-                        if (cmd.args.size() >= 3) {
-                            config.transient.start_time = parse_value_with_unit(cmd.args[2]);
-                        }
-                        if (cmd.args.size() >= 4) {
-                            // Optional tmax overrides the max_step
-                            config.transient.max_step = parse_value_with_unit(cmd.args[3]);
-                        }
+                        // The times as on a .TRAN line (read_transient_times)
+                        read_transient_times(cmd.args, config.transient);
 
                         spdlog::info("TRAN: tstep={}, tstop={}, tstart={}, tmax={}",
-                                   tstep, tstop,
+                                   config.transient.initial_step, config.transient.end_time,
                                    config.transient.start_time,
                                    config.transient.max_step);
                     } catch (const std::exception& e) {
@@ -2340,21 +2364,11 @@ static void parse_tran_directive(const std::vector<std::string>& tokens, ParseSt
         return;
     }
 
-    Real tstep = parse_value_with_unit(numeric_tokens[0]);
-    Real tstop = parse_value_with_unit(numeric_tokens[1]);
-
-    state.config->transient.initial_step = tstep;
-    state.config->transient.max_step = tstep;
-    state.config->transient.end_time = tstop;
-
-    // Parse optional TSTART
-    if (numeric_tokens.size() >= 3) {
-        state.config->transient.start_time = parse_value_with_unit(numeric_tokens[2]);
-    }
-
-    // Parse optional TMAX
-    if (numeric_tokens.size() >= 4) {
-        state.config->transient.max_step = parse_value_with_unit(numeric_tokens[3]);
+    // TSTEP, TSTOP, TSTART and TMAX (read_transient_times)
+    try {
+        read_transient_times(numeric_tokens, state.config->transient);
+    } catch (const std::runtime_error& e) {
+        throw ParseError(fmt::format("Invalid .TRAN: {}", e.what()), state.line_number);
     }
 
     // Set UIC flag
