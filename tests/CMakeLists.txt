@@ -1382,6 +1382,11 @@ add_executable(test_limiting_state unit/test_limiting_state.cpp)
 target_link_libraries(test_limiting_state PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_limiting_state)
 
+# The level-3 overlap capacitances in AC, also to a grounded terminal
+add_executable(test_mosfet_level3_overlap_ac unit/test_mosfet_level3_overlap_ac.cpp)
+target_link_libraries(test_mosfet_level3_overlap_ac PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_mosfet_level3_overlap_ac)
+
 # The level 3 MOSFET against its published equations and ngspice-47
 add_executable(test_mosfet_level3_reference unit/test_mosfet_level3_reference.cpp)
 target_link_libraries(test_mosfet_level3_reference PRIVATE kirimaspice_lib GTest::gtest_main)

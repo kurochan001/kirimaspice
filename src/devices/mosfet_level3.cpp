@@ -4,6 +4,7 @@
 // src/devices/mosfet_level3.cpp
 // Unified MOSFET Level 3 template implementation
 #include "kirimaspice/devices/mosfet_level3.hpp"
+#include "kirimaspice/core/device_utils.hpp"
 #include <spdlog/spdlog.h>
 #include <cmath>
 #include <algorithm>
@@ -398,30 +399,17 @@ void MOSFET_Level3<P>::stamp_ac(ComplexMNASystem& sys, Real omega,
     // The small-signal current from drain to source, as in the DC stamp
     stamp_channel(sys.Y, d, g, s, b, Complex(gm, 0.0), Complex(gds, 0.0), Complex(gmb, 0.0));
 
-    // Stamp capacitances: Y = jωC
-    if (g != NODE_INVALID && s != NODE_INVALID && cgs > 0.0) {
-        Complex y_cgs = j_omega * cgs;
-        sys.Y.add_entry(g, g, y_cgs);
-        sys.Y.add_entry(g, s, -y_cgs);
-        sys.Y.add_entry(s, g, -y_cgs);
-        sys.Y.add_entry(s, s, y_cgs);
-    }
-
-    if (g != NODE_INVALID && d != NODE_INVALID && cgd > 0.0) {
-        Complex y_cgd = j_omega * cgd;
-        sys.Y.add_entry(g, g, y_cgd);
-        sys.Y.add_entry(g, d, -y_cgd);
-        sys.Y.add_entry(d, g, -y_cgd);
-        sys.Y.add_entry(d, d, y_cgd);
-    }
-
-    if (g != NODE_INVALID && b != NODE_INVALID && cgb > 0.0) {
-        Complex y_cgb = j_omega * cgb;
-        sys.Y.add_entry(g, g, y_cgb);
-        sys.Y.add_entry(g, b, -y_cgb);
-        sys.Y.add_entry(b, g, -y_cgb);
-        sys.Y.add_entry(b, b, y_cgb);
-    }
+    // Stamp capacitances: Y = jωC, between two nodes or, when one of them
+    // is ground, on the other's diagonal
+    auto index = [](std::uint32_t n) { return (n == NODE_INVALID) ? -1 : static_cast<int>(n); };
+    auto stamp_cap = [&](std::uint32_t n1, std::uint32_t n2, Real cap) {
+        if (cap > 0.0) {
+            device_utils::stamp_complex_capacitor(sys.Y, index(n1), index(n2), j_omega * cap, 1.0);
+        }
+    };
+    stamp_cap(g, s, cgs);
+    stamp_cap(g, d, cgd);
+    stamp_cap(g, b, cgb);
 }
 
 template<Polarity P>
