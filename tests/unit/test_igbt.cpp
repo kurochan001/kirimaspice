@@ -133,11 +133,14 @@ TEST(IGBT_N, TemperatureDependence_VGE_TH) {
                        1e-3,   // TCV
                        300.15);// TNOM
 
-    // Test at room temperature (300K)
-    auto igbt = std::dynamic_pointer_cast<IGBT_N>(circuit.get_device("Q1"));
-    igbt->set_temperature(300.15);
+    // Test at room temperature (300K) and at 350K, the circuit's temperature
+    SimulationConfig config_300K, config_350K;
+    config_300K.temperature = 300.15;
+    config_300K.temperature_explicitly_set = true;
+    config_350K.temperature = 350.15;
+    config_350K.temperature_explicitly_set = true;
 
-    DCSolver solver1(circuit);
+    DCSolver solver1(circuit, config_300K);
     DenseVector solution1;
     SolverStats stats1;
     ConvergenceStatus status1 = solver1.solve(solution1, stats1);
@@ -147,9 +150,7 @@ TEST(IGBT_N, TemperatureDependence_VGE_TH) {
     Real v_collector_300K = solution1[collector_id - 1];
 
     // Test at elevated temperature (350K)
-    igbt->set_temperature(350.15);
-
-    DCSolver solver2(circuit);
+    DCSolver solver2(circuit, config_350K);
     DenseVector solution2;
     SolverStats stats2;
     ConvergenceStatus status2 = solver2.solve(solution2, stats2);
@@ -187,11 +188,14 @@ TEST(IGBT_N, TemperatureDependence_KP) {
                        0.0,    // TCV
                        300.15);// TNOM
 
-    auto igbt = std::dynamic_pointer_cast<IGBT_N>(circuit.get_device("Q1"));
+    // Test at room temperature (300K) and at 350K, the circuit's temperature
+    SimulationConfig config_300K, config_350K;
+    config_300K.temperature = 300.15;
+    config_300K.temperature_explicitly_set = true;
+    config_350K.temperature = 350.15;
+    config_350K.temperature_explicitly_set = true;
 
-    // Test at room temperature (300K)
-    igbt->set_temperature(300.15);
-    DCSolver solver1(circuit);
+    DCSolver solver1(circuit, config_300K);
     DenseVector solution1;
     SolverStats stats1;
     ConvergenceStatus status1 = solver1.solve(solution1, stats1);
@@ -201,8 +205,7 @@ TEST(IGBT_N, TemperatureDependence_KP) {
     Real v_collector_300K = solution1[collector_id - 1];
 
     // Test at elevated temperature (350K)
-    igbt->set_temperature(350.15);
-    DCSolver solver2(circuit);
+    DCSolver solver2(circuit, config_350K);
     DenseVector solution2;
     SolverStats stats2;
     ConvergenceStatus status2 = solver2.solve(solution2, stats2);
@@ -240,11 +243,14 @@ TEST(IGBT_N, TemperatureDependence_VCE_SAT) {
                        1e-3,   // TCV (positive temp coeff for VCE_SAT)
                        300.15);// TNOM
 
-    auto igbt = std::dynamic_pointer_cast<IGBT_N>(circuit.get_device("Q1"));
+    // Test at room temperature (300K) and at 350K, the circuit's temperature
+    SimulationConfig config_300K, config_350K;
+    config_300K.temperature = 300.15;
+    config_300K.temperature_explicitly_set = true;
+    config_350K.temperature = 350.15;
+    config_350K.temperature_explicitly_set = true;
 
-    // Test at room temperature (300K)
-    igbt->set_temperature(300.15);
-    DCSolver solver1(circuit);
+    DCSolver solver1(circuit, config_300K);
     DenseVector solution1;
     SolverStats stats1;
     ConvergenceStatus status1 = solver1.solve(solution1, stats1);
@@ -254,8 +260,7 @@ TEST(IGBT_N, TemperatureDependence_VCE_SAT) {
     Real v_collector_300K = solution1[collector_id - 1];
 
     // Test at elevated temperature (350K)
-    igbt->set_temperature(350.15);
-    DCSolver solver2(circuit);
+    DCSolver solver2(circuit, config_350K);
     DenseVector solution2;
     SolverStats stats2;
     ConvergenceStatus status2 = solver2.solve(solution2, stats2);

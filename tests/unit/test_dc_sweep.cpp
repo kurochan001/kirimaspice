@@ -599,20 +599,15 @@ TEST(StepConfigPoints, LinearStepIncludesTheStop) {
 
 // .TEMP and .OPTIONS TEMP set the temperature of every device that has a
 // temperature model (apply_temperature_to_devices). A FinFET solved at 127 C
-// through the configuration must carry the same current as the same FinFET
-// set to 127 C directly, and a different one from 27 C (its mobility and
-// threshold depend on the temperature).
+// through the configuration must carry a different current from 27 C (its
+// mobility and threshold depend on the temperature), and one solved at 27 C
+// through the configuration the same current as with no temperature given.
 TEST(TemperatureReachesDevices, FinFET) {
-    auto drain_current = [](Real config_temp, bool set_device_directly) {
+    auto drain_current = [](Real config_temp) {
         CircuitGraph circuit;
         circuit.add_voltage_source("VD", "d", "0", 0.8);
         circuit.add_voltage_source("VG", "g", "0", 0.8);
         circuit.add_finfet_n("M1", "d", "g", "0");
-        if (set_device_directly) {
-            auto* m = dynamic_cast<devices::FinFET_N*>(circuit.get_device("M1").get());
-            EXPECT_NE(m, nullptr);
-            m->set_temperature(400.15);
-        }
         SimulationConfig config;
         if (config_temp > 0.0) {
             config.temperature = config_temp;
@@ -624,11 +619,11 @@ TEST(TemperatureReachesDevices, FinFET) {
         EXPECT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS);
         return solver.get_branch_current("VD").value();
     };
-    const Real at_27c = drain_current(0.0, false);
-    const Real direct_127c = drain_current(0.0, true);
-    const Real configured_127c = drain_current(400.15, false);
-    EXPECT_GT(std::abs(direct_127c - at_27c), 1e-3 * std::abs(at_27c));
-    EXPECT_NEAR(configured_127c, direct_127c, 1e-12 * std::abs(direct_127c));
+    const Real at_27c = drain_current(0.0);
+    const Real configured_27c = drain_current(300.15);
+    const Real configured_127c = drain_current(400.15);
+    EXPECT_GT(std::abs(configured_127c - at_27c), 1e-3 * std::abs(at_27c));
+    EXPECT_NEAR(configured_27c, at_27c, 1e-12 * std::abs(at_27c));
 }
 
 // The FinFET's square law carries the gain factor u0 Cox Weff / L, with

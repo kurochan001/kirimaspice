@@ -141,13 +141,13 @@ TEST(PChannelStamps, FinFetThresholdFollowsTheTemperatureAsTheMirror) {
         if (p) {
             c.add_finfet_p("M1", "d", "g", "0", 1, 30e-9, 7e-9, -0.4, 300e-4, 1e5, 70e-3, 0.05,
                            1e-9, 1e-15, 1e-16, 0.0, 1.0, 1e-3, 300.15, 1e-6);
-            dynamic_cast<devices::FinFET_P*>(c.get_device("M1").get())->set_temperature(400.0);
         } else {
             c.add_finfet_n("M1", "d", "g", "0", 1, 30e-9, 7e-9, 0.4, 300e-4, 1e5, 70e-3, 0.05,
                            1e-9, 1e-15, 1e-16, 0.0, 1.0, -1e-3, 300.15, 1e-6);
-            dynamic_cast<devices::FinFET_N*>(c.get_device("M1").get())->set_temperature(400.0);
         }
         SimulationConfig config;
+        config.temperature = 400.0;
+        config.temperature_explicitly_set = true;
         DCSolver solver(c, config);
         DenseVector solution;
         SolverStats stats;

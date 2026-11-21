@@ -331,7 +331,7 @@ TEST(VDMOS_N, TemperatureDependence_VTO) {
                          2.0,   // RTC
                          T1);   // Tnom
 
-    // Circuit at T2 (elevated) - same parameters but will set temperature later
+    // Circuit at T2 (elevated) - same parameters, solved at T2
     circuit2.add_voltage_source("VGS", "gate", "0", 5.0);
     circuit2.add_voltage_source("VDD", "vdd", "0", 10.0);
     circuit2.add_resistor("RD", "vdd", "drain", 10.0);  // Larger resistor
@@ -341,20 +341,12 @@ TEST(VDMOS_N, TemperatureDependence_VTO) {
                          0.0, 1.0, 1.0, 0.667,
                          kt1, 0.0, -1.5, 2.0, T1);
 
-    // Set temperature for circuit2
-    auto m2 = std::dynamic_pointer_cast<VDMOS_N>(circuit2.get_device("M1"));
-    ASSERT_NE(m2, nullptr);
+    // The temperature of circuit2's analysis
+    SimulationConfig config2;
+    config2.temperature = T2;
+    config2.temperature_explicitly_set = true;
 
-    // Debug: Check temperatures before setting
-    std::cout << "Before set_temperature: m2->get_temperature() = " << m2->get_temperature() << " K" << std::endl;
-    m2->set_temperature(T2);
-    std::cout << "After set_temperature: m2->get_temperature() = " << m2->get_temperature() << " K" << std::endl;
-
-    // Also check circuit1's device temperature
-    auto m1 = std::dynamic_pointer_cast<VDMOS_N>(circuit1.get_device("M1"));
-    std::cout << "m1->get_temperature() = " << m1->get_temperature() << " K" << std::endl;
-
-    DCSolver solver1(circuit1), solver2(circuit2);
+    DCSolver solver1(circuit1), solver2(circuit2, config2);
     DenseVector solution1, solution2;
     SolverStats stats1, stats2;
 

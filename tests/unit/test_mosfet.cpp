@@ -610,13 +610,13 @@ TEST(MOSFET_Circuit, TemperatureEffectInCircuit) {
     NodeId drain_id = circuit.get_node_id("d");
     Real v_drain_nom = solution_nom[drain_id - 1];
 
-    // Set temperature to 350K (77°C) and re-solve
-    auto mosfet = std::dynamic_pointer_cast<MOSFET_N>(circuit.get_device("M1"));
-    ASSERT_NE(mosfet, nullptr);
-    mosfet->set_temperature(350.0);
-
+    // Re-solve with the circuit at 350K (77°C)
+    SimulationConfig hot_config;
+    hot_config.temperature = 350.0;
+    hot_config.temperature_explicitly_set = true;
+    DCSolver hot_solver(circuit, hot_config);
     DenseVector solution_hot;
-    status = solver.solve(solution_hot, stats);
+    status = hot_solver.solve(solution_hot, stats);
     EXPECT_EQ(status, ConvergenceStatus::SUCCESS);
 
     Real v_drain_hot = solution_hot[drain_id - 1];
