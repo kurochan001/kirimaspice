@@ -114,32 +114,32 @@ void WavWriter::write_transient(const std::vector<std::string>& node_names,
     // Write header (placeholder, will update later)
     write_header(out, static_cast<std::uint16_t>(num_channels), num_audio_samples);
 
-    // Resample and write data
+    // Each channel's voltages over the time points, built once
+    std::vector<std::vector<Real>> channel_voltages(num_channels);
+    for (std::size_t ch = 0; ch < num_channels; ++ch) {
+        auto& voltages = channel_voltages[ch];
+        voltages.reserve(num_sim_points);
+        for (const auto& tp : result.timepoints) {
+            voltages.push_back(ch < tp.node_voltages.size() ? tp.node_voltages[ch] : 0.0);
+        }
+    }
+
+    // Resample and write data. The sample times rise, so the first time
+    // point after t (what std::upper_bound would find) only moves forward.
     const Real dt = 1.0 / sample_rate_;
     const Real t_start = time_array.front();
+    std::size_t upper = 0;
 
     for (std::uint32_t i = 0; i < num_audio_samples; ++i) {
         const Real t = t_start + i * dt;
+        while (upper < num_sim_points && time_array[upper] <= t) {
+            ++upper;
+        }
 
         // Write one sample for each channel
         for (std::size_t ch = 0; ch < num_channels; ++ch) {
-            // Extract voltage array for this node
-            std::vector<Real> voltage_array;
-            voltage_array.reserve(num_sim_points);
-            for (const auto& tp : result.timepoints) {
-                if (ch < tp.node_voltages.size()) {
-                    voltage_array.push_back(tp.node_voltages[ch]);
-                } else {
-                    voltage_array.push_back(0.0);
-                }
-            }
-
-            // Interpolate voltage at time t
-            const Real voltage = interpolate_voltage(t, time_array, voltage_array);
-
-            // Convert to sample and write
-            const std::int32_t sample = voltage_to_sample(voltage);
-            write_sample(out, sample);
+            const Real voltage = interpolate_voltage(t, upper, time_array, channel_voltages[ch]);
+            write_sample(out, voltage_to_sample(voltage));
         }
     }
 
@@ -150,6 +150,7 @@ void WavWriter::write_transient(const std::vector<std::string>& node_names,
 }
 
 Real WavWriter::interpolate_voltage(Real time,
+                                    std::size_t idx_upper,
                                     const std::vector<Real>& timepoints,
                                     const std::vector<Real>& voltages) const {
     if (timepoints.empty() || voltages.empty()) {
@@ -164,13 +165,7 @@ Real WavWriter::interpolate_voltage(Real time,
         return voltages.back();
     }
 
-    // Binary search for surrounding time points
-    auto it_upper = std::upper_bound(timepoints.begin(), timepoints.end(), time);
-    if (it_upper == timepoints.begin()) {
-        return voltages.front();
-    }
-
-    const std::size_t idx_upper = it_upper - timepoints.begin();
+    // timepoints[idx_upper - 1] <= time < timepoints[idx_upper]
     const std::size_t idx_lower = idx_upper - 1;
 
     const Real t0 = timepoints[idx_lower];

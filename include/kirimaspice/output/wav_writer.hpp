@@ -109,11 +109,14 @@ private:
      * @brief Interpolate voltage at specific time point
      *
      * @param time Target time point
+     * @param idx_upper Index of the first time point after time (as
+     *        std::upper_bound finds it), which the caller walks forward
      * @param timepoints Original time array
      * @param voltages Original voltage array
      * @return Interpolated voltage value
      */
     Real interpolate_voltage(Real time,
+                             std::size_t idx_upper,
                              const std::vector<Real>& timepoints,
                              const std::vector<Real>& voltages) const;
 
