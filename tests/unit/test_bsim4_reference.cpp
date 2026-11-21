@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -518,5 +519,44 @@ TEST(BSIM4AgainstNgspice, MaskAndEtchOffsets) {
         EXPECT_NEAR(row.gm, p.gm, 1e-3 * p.gm) << at;
         EXPECT_NEAR(row.gds, p.gds, 1e-3 * p.gds) << at;
         EXPECT_NEAR(row.gmb, p.gmbs, 1e-3 * p.gmbs) << at;
+    }
+}
+
+// PRWB, the body-bias coefficient of Rds, multiplies the rise of sqrt(Phis)
+// over sqrt(Phi), so it has no effect at VBS = 0 (BSIM4 4.8.3 b4ld.c). With
+// body bias gmbs is here the small difference of the body effects of Vth and
+// of Rds, and is compared within 1e-5 gm as well, since the threshold with
+// body bias differs from ngspice-47's by some microvolts (KNOWN_ISSUES.md).
+// ngspice-47, run 2026-11-21: `id gm gds gmbs` of m1 for
+//
+//   .model nch nmos level=14 version=4.8.1 toxe=2e-9 vth0=0.4 u0=0.03 vsat=1e5 <extra>
+//   M1 d g 0 b nch L=0.09u W=1u
+TEST(BSIM4AgainstNgspice, ResistanceBodyBiasCoefficient) {
+    struct Point {
+        const char* extra;
+        Real vgs, vds, vbs;
+        Real id, gm, gds, gmbs;
+    };
+    const Point points[] = {
+        {"prwb=0.2", 1.2, 1.2, 0.0, 5.133164e-04, 9.088863e-04, 1.698216e-04, 3.250307e-05},
+        {"prwb=0.2", 1.2, 0.05, 0.0, 6.721244e-05, 8.175533e-05, 1.257236e-03, 7.679876e-06},
+        {"prwb=0.2", 1.2, 0.05, -0.8, 6.315824e-05, 7.792985e-05, 1.185023e-03, 3.228307e-06},
+        {"prwb=0.2 rdsw=500", 1.2, 1.2, -0.8,
+         4.432191e-04, 7.514371e-04, 1.543774e-04, 4.082084e-06},
+        {"prwb=-0.1 rdsw=500", 1.2, 0.05, -0.8,
+         5.287505e-05, 6.109865e-05, 1.002819e-03, 3.276873e-07},
+    };
+    for (const auto& p : points) {
+        const std::string card =
+            std::string(".model nch nmos level=14 version=4.8.1 toxe=2e-9 vth0=0.4 u0=0.03 "
+                        "vsat=1e5 ") + p.extra + "\n";
+        const DrainRow row =
+            drain_row_of_m1("M1 d g s b nch L=0.09u W=1u", card, p.vds, p.vgs, 0.0, p.vbs);
+        const std::string at = std::string(p.extra) + " VGS=" + std::to_string(p.vgs) +
+                               " VDS=" + std::to_string(p.vds) + " VBS=" + std::to_string(p.vbs);
+        EXPECT_NEAR(row.ids, p.id, 2e-4 * p.id) << at;
+        EXPECT_NEAR(row.gm, p.gm, 1e-3 * p.gm) << at;
+        EXPECT_NEAR(row.gds, p.gds, 1e-3 * p.gds) << at;
+        EXPECT_NEAR(row.gmb, p.gmbs, std::max(1e-3 * p.gmbs, 1e-5 * p.gm)) << at;
     }
 }

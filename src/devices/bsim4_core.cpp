@@ -2867,8 +2867,9 @@ Real BSIM4Core::compute_rds(Real vgsteff, Real sqrtPhis, Real temperature) const
     // Gate-bias effect on rds
     const Real T0 = 1.0 + params_.prwg * vgsteff;
 
-    // Body-effect on rds (using sqrtPhis from bias state)
-    const Real T1 = params_.prwb * sqrtPhis;
+    // Body effect on Rds: PRWB times the rise of sqrt(Phis) over its value at
+    // Vbs = 0, sqrt(Phi) (BSIM4 4.8.3 b4ld.c), so that it vanishes at Vbs = 0
+    const Real T1 = params_.prwb * (sqrtPhis - params_.sqrtPhi);
 
     // Combined effect with smoothing
     const Real T2 = 1.0 / T0 + T1;
