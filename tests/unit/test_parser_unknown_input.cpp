@@ -233,3 +233,19 @@ TEST(ParserUnknownInput, UnusedElementLineNamesOfEveryMosfetLevelAreNamed) {
     EXPECT_EQ(count(finfet, "M1: 'W=2u' is not used"), 1u) << finfet;
     EXPECT_EQ(count(finfet, "L=30n"), 0u) << finfet;
 }
+
+TEST(ParserUnknownInput, Bsim4MobilityModelNotComputedIsNamed) {
+    // MOBMOD 0, 1 and 2 are computed; 3 to 6 are computed as MOBMOD 0, and
+    // the card is told so
+    for (const char* mobmod : {"3", "4", "6"}) {
+        const std::string warnings = parse_warnings(std::string("t\nVD d 0 1\nM1 d d 0 0 nb W=1u L=1u\n") +
+                                                    ".model nb nmos level=14 mobmod=" + mobmod + "\n.end\n");
+        EXPECT_EQ(count(warnings, std::string("MOBMOD ") + mobmod + " is not computed; MOBMOD 0 is used"), 1u)
+            << warnings;
+    }
+    for (const char* mobmod : {"0", "1", "2"}) {
+        const std::string warnings = parse_warnings(std::string("t\nVD d 0 1\nM1 d d 0 0 nb W=1u L=1u\n") +
+                                                    ".model nb nmos level=14 mobmod=" + mobmod + "\n.end\n");
+        EXPECT_EQ(count(warnings, "is not computed"), 0u) << warnings;
+    }
+}

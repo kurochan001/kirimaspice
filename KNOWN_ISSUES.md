@@ -272,8 +272,8 @@ says otherwise.
   not read). The outer fringe capacitance CF is not modelled. In the
   linear region Cgs = Cgd = 2/3 Cox W L (4/3 Cox W L in all).
 - **BSIM4's MOBMOD 3 (the high-k mobility model) to 6 are computed as
-  MOBMOD 0,** without a warning. MOBMOD 0, 1 and 2 follow the BSIM4 4.8.3
-  code.
+  MOBMOD 0,** and the card is named in a warning. MOBMOD 0, 1 and 2 follow
+  the BSIM4 4.8.3 code.
 - **BSIM4's threshold differs from ngspice-47's by up to 10 µV with body
   bias** (1 µV at V<sub>BS</sub> = 0, 6 to 10 µV from −0.5 V to −3 V, for
   the card of the reference test). The cause is not confirmed; the BSIM4

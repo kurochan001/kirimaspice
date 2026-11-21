@@ -620,6 +620,14 @@ BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_par
                      model_name, bsim4_params.version, target_bsim4_version);
     }
 
+    // MOBMOD 0, 1 and 2 are computed (BSIM4Core::compute_mobility); any
+    // other, such as the high-k model 3 or 4 to 6 of BSIM4 4.8, is computed
+    // as MOBMOD 0, which the card is told
+    if (bsim4_params.mobmod < 0 || bsim4_params.mobmod > 2) {
+        spdlog::warn("BSIM4 model {}: MOBMOD {} is not computed; MOBMOD 0 is used", model_name,
+                     bsim4_params.mobmod);
+    }
+
     // A U0 above 1 on the card is in cm^2/Vs (the BSIM4 4.8.3 code divides
     // it by 1e4)
     if (bsim4_params.u0_given && bsim4_params.u0 > 1.0) {
