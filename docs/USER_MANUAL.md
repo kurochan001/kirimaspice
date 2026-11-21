@@ -412,7 +412,8 @@ X1 in out DIV RTOP=3k
 ```
 
 - Default parameter values follow the pins as `NAME=value`; an instance
-  overrides them the same way. The `PARAMS:` keyword is not accepted.
+  overrides them the same way. The keyword `PARAMS:` before them is
+  optional, as in ngspice.
 - A subcircuit body sees the global `.PARAM` values; the defaults of the
   `.SUBCKT` line and the values on the `X` line come before them. A
   `.PARAM` written inside a `.SUBCKT` is local to the subcircuit and is

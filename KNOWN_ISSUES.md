@@ -103,8 +103,6 @@ document also lists differences not decided there.
   warning). A `.PARAM` value without braces that is not a number is read
   as an expression, so `.param r = 2k` is 2000 but `.param r = 2*1k` is an
   error, where ngspice-47 gives 2000 (run on 2026-11-21 at `21bb991`).
-- **`PARAMS:` is not accepted** on `.SUBCKT` and `X` lines; parameters are
-  written `NAME=value` after the pins.
 - **`E`, `F`, `G` and `H` have no `POLY` form;** a line with `POLY(...)`
   after the output nodes is an error.
 - **`.FUNC` cannot be called in an element value,** only in `.PARAM`

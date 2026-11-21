@@ -108,7 +108,7 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
 ### Subcircuits and parameters
 
 - [ ] **Parameters of a subcircuit.** Write defaults as `NAME=value` after
-  the pins; `PARAMS:` is not accepted. As in ngspice, a subcircuit body
+  the pins, after the keyword `PARAMS:` or without it. As in ngspice, a subcircuit body
   sees the global `.PARAM` values, and a `.PARAM` inside a `.SUBCKT` is
   local to it.
 - [ ] **`.FUNC` only in `.PARAM` expressions**, not in element values.

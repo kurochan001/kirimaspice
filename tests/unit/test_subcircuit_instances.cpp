@@ -247,3 +247,17 @@ TEST(SubcircuitInstances, UndefinedModelInABody) {
         ".ends cell\nVD d 0 1\nVG g 0 1\nX1 d g cell\n.op\n.end\n");
     EXPECT_FALSE(message.empty());
 }
+
+// The keyword PARAMS: before the parameters of .SUBCKT and X lines is
+// optional, as in ngspice-47: 1 V across 2k, 4k (PARAMS: in upper case) and
+// the default 1k in parallel draws 1.75 mA there (run 2026-11-21); behind
+// 1 kohm the node sits at 1 V x 0.5714k / 1.5714k. Before, PARAMS: was read
+// as the subcircuit's type.
+TEST(SubcircuitInstances, ParamsKeywordIsOptional) {
+    const auto op = solve(
+        "t\nV1 in 0 1\nRs in a 1k\nX1 a 0 load params: r=2k\nX2 a 0 load PARAMS: r=4k\nX3 a 0 load\n"
+        ".subckt load p q params: r=1k\nR1 p q {r}\n.ends\n.end\n");
+    ASSERT_EQ(op.status, ConvergenceStatus::SUCCESS);
+    const double parallel = 1.0 / (1.0 / 2e3 + 1.0 / 4e3 + 1.0 / 1e3);
+    EXPECT_NEAR(op.voltage("a"), parallel / (parallel + 1e3), 1e-9);
+}

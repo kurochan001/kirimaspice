@@ -4217,9 +4217,13 @@ static void parse_subckt_directive(const std::vector<std::string>& tokens, Parse
     std::vector<std::string> pins;
     std::map<std::string, Real> params;
 
-    // Parse pins and parameters
+    // Parse pins and parameters; the keyword PARAMS: before the parameters
+    // is optional, as in ngspice
     for (size_t i = 2; i < tokens.size(); ++i) {
         const std::string& token = tokens[i];
+        if (util::equals_icase(token, "PARAMS:")) {
+            continue;
+        }
 
         // Check if parameter (contains '=')
         size_t eq_pos = token.find('=');

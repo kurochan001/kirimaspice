@@ -24,9 +24,13 @@ namespace kirimaspice::circuit {
 
 InstanceLineParts split_instance_line(const std::vector<std::string>& tokens) {
     InstanceLineParts parts;
+    // The keyword PARAMS: before the parameters is optional, as in ngspice
+    const auto is_params_keyword = [](const std::string& token) {
+        return util::equals_icase(token, "PARAMS:");
+    };
     std::size_t type_index = 0;
     for (std::size_t i = tokens.size(); i-- > 1;) {
-        if (tokens[i].find('=') == std::string::npos) {
+        if (tokens[i].find('=') == std::string::npos && !is_params_keyword(tokens[i])) {
             type_index = i;
             break;
         }
@@ -37,6 +41,9 @@ InstanceLineParts split_instance_line(const std::vector<std::string>& tokens) {
     parts.type = tokens[type_index];
     parts.nodes.assign(tokens.begin() + 1, tokens.begin() + static_cast<std::ptrdiff_t>(type_index));
     for (std::size_t i = type_index + 1; i < tokens.size(); ++i) {
+        if (is_params_keyword(tokens[i])) {
+            continue;
+        }
         const auto eq = tokens[i].find('=');
         std::string name = tokens[i].substr(0, eq);
         std::transform(name.begin(), name.end(), name.begin(),
