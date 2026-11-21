@@ -7,6 +7,7 @@
 #include "kirimaspice/circuit/subcircuit.hpp"
 #include "kirimaspice/core/constants.hpp"
 #include "kirimaspice/devices/device.hpp"
+#include "kirimaspice/devices/mesfet.hpp"
 #include "kirimaspice/devices/mosfet_level3_params.hpp"
 #include "kirimaspice/devices/mosfet_bsim1_params.hpp"  // BSIM1 (Level 9)
 #include "kirimaspice/devices/mosfet_bsim3_params.hpp"
@@ -4843,7 +4844,10 @@ static void parse_mesfet_device(const std::vector<std::string>& tokens, const st
     // Default MESFET parameters
     int model = 1;           // 1=Curtice, 2=Statz
     Real beta = 0.1;         // Transconductance parameter [A/V²]
-    Real vto = -2.0;         // Threshold voltage [V] (negative for n-channel depletion)
+    // Threshold voltage [V]: the device's default for its polarity
+    // (MESFET::default_vto, -2 V for n-channel and +2 V for p-channel
+    // depletion), n-channel until the polarity is known
+    Real vto = devices::MESFET_N::default_vto;
     Real lambda = 0.05;      // Channel length modulation [1/V]
     Real alpha = 2.0;        // Saturation voltage parameter [1/V] (Curtice)
     Real b = 0.3;            // Doping tail parameter (Statz)
@@ -4872,7 +4876,7 @@ static void parse_mesfet_device(const std::vector<std::string>& tokens, const st
             mesfet_type = potential_model;
             is_p_channel = (potential_model == "PMF");
             if (is_p_channel) {
-                vto = 2.0;  // Positive for p-channel depletion
+                vto = devices::MESFET_P::default_vto;
             }
             param_start = 5;  // Parameters start after type
         }
@@ -4890,9 +4894,13 @@ static void parse_mesfet_device(const std::vector<std::string>& tokens, const st
                                    state.line_number);
                 }
 
-                // Determine channel type from model
+                // Determine channel type from model; a card without VTO
+                // takes the default of its polarity, as the keyword does
                 is_p_channel = (model_def.device_type == DeviceType::MESFET_P);
                 mesfet_type = is_p_channel ? "PMF" : "NMF";
+                if (is_p_channel) {
+                    vto = devices::MESFET_P::default_vto;
+                }
 
                 // Apply model parameters
                 if (model_def.params.count("level")) model = static_cast<int>(model_def.params.at("level"));

@@ -13,6 +13,7 @@
 #include "kirimaspice/devices/current_source.hpp"
 #include "kirimaspice/devices/diode.hpp"
 #include "kirimaspice/devices/bjt_npn.hpp"
+#include "kirimaspice/devices/mesfet.hpp"
 #include "kirimaspice/devices/mosfet_level1.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
 #include <filesystem>
@@ -4654,4 +4655,35 @@ TEST(ModelLevel, UnknownLevelIsAnError) {
     }
     parser::NetlistParser parser;
     EXPECT_NO_THROW(parser.parse_string("level\nM1 d g 0 0 m\n.model m nmos level=1\n.end\n"));
+}
+
+// A PMF card without VTO is the p-channel depletion device the PMF keyword
+// gives, VTO = +2 V (MESFET::default_vto), not the n-channel default -2 V:
+// parse_mesfet_device. ngspice-47 (run 2026-11-21) conducts at VGS = 0 with
+// such a card: I(VD) = 2.407 mA for .model pm PMF beta=1e-3 lambda=0 b=0.3
+// alpha=2 at VDS = -1 V, as an NMF card mirrored.
+TEST(ModelLevel, PmfCardWithoutVtoIsDepletion) {
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "pmf\n.model pm PMF beta=1e-3 lambda=0\n.model nm NMF beta=1e-3 lambda=0\n"
+        "VD d 0 -1\nVG g 0 0\nZ1 d g 0 pm\nVD2 d2 0 -1\nZ2 d2 g 0 PMF beta=1e-3 lambda=0\n"
+        "Z3 n g 0 nm\nR3 n 0 1k\n.op\n.end\n");
+    const auto z1 = std::dynamic_pointer_cast<devices::MESFET_P>(parsed.circuit->get_device("Z1"));
+    const auto z2 = std::dynamic_pointer_cast<devices::MESFET_P>(parsed.circuit->get_device("Z2"));
+    const auto z3 = std::dynamic_pointer_cast<devices::MESFET_N>(parsed.circuit->get_device("Z3"));
+    ASSERT_NE(z1, nullptr);
+    ASSERT_NE(z2, nullptr);
+    ASSERT_NE(z3, nullptr);
+    EXPECT_DOUBLE_EQ(z1->vto(), 2.0);
+    EXPECT_DOUBLE_EQ(z2->vto(), 2.0);
+    EXPECT_DOUBLE_EQ(z3->vto(), -2.0);
+    solvers::DCSolver solver(*parsed.circuit, parsed.config);
+    DenseVector solution;
+    SolverStats stats;
+    ASSERT_EQ(solver.solve(solution, stats), ConvergenceStatus::SUCCESS);
+    // The card and the keyword give the same device, and it conducts
+    const Real card = solver.get_branch_current("VD").value();
+    const Real keyword = solver.get_branch_current("VD2").value();
+    EXPECT_GT(keyword, 1e-4);
+    EXPECT_NEAR(card, keyword, 1e-15);
 }
