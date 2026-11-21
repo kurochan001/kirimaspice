@@ -8,7 +8,6 @@
 #include <stdexcept>
 #include <cmath>
 #include <algorithm>
-#include <cstdlib>
 
 namespace kirimaspice::devices {
 
@@ -27,30 +26,21 @@ TLineLossy::TLineLossy(DeviceId id, const std::string& name,
     }
     length_ = td_ / std::sqrt(l_per_m_ * c_per_m_);
 
-    // Approximate characteristic impedance and attenuation (low-frequency)
-    z0_ = std::sqrt(l_per_m_ / std::max(c_per_m_, 1e-30));
-    g0_ = 1.0 / std::max(z0_, 1e-30);
-    alpha_ = 0.5 * (r_per_m_ / std::max(z0_, 1e-30) + g_per_m_ * z0_);
-    // Simple RC/LR blend time constant for dispersion-like low-pass filtering
-    Real tau_lr = (r_per_m_ > 0.0) ? (l_per_m_ / std::max(r_per_m_, 1e-12)) : 0.0;
-    Real tau_gc = (g_per_m_ > 0.0) ? (std::max(c_per_m_, 1e-18) / std::max(g_per_m_, 1e-15)) : 0.0;
-    if (tau_lr > 0.0 && tau_gc > 0.0) {
-        tau_filter_ = 0.5 * (tau_lr + tau_gc);
-    } else if (tau_lr > 0.0) {
-        tau_filter_ = tau_lr;
-    } else if (tau_gc > 0.0) {
-        tau_filter_ = tau_gc;
-    } else {
-        tau_filter_ = td_;
-    }
+    // The constant-parameter sections (see the class comment): as many as
+    // keep each section's loss at most kLossPerSection
+    z0_ = std::sqrt(l_per_m_ / c_per_m_);
+    g0_ = 1.0 / z0_;
+    const Real loss = std::max(r_per_m_ * length_ / z0_, g_per_m_ * length_ * z0_);
+    sections_ = static_cast<int>(std::clamp(std::ceil(loss / kLossPerSection), 1.0,
+                                            static_cast<Real>(kMaxSections)));
+    const Real m = static_cast<Real>(sections_);
+    tau_ = td_ / m;
+    rs_ = 0.5 * r_per_m_ * length_ / m;
+    gsh_ = 0.5 * g_per_m_ * length_ / m;
+    g_port_ = 1.0 / (z0_ + rs_);
+    k_hist_ = z0_ / (z0_ + rs_);
 
-    // Optional: enable 2nd-order IIR loss filter (env flag, default OFF to keep legacy)
-    const char* env_iir = std::getenv("KIRIMASPICE_TLINE_LOSSY_IIR");
-    use_iir_filter_ = (env_iir && std::string(env_iir) == "1");
-
-    // init history with zeros
-    HistoryPoint init{0.0, 0.0, 0.0, 0.0, 0.0};
-    history_.push_back(init);
+    reset_state();
 }
 
 TLineLossy::TwoPort TLineLossy::two_port(Real omega) const {
@@ -76,6 +66,8 @@ TLineLossy::TwoPort TLineLossy::two_port(Real omega) const {
 
 void TLineLossy::stamp_dc_linear(MNASystem& mna, const DenseVector& node_voltages) const {
     (void)node_voltages;
+    last_stamp_was_dc_ = true;
+    last_stamp_was_first_stage_ = false;
     const int idx[4] = {
         (nodes_[0] == NODE_GND) ? -1 : static_cast<int>(nodes_[0] - 1),
         (nodes_[1] == NODE_GND) ? -1 : static_cast<int>(nodes_[1] - 1),
@@ -159,8 +151,8 @@ void TLineLossy::stamp_ac(ComplexMNASystem& sys,
     add(bn_idx, bn_idx,  Y22);
 }
 
-//------------------------------------------------------------------------------ 
-// Transient (approximate): use lossless Branin with exponential attenuation e^{-alpha*TD}
+//------------------------------------------------------------------------------
+// Transient: the constant-parameter (Bergeron) line
 //------------------------------------------------------------------------------
 
 void TLineLossy::stamp_transient(MNASystem& mna,
@@ -169,188 +161,191 @@ void TLineLossy::stamp_transient(MNASystem& mna,
                          IntegrationMethod method,
                          const BDFCoefficients* bdf_coef,
                          const TR_BDF2_Coefficients* tr_bdf2_coef) const {
+    (void)node_voltages;
     (void)bdf_coef;
 
     last_timestep_ = timestep;
+    last_stamp_was_dc_ = false;
     last_stamp_was_first_stage_ = method == IntegrationMethod::TR_BDF2 && tr_bdf2_coef != nullptr &&
                                   tr_bdf2_coef->stage == 1;
 
-    // The delayed, attenuated and filtered port voltages at the end of this
-    // step, from the state accepted at its start; the stamp does not change
-    // that state (accept_solution advances it once per accepted step)
-    const FilteredWaves waves = filtered_waves(current_time_ + timestep, timestep);
-    const Real v_a_eff = waves.a;
-    const Real v_b_eff = waves.b;
-
-    const NodeId ap = nodes_[0];
-    const NodeId an = nodes_[1];
-    const NodeId bp = nodes_[2];
-    const NodeId bn = nodes_[3];
-
+    // At a section's lossless line's own end A' (inside rs), as for the T
+    // line (TLineLossless::stamp_transient):
+    //   I_A' = G0 V_A' - [G0 V_B'(t - TD/M) + I_B'(t - TD/M)] = G0 V_A' - h_A
+    // with V_A' = V_A - rs I_A', so I_A' = (G0 V_A - h_A) / (1 + G0 rs), and
+    // the end adds its shunt: I_A = (1/(Z0 + rs) + gsh) V_A - k h_A,
+    // k = Z0/(Z0 + rs). The line's ports are the A end of the first section
+    // and the B end of the last; the delayed values are those at the end of
+    // this step, from the points accepted before it (the step is at most
+    // TD/M).
+    const Real t = current_time_ + timestep;
     auto idx = [](NodeId n){ return (n == NODE_GND) ? -1 : static_cast<int>(n - 1); };
-    int ap_idx = idx(ap), an_idx = idx(an), bp_idx = idx(bp), bn_idx = idx(bn);
-
-    // Conductance G0 to ground on each port (same as lossless)
-    if (ap_idx >= 0) {
-        mna.G.add_entry(ap_idx, ap_idx, g0_);
-        if (an_idx >= 0) mna.G.add_entry(ap_idx, an_idx, -g0_);
+    const int port_plus[2] = {idx(nodes_[0]), idx(nodes_[2])};
+    const int port_minus[2] = {idx(nodes_[1]), idx(nodes_[3])};
+    const Real arriving[2] = {arriving_at_a(0, t), arriving_at_b(sections_ - 1, t)};
+    const Real g = g_port_ + gsh_;
+    for (int p = 0; p < 2; ++p) {
+        const int a = port_plus[p];
+        const int b = port_minus[p];
+        if (a >= 0) {
+            mna.G.add_entry(a, a, g);
+            if (b >= 0) mna.G.add_entry(a, b, -g);
+            mna.b[a] += arriving[p];
+        }
+        if (b >= 0) {
+            mna.G.add_entry(b, b, g);
+            if (a >= 0) mna.G.add_entry(b, a, -g);
+            mna.b[b] -= arriving[p];
+        }
     }
-    if (an_idx >= 0) {
-        mna.G.add_entry(an_idx, an_idx, g0_);
-        if (ap_idx >= 0) mna.G.add_entry(an_idx, ap_idx, -g0_);
-    }
-    if (bp_idx >= 0) {
-        mna.G.add_entry(bp_idx, bp_idx, g0_);
-        if (bn_idx >= 0) mna.G.add_entry(bp_idx, bn_idx, -g0_);
-    }
-    if (bn_idx >= 0) {
-        mna.G.add_entry(bn_idx, bn_idx, g0_);
-        if (bp_idx >= 0) mna.G.add_entry(bn_idx, bp_idx, -g0_);
-    }
-
-    // History current sources with attenuation
-    Real i_a_hist = g0_ * v_b_eff;
-    if (ap_idx >= 0) mna.b[ap_idx] += i_a_hist;
-    if (an_idx >= 0) mna.b[an_idx] -= i_a_hist;
-
-    Real i_b_hist = g0_ * v_a_eff;
-    if (bp_idx >= 0) mna.b[bp_idx] += i_b_hist;
-    if (bn_idx >= 0) mna.b[bn_idx] -= i_b_hist;
 }
 
-TLineLossy::FilteredWaves TLineLossy::filtered_waves(Real time, Real timestep) const {
-    Real v_a_delayed, v_b_delayed, i_a_delayed, i_b_delayed;
-    get_delayed_signals(time, v_a_delayed, v_b_delayed, i_a_delayed, i_b_delayed);
-
-    // Attenuation for one-way propagation over the length of the line
-    const Real atten = std::exp(-alpha_ * length_);
-    v_a_delayed *= atten;
-    v_b_delayed *= atten;
-
-    // Low-pass smoothing to emulate frequency-dependent loss: one pole, or
-    // two of the same cutoff when the IIR filter is on
-    FilteredWaves w;
-    if (tau_filter_ > 0.0) {
-        const Real alpha_f = timestep / (tau_filter_ + timestep);
-        w.a1 = filt_a_ + alpha_f * (v_a_delayed - filt_a_);
-        w.b1 = filt_b_ + alpha_f * (v_b_delayed - filt_b_);
-        w.a2 = filt_a2_ + alpha_f * (w.a1 - filt_a2_);
-        w.b2 = filt_b2_ + alpha_f * (w.b1 - filt_b2_);
-        w.a = use_iir_filter_ ? w.a2 : w.a1;
-        w.b = use_iir_filter_ ? w.b2 : w.b1;
-    } else {
-        w.a = w.a1 = w.a2 = v_a_delayed;
-        w.b = w.b1 = w.b2 = v_b_delayed;
+TLineLossy::HistoryPoint TLineLossy::delayed(int k, Real t) const {
+    // Linear interpolation in the section's accepted points; before the
+    // first, the first (the operating point's steady state); after the
+    // last, the last
+    const auto& h = history_[static_cast<std::size_t>(k)];
+    if (t <= h.front().time) {
+        return h.front();
     }
-    return w;
+    if (t >= h.back().time) {
+        return h.back();
+    }
+    auto it = std::lower_bound(h.begin(), h.end(), t,
+                               [](const HistoryPoint& p, Real time) { return p.time < time; });
+    const HistoryPoint& p1 = *(it - 1);
+    const HistoryPoint& p2 = *it;
+    const Real dt = p2.time - p1.time;
+    if (dt < 1e-20) {
+        return p1;
+    }
+    const Real a = (t - p1.time) / dt;
+    return HistoryPoint{t, p1.v_a + a * (p2.v_a - p1.v_a), p1.v_b + a * (p2.v_b - p1.v_b),
+                        p1.i_a + a * (p2.i_a - p1.i_a), p1.i_b + a * (p2.i_b - p1.i_b)};
+}
+
+Real TLineLossy::arriving_at_a(int k, Real t) const {
+    const HistoryPoint p = delayed(k, t - tau_);
+    return k_hist_ * (g0_ * p.v_b + p.i_b);
+}
+
+Real TLineLossy::arriving_at_b(int k, Real t) const {
+    const HistoryPoint p = delayed(k, t - tau_);
+    return k_hist_ * (g0_ * p.v_a + p.i_a);
+}
+
+std::vector<Real> TLineLossy::junction_voltages(Real t, Real v_a, Real v_b) const {
+    // Junction j of sections j-1 and j meets nothing else: the B end of the
+    // one and the A end of the other carry opposite currents,
+    //   g V_j - arriving_at_b(j-1) + g V_j - arriving_at_a(j) = 0,
+    // with g = 1/(Z0 + rs) + gsh, and the arriving waves are known
+    std::vector<Real> v(static_cast<std::size_t>(sections_) + 1);
+    v.front() = v_a;
+    v.back() = v_b;
+    const Real g = g_port_ + gsh_;
+    for (int j = 1; j < sections_; ++j) {
+        v[static_cast<std::size_t>(j)] = (arriving_at_b(j - 1, t) + arriving_at_a(j, t)) / (2.0 * g);
+    }
+    return v;
 }
 
 void TLineLossy::save_state() {
     history_saved_ = history_;
     current_time_saved_ = current_time_;
-    filt_a_saved_ = filt_a_;
-    filt_b_saved_ = filt_b_;
-    filt_a2_saved_ = filt_a2_;
-    filt_b2_saved_ = filt_b2_;
 }
 
 void TLineLossy::restore_state() {
     history_ = history_saved_;
     current_time_ = current_time_saved_;
-    filt_a_ = filt_a_saved_;
-    filt_b_ = filt_b_saved_;
-    filt_a2_ = filt_a2_saved_;
-    filt_b2_ = filt_b2_saved_;
 }
 
 void TLineLossy::reset_state() {
-    history_.clear();
-    HistoryPoint init{0.0, 0.0, 0.0, 0.0, 0.0};
-    history_.push_back(init);
+    history_.assign(static_cast<std::size_t>(sections_),
+                    std::deque<HistoryPoint>{HistoryPoint{0.0, 0.0, 0.0, 0.0, 0.0}});
     current_time_ = 0.0;
-    filt_a_ = filt_b_ = 0.0;
-    filt_a2_ = filt_b2_ = 0.0;
     last_stamp_was_first_stage_ = false;
+    last_stamp_was_dc_ = false;
 }
 
 void TLineLossy::accept_solution(const DenseVector& node_voltages) {
     // TR-BDF2's first stage ends at t_n + gamma h, between two time points:
-    // the line's clock, filter and history stay at t_n, from which the
-    // second stage steps the whole h (stamp_transient)
+    // the line's clock and history stay at t_n, from which the second stage
+    // steps the whole h (stamp_transient)
     if (last_stamp_was_first_stage_) {
         return;
     }
-    current_time_ += last_timestep_;
-
-    const NodeId ap = nodes_[0];
-    const NodeId an = nodes_[1];
-    const NodeId bp = nodes_[2];
-    const NodeId bn = nodes_[3];
+    if (!last_stamp_was_dc_) {
+        current_time_ += last_timestep_;
+    }
 
     // node_voltages is 0-based; NodeId starts at 1 (0 is ground)
     auto val = [&](NodeId n) { return (n == NODE_GND) ? 0.0 : node_voltages[n]; };
-    Real v_a = val(ap) - val(an);
-    Real v_b = val(bp) - val(bn);
+    const Real v_a = val(nodes_[0]) - val(nodes_[1]);
+    const Real v_b = val(nodes_[2]) - val(nodes_[3]);
+    const auto m = static_cast<std::size_t>(sections_);
 
-    // The filter state at the end of the accepted step, as the stamp of
-    // that step computed it
-    const FilteredWaves waves = filtered_waves(current_time_, last_timestep_);
-    filt_a_ = waves.a1;
-    filt_b_ = waves.b1;
-    filt_a2_ = waves.a2;
-    filt_b2_ = waves.b2;
-
-    Real i_a = g0_ * (v_a - waves.b);
-    Real i_b = g0_ * (v_b - waves.a);
-
-    HistoryPoint p{current_time_, v_a, v_b, i_a, i_b};
-    history_.push_back(p);
-
-    const Real min_time = current_time_ - 2.0 * td_;
-    while (history_.size() > 2 && history_.front().time < min_time) {
-        history_.pop_front();
-    }
-}
-
-void TLineLossy::get_delayed_signals(Real current_time,
-                                     Real& v_a_delayed, Real& v_b_delayed,
-                                     Real& i_a_delayed, Real& i_b_delayed) const {
-    Real target = current_time - td_;
-
-    if (history_.empty()) {
-        v_a_delayed = v_b_delayed = i_a_delayed = i_b_delayed = 0.0;
+    if (last_stamp_was_dc_) {
+        // An accepted operating point: the line has been in it for all
+        // t <= 0. In that steady state each section's lossless line is a
+        // wire, and the sections form a ladder: 2 rs between junctions and
+        // 2 gsh from each inner junction, solved for its junction voltages
+        // from the port voltages (a tridiagonal system). Without R the
+        // junctions are at one voltage, and the current is the wire's of the
+        // DC stamp, less what the shunts before a section draw.
+        last_stamp_was_dc_ = false;
+        std::vector<Real> v(m + 1, 0.5 * (v_a + v_b));
+        std::vector<Real> current(m, 0.0);
+        if (rs_ > 0.0) {
+            v.front() = v_a;
+            v.back() = v_b;
+            const Real gs = 1.0 / (2.0 * rs_);
+            // Thomas algorithm for junctions 1..M-1:
+            //   -gs V_{j-1} + (2 gs + 2 gsh) V_j - gs V_{j+1} = 0
+            std::vector<Real> c(m + 1, 0.0), d(m + 1, 0.0);
+            const Real diag = 2.0 * gs + 2.0 * gsh_;
+            for (std::size_t j = 1; j < m; ++j) {
+                const Real rhs = (j == 1 ? gs * v_a : 0.0) + (j == m - 1 ? gs * v_b : 0.0);
+                const Real denom = diag + gs * (j > 1 ? c[j - 1] : 0.0);
+                c[j] = -gs / denom;
+                d[j] = (rhs + gs * (j > 1 ? d[j - 1] : 0.0)) / denom;
+            }
+            for (std::size_t j = m - 1; j >= 1; --j) {
+                v[j] = d[j] - c[j] * (j + 1 < m ? v[j + 1] : 0.0);
+            }
+            for (std::size_t k = 0; k < m; ++k) {
+                current[k] = (v[k] - v[k + 1]) * gs;
+            }
+        } else {
+            const Real i_line = TLineLossless::kDcCoupling * (v_a - v_b);
+            for (std::size_t k = 0; k < m; ++k) {
+                current[k] = i_line + (static_cast<Real>(m) - 1.0 - 2.0 * static_cast<Real>(k)) * gsh_ * v[k];
+            }
+        }
+        for (std::size_t k = 0; k < m; ++k) {
+            const Real v_inner = v[k] - rs_ * current[k];
+            history_[k].assign(1, HistoryPoint{current_time_, v_inner, v_inner, current[k], -current[k]});
+        }
         return;
     }
-    if (target <= history_.front().time) {
-        v_a_delayed = history_.front().v_a;
-        v_b_delayed = history_.front().v_b;
-        i_a_delayed = history_.front().i_a;
-        i_b_delayed = history_.front().i_b;
-        return;
-    }
-    if (target >= history_.back().time) {
-        v_a_delayed = history_.back().v_a;
-        v_b_delayed = history_.back().v_b;
-        i_a_delayed = history_.back().i_a;
-        i_b_delayed = history_.back().i_b;
-        return;
-    }
 
-    auto it = std::lower_bound(history_.begin(), history_.end(), target,
-        [](const HistoryPoint& p, Real t){ return p.time < t; });
-    const HistoryPoint& p1 = *(it - 1);
-    const HistoryPoint& p2 = *it;
-    Real dt = p2.time - p1.time;
-    if (dt < 1e-20) {
-        v_a_delayed = p1.v_a; v_b_delayed = p1.v_b;
-        i_a_delayed = p1.i_a; i_b_delayed = p1.i_b;
-        return;
+    // The junction voltages at this point, and each section's inner values
+    // (see stamp_transient)
+    const std::vector<Real> v = junction_voltages(current_time_, v_a, v_b);
+    std::vector<HistoryPoint> points(m);
+    for (std::size_t k = 0; k < m; ++k) {
+        const int kk = static_cast<int>(k);
+        const Real i_a = g_port_ * v[k] - arriving_at_a(kk, current_time_);
+        const Real i_b = g_port_ * v[k + 1] - arriving_at_b(kk, current_time_);
+        points[k] = HistoryPoint{current_time_, v[k] - rs_ * i_a, v[k + 1] - rs_ * i_b, i_a, i_b};
     }
-    Real a = (target - p1.time) / dt;
-    v_a_delayed = p1.v_a + a * (p2.v_a - p1.v_a);
-    v_b_delayed = p1.v_b + a * (p2.v_b - p1.v_b);
-    i_a_delayed = p1.i_a + a * (p2.i_a - p1.i_a);
-    i_b_delayed = p1.i_b + a * (p2.i_b - p1.i_b);
+    const Real min_time = current_time_ - 2.0 * tau_;
+    for (std::size_t k = 0; k < m; ++k) {
+        auto& h = history_[k];
+        h.push_back(points[k]);
+        while (h.size() > 2 && h.front().time < min_time) {
+            h.pop_front();
+        }
+    }
 }
 
 } // namespace kirimaspice::devices

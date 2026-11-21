@@ -64,7 +64,6 @@ the SuperLU_DIST backend of the library is a placeholder.
 
 | Variable | Effect |
 | --- | --- |
-| `KIRIMASPICE_TLINE_LOSSY_IIR` | `1` turns on a second-order IIR loss filter in `O` lines (read in the code, not run) |
 | `KIRIMASPICE_DEBUG_DUMP` | for development: when set, to any value, writes the MNA system of the second Newton iteration of each DC solve to `debug_coo.txt`, `debug_csc.txt`, `debug_b.txt` and `debug_x.txt` in the current directory, each solve overwriting the last |
 | `KIRIMASPICE_BSIM1_DEBUG` | for development: debug logs for BSIM1 devices (optionally only those whose name is the value) |
 
@@ -212,7 +211,7 @@ are the same element, and a second is an error.
 | SCR | `S<name> <anode> <cathode> <gate> [parameters]` |
 | TRIAC | `Y<name> <mt2> <mt1> <gate> [parameters]` |
 | Lossless line | `T<name> <a+> <a-> <b+> <b-> Z0=<v> TD=<v>` | both required and positive; `ZO` is accepted for `Z0`; the transient takes no step longer than `TD` |
-| Lossy line | `O<name> <a+> <a-> <b+> <b-> R=<v> L=<v> C=<v> G=<v> TD=<v>` | per unit length; `TD`, `L` and `C` above 0; the length is `TD`/√(`L`·`C`); DC and AC use the line's exact two-port; the transient's model is wrong ([known issues](../KNOWN_ISSUES.md#device-models)) |
+| Lossy line | `O<name> <a+> <a-> <b+> <b-> R=<v> L=<v> C=<v> G=<v> TD=<v>` | per unit length; `TD`, `L` and `C` above 0; the length is `TD`/√(`L`·`C`); DC and AC use the line's exact two-port; the transient takes up to 16 sections of the lossless line with their loss lumped at their ends, and no step longer than a section's delay ([known issues](../KNOWN_ISSUES.md#device-models)) |
 | Subcircuit instance | `X<name> <nodes...> <subckt> [NAME=<v> ...]` |
 
 An element means the same inside a subcircuit as at the top level: the

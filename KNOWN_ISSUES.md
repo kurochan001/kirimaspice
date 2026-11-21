@@ -396,19 +396,19 @@ says otherwise.
 - **The SiC MOSFET, GaN HEMT, VDMOS, FinFET and MESFET integrate their
   capacitances by backward Euler** whatever integration method the
   transient uses (read in the code).
-- **The lossy line `O` is wrong in the transient.** DC and AC take its
-  exact two-port. In the transient (`src/devices/tline_lossy.cpp`) the
-  wave that arrives at a port is the delayed voltage of the other port
-  alone, attenuated by exp(−α·length) with α = (R/Z0 + G·Z0)/2 and passed
-  through a low-pass filter; it lacks the term of the delayed current,
-  Z0·I(t − TD), that the lossless line has. So even a line without loss is
-  wrong: with R = 0, L = 250 nH/m, C = 100 pF/m and TD = 10 ns between
-  50 Ω and 50 Ω, a 1 V step settles at v(a) = 2/3 V and v(b) = 1/3 V,
-  where its operating point gives 0.5 V at both; with R = 0.5 Ω/m, v(b)
-  is 0.0144 V at 40 ns, ngspice-47's LTRA 0.495 V (both run on
-  2026-11-21, this program at `21bb991`). For the first TD of a transient its
-  delayed waves are those of 0 V, not those of the operating point (read
-  in the code).
+- **The lossy line `O`'s transient is an approximation.** DC and AC take
+  its exact two-port; the transient takes up to 16 sections of the
+  constant-parameter (Bergeron) line, each lossless with its loss lumped
+  at its ends (`TLineLossy`), so it does not follow a line whose loss per
+  16 sections is large, such as an RC line. For a 1 V step through 50 Ω
+  into L = 250 nH/m, C = 100 pF/m and TD = 10 ns loaded by 50 Ω, the far
+  end is within 2·10<sup>−5</sup> V (R = 0.5 Ω/m) and 1·10<sup>−4</sup> V
+  (R = 5 Ω/m) of ngspice-47's LTRA, and the near end within
+  1.3·10<sup>−3</sup> V; on an edge the delays of the sections, read by
+  linear interpolation, spread it over about √M steps (M sections): with
+  steps of 0.1 ns and R = 5 Ω/m the far end is 0.37 V 0.2 ns after the
+  edge arrives, where LTRA gives 0.45 V, and 0.02 ns steps agree (run on
+  2026-11-21). Each section's delay TD/M bounds the step.
 - **Three or more inductors coupled to each other are coupled pair by
   pair.** Each `K` adds what the inverse of its own 2 × 2 inductance matrix
   adds to the two inductors (`MutualInductance::inverse_inductance`), in AC

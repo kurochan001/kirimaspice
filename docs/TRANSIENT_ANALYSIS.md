@@ -584,7 +584,7 @@ request; each device determines its actual discretization.
 | SiC, GaN, VDMOS, FinFET, MESFET | Capacitance paths force BE |
 | IGBT | `CGE` and `CCE` through the shared capacitor helper for every method; the tail current depends on the step |
 | Lossless transmission line | The step is no longer than `TD` (`Device::max_time_step`) |
-| Lossy transmission line | Wrong: the arriving wave lacks the delayed current term; delayed waves start at zero during the first propagation delay |
+| Lossy transmission line | Up to 16 sections of the constant-parameter (Bergeron) line, lossless with the loss lumped at their ends; the step is no longer than a section's delay; the history starts from the operating point |
 
 A netlist probe checks the diode against a capacitor: with nearly
 constant `CJO=1e-6`, `M=1e-8`, a 1 kohm resistor and a 0 to -1 V linear
