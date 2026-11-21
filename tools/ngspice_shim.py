@@ -91,7 +91,10 @@ def write_log(log_path: Path, header: str, stdout: str, stderr: str) -> None:
 
 
 def run_deck(binary: Path, deck: Path, raw: Path, verbose: bool) -> subprocess.CompletedProcess:
+    """Runs one deck. The raw file of an earlier run is removed first, so a
+    raw file at the path afterwards is one this run wrote."""
     raw.parent.mkdir(parents=True, exist_ok=True)
+    raw.unlink(missing_ok=True)
     cmd: List[str] = [str(binary), str(deck), "--raw-out", str(raw)]
     if verbose:
         print(f"[shim] running {' '.join(cmd)}", file=sys.stderr)
@@ -126,6 +129,11 @@ def main(argv: Sequence[str]) -> int:
             sys.stderr.write(result.stderr)
         if result.returncode != 0:
             rc = result.returncode
+        elif not raw.exists():
+            # The caller reads the raw file next: say that there is none
+            print(f"[shim] {deck.name}: kirimaspice wrote no raw file {raw} "
+                  "(it writes one for .op, .dc and .tran only)", file=sys.stderr)
+            rc = 1
     return rc
 
 
