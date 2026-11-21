@@ -358,7 +358,7 @@ For `NMOS` and `PMOS`, `LEVEL` selects the device:
 | 11 | GaN HEMT (`VTO` with the device's sign, as for the other levels: −2 V for N and +2 V for P by default; `KT1`, `KT2` move the threshold of the N-like voltages) | warning | all, by name |
 | 12 | FinFET | warning | `L` only; others named in a warning |
 | 20 | VDMOS | warning | all, by name |
-| 21 | IGBT (`M` terminals are collector, gate, emitter) | warning | all, by name |
+| 21 | IGBT (`M` terminals are collector, gate, emitter; in the transient the collector carries the larger of the channel current and the stored-carrier current, which follows the channel current with the lifetime `TAU`, so it decays as exp(−t/`TAU`) after a turn-off) | warning | all, by name |
 
 Any other `LEVEL` is an error at the `.MODEL` line, as in ngspice-47.
 At levels 3, 8/49, 9 and 12, other names on the element line, `AD`, `AS`,

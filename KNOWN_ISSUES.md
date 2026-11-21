@@ -364,9 +364,6 @@ says otherwise.
   Curtice's currents here (run on 2026-11-21). The gate junctions and the
   charge model of ngspice's MESFET are not modelled; `CGS`, `CGD` and
   `CDS` are constant.
-- **The IGBT's tail current depends on the time step.** It starts from
-  the collector current of the step after the turn-off: 6.12 A at 1.5 µs
-  with `tmax` 100 ns, 1.22 A with 1 ns (run on 2026-11-21 at `63ce9a6`).
 - **Above `VBD` the GaN HEMT adds 1 mS to g<sub>ds</sub> without the
   current that goes with it** (read in the code at `63ce9a6`). **The
   VDMOS warns "entered breakdown region" at every Newton iteration above

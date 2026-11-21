@@ -582,7 +582,7 @@ request; each device determines its actual discretization.
 | BSIM3 / BSIM4 | Shared capacitor helper for every method |
 | BSIM4 | Simplified Meyer capacitances, not a complete terminal-charge formulation; inverter-chain transient reference test is disabled |
 | SiC, GaN, VDMOS, FinFET, MESFET | Capacitance paths force BE |
-| IGBT | `CGE` and `CCE` through the shared capacitor helper for every method; the tail current depends on the step |
+| IGBT | `CGE` and `CCE` through the shared capacitor helper for every method; the tail is the stored-carrier current, a lag of `TAU` behind the channel current, integrated exactly between accepted points |
 | Lossless transmission line | The step is no longer than `TD` (`Device::max_time_step`) |
 | Lossy transmission line | Up to 16 sections of the constant-parameter (Bergeron) line, lossless with the loss lumped at their ends; the step is no longer than a section's delay; the history starts from the operating point |
 

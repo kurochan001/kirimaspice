@@ -55,8 +55,13 @@ struct IGBTDefaults {
 /// 3. Active (Vge > Vge_th, Vce >= Vce_sat):
 ///    Ic = KP × (Vge - Vge_th)²
 ///
-/// 4. Tail current (transient turn-off):
-///    I_tail = I_tail_0 × exp(-Δt / TAU)
+/// 4. Tail current (transient): the stored-carrier current Is follows the
+///    channel current Ich with the lifetime TAU, dIs/dt = (Ich - Is)/TAU
+///    (charge control: the stored charge TAU·Is), and the collector current
+///    is max(Ich, Is). In steady state Is = Ich; after a turn-off Ich falls
+///    with the gate and the collector current decays as Is, exp(-t/TAU).
+///    Is is integrated exactly for Ich linear between accepted points, so
+///    it does not depend on the step.
 ///
 /// Key features:
 ///   - High voltage blocking capability: 600V-6.5kV
@@ -119,7 +124,7 @@ public:
           temperature_(tnom),
           // Initialize state variables
           vge_prev_(0.0), vce_prev_(0.0), ic_prev_(0.0),
-          in_tail_mode_(false), tail_current_0_(0.0), tail_start_time_(0.0), current_time_(0.0),
+          current_time_(0.0),
           vge_prev2_(0.0), vge_prev3_(0.0), vce_prev2_(0.0), vce_prev3_(0.0),
           vce_last_eval_(0.0) {
         spdlog::trace("IGBT<{}> '{}' created: C={} G={} E={} VGE_TH={:.2f} KP={:.1f} VCE_SAT={:.2f}",
@@ -149,8 +154,8 @@ public:
                          IntegrationMethod method,
                          const BDFCoefficients* bdf_coef = nullptr,
                          const TR_BDF2_Coefficients* tr_bdf2_coef = nullptr) const override {
-        // The collector current as in DC, with the tail current after a
-        // turn-off (stamp_collector_current)
+        // The collector current as in DC, or the stored-carrier current
+        // where it is the larger (stamp_collector_current)
         const Real ic = stamp_collector_current(mna, node_voltages, true);
 
         Real vc = (collector_ != NODE_GND) ? node_voltages[collector_ - 1] : 0.0;
@@ -181,8 +186,8 @@ public:
         device_utils::stamp_capacitor_companion(mna, n_like ? nc_idx : ne_idx, n_like ? ne_idx : nc_idx,
                                                 ce.g, ce.i_eq, 1.0);
 
-        spdlog::trace("IGBT<{}> '{}' TRAN: Vge={:.3f} V, Vce={:.3f} V, Ic={:.6f} A, tail={}",
-                      is_n_channel ? "N" : "P", name(), vge, vce, ic, in_tail_mode_);
+        spdlog::trace("IGBT<{}> '{}' TRAN: Vge={:.3f} V, Vce={:.3f} V, Ic={:.6f} A, Is={:.6f} A",
+                      is_n_channel ? "N" : "P", name(), vge, vce, ic, is_prev_);
     }
 
     bool is_linear() const override { return false; }
@@ -468,7 +473,8 @@ public:
     }
 
     // State management for dynamic devices
-    /// The time since turn-off of the tail current (Device::set_time)
+    /// The time of the point being solved (Device::set_time): the stored-
+    /// carrier current integrates from the last accepted point to it
     void set_time(std::optional<Real> time) override { current_time_ = time.value_or(0.0); }
 
     bool limited_in_last_stamp() const override { return limited_in_last_stamp_; }
@@ -487,9 +493,10 @@ public:
         cap_stamped_ = false;
         cap_bdf_.reset();
         cap_tr_bdf2_.reset();
-        in_tail_mode_ = false;
-        tail_current_0_ = 0.0;
-        tail_start_time_ = 0.0;
+        is_prev_ = 0.0;
+        ich_prev_ = 0.0;
+        time_prev_ = 0.0;
+        last_stamp_transient_ = false;
         current_time_ = 0.0;
         vce_last_eval_ = 0.0;
         limited_in_last_stamp_ = false;
@@ -505,19 +512,11 @@ public:
         Real vge = polarity_sign * (vg - ve);
         Real vce = polarity_sign * (vc - ve);
 
-        // The tail current, once per accepted point: it starts at the first
-        // point with the gate below threshold after one above it, from the
-        // collector current accepted before, and ends when the gate turns
-        // on again or the tail has decayed below 1 pA
-        const Real vge_th = compute_temperature_scaled_vge_th();
-        if (!in_tail_mode_ && vge_prev_ >= vge_th && vge < vge_th && ic_prev_ > 0.0) {
-            in_tail_mode_ = true;
-            tail_current_0_ = ic_prev_;
-            tail_start_time_ = current_time_;
-        } else if (in_tail_mode_ &&
-                   (vge >= vge_th || compute_tail_current(current_time_ - tail_start_time_) < 1e-12)) {
-            in_tail_mode_ = false;
-        }
+        // The stored-carrier current at the accepted point: its steady state
+        // at an operating point, and otherwise integrated from the last
+        // accepted point (stored_carrier_current)
+        const Real ich = collector_current(vge, vce).ic;
+        const Real is_now = last_stamp_transient_ ? stored_carrier_current(ich).value : ich;
 
         // The capacitor currents at the accepted point, from the companion
         // of the step that ended there; none at a point no step reached
@@ -545,9 +544,13 @@ public:
         vce_prev2_ = vce_prev_;
         vce_prev_ = vce;
 
-        // The collector current at the accepted point
-        ic_prev_ = in_tail_mode_ ? compute_tail_current(current_time_ - tail_start_time_)
-                                 : collector_current(vge, vce).ic;
+        // The collector current at the accepted point, and the state the next
+        // point integrates from
+        ic_prev_ = std::max(ich, is_now);
+        is_prev_ = is_now;
+        ich_prev_ = ich;
+        time_prev_ = current_time_;
+        last_stamp_transient_ = false;
 
         spdlog::trace("IGBT<{}> '{}' accept: Vge={:.3f} V, Vce={:.3f} V, Ic={:.6f} A",
                       is_n_channel ? "N" : "P", name(), vge, vce, ic_prev_);
@@ -586,10 +589,13 @@ private:
     mutable Real vce_prev_;   // Previous Vce [V]
     mutable Real ic_prev_;    // Previous collector current [A]
 
-    // Tail current state
-    mutable bool in_tail_mode_;     // True if in tail current mode
-    mutable Real tail_current_0_;   // Initial tail current [A]
-    mutable Real tail_start_time_;  // Time when tail current started [s]
+    // The stored-carrier current Is (see the class comment) and the channel
+    // current at the last accepted point, its time, and the time of the
+    // point being solved
+    mutable Real is_prev_ = 0.0;
+    mutable Real ich_prev_ = 0.0;
+    mutable Real time_prev_ = 0.0;
+    mutable bool last_stamp_transient_ = false;
     mutable Real current_time_;     // Current simulation time [s]
 
     // The companion of Cge and Cce (device_utils::capacitor_companion): the
@@ -691,8 +697,15 @@ private:
         vce_last_eval_ = vce;
 
         CollectorCurrent cc = collector_current(vge, vce);
-        if (transient && in_tail_mode_) {
-            cc = CollectorCurrent{compute_tail_current(current_time_ - tail_start_time_), 0.0, 0.0};
+        last_stamp_transient_ = transient;
+        if (transient) {
+            // The stored-carrier current at this point depends on the channel
+            // current here with the weight w: where it is the larger, it is
+            // the collector current, with w times the channel's derivatives
+            const StoredCarrier is = stored_carrier_current(cc.ic);
+            if (is.value > cc.ic) {
+                cc = CollectorCurrent{is.value, is.weight * cc.gm, is.weight * cc.gds};
+            }
         }
 
         // The current from collector to emitter is ic for N and -ic for P;
@@ -714,9 +727,25 @@ private:
         return cc.ic;
     }
 
-    Real compute_tail_current(Real delta_t) const {
-        if (delta_t < 0.0) return tail_current_0_;
-        return tail_current_0_ * std::exp(-delta_t / tau_);
+    /// The stored-carrier current at the point being solved, for the
+    /// channel current ich there: the exact solution of dIs/dt =
+    /// (Ich - Is)/TAU over h = t - t_prev with Ich linear from its accepted
+    /// value to ich, Is = E Is_prev + (1 - E - w) Ich_prev + w ich, with
+    /// E = exp(-h/TAU) and w = 1 - (TAU/h)(1 - E); weight is w
+    struct StoredCarrier {
+        Real value;
+        Real weight;
+    };
+    StoredCarrier stored_carrier_current(Real ich) const {
+        const Real h = current_time_ - time_prev_;
+        if (!(h > 0.0) || !(tau_ > 0.0)) {
+            return {ich, 1.0};
+        }
+        const Real x = h / tau_;
+        const Real e = std::exp(-x);
+        const Real one_minus_e_over_x = -std::expm1(-x) / x;  // (TAU/h)(1 - E)
+        const Real w = 1.0 - one_minus_e_over_x;
+        return {e * is_prev_ + (one_minus_e_over_x - e) * ich_prev_ + w * ich, w};
     }
 
 
