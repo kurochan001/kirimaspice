@@ -3,6 +3,8 @@
 
 // include/kirimaspice/devices/diode.hpp
 #pragma once
+
+#include <optional>
 #include "kirimaspice/devices/device.hpp"
 
 namespace kirimaspice::devices {
@@ -104,6 +106,7 @@ public:
     void save_state() override;
     void restore_state() override;
     void accept_solution(const DenseVector& node_voltages) override;
+    void reset_state() override;
 
     Real get_charge() const override { return charge_; }
 
@@ -148,13 +151,15 @@ private:
     mutable IntegrationMethod method_saved_;  // Saved method for restore
     mutable bool first_accept_;  // Flag for first accept_solution() call
 
-    // BDF coefficients for variable-timestep integration
-    mutable Real bdf_alpha0_;  // α₀ coefficient
-    mutable Real bdf_alpha1_;  // α₁ coefficient
-    mutable Real bdf_alpha2_;  // α₂ coefficient
-    mutable Real bdf_alpha3_;  // α₃ coefficient (for BDF3)
-    mutable Real bdf_beta0_;   // β₀ coefficient
-    mutable bool use_bdf_var_;  // Flag: true if using variable-timestep BDF
+    // The companion of the junction capacitance (device_utils::
+    // capacitor_companion): the capacitor's current at the last accepted
+    // point, which the trapezoidal rule needs, the BDF coefficients of the
+    // last stamp, and whether a transient step was stamped since the last
+    // accepted point
+    mutable Real current_prev_ = 0.0;
+    mutable Real current_saved_ = 0.0;
+    mutable std::optional<BDFCoefficients> cap_bdf_;
+    mutable bool cap_stamped_ = false;
 
     // Physical constants
     static constexpr Real k_boltzmann = 1.380649e-23; // Boltzmann constant [J/K]

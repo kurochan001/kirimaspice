@@ -39,13 +39,7 @@ Diode::Diode(DeviceId id, const std::string& name,
     , last_method_(IntegrationMethod::BACKWARD_EULER)
     , timestep_saved_(0.0)
     , method_saved_(IntegrationMethod::BACKWARD_EULER)
-    , first_accept_(true)
-    , bdf_alpha0_(0.0)
-    , bdf_alpha1_(0.0)
-    , bdf_alpha2_(0.0)
-    , bdf_alpha3_(0.0)
-    , bdf_beta0_(0.0)
-    , use_bdf_var_(false) {
+    , first_accept_(true) {
 
     if (is <= 0.0) {
         throw std::runtime_error("Diode saturation current must be positive: " + name);
@@ -287,107 +281,19 @@ void Diode::stamp_transient(MNASystem& mna,
     Real v_cathode = core::safe_get_node_voltage(node_voltages, cathode_node);
     Real voltage = v_anode - v_cathode;
 
-    // Evaluate junction capacitance at previous timestep voltage
-    // (linearization for nonlinear capacitance)
+    // The junction capacitance at the voltage of the last accepted point,
+    // integrated as a capacitor is (device_utils::capacitor_companion) from
+    // the accepted voltages and, for the trapezoidal rule, the capacitor's
+    // current at the last accepted point
     Real cj = get_junction_capacitance(voltage_prev_);
-
-    // Companion model: I_C = g_eq * V + i_eq
-    // where g_eq and i_eq depend on integration method
-    Real g_eq = 0.0;
-    Real i_eq = 0.0;
-
-    // Apply integration method
-    if (method == IntegrationMethod::TRAPEZOIDAL) {
-        // Trapezoidal rule (2nd order)
-        // I_C = (C/2Δt)[V_{n+1} - V_n] + I_C(t_n)
-        // Rearranging: I_C = (C/Δt)*V_{n+1} - (C/Δt)*V_n + I_C(t_n)
-        // But I_C(t_n) = (C/Δt)(V_n - V_{n-1}), so:
-        // I_C = (C/Δt)*V_{n+1} - (C/Δt)*V_n
-        // Actually for consistent implementation: use average capacitance
-        // g_eq = C/(2Δt), i_eq = (C/(2Δt))*V_n
-        g_eq = cj / (2.0 * timestep);
-        i_eq = -g_eq * voltage_prev_;
-
-    } else if (method == IntegrationMethod::GEAR2) {
-        // BDF2 method (2nd order)
-        if (bdf_coef != nullptr) {
-            // Variable-timestep BDF2
-            bdf_alpha0_ = bdf_coef->alpha0;
-            bdf_alpha1_ = bdf_coef->alpha1;
-            bdf_alpha2_ = bdf_coef->alpha2;
-            bdf_beta0_ = bdf_coef->beta0;
-            use_bdf_var_ = true;
-
-            g_eq = cj * bdf_coef->alpha0 / bdf_coef->beta0;
-            i_eq = (cj / bdf_coef->beta0) *
-                   (bdf_coef->alpha1 * voltage_prev_ + bdf_coef->alpha2 * voltage_prev2_);
-        } else {
-            // Fixed-timestep BDF2
-            g_eq = 1.5 * cj / timestep;
-            i_eq = (-2.0 * cj / timestep) * voltage_prev_ +
-                   (0.5 * cj / timestep) * voltage_prev2_;
-        }
-
-    } else if (method == IntegrationMethod::GEAR3) {
-        // BDF3 method (3rd order)
-        if (bdf_coef != nullptr) {
-            // Variable-timestep BDF3
-            bdf_alpha0_ = bdf_coef->alpha0;
-            bdf_alpha1_ = bdf_coef->alpha1;
-            bdf_alpha2_ = bdf_coef->alpha2;
-            bdf_alpha3_ = bdf_coef->alpha3;
-            bdf_beta0_ = bdf_coef->beta0;
-            use_bdf_var_ = true;
-
-            g_eq = cj * bdf_coef->alpha0 / bdf_coef->beta0;
-            i_eq = (cj / bdf_coef->beta0) *
-                   (bdf_coef->alpha1 * voltage_prev_ + bdf_coef->alpha2 * voltage_prev2_ +
-                    bdf_coef->alpha3 * voltage_prev3_);
-        } else {
-            // Fixed-timestep BDF3
-            g_eq = (11.0 / 6.0) * cj / timestep;
-            i_eq = (cj / (6.0 * timestep)) *
-                   (-18.0 * voltage_prev_ + 9.0 * voltage_prev2_ - 2.0 * voltage_prev3_);
-        }
-
-    } else if (method == IntegrationMethod::TR_BDF2) {
-        // TR-BDF2: use BDF2 approximation
-        g_eq = 1.5 * cj / timestep;
-        i_eq = (-2.0 * cj / timestep) * voltage_prev_ +
-               (0.5 * cj / timestep) * voltage_prev2_;
-
-    } else {
-        // Backward Euler (1st order, default)
-        g_eq = cj / timestep;
-        i_eq = -g_eq * voltage_prev_;
-    }
-
-    // Convert to MNA indices
-    auto anode_idx = (anode_node == NODE_GND) ? -1 : static_cast<int>(anode_node - 1);
-    auto cathode_idx = (cathode_node == NODE_GND) ? -1 : static_cast<int>(cathode_node - 1);
-
-    // Stamp G matrix (capacitive conductance)
-    if (anode_idx >= 0) {
-        mna.G.add_entry(anode_idx, anode_idx, g_eq);
-        if (cathode_idx >= 0) {
-            mna.G.add_entry(anode_idx, cathode_idx, -g_eq);
-        }
-    }
-
-    if (cathode_idx >= 0) {
-        mna.G.add_entry(cathode_idx, cathode_idx, g_eq);
-        if (anode_idx >= 0) {
-            mna.G.add_entry(cathode_idx, anode_idx, -g_eq);
-        }
-    }
-
-    // Stamp RHS (equivalent current source from capacitance)
-    if (anode_idx >= 0) {
-        mna.b[anode_idx] -= i_eq;
-    }
-    if (cathode_idx >= 0) {
-        mna.b[cathode_idx] += i_eq;
-    }
+    cap_bdf_ = bdf_coef ? std::optional<BDFCoefficients>(*bdf_coef) : std::nullopt;
+    cap_stamped_ = true;
+    const auto cc = device_utils::capacitor_companion(method, cj, timestep, voltage_prev_,
+                                                      voltage_prev2_, voltage_prev3_,
+                                                      current_prev_, bdf_coef);
+    const int anode_idx = (anode_node == NODE_GND) ? -1 : static_cast<int>(anode_node - 1);
+    const int cathode_idx = (cathode_node == NODE_GND) ? -1 : static_cast<int>(cathode_node - 1);
+    device_utils::stamp_capacitor_companion(mna, anode_idx, cathode_idx, cc.g, cc.i_eq, 1.0);
 
     // Update charge for LTE calculation
     charge_ = cj * voltage;
@@ -499,6 +405,7 @@ void Diode::save_state() {
     voltage_saved3_ = voltage_prev3_;
     timestep_saved_ = timestep_;
     method_saved_ = last_method_;
+    current_saved_ = current_prev_;
 }
 
 void Diode::restore_state() {
@@ -507,6 +414,21 @@ void Diode::restore_state() {
     voltage_prev3_ = voltage_saved3_;
     timestep_ = timestep_saved_;
     last_method_ = method_saved_;
+    current_prev_ = current_saved_;
+}
+
+void Diode::reset_state() {
+    voltage_prev_ = voltage_prev2_ = voltage_prev3_ = 0.0;
+    voltage_saved_ = voltage_saved2_ = voltage_saved3_ = 0.0;
+    charge_ = charge_prev_ = 0.0;
+    timestep_ = timestep_saved_ = 0.0;
+    last_method_ = method_saved_ = IntegrationMethod::BACKWARD_EULER;
+    current_prev_ = current_saved_ = 0.0;
+    cap_bdf_.reset();
+    cap_stamped_ = false;
+    first_accept_ = true;
+    v_last_eval_ = 0.0;
+    limited_in_last_stamp_ = false;
 }
 
 void Diode::accept_solution(const DenseVector& node_voltages) {
@@ -523,6 +445,21 @@ void Diode::accept_solution(const DenseVector& node_voltages) {
 
     spdlog::trace("{} accept (before): V_prev={:.6e}, V_new={:.6e}",
                  name_, voltage_prev_, voltage_new);
+
+    // The capacitor's current at the accepted point, from the companion of
+    // the step that ended there; 0 at a point no transient step reached (the
+    // operating point, or the start under UIC)
+    if (cap_stamped_ && cj0_ > 0.0) {
+        const Real cj = get_junction_capacitance(voltage_prev_);
+        const BDFCoefficients* bdf = cap_bdf_ ? &*cap_bdf_ : nullptr;
+        const auto cc = device_utils::capacitor_companion(last_method_, cj, timestep_, voltage_prev_,
+                                                          voltage_prev2_, voltage_prev3_,
+                                                          current_prev_, bdf);
+        current_prev_ = cc.g * voltage_new + cc.i_eq;
+    } else {
+        current_prev_ = 0.0;
+    }
+    cap_stamped_ = false;
 
     // Shift history for BDF methods (must be done AFTER using current values)
     voltage_prev3_ = voltage_prev2_;
