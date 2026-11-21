@@ -380,11 +380,15 @@ typename VDMOS<Pol>::DrainCurrent VDMOS<Pol>::drain_current(Real vgs_eff, Real v
         out.gds = f_v / (1.0 + rds * f_v);
     }
 
-    // Avalanche above VBD
+    // Avalanche above VBD: 1 mA (exp(10 (VDS - VBD)) - 1), which is zero at
+    // VBD and so continuous there, and extended linearly where the
+    // exponential would overflow, as a junction's is (core::safe_exp_junction)
     if (vds_eff > vbd_) {
-        const Real e = std::exp(10.0 * (vds_eff - vbd_));
-        out.id += 1e-3 * e;
-        out.gds += 1e-2 * e;
+        constexpr Real kAvalancheVt = 0.1;  // 1 / (10 per volt)
+        constexpr Real kAvalancheScale = 1e-3;
+        const Real x = vds_eff - vbd_;
+        out.id += core::safe_exp_junction(x, kAvalancheVt, kAvalancheScale);
+        out.gds += core::safe_exp_conductance(x, kAvalancheVt, kAvalancheScale / kAvalancheVt, 0.0);
     }
     return out;
 }
