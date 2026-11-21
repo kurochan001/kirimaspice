@@ -4121,7 +4121,21 @@ static void parse_model_directive(const std::vector<std::string>& tokens, ParseS
     model.params = params;
 
     // Model names are compared without regard to case (find_model), so a
-    // definition replaces an earlier one spelled with other cases.
+    // definition replaces an earlier one spelled with other cases: the
+    // elements read after it, those put aside until the end, and those of
+    // subcircuit bodies use it, the elements read before it the earlier one.
+    // Every .MODEL is global, also one in a .SUBCKT, where ngspice-47 keeps it
+    // to the subcircuit; so a second definition of a name is named in a
+    // warning.
+    if (const ModelDefinition* earlier = state.config->find_model(model_name)) {
+        spdlog::warn("Line {}: model {} is defined again; the later definition is used by the "
+                     "elements after it and in subcircuits{}",
+                     state.line_number, earlier->name,
+                     state.inside_subcircuit
+                         ? fmt::format(" (a .MODEL in .SUBCKT {} is not local to it)",
+                                       state.current_subcircuit->name)
+                         : std::string());
+    }
     std::erase_if(state.config->models, [&](const auto& entry) {
         return entry.first != model_name && util::equals_icase(entry.first, model_name);
     });
