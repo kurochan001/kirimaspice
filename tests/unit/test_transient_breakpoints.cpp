@@ -80,3 +80,58 @@ TEST(TransientBreakpoints, PeriodsOfAPulseRepeatTheirCorners) {
         EXPECT_TRUE(has_point(r.result, start + 0.52e-6)) << start;
     }
 }
+
+// A corner with no rise or fall has the level from before it (the left
+// limit, PulseWaveform::evaluate), and the next point has the new level, as
+// for PWL's time given twice. So the operating point of PULSE(0 1 0 0 0 ...)
+// is 0 V, and an RC circuit (tau = 10 ns) driven by it charges as from an
+// ideal step on the corner: 1 - exp(-(t - t0)/tau) after a rise at t0, and
+// that value times exp(-(t - t1)/tau) after the fall at t1. The step after
+// a corner is a backward-Euler step, whose local error (h/tau)^2/2 = 0.005
+// bounds the error here. (ngspice-47 has the old level on the corner too,
+// but behaves as if a zero TR or TF were TSTEP: PULSE(0 1 0 0 0 1m 2m) into
+// 1 kohm and 1 uF with .tran 0.1m 1m gives 0.6131 V at 1 ms, the response
+// to a rise over 0.1 ms, where the ideal step gives 0.6321 V; run
+// 2026-11-21.)
+TEST(TransientBreakpoints, CornerWithoutRiseOrFallHasTheLevelBeforeIt) {
+    const double tau = 1e3 * 10e-12;
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "t\nV1 in 0 PULSE(0 1 10n 0 0 10n 0)\nR1 in out 1k\nC1 out 0 10p\n.end\n");
+    const NodeId in = parsed.circuit->get_node_id("in");
+    const NodeId out = parsed.circuit->get_node_id("out");
+    solvers::TransientSolver solver(*parsed.circuit, parsed.config);
+    const auto result = solver.solve(0.0, 25e-9, 1e-9);
+    ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
+    ASSERT_TRUE(has_point(result, 10e-9));
+    ASSERT_TRUE(has_point(result, 20e-9));
+    const double at_fall = 1.0 - std::exp(-10e-9 / tau);
+    for (const auto& tp : result.timepoints) {
+        const double t = tp.time;
+        const bool high = t > 10e-9 * (1 + 1e-9) && t <= 20e-9 * (1 + 1e-9);
+        EXPECT_EQ(tp.node_voltages[in - 1], high ? 1.0 : 0.0) << "t=" << t;
+        const double expected = t <= 10e-9 * (1 + 1e-9) ? 0.0
+                                : t <= 20e-9 * (1 + 1e-9)
+                                    ? 1.0 - std::exp(-(t - 10e-9) / tau)
+                                    : at_fall * std::exp(-(t - 20e-9) / tau);
+        EXPECT_NEAR(tp.node_voltages[out - 1], expected, 5e-3) << "t=" << t;
+    }
+}
+
+TEST(TransientBreakpoints, PulseWithoutDelayOrRiseStartsFromItsFirstLevel) {
+    const double tau = 1e3 * 10e-12;
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "t\nV1 in 0 PULSE(0 1 0 0 0 10n 20n)\nR1 in out 1k\nC1 out 0 10p\n.end\n");
+    const NodeId in = parsed.circuit->get_node_id("in");
+    const NodeId out = parsed.circuit->get_node_id("out");
+    solvers::TransientSolver solver(*parsed.circuit, parsed.config);
+    const auto result = solver.solve(0.0, 10e-9, 1e-9);
+    ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
+    ASSERT_GT(result.timepoints.size(), 2u);
+    EXPECT_EQ(result.timepoints.front().node_voltages[in - 1], 0.0);
+    for (const auto& tp : result.timepoints) {
+        EXPECT_NEAR(tp.node_voltages[out - 1], 1.0 - std::exp(-tp.time / tau), 5e-3)
+            << "t=" << tp.time;
+    }
+}

@@ -7,6 +7,7 @@
 #include <vector>
 #include <memory>
 #include <cmath>
+#include <limits>
 
 namespace kirimaspice::devices {
 
@@ -115,29 +116,44 @@ public:
         , period_(period)
     {}
 
+    /// The value at a time. On a corner the value is the one from before
+    /// it (the left limit), as PWL's is on a time given twice: with TR = 0
+    /// the pulse is V1 on TD + k PER and V2 after it, with TF = 0 it is V2
+    /// on TD + k PER + TR + PW and V1 after it. So the transient, which
+    /// steps onto each corner (breakpoints), has the old level at the point
+    /// on the corner and the new one at the next point, and the operating
+    /// point of a pulse with TD = TR = 0 takes V1. A time within a few
+    /// roundings of a corner is on it, as the transient's time on a corner,
+    /// a sum of steps, can differ from the corner by a rounding.
     Real evaluate(Real time) const override {
-        if (time < delay_) {
+        const Real on_corner =
+            16.0 * std::numeric_limits<Real>::epsilon() * (std::abs(time) + std::abs(delay_));
+        if (time <= delay_ + on_corner) {
             return v1_;
         }
 
-        // Time within current period
+        // Time within the current period, in (0, PER]: the start of a
+        // period is the end of the one before
         Real t = time - delay_;
         if (period_ > 0.0) {
             t = std::fmod(t, period_);
+            if (t <= on_corner) {
+                t = period_;
+            }
         }
 
-        // Rising edge: [0, TR]
+        // Rising edge: (0, TR)
         if (t < rise_time_) {
             Real fraction = t / rise_time_;
             return v1_ + (v2_ - v1_) * fraction;
         }
 
-        // High level: [TR, TR+PW]
-        if (t < rise_time_ + pulse_width_) {
+        // High level: [TR, TR+PW], its end included
+        if (t <= rise_time_ + pulse_width_ + on_corner) {
             return v2_;
         }
 
-        // Falling edge: [TR+PW, TR+PW+TF]
+        // Falling edge: (TR+PW, TR+PW+TF)
         if (t < rise_time_ + pulse_width_ + fall_time_) {
             Real t_fall = t - rise_time_ - pulse_width_;
             Real fraction = t_fall / fall_time_;
