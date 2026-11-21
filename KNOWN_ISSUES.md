@@ -129,11 +129,10 @@ document also lists differences not decided there.
   first: with `dm` IS = 1e-14 at the top level and IS = 1e-10 in the
   subcircuit, its diode at 0.6 V draws 0.119 mA outside and 1.19 A inside
   (ngspice-47 run on 2026-11-21; the warning is given since `4487d91`).
-- **The default `W` and `L` of MOSFET levels 3, 8/49, 9 and 14/54 are
-  10 µm and 1 µm.** ngspice-47 takes 100 µm by 100 µm for level 3 and
-  5 µm by 5 µm for BSIM3 and BSIM4: a level-3 card without parameters at
-  VD = VG = 2 V carries 4.144e-4 A here and 4.144e-5 A there (run on
-  2026-11-21 at `21bb991`).
+- **The default `W` and `L` of BSIM1 (`LEVEL` 9) are 10 µm and 1 µm.**
+  Which default ngspice-47 takes is not confirmed: its BSIM1 (its
+  `LEVEL` 4) gives `nan` for a card without parameters (run on
+  2026-11-21). Levels 3, 8/49 and 14/54 take ngspice-47's.
 - **`.IC` and `.NODESET` need an upper-case `V(`;** `v(out)=1` is skipped
   with a warning.
 - **Waveform arguments that SPICE defaults from `.TRAN` must be given:**
@@ -310,6 +309,14 @@ says otherwise.
   +1.1e-5 relative to ngspice-47's. How much of the threshold difference
   above remains is not confirmed (measure V<sub>th</sub> again with the
   reference test's card).
+- **A BSIM4 card without `VTH0` takes 0.7 V (−0.7 V for P).** ngspice-47
+  computes it from other parameters, as the BSIM4 manual's notes to its
+  parameter list describe (from `VFB`, Φs and `K1`; how `K1` and `K2` are
+  then found is not confirmed). A card without parameters at W = L = 5 µm
+  and VD = VG = 2 V carries 2.626e-4 A here and 5.650e-4 A in ngspice-47;
+  with `VTH0=0.7` on the card both give 2.6256e-4 A, and with the
+  0.274 V that VFB + Φs + K1√Φs gives from the defaults ngspice-47 gives
+  4.928e-4 A (run on 2026-11-21).
 - **Some BSIM4 parameters and limits are not BSIM4's.** `RDSWMIN`,
   `RDSMOD` and `TEMPMOD` are not read from a card. A card with
   `DROUT = 0` gives −8.7e5 A and one with `DSUB = 0` 1.2e-3 A, where

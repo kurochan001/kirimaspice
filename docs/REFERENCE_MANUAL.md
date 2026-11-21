@@ -350,20 +350,20 @@ For `NMOS` and `PMOS`, `LEVEL` selects the device:
 | `LEVEL` | Device | Unknown card parameters | Element-line parameters |
 | --- | --- | --- | --- |
 | 1 (default) | level 1 (square law) | warning, once per card | `KP`, `W`, `L`, `VTH`, `KF`, `AF`, `EF`; others named in a warning |
-| 3 | SPICE's level 3 | warning | `W`, `L` |
-| 9 | BSIM1, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W`, `L` |
-| 8, 49 | BSIM3, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W`, `L` |
-| 14, 54 | BSIM4 (a model card with a `VERSION` other than 4.8.3 or 4.83 gives a warning) | warning, once per card | `W` (the width of all `NF` fingers), `L`, `NF`, `M`, `AS`, `AD`, `PS`, `PD`, `NRD`, `NRS`, `MULT_I`, `MULT_FN`; `MULT_Q` is accepted and not used; others named in a warning |
+| 3 | SPICE's level 3 | warning | `W`, `L` (100 µm, SPICE's `DEFW` and `DEFL`); others named in a warning |
+| 9 | BSIM1, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W` (10 µm), `L` (1 µm); others named in a warning |
+| 8, 49 | BSIM3, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W`, `L` (5 µm); others named in a warning |
+| 14, 54 | BSIM4 (a model card with a `VERSION` other than 4.8.3 or 4.83 gives a warning) | warning, once per card | `W` (the width of all `NF` fingers), `L` (5 µm), `NF`, `M`, `AS`, `AD`, `PS`, `PD`, `NRD`, `NRS`, `MULT_I`, `MULT_FN`; `MULT_Q` is accepted and not used; others named in a warning |
 | 10 | SiC MOSFET | warning | all, by name |
 | 11 | GaN HEMT (`VTO` with the device's sign, as for the other levels: −2 V for N and +2 V for P by default; `KT1`, `KT2` move the threshold of the N-like voltages) | warning | all, by name |
-| 12 | FinFET | warning | `L` only (others ignored without a message) |
+| 12 | FinFET | warning | `L` only; others named in a warning |
 | 20 | VDMOS | warning | all, by name |
 | 21 | IGBT (`M` terminals are collector, gate, emitter) | warning | all, by name |
 
 Any other `LEVEL` is an error at the `.MODEL` line, as in ngspice-47.
 At levels 3, 8/49, 9 and 12, other names on the element line, `AD`, `AS`,
-`PD`, `PS`, `NRD`, `NRS` and `M` among them, are ignored without a
-message.
+`PD`, `PS`, `NRD`, `NRS` and `M` among them, are named in a warning and
+not used.
 
 The parameter names of levels 3, 9, 8/49 and 14/54 follow the respective
 Berkeley model manuals. Level 3 computes SPICE's level 3 equations with
