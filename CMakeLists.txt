@@ -265,6 +265,7 @@ if(BUILD_BENCHMARKS)
     # GCC 14 + libstdc++ の警告で -Werror が落ちるのを回避
     set(BENCHMARK_ENABLE_WERROR OFF CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(benchmark)
+    kirimaspice_build_only(${benchmark_SOURCE_DIR})
     # それでも一部環境で -Werror が残ることがあるため、明示的に無効化
     if(TARGET benchmark)
         target_compile_options(benchmark PRIVATE -Wno-error -Wno-error=maybe-uninitialized -Wno-maybe-uninitialized)
