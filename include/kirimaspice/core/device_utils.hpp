@@ -290,6 +290,25 @@ inline Real scale_saturation_current(Real is0, Real xti, Real eg, Real n,
     return is0 * temp_ratio_term * exp_term;
 }
 
+/// The reference temperature of SPICE's temperature laws of junction
+/// potentials [K]
+inline constexpr Real kSpiceReferenceTemperature = 300.15;
+
+/// SPICE's band gap of silicon [eV]: Eg(T) = 1.16 - 7.02e-4 T^2 / (T + 1108)
+inline Real silicon_band_gap(Real temp) {
+    return 1.16 - 7.02e-4 * temp * temp / (temp + 1108.0);
+}
+
+/// SPICE's p(T) = -3 Vt(T) ln(T/Tref) + Eg(T) - Eg(Tref) T/Tref [V], with
+/// Tref = 300.15 K: a junction potential (a diode's VJ, a MOSFET's PHI)
+/// that is P at TNOM is P(T) = (P - p(TNOM)) T/TNOM + p(T), as the
+/// diode's and the level-1 MOSFET's set_temperature take it
+inline Real band_gap_potential(Real temp) {
+    const Real fact = temp / kSpiceReferenceTemperature;
+    return -3.0 * compute_thermal_voltage(temp) * std::log(fact) + silicon_band_gap(temp) -
+           silicon_band_gap(kSpiceReferenceTemperature) * fact;
+}
+
 /// Scale resistance with temperature (positive temperature coefficient)
 /// R(T) = R(Tnom) × (T/Tnom)^TC
 ///

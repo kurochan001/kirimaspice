@@ -1387,6 +1387,11 @@ add_executable(test_mosfet_level3_overlap_ac unit/test_mosfet_level3_overlap_ac.
 target_link_libraries(test_mosfet_level3_overlap_ac PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_mosfet_level3_overlap_ac)
 
+# The diode's VJ and CJO with temperature, by hand and against ngspice-47
+add_executable(test_diode_capacitance_temperature unit/test_diode_capacitance_temperature.cpp)
+target_link_libraries(test_diode_capacitance_temperature PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_diode_capacitance_temperature)
+
 # The level 3 MOSFET against its published equations and ngspice-47
 add_executable(test_mosfet_level3_reference unit/test_mosfet_level3_reference.cpp)
 target_link_libraries(test_mosfet_level3_reference PRIVATE kirimaspice_lib GTest::gtest_main)

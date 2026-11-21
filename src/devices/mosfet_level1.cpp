@@ -12,25 +12,6 @@
 
 namespace kirimaspice::devices {
 
-namespace {
-
-constexpr Real kReferenceTemperature = 300.15;  // [K], of SPICE's temperature laws
-
-// SPICE's band gap of silicon [eV] at temp [K]
-Real band_gap(Real temp) {
-    return 1.16 - 7.02e-4 * temp * temp / (temp + 1108.0);
-}
-
-// SPICE's -3 Vt ln(T/Tref) + Eg(T) - Eg(Tref) T/Tref [V], the temperature
-// dependence of a potential (PHI) on the band gap
-Real band_gap_potential(Real temp) {
-    const Real fact = temp / kReferenceTemperature;
-    return -3.0 * core::compute_thermal_voltage(temp) * std::log(fact) + band_gap(temp) -
-           band_gap(kReferenceTemperature) * fact;
-}
-
-}  // namespace
-
 template<Polarity P>
 MOSFET_Level1<P>::MOSFET_Level1(DeviceId id, const std::string& name,
                                   NodeId drain, NodeId gate, NodeId source,
@@ -108,9 +89,9 @@ void MOSFET_Level1<P>::set_temperature(Real temp_kelvin) {
     constexpr Real type = (P == Polarity::N) ? 1.0 : -1.0;
     const Real ratio = temp_kelvin / tnom_;
     const Real dt = temp_kelvin - tnom_;
-    const Real dphi = (ratio - 1.0) * phi_tnom_ + band_gap_potential(temp_kelvin) -
-                      ratio * band_gap_potential(tnom_);
-    const Real half_deg = 0.5 * (band_gap(tnom_) - band_gap(temp_kelvin));
+    const Real dphi = (ratio - 1.0) * phi_tnom_ + core::band_gap_potential(temp_kelvin) -
+                      ratio * core::band_gap_potential(tnom_);
+    const Real half_deg = 0.5 * (core::silicon_band_gap(tnom_) - core::silicon_band_gap(temp_kelvin));
     const Real dvto_kt = kt1_ * dt + kt2_ * dt * dt;
     phi_ = phi_tnom_ + dphi;
     vbi_eff_ = type * (vth_tnom_ + half_deg + dvto_kt) - gamma_body_ * std::sqrt(phi_tnom_) +

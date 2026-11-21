@@ -27,6 +27,8 @@ Diode::Diode(DeviceId id, const std::string& name,
     , eg_(eg)
     , tnom_(tnom)
     , is_tnom_(is)  // Store nominal IS
+    , cj0_tnom_(cj0)
+    , vj_tnom_(vj)
     , temp_(tnom)
     , voltage_prev_(0.0)
     , voltage_prev2_(0.0)
@@ -75,8 +77,27 @@ void Diode::set_temperature(Real temp_kelvin) {
     // SPICE equation: IS(T) = IS(Tnom) * (T/Tnom)^(XTI/N) * exp(-EG/N * (1/Vt(T) - 1/Vt(Tnom)))
     is_ = core::scale_saturation_current(is_tnom_, xti_, eg_, n_, temp_kelvin, tnom_);
 
-    spdlog::debug("{} set temperature to {:.2f}K (Vt={:.6f}V, IS={:.6e}A)",
-                  name_, temp_kelvin, vt_, is_);
+    // The depletion capacitance, as SPICE's diode, with p(T) of
+    // core::band_gap_potential, r = T/TNOM and Tref = 300.15 K:
+    //   VJ(T) = (VJ - p(TNOM)) r + p(T), VJ0 = VJ(Tref) = (VJ - p(TNOM)) Tref/TNOM
+    //   CJO(T) = CJO (1 + M (4e-4 (T - Tref) - (VJ(T) - VJ0)/VJ0))
+    //              / (1 + M (4e-4 (TNOM - Tref) - (VJ - VJ0)/VJ0))
+    // VJ(T) - VJ is formed so that it is 0 at T = TNOM exactly
+    const Real ratio = temp_kelvin / tnom_;
+    const Real p_tnom = core::band_gap_potential(tnom_);
+    vj_ = vj_tnom_ + ((ratio - 1.0) * (vj_tnom_ - p_tnom) +
+                      (core::band_gap_potential(temp_kelvin) - p_tnom));
+    cj0_ = cj0_tnom_;
+    if (cj0_tnom_ > 0.0) {
+        const Real tref = core::kSpiceReferenceTemperature;
+        const Real vj0 = (vj_tnom_ - p_tnom) * tref / tnom_;
+        const Real at_t = 1.0 + m_ * (4e-4 * (temp_kelvin - tref) - (vj_ - vj0) / vj0);
+        const Real at_tnom = 1.0 + m_ * (4e-4 * (tnom_ - tref) - (vj_tnom_ - vj0) / vj0);
+        cj0_ = cj0_tnom_ * (at_t / at_tnom);
+    }
+
+    spdlog::debug("{} set temperature to {:.2f}K (Vt={:.6f}V, IS={:.6e}A, VJ={:.4f}V, CJO={:.4e}F)",
+                  name_, temp_kelvin, vt_, is_, vj_, cj0_);
 }
 
 Real Diode::get_current(Real voltage) const {
@@ -518,9 +539,9 @@ std::optional<Real> Diode::get_parameter(const std::string& param_name) const {
     } else if (param_name == "N" || param_name == "n") {
         return n_;
     } else if (param_name == "CJ0" || param_name == "cj0") {
-        return cj0_;
+        return cj0_tnom_;
     } else if (param_name == "VJ" || param_name == "vj") {
-        return vj_;
+        return vj_tnom_;
     } else if (param_name == "M" || param_name == "m") {
         return m_;
     }
@@ -554,8 +575,9 @@ bool Diode::set_parameter(const std::string& param_name, Real value) {
                         name_, value);
             return false;
         }
-        cj0_ = value;
-        spdlog::trace("Diode {}: set CJ0 = {} F", name_, cj0_);
+        cj0_tnom_ = value;
+        set_temperature(temp_);  // CJO(T)
+        spdlog::trace("Diode {}: set CJ0 = {} F", name_, cj0_tnom_);
         return true;
     } else if (param_name == "VJ" || param_name == "vj") {
         if (value <= 0.0) {
@@ -563,8 +585,9 @@ bool Diode::set_parameter(const std::string& param_name, Real value) {
                         name_, value);
             return false;
         }
-        vj_ = value;
-        spdlog::trace("Diode {}: set VJ = {} V", name_, vj_);
+        vj_tnom_ = value;
+        set_temperature(temp_);  // VJ(T) and CJO(T)
+        spdlog::trace("Diode {}: set VJ = {} V", name_, vj_tnom_);
         return true;
     } else if (param_name == "M" || param_name == "m") {
         if (value <= 0.0 || value >= 1.0) {
@@ -573,6 +596,7 @@ bool Diode::set_parameter(const std::string& param_name, Real value) {
             return false;
         }
         m_ = value;
+        set_temperature(temp_);  // CJO(T) has M in it
         spdlog::trace("Diode {}: set M = {}", name_, m_);
         return true;
     }

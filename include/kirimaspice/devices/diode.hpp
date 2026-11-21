@@ -73,7 +73,7 @@ public:
     NodeId cathode() const { return nodes_[1]; }
 
     /// Set temperature and update temperature-dependent parameters
-    /// Updates: Vt, IS(T)
+    /// Updates: Vt, IS(T), VJ(T) and CJO(T), by SPICE's diode laws
     void set_temperature(Real temp_kelvin);
 
     /// Get temperature parameters
@@ -116,8 +116,9 @@ public:
     // Physical quantity-based error estimation
     Real get_physical_lte(Real chgtol, const DenseVector& node_voltages) const override;
 
-    // Sensitivity analysis: Parameter access. IS is the card's, at TNOM, in
-    // both; set_parameter scales what it sets to the present temperature
+    // Sensitivity analysis: Parameter access. IS, CJ0 and VJ are the card's,
+    // at TNOM, in both; set_parameter scales what it sets to the present
+    // temperature
     std::optional<Real> get_parameter(const std::string& param_name) const override;
     bool set_parameter(const std::string& param_name, Real value) override;
     std::vector<std::string> get_perturbable_parameters() const override;
@@ -138,6 +139,8 @@ private:
     Real eg_;    // Energy gap [eV] (default: 1.11 for Si)
     Real tnom_;  // Nominal temperature [K] (default: 300.15K = 27°C)
     Real is_tnom_; // IS at nominal temperature (reference value)
+    Real cj0_tnom_;  // CJO at TNOM
+    Real vj_tnom_;   // VJ at TNOM
     Real temp_;    // The present temperature [K]: TNOM until set_temperature
 
     // State variables for transient analysis
