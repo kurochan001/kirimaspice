@@ -14,6 +14,13 @@
 
 namespace kirimaspice::solvers {
 
+/// The frequencies of an AC sweep (LIN, DEC or OCT) of the given
+/// configuration, from start_freq to stop_freq; empty when the
+/// configuration is invalid. The AC and the noise analyses take their
+/// frequencies from here.
+std::vector<Real> ac_frequency_points(const SimulationConfig::AC& ac_config);
+
+
 /// AC analysis result for a single frequency point
 struct ACFrequencyPoint {
     Real frequency;              ///< Frequency [Hz]

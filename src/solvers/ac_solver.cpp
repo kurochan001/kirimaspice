@@ -177,7 +177,10 @@ void ACSolver::linearize_devices() {
 }
 
 std::vector<Real> ACSolver::generate_frequency_points() const {
-    const auto& ac_config = config_.ac;
+    return ac_frequency_points(config_.ac);
+}
+
+std::vector<Real> ac_frequency_points(const SimulationConfig::AC& ac_config) {
     std::vector<Real> frequencies;
 
     Real f_start = ac_config.start_freq;

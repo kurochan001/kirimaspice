@@ -67,6 +67,11 @@ NoiseResult NoiseSolver::solve(NodeId input_node, NodeId output_node) {
 
     std::uint32_t num_nodes = circuit_.num_nodes() - 1; // Exclude GND
     std::uint32_t num_branches = count_branch_devices();
+    if (output_node == 0 || output_node > num_nodes) {
+        spdlog::error("NoiseSolver: output node {} is not a node of the circuit", output_node);
+        result.status = ConvergenceStatus::NUMERICAL_ERROR;
+        return result;
+    }
 
     for (size_t freq_idx = 0; freq_idx < frequencies.size(); ++freq_idx) {
         Real f = frequencies[freq_idx];
@@ -94,8 +99,9 @@ NoiseResult NoiseSolver::solve(NodeId input_node, NodeId output_node) {
         ComplexDenseVector lambda = solve_adjoint_system(system.Y, e_out);
 
         if (lambda.empty()) {
-            spdlog::warn("NoiseSolver: Adjoint solve failed at f={:.3e} Hz", f);
-            continue;
+            spdlog::error("NoiseSolver: Adjoint solve failed at f={:.3e} Hz", f);
+            result.status = ConvergenceStatus::SINGULAR_MATRIX;
+            return result;
         }
 
         // Collect noise sources from all devices
@@ -136,6 +142,11 @@ NoiseResult NoiseSolver::solve(NodeId input_node, NodeId output_node) {
 
         // Output noise in V/√Hz
         result.output_noise[freq_idx] = std::sqrt(total_noise_squared);
+        if (!std::isfinite(result.output_noise[freq_idx])) {
+            spdlog::error("NoiseSolver: output noise is not finite at f={:.3e} Hz", f);
+            result.status = ConvergenceStatus::NUMERICAL_ERROR;
+            return result;
+        }
 
         // Input-referred noise: output_noise / voltage_gain
         Real gain = calculate_voltage_gain(input_node, output_node, lambda);
@@ -220,59 +231,8 @@ Real NoiseSolver::calculate_voltage_gain(NodeId input_node,
 }
 
 std::vector<Real> NoiseSolver::generate_frequency_points() const {
-    const auto& ac_config = config_.ac;
-    std::vector<Real> frequencies;
-
-    Real f_start = ac_config.start_freq;
-    Real f_stop = ac_config.stop_freq;
-    std::uint32_t num_points = ac_config.num_points;
-
-    // Validation
-    if (f_start <= 0.0 || f_stop < f_start || num_points == 0) {
-        spdlog::error("NoiseSolver: Invalid frequency parameters: f_start={}, f_stop={}, num_points={}",
-                     f_start, f_stop, num_points);
-        return frequencies;
-    }
-
-    // Handle single frequency
-    if (f_start == f_stop) {
-        frequencies.push_back(f_start);
-        return frequencies;
-    }
-
-    // Default to DEC sweep for noise analysis
-    switch (ac_config.sweep_type) {
-    case SimulationConfig::AC::SweepType::LIN: {
-        Real df = (f_stop - f_start) / (num_points - 1);
-        for (std::uint32_t i = 0; i < num_points; ++i) {
-            frequencies.push_back(f_start + i * df);
-        }
-        break;
-    }
-    case SimulationConfig::AC::SweepType::DEC: {
-        Real decades = std::log10(f_stop / f_start);
-        std::uint32_t total_points = static_cast<std::uint32_t>(std::round(decades * num_points)) + 1;
-        for (std::uint32_t i = 0; i < total_points; ++i) {
-            Real log_f = std::log10(f_start) + i * (std::log10(f_stop) - std::log10(f_start)) / (total_points - 1);
-            frequencies.push_back(std::pow(10.0, log_f));
-        }
-        break;
-    }
-    case SimulationConfig::AC::SweepType::OCT: {
-        Real octaves = std::log2(f_stop / f_start);
-        std::uint32_t total_points = static_cast<std::uint32_t>(std::round(octaves * num_points)) + 1;
-        for (std::uint32_t i = 0; i < total_points; ++i) {
-            Real log_f = std::log2(f_start) + i * (std::log2(f_stop) - std::log2(f_start)) / (total_points - 1);
-            frequencies.push_back(std::pow(2.0, log_f));
-        }
-        break;
-    }
-    default:
-        spdlog::error("NoiseSolver: Unknown sweep type");
-        break;
-    }
-
-    return frequencies;
+    // The frequencies of the AC sweep, as the AC analysis takes them
+    return ac_frequency_points(config_.ac);
 }
 
 std::uint32_t NoiseSolver::count_branch_devices() const {
