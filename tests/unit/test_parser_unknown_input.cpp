@@ -147,3 +147,16 @@ TEST(ParserUnknownInput, UnusedElementLineNamesOfLevel1AndMesfetAreNamed) {
     EXPECT_EQ(count(mesfet, "Z1: 'FOO=1' is not used"), 1u) << mesfet;
     EXPECT_EQ(count(mesfet, "BETA"), 0u) << mesfet;
 }
+
+TEST(ParserUnknownInput, Bsim4JunctionNamesAreNotNamedAsUnused) {
+    // CJS, MJS, PBS and their sidewall and drain names are read from the
+    // card (bsim4_params_from_model's junction table); JSS is not
+    const std::string warnings = parse_warnings(
+        "t\nVD d 0 1\nM1 d d 0 0 NB\n.model NB NMOS LEVEL=14 CJS=1e-3 MJS=0.5 PBS=1 CJD=2e-3 "
+        "CJSWS=1e-10 MJSWGS=0.3 JSS=1e-4\n.end\n");
+    for (const char* name : {"cjs", "mjs", "pbs", "cjd", "cjsws", "mjswgs"}) {
+        EXPECT_EQ(count(warnings, std::string("BSIM4 model NB: ") + name + " is not used"), 0u)
+            << name << "\n" << warnings;
+    }
+    EXPECT_EQ(count(warnings, "BSIM4 model NB: jss is not used"), 1u) << warnings;
+}

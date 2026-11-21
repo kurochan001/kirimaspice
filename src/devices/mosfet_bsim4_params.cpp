@@ -573,6 +573,12 @@ BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_par
         } else {
             bsim4_params.*j.drain = bsim4_params.*j.source;
         }
+        // Read here, so not among the names the card gives in vain
+        if (unused) {
+            std::erase_if(*unused, [&](const std::string& name) {
+                return name == j.source_key || name == j.drain_key;
+            });
+        }
     }
 
     const Real target_bsim4_version = 4.83;
