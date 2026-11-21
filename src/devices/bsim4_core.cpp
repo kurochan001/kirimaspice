@@ -2836,22 +2836,22 @@ Real BSIM4Core::compute_mobility(Real vgt_eff, Real vth, Real vbs_eff, Real temp
     return u0temp / denomi;
 }
 
-/// Calculate rds0 (temperature-dependent base resistance) [Ω]
-/// Reference: ngspice b4temp.c line 1255
-Real BSIM4Core::compute_rds0(Real temperature) const {
-    const Real delTemp = temperature - params_.tnom;
-    const Real T10 = 1.0 + params_.prt * delTemp;
+/// rds0 and rdswmin of the internal Rds(V) at the temperature T [Ω]. For
+/// TEMPMOD = 0 the BSIM4 4.8.3 code (b4temp.c) adds PRT (T / TNOM - 1) to
+/// RDSW and to RDSWMIN, both per Weff[µm]^WR, and divides each by
+/// Weff[µm]^WR: PowWeffWr = (Weff 1e6)^WR NF, rds0 = (RDSW + T10) NF / PowWeffWr.
+/// Its parameter check (b4check.c) sets either to zero where it is negative
+/// at T, and rds0 to zero where RDSW is negative.
+std::pair<Real, Real> BSIM4Core::compute_rds0(Real temperature) const {
+    const Real T10 = params_.prt * (temperature / params_.tnom - 1.0);
 
-    // PowWeffWr: Width scaling factor
-    // Reference: ngspice b4temp.c: PowWeffWr = pow(weffCJ * 1e6, wr) * nf
     const Real weff = params_.get_weff();  // Effective width [m]
     const Real nf = params_.nf;            // Number of fingers
     const Real PowWeffWr = std::pow(weff * 1.0e6, params_.wr) * nf;
 
-    // rds0 = rdsw × T10 × nf / PowWeffWr
-    const Real rds0 = params_.rdsw * T10 * nf / PowWeffWr;
-
-    return rds0;
+    const Real rds0 = params_.rdsw < 0.0 ? 0.0 : (params_.rdsw + T10) * nf / PowWeffWr;
+    const Real rdswmin = (params_.rdswmin + T10) * nf / PowWeffWr;
+    return {std::max(rds0, 0.0), std::max(rdswmin, 0.0)};
 }
 
 /// Calculate Rds (bias-dependent drain-source resistance) [Ω]
@@ -2862,7 +2862,7 @@ Real BSIM4Core::compute_rds(Real vgsteff, Real sqrtPhis, Real temperature) const
         return 0.0;
     }
 
-    const Real rds0 = compute_rds0(temperature);
+    const auto [rds0, rdswmin] = compute_rds0(temperature);
 
     // Gate-bias effect on rds
     const Real T0 = 1.0 + params_.prwg * vgsteff;
@@ -2876,7 +2876,7 @@ Real BSIM4Core::compute_rds(Real vgsteff, Real sqrtPhis, Real temperature) const
     const Real T4 = rds0 * 0.5;
 
     // Final Rds with minimum value
-    const Real Rds = params_.rdswmin + T3 * T4;
+    const Real Rds = rdswmin + T3 * T4;
 
     // Ensure non-negative
     return std::max(Rds, 0.0);

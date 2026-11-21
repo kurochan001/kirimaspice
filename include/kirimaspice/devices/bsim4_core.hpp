@@ -141,9 +141,9 @@ private:
                      Real& vth_out, Real& vdsat_out) const;
     Real compute_mobility(Real vgt_eff, Real vth, Real vbs_eff, Real temperature) const;
 
-    /// Calculate rds0 (temperature-dependent base resistance) [Ω]
-    /// Reference: ngspice b4temp.c line 1255
-    Real compute_rds0(Real temperature) const;
+    /// rds0 and rdswmin of the internal Rds(V) at the temperature [Ω]
+    /// (TEMPMOD = 0, BSIM4 4.8.3 b4temp.c)
+    std::pair<Real, Real> compute_rds0(Real temperature) const;
 
     /// Calculate Rds (bias-dependent drain-source resistance) [Ω]
     /// Reference: ngspice b4ld.c lines 1313-1336

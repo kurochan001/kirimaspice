@@ -403,3 +403,44 @@ TEST(BSIM4AgainstNgspice, LongChannelDibl) {
         EXPECT_NEAR(row.gmb, p.gmbs, 1e-3 * p.gmbs) << at;
     }
 }
+
+// PRT, the temperature coefficient of the source/drain resistance: for
+// TEMPMOD = 0, BSIM4 adds PRT (T / TNOM - 1) to RDSW and to RDSWMIN, and sets
+// either to zero where it then is negative (BSIM4 4.8.3 b4temp.c and
+// b4check.c; ngspice-47 warns "Rdswmin at current temperature ... is
+// negative. Set to zero." at -40 C here). ngspice-47, run 2026-11-21: `id gm
+// gds gmbs` of m1 for the reference card with PRT (and WR) added, TNOM = 27 C
+// by default, ".options temp=<T>", VBS = 0.
+TEST(BSIM4AgainstNgspice, ResistanceTemperatureCoefficient) {
+    struct Point {
+        const char* extra;
+        Real celsius, vgs, vds;
+        Real id, gm, gds, gmbs;
+    };
+    const Point points[] = {
+        {"prt=100", 100.0, 1.0, 1.0, 1.031982e-04, 4.386847e-04, 2.515803e-05, 5.098189e-05},
+        {"prt=100", 100.0, 1.0, 0.05, 2.305873e-05, 6.817505e-05, 4.089174e-04, 9.456655e-06},
+        {"prt=100", 100.0, 1.8, 1.8, 5.712953e-04, 6.116536e-04, 6.336622e-05, 6.613293e-05},
+        {"prt=100", -40.0, 1.0, 0.05, 3.901680e-05, 1.282546e-04, 6.573084e-04, 1.905093e-05},
+        {"prt=100", -40.0, 1.8, 1.8, 8.339461e-04, 8.773435e-04, 8.510996e-05, 1.070088e-04},
+        {"prt=500 wr=0.9", -40.0, 1.8, 1.8,
+         8.819032e-04, 9.297548e-04, 9.338121e-05, 1.171777e-04},
+        {"prt=500 wr=0.9", 100.0, 1.0, 0.05,
+         2.133481e-05, 5.900563e-05, 3.819493e-04, 8.168147e-06},
+    };
+    for (const auto& p : points) {
+        const std::string card =
+            std::string(".model nch nmos level=14 version=4.8.1 toxe=3e-9 vth0=0.5 u0=0.067 "
+                        "vsat=8e4 ") + p.extra + "\n";
+        char options[64];
+        std::snprintf(options, sizeof options, ".options temp=%.1f\n", p.celsius);
+        const DrainRow row =
+            drain_row_of_m1("M1 d g s b nch L=0.18u W=1u", card, p.vds, p.vgs, 0.0, 0.0, options);
+        const std::string at = std::string(p.extra) + " " + options + "VGS=" +
+                               std::to_string(p.vgs) + " VDS=" + std::to_string(p.vds);
+        EXPECT_NEAR(row.ids, p.id, 2e-4 * p.id) << at;
+        EXPECT_NEAR(row.gm, p.gm, 1e-3 * p.gm) << at;
+        EXPECT_NEAR(row.gds, p.gds, 1e-3 * p.gds) << at;
+        EXPECT_NEAR(row.gmb, p.gmbs, 1e-3 * p.gmbs) << at;
+    }
+}
