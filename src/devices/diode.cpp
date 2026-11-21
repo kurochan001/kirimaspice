@@ -7,6 +7,7 @@
 #include "kirimaspice/core/constants.hpp"  // For safe_get_node_voltage
 #include <spdlog/spdlog.h>
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 
 namespace kirimaspice::devices {
@@ -101,10 +102,31 @@ void Diode::set_temperature(Real temp_kelvin) {
 }
 
 Real Diode::get_current(Real voltage) const {
-    // Shockley equation: I = Is * (exp(V/(N*Vt)) - 1)
-    // Use safe_exp_junction for numerical stability
+    // Shockley equation: I = Is * (exp(V/(N*Vt)) - 1), and the breakdown
+    // current below -BV; safe_exp_junction for numerical stability
     Real n_vt = n_ * vt_;
-    return core::safe_exp_junction(voltage, n_vt, is_);
+    return core::safe_exp_junction(voltage, n_vt, is_) + get_breakdown_current(voltage);
+}
+
+Real Diode::get_breakdown_current(Real voltage) const {
+    // -IBV exp(-(BV + V)/(N Vt)): IBV at V = -BV, rising by e every N Vt
+    // below it and falling as fast above it, as ngspice-47 gives; extended
+    // linearly where the exponential would overflow, and never cut off
+    if (bv_ <= 0.0) {
+        return 0.0;
+    }
+    const Real n_vt = n_ * vt_;
+    constexpr Real kNoCutoff = -std::numeric_limits<Real>::infinity();
+    return -(core::safe_exp_junction(-(bv_ + voltage), n_vt, ibv_, kNoCutoff) + ibv_);
+}
+
+Real Diode::get_breakdown_conductance(Real voltage) const {
+    if (bv_ <= 0.0) {
+        return 0.0;
+    }
+    const Real n_vt = n_ * vt_;
+    constexpr Real kNoCutoff = -std::numeric_limits<Real>::infinity();
+    return core::safe_exp_conductance(-(bv_ + voltage), n_vt, ibv_ / n_vt, 0.0, kNoCutoff);
 }
 
 Real Diode::get_conductance(Real voltage) const {
@@ -144,8 +166,17 @@ void Diode::stamp_dc_nonlinear(MNASystem& mna,
     Real n_vt = n_ * vt_;
     Real voltage_limited = voltage;
     if (enable_voltage_limiting_) {
-        voltage_limited = core::limit_junction_step(voltage, v_last_eval_, n_vt,
-                                                    core::compute_vcrit(n_vt, is_));
+        if (bv_ > 0.0 && voltage < -bv_ + 10.0 * n_vt) {
+            // In breakdown the junction is limited as SPICE limits it, on
+            // the voltage beyond -BV
+            const Real beyond = -(voltage + bv_);
+            const Real beyond_last = -(v_last_eval_ + bv_);
+            voltage_limited = -(core::limit_junction_step(beyond, beyond_last, n_vt,
+                                                          core::compute_vcrit(n_vt, ibv_)) + bv_);
+        } else {
+            voltage_limited = core::limit_junction_step(voltage, v_last_eval_, n_vt,
+                                                        core::compute_vcrit(n_vt, is_));
+        }
     }
     v_last_eval_ = voltage_limited;
     limited_in_last_stamp_ = (voltage_limited != voltage);
@@ -189,8 +220,12 @@ void Diode::stamp_dc_nonlinear(MNASystem& mna,
 }
 
 Real Diode::get_small_signal_conductance(Real voltage) const {
-    // Small-signal conductance: gd = dI/dV at DC operating point
-    // This is the same as get_conductance() but without gmin
+    // Small-signal conductance: gd = dI/dV of the junction and its
+    // breakdown, without gmin
+    return get_junction_conductance(voltage) + get_breakdown_conductance(voltage);
+}
+
+Real Diode::get_junction_conductance(Real voltage) const {
     Real n_vt = n_ * vt_;
 
     // Use named constants
@@ -549,6 +584,10 @@ std::optional<Real> Diode::get_parameter(const std::string& param_name) const {
         return m_;
     } else if (param_name == "TT" || param_name == "tt") {
         return tt_;
+    } else if (param_name == "BV" || param_name == "bv") {
+        return bv_;
+    } else if (param_name == "IBV" || param_name == "ibv") {
+        return ibv_;
     }
     return std::nullopt;  // Parameter not found
 }
@@ -560,6 +599,16 @@ bool Diode::set_parameter(const std::string& param_name, Real value) {
             return false;
         }
         tt_ = value;
+        return true;
+    }
+    if (param_name == "BV" || param_name == "bv" || param_name == "IBV" || param_name == "ibv") {
+        const bool is_bv = (param_name == "BV" || param_name == "bv");
+        if (value <= 0.0) {
+            spdlog::warn("Diode {}: {} must be positive (got {}), not updated", name_,
+                         is_bv ? "BV" : "IBV", value);
+            return false;
+        }
+        (is_bv ? bv_ : ibv_) = value;
         return true;
     }
     if (param_name == "IS" || param_name == "is") {

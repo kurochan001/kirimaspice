@@ -138,6 +138,14 @@ private:
     Real vj_;   // Junction potential [V]
     Real m_;    // Grading coefficient
     Real tt_ = 0.0;  // Transit time [s]: the diffusion charge TT I
+    Real bv_ = 0.0;     // Reverse breakdown voltage [V]; 0 for none
+    Real ibv_ = 1e-3;   // Current at the breakdown voltage [A]
+
+    /// The junction's own conductance, and the breakdown current
+    /// -IBV exp(-(BV + V)/(N Vt)) with its conductance (SPICE's diode)
+    Real get_junction_conductance(Real voltage) const;
+    Real get_breakdown_current(Real voltage) const;
+    Real get_breakdown_conductance(Real voltage) const;
 
     // Temperature parameters
     Real xti_;   // Saturation current temperature exponent (default: 3.0 for Si)

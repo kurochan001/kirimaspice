@@ -4656,7 +4656,9 @@ static void parse_diode_device(const std::vector<std::string>& tokens, const std
     Real cj0 = 0.0;
     Real vj = 1.0;
     Real m = 0.5;
-    Real tt = 0.0;  // transit time
+    Real tt = 0.0;   // transit time
+    Real bv = 0.0;   // breakdown voltage, none when 0
+    Real ibv = 0.0;  // current at BV, the device's 1 mA when 0
 
     // Check if tokens[3] is a model reference
     size_t param_start = 3;
@@ -4686,6 +4688,8 @@ static void parse_diode_device(const std::vector<std::string>& tokens, const std
                     else if (key == "vj" || key == "pb") vj = value;
                     else if (key == "m" || key == "mj") m = value;
                     else if (key == "tt") tt = value;
+                    else if (key == "bv") bv = value;
+                    else if (key == "ibv") ibv = value;
                     else unused.push_back(key);
                 }
                 warn_unused_card_names(state, "Diode model " + potential_model, unused);
@@ -4724,8 +4728,15 @@ static void parse_diode_device(const std::vector<std::string>& tokens, const std
     }
 
     state.circuit->add_diode(dev_name, anode, cathode, is, n, cj0, vj, m);
+    auto diode = state.circuit->get_device(dev_name);
     if (tt != 0.0) {
-        state.circuit->get_device(dev_name)->set_parameter("tt", tt);
+        diode->set_parameter("tt", tt);
+    }
+    if (bv != 0.0) {
+        diode->set_parameter("bv", bv);
+    }
+    if (ibv != 0.0) {
+        diode->set_parameter("ibv", ibv);
     }
     spdlog::debug("Added diode: {} {} {} Is={:.3e}A N={:.3f} Cj0={:.3e}F Vj={:.3f}V M={:.3f}",
                   dev_name, anode, cathode, is, n, cj0, vj, m);

@@ -115,3 +115,33 @@ TEST(DiodeCard, TransitTimeGivesTheDiffusionCapacitance) {
     EXPECT_NEAR(v.real(), 0.4805643, 1e-5);
     EXPECT_NEAR(v.imag(), -0.0156688, 1e-6);
 }
+
+namespace {
+
+double reverse_current(double v, const std::string& card) {
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string("t\nV1 a 0 " + std::to_string(v) + "\nD1 a 0 DM\n" + card + "\n.end\n");
+    solvers::DCSolver solver(*parsed.circuit, parsed.config);
+    DenseVector x;
+    SolverStats stats;
+    EXPECT_EQ(solver.solve(x, stats), ConvergenceStatus::SUCCESS) << v;
+    return x.empty() ? 0.0 : x.back();  // I(V1), the last unknown
+}
+
+}  // namespace
+
+TEST(DiodeCard, BreakdownFollowsBvAndIbv) {
+    // BV and IBV: the diode carries IBV at -BV, and the current rises by e
+    // every N Vt below it (ngspice-47's DC sweep, run 2026-11-21)
+    const std::string card = ".model DM D IS=1e-14 BV=5 IBV=1e-3";
+    const struct { double v, i; } points[] = {
+        {-5.3, 1.089585e+02}, {-5.1, 4.776250e-02}, {-5.0, 1.000000e-03},
+        {-4.9, 2.093693e-05}, {-4.7, 9.182503e-09},
+    };
+    for (const auto& p : points) {
+        EXPECT_NEAR(reverse_current(p.v, card), p.i, 2e-4 * p.i) << p.v;
+    }
+    // With N = 1.5 the rise is e every 1.5 Vt: 1.316411e-02 A at -5.1 V
+    EXPECT_NEAR(reverse_current(-5.1, ".model DM D IS=1e-14 BV=5 IBV=1e-3 N=1.5"), 1.316411e-02,
+                2e-4 * 1.316411e-02);
+}
