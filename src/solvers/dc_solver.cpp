@@ -34,16 +34,6 @@ DCSolver::DCSolver(const circuit::CircuitGraph& circuit,
                    const SimulationConfig& config)
     : circuit_(circuit)
     , config_(config) {
-
-    // Detect presence of nonlinear devices (Voltage limiting can be relaxed for purely linear circuits)
-    has_nonlinear_devices_ = false;
-    for (const auto& device : circuit_.get_devices()) {
-        if (!device->is_linear()) {
-            has_nonlinear_devices_ = true;
-            break;
-        }
-    }
-
     // Calculate MNA system size
     std::uint32_t num_nodes = circuit_.num_nodes() - 1;  // Exclude GND
     std::uint32_t num_branches = 0;
@@ -361,35 +351,6 @@ ConvergenceStatus DCSolver::solve_standard(DenseVector& solution, SolverStats& s
         Real max_residual = 0.0;
         for (Real r : f_new) {
             max_residual = std::max(max_residual, std::abs(r));
-        }
-
-        // Voltage limiting: Limit individual node voltage changes to prevent extreme steps
-        // Relax rules:
-        //  - Purely線形回路では無効化（早期収束のため）
-        //  - 非線形回路でも上限を 5V/step に緩和して高電圧バイアスでの停滞を防ぐ
-        //  - Dynamic Gmin 有効時は従来どおり無効化
-        const bool small_system = mna_.size() <= 4; // tiny circuits converge stably without limiting
-        const bool voltage_limit_enabled = !dynamic_gmin_enabled && has_nonlinear_devices_ && !small_system;
-
-        // Relax voltage limiting after several iterations to avoid stagnation at high bias
-        constexpr std::uint32_t VOLT_LIMIT_RELAX_ITER = 10;
-        const bool relax_limit = (iter >= VOLT_LIMIT_RELAX_ITER);
-
-        const Real max_voltage_step = (voltage_limit_enabled && !relax_limit)
-            ? 5.0
-            : std::numeric_limits<Real>::infinity();
-        Real max_delta_unscaled = 0.0;
-        for (std::size_t i = 0; i < x_new.size(); ++i) {
-            max_delta_unscaled = std::max(max_delta_unscaled, std::abs(x_new[i] - x_old[i]));
-        }
-        spdlog::debug("  Newton step: max_delta={:.3e} V, threshold={:.3e} V", max_delta_unscaled, max_voltage_step);
-        if (max_delta_unscaled > max_voltage_step) {
-            const Real scale = max_voltage_step / max_delta_unscaled;
-            spdlog::debug("  Voltage limiting: Scaling Newton step by {:.6f} (max_delta={:.3e} V)",
-                         scale, max_delta_unscaled);
-            for (std::size_t i = 0; i < x_new.size(); ++i) {
-                x_new[i] = x_old[i] + scale * (x_new[i] - x_old[i]);
-            }
         }
 
         Real max_change = 0.0;

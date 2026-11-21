@@ -50,3 +50,20 @@ TEST(DCInitialGuess, NodesetAtTheSolutionIsAConvergedStart) {
         EXPECT_LE(again_stats.total_iterations, 2u) << "from scratch: " << stats.total_iterations;
     }
 }
+
+TEST(DCInitialGuess, NewtonStepIsLimitedByTheJunctionsOnly) {
+    // SPICE limits each junction's step (core::limit_junction_step) and has
+    // no limit on the Newton step as a whole. Three diodes driven from
+    // 100 V through 10 ohm converge in 10 iterations; a clamp of every
+    // unknown's step to 5 V for the first ten iterations took 35.
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "diodes\nV1 in 0 100\nR1 in a 10\nD1 a b DM\nD2 b c DM\nD3 c 0 DM\nR2 c 0 1k\n"
+        ".model DM D IS=1e-14 N=1\n.end\n");
+    solvers::DCSolver solver(*parsed.circuit, parsed.config);
+    DenseVector x;
+    SolverStats stats;
+    ASSERT_EQ(solver.solve(x, stats), ConvergenceStatus::SUCCESS);
+    EXPECT_LE(stats.total_iterations, 15u);
+    EXPECT_NEAR(x[parsed.circuit->get_node_id("a") - 1], 2.67792, 1e-5);
+}

@@ -81,7 +81,6 @@ private:
     MNASystem mna_;                         ///< MNA system
     std::unique_ptr<ISparseLinearSolver> lin_solver_;  ///< Linear solver (selectable backend)
     DenseVector last_solution_;             ///< Last solved solution
-    bool has_nonlinear_devices_ = false;    ///< True if circuit contains any nonlinear device (for voltage limiting)
 
     // Unified thread-local MNA manager for parallel device stamping
     ThreadLocalMNAManager thread_local_mna_mgr_;  ///< Thread-local MNA systems (reused across iterations)
