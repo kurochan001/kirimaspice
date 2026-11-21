@@ -227,12 +227,11 @@ says otherwise.
   theirs in `stamp_dc_linear`, which no solver calls for a nonlinear
   device, so they have none. SPICE puts it across the bulk junctions,
   which these models mostly do not have (read in the code at `63ce9a6`).
-- **`DEC` and `OCT` sweeps over a fractional number of decades or octaves
-  stretch the points to end on the stop frequency.** `.ac dec 10 10 25`
-  gives 5 points 1.2574 apart, ending at 25 Hz, where ngspice-47 gives 10,
-  12.59, 15.85 and 19.95 Hz; `.ac oct 1 1 3` gives 1, 1.73 and 3 Hz,
-  ngspice-47 1 and 2 Hz. Whole decades and octaves agree (both run on
-  2026-11-21, this program at `21bb991`).
+- **`.AC LIN 2` gives both ends; ngspice-47 gives the start only.**
+  `.ac lin 2 1 10` gives 1 and 10 Hz here and 1 Hz in ngspice-47, whose
+  linear step is 0 for fewer than three points (run on 2026-11-21). The
+  two points `<n>` asks for are kept. `DEC` and `OCT` take ngspice-47's
+  grid.
 - **The library's input-referred noise (`NoiseSolver`) divides by the
   transimpedance from the input node,** not by the voltage gain from the
   input source (read in the code at `63ce9a6`; no test checks it).

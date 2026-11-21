@@ -3,6 +3,7 @@
 
 // src/solvers/sparam_solver.cpp
 #include "kirimaspice/solvers/sparam_solver.hpp"
+#include "kirimaspice/solvers/ac_solver.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
 #include "kirimaspice/solvers/solver_factory.hpp"
 #include "kirimaspice/devices/device.hpp"
@@ -155,69 +156,25 @@ void SParameterSolver::linearize_devices() {
 }
 
 std::vector<Real> SParameterSolver::generate_frequency_points() const {
+    // The grid of an AC sweep of the same type (ac_frequency_points)
     const auto& sparam_config = config_.sparam;
-    std::vector<Real> frequencies;
-
-    Real f_start = sparam_config.start_freq;
-    Real f_stop = sparam_config.stop_freq;
-    std::uint32_t num_points = sparam_config.num_points;
-
-    // Validation
-    if (f_start <= 0.0 || f_stop < f_start || num_points == 0) {
-        spdlog::error("Invalid frequency sweep parameters: f_start={}, f_stop={}, num_points={}",
-                     f_start, f_stop, num_points);
-        return frequencies;
-    }
-
-    // Handle single-frequency case
-    if (f_start == f_stop) {
-        frequencies.push_back(f_start);
-        spdlog::debug("Single frequency: {} Hz", f_start);
-        return frequencies;
-    }
-
     std::string sweep_type = sparam_config.sweep_type;
     std::transform(sweep_type.begin(), sweep_type.end(), sweep_type.begin(), ::toupper);
-
+    SimulationConfig::AC ac;
     if (sweep_type == "LIN") {
-        // Linear sweep: equal spacing in Hz
-        Real df = (f_stop - f_start) / (num_points - 1);
-        for (std::uint32_t i = 0; i < num_points; ++i) {
-            frequencies.push_back(f_start + i * df);
-        }
-        spdlog::debug("Linear sweep: {} points from {} to {} Hz (df={} Hz)",
-                     num_points, f_start, f_stop, df);
+        ac.sweep_type = SimulationConfig::AC::SweepType::LIN;
     } else if (sweep_type == "DEC") {
-        // Decade sweep: logarithmic spacing, num_points per decade
-        Real log_start = std::log10(f_start);
-        Real log_stop = std::log10(f_stop);
-        Real decades = log_stop - log_start;
-        std::uint32_t total_points = static_cast<std::uint32_t>(std::ceil(decades * num_points)) + 1;
-
-        for (std::uint32_t i = 0; i < total_points; ++i) {
-            Real log_f = log_start + (log_stop - log_start) * i / (total_points - 1);
-            frequencies.push_back(std::pow(10.0, log_f));
-        }
-        spdlog::debug("Decade sweep: {} points/decade, {} total points from {} to {} Hz",
-                     num_points, total_points, f_start, f_stop);
+        ac.sweep_type = SimulationConfig::AC::SweepType::DEC;
     } else if (sweep_type == "OCT") {
-        // Octave sweep: logarithmic spacing, num_points per octave
-        Real log_start = std::log2(f_start);
-        Real log_stop = std::log2(f_stop);
-        Real octaves = log_stop - log_start;
-        std::uint32_t total_points = static_cast<std::uint32_t>(std::ceil(octaves * num_points)) + 1;
-
-        for (std::uint32_t i = 0; i < total_points; ++i) {
-            Real log_f = log_start + (log_stop - log_start) * i / (total_points - 1);
-            frequencies.push_back(std::pow(2.0, log_f));
-        }
-        spdlog::debug("Octave sweep: {} points/octave, {} total points from {} to {} Hz",
-                     num_points, total_points, f_start, f_stop);
+        ac.sweep_type = SimulationConfig::AC::SweepType::OCT;
     } else {
         spdlog::error("Unknown sweep type: {} (expected LIN/DEC/OCT)", sweep_type);
+        return {};
     }
-
-    return frequencies;
+    ac.start_freq = sparam_config.start_freq;
+    ac.stop_freq = sparam_config.stop_freq;
+    ac.num_points = sparam_config.num_points;
+    return ac_frequency_points(ac, config_.dc.reltol);
 }
 
 std::vector<std::vector<Complex>> SParameterSolver::calculate_s_matrix(Real omega) {

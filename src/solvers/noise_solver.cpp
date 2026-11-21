@@ -232,7 +232,7 @@ Real NoiseSolver::calculate_voltage_gain(NodeId input_node,
 
 std::vector<Real> NoiseSolver::generate_frequency_points() const {
     // The frequencies of the AC sweep, as the AC analysis takes them
-    return ac_frequency_points(config_.ac);
+    return ac_frequency_points(config_.ac, config_.dc.reltol);
 }
 
 std::uint32_t NoiseSolver::count_branch_devices() const {

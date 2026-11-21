@@ -16,9 +16,17 @@ namespace kirimaspice::solvers {
 
 /// The frequencies of an AC sweep (LIN, DEC or OCT) of the given
 /// configuration, from start_freq to stop_freq; empty when the
-/// configuration is invalid. The AC and the noise analyses take their
-/// frequencies from here.
-std::vector<Real> ac_frequency_points(const SimulationConfig::AC& ac_config);
+/// configuration is invalid. The AC, noise and S-parameter analyses take
+/// their frequencies from here.
+///
+/// LIN gives num_points points from start to stop. DEC and OCT go up by a
+/// fixed ratio from start_freq while the frequency is at most
+/// stop_freq + ratio * stop_freq * reltol, as SPICE's AC analysis does:
+/// OCT by 2^(1/N); DEC by 10^(1/N) when stop_freq is less than a decade
+/// above start_freq, and otherwise by the ratio that reaches stop_freq in
+/// floor(N log10(stop/start)) steps (ngspice-47's grids, run 2026-11-21).
+/// reltol is the RELTOL of .OPTIONS.
+std::vector<Real> ac_frequency_points(const SimulationConfig::AC& ac_config, Real reltol = 1e-3);
 
 
 /// AC analysis result for a single frequency point

@@ -177,10 +177,10 @@ void ACSolver::linearize_devices() {
 }
 
 std::vector<Real> ACSolver::generate_frequency_points() const {
-    return ac_frequency_points(config_.ac);
+    return ac_frequency_points(config_.ac, config_.dc.reltol);
 }
 
-std::vector<Real> ac_frequency_points(const SimulationConfig::AC& ac_config) {
+std::vector<Real> ac_frequency_points(const SimulationConfig::AC& ac_config, Real reltol) {
     std::vector<Real> frequencies;
 
     Real f_start = ac_config.start_freq;
@@ -221,45 +221,32 @@ std::vector<Real> ac_frequency_points(const SimulationConfig::AC& ac_config) {
         break;
     }
 
-    case SimulationConfig::AC::SweepType::DEC: {
-        // Decade sweep: logarithmic spacing, num_points per decade
-        // ngspice-compatible: includes both start and stop frequencies
-        // For n decades with m points/decade: total = n*m + 1 points
-        Real decades = std::log10(f_stop / f_start);
-        std::uint32_t total_points = static_cast<std::uint32_t>(std::round(decades * num_points)) + 1;
-        if (total_points == 1) {
-            frequencies.push_back(f_start);
-            break;
-        }
-
-        for (std::uint32_t i = 0; i < total_points; ++i) {
-            Real log_f = std::log10(f_start) + i * (std::log10(f_stop) - std::log10(f_start)) / (total_points - 1);
-            frequencies.push_back(std::pow(10.0, log_f));
-        }
-
-        spdlog::debug("Decade sweep: {} points per decade, {:.2f} decades, {} total points",
-                     num_points, decades, total_points);
-        break;
-    }
-
+    case SimulationConfig::AC::SweepType::DEC:
     case SimulationConfig::AC::SweepType::OCT: {
-        // Octave sweep: logarithmic spacing, num_points per octave
-        // ngspice-compatible: includes both start and stop frequencies
-        // For n octaves with m points/octave: total = n*m + 1 points
-        Real octaves = std::log2(f_stop / f_start);
-        std::uint32_t total_points = static_cast<std::uint32_t>(std::round(octaves * num_points)) + 1;
-        if (total_points == 1) {
-            frequencies.push_back(f_start);
-            break;
+        // Up by a fixed ratio from the start while within the stop and its
+        // tolerance (see the declaration)
+        const bool dec = (ac_config.sweep_type == SimulationConfig::AC::SweepType::DEC);
+        const Real n = static_cast<Real>(num_points);
+        Real ratio = std::pow(dec ? 10.0 : 2.0, 1.0 / n);
+        const bool stretched = dec && f_stop / 10.0 >= f_start;
+        std::uint64_t steps = 0;
+        if (stretched) {
+            steps = static_cast<std::uint64_t>(std::floor(std::log10(f_stop / f_start) * n));
+            ratio = std::pow(f_stop / f_start, 1.0 / static_cast<Real>(steps));
         }
-
-        for (std::uint32_t i = 0; i < total_points; ++i) {
-            Real log_f = std::log2(f_start) + i * (std::log2(f_stop) - std::log2(f_start)) / (total_points - 1);
-            frequencies.push_back(std::pow(2.0, log_f));
+        // The k-th point is computed, not multiplied up, so that a grid
+        // that reaches the stop ends on it exactly
+        const Real tolerance = ratio * f_stop * reltol;
+        for (std::uint64_t k = 0;; ++k) {
+            const Real f = (stretched && k == steps) ? f_stop
+                                                     : f_start * std::pow(ratio, static_cast<Real>(k));
+            if (f > f_stop + tolerance) {
+                break;
+            }
+            frequencies.push_back(f);
         }
-
-        spdlog::debug("Octave sweep: {} points per octave, {:.2f} octaves, {} total points",
-                     num_points, octaves, total_points);
+        spdlog::debug("{} sweep: {} points per {}, ratio {}, {} points", dec ? "Decade" : "Octave",
+                      num_points, dec ? "decade" : "octave", ratio, frequencies.size());
         break;
     }
 
