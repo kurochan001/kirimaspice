@@ -242,6 +242,13 @@ private:
         return vth_ + kt1_ * temp_diff + kt2_ * temp_diff * temp_diff;
     }
 
+    // Whether the channel conducts: the gate against the source, or against
+    // the drain when VDS < 0 and the source acts as the drain
+    [[nodiscard]] bool conducting(Real vgs_eff, Real vds_eff) const {
+        const Real control = (vds_eff < 0.0) ? vgs_eff - vds_eff : vgs_eff;
+        return control >= compute_temperature_scaled_vth();
+    }
+
     [[nodiscard]] Real compute_temperature_scaled_beta() const {
         Real temp_ratio = temperature_ / tnom_;
         return beta_ * std::pow(temp_ratio, ute_);
@@ -281,14 +288,29 @@ typename GaN_HEMT<Pol>::DrainCurrent GaN_HEMT<Pol>::drain_current(Real vgs_eff,
         return trap_factor * id_i / (1.0 + gds_i * r_total);
     };
 
+    // For VDS < 0 the source acts as the drain, as in a MOSFET: the same
+    // current of VGD and VSD flows from source to drain
     DrainCurrent dc;
-    if (vgs_eff < vth) {
+    const bool reverse = vds_eff < 0.0;
+    const Real vgs = reverse ? vgs_eff - vds_eff : vgs_eff;
+    const Real vds = reverse ? -vds_eff : vds_eff;
+    if (vgs < vth) {
         return dc;  // cutoff
     }
     constexpr Real delta = 1e-6;
-    dc.id = current(vgs_eff, vds_eff);
-    dc.gm = (current(vgs_eff + delta, vds_eff) - dc.id) / delta;
-    dc.gds = (current(vgs_eff, vds_eff + delta) - dc.id) / delta;
+    const Real f = current(vgs, vds);
+    const Real gm = (current(vgs + delta, vds) - f) / delta;
+    const Real gds = (current(vgs, vds + delta) - f) / delta;
+    if (!reverse) {
+        dc.id = f;
+        dc.gm = gm;
+        dc.gds = gds;
+    } else {
+        // Id = -f(Vgs - Vds, -Vds): its derivatives by Vgs and Vds
+        dc.id = -f;
+        dc.gm = -gm;
+        dc.gds = gm + gds;
+    }
     if (vds_eff > vbd_) {
         dc.gds += 1e-3;
     }
@@ -310,7 +332,7 @@ void GaN_HEMT<Pol>::stamp_dc_nonlinear(MNASystem& mna,
     Real vds_eff = polarity_sign * (vd - vs);
 
     // Cutoff region
-    if (vgs_eff < compute_temperature_scaled_vth()) {
+    if (!conducting(vgs_eff, vds_eff)) {
         stamp_gmin(mna);
         return;
     }
@@ -413,7 +435,7 @@ void GaN_HEMT<Pol>::stamp_ac(ComplexMNASystem& sys, Real omega,
     Complex y_cds(0.0, omega * cds_);
 
     // Cutoff region - only capacitances
-    if (vgs_eff < compute_temperature_scaled_vth()) {
+    if (!conducting(vgs_eff, vds_eff)) {
         device_utils::stamp_complex_capacitor(sys.Y, ng_idx, ns_idx, y_cgs, polarity_sign);
         device_utils::stamp_complex_capacitor(sys.Y, ng_idx, nd_idx, y_cgd, 1.0);
         device_utils::stamp_complex_capacitor(sys.Y, nd_idx, ns_idx, y_cds, polarity_sign);
@@ -450,7 +472,7 @@ std::vector<NoiseSource> GaN_HEMT<Pol>::get_noise_sources(
     Real vgs_eff = polarity_sign * (vg - vs);
     Real vds_eff = polarity_sign * (vd - vs);
 
-    if (vgs_eff < compute_temperature_scaled_vth()) return sources;
+    if (!conducting(vgs_eff, vds_eff)) return sources;
     const DrainCurrent dc = drain_current(vgs_eff, vds_eff);
     const Real gm = std::abs(dc.gm);
 
