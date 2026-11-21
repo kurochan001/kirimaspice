@@ -325,6 +325,24 @@ TEST(NetlistLines, AcPointCount) {
     }
 }
 
+// A .DC line has one sweep of four values or two of four
+// (parse_dc_directive); a second sweep with fewer values, or values after the
+// second, is an error, not a one-dimensional sweep with the rest dropped.
+// ngspice-47 (run 2026-11-21) stops with "Bad syntax" for the first two; it
+// runs the last with its ninth value ignored, which here is an error too.
+TEST(NetlistLines, DcSweepValueCount) {
+    const std::string circuit = "t\nV1 a 0 1\nV2 b 0 1\nR1 a b 1k\n";
+    for (const std::string dc : {".dc V1 0 1 0.5 V2", ".dc V1 0 1 0.5 V2 0 1",
+                                 ".dc V1 0 1 0.5 V2 0", ".dc V1 0 1 0.5 V2 0 1 0.5 7"}) {
+        parser::NetlistParser parser;
+        EXPECT_THROW(parser.parse_string(circuit + dc + "\n.end\n"), parser::ParseError) << dc;
+    }
+    parser::NetlistParser parser;
+    const auto parsed = parser.parse_string(circuit + ".dc V1 0 1 0.5 V2 0 1 0.5\n.end\n");
+    ASSERT_NE(parsed.config.dc_sweep.nested_sweep, nullptr);
+    EXPECT_EQ(parsed.config.dc_sweep.nested_sweep->source_name, "V2");
+}
+
 // The values of an O line are element values, numbers or expressions in
 // braces, as on every element line (read_element_value)
 TEST(NetlistLines, LossyLineValuesInBraces) {

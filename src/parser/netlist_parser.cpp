@@ -2243,6 +2243,17 @@ static void parse_dc_directive(const std::vector<std::string>& tokens, ParseStat
         return;
     }
 
+    // A sweep is four values, and a nested sweep four more. Any other count
+    // is an error, as in ngspice-47 ("Bad syntax" for .dc V1 0 1 0.5 V2 0 1),
+    // not a sweep with the rest of the line dropped.
+    if (tokens.size() != 5 && tokens.size() != 9) {
+        throw ParseError(
+            fmt::format("Invalid .DC: {} values; a sweep is <source> <start> <stop> <step>, "
+                        "and a nested sweep four more",
+                        tokens.size() - 1),
+            state.line_number);
+    }
+
     // Parse primary sweep (required)
     auto primary_sweep = std::make_shared<DCSweepConfig>();
     primary_sweep->source_name = tokens[1];
@@ -2258,7 +2269,7 @@ static void parse_dc_directive(const std::vector<std::string>& tokens, ParseStat
     }
 
     // Check for nested sweep (2D)
-    if (tokens.size() >= 9) {
+    if (tokens.size() == 9) {
         // Parse secondary sweep
         auto nested_sweep = std::make_shared<DCSweepConfig>();
         nested_sweep->source_name = tokens[5];
