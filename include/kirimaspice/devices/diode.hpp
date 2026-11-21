@@ -39,9 +39,10 @@ public:
     // DC analysis: Nonlinear device requires Newton-Raphson
     void stamp_dc_linear(MNASystem& mna,
                         const DenseVector& node_voltages) const override {
-        // Diode is nonlinear - no linear contribution
-        // Optionally, add small conductance gmin for numerical stability
-        stamp_gmin(mna);
+        // Diode is nonlinear - no linear contribution; its GMIN is in
+        // parallel with the junction in stamp_dc_nonlinear
+        (void)mna;
+        (void)node_voltages;
     }
 
     void stamp_dc_nonlinear(MNASystem& mna,
@@ -85,7 +86,9 @@ public:
     bool voltage_limiting_enabled() const { return enable_voltage_limiting_; }
     bool limited_in_last_stamp() const override { return limited_in_last_stamp_; }
 
-    /// Get current I-V operating point (for debugging/validation)
+    /// The junction's current Is (exp(V/(N Vt)) - 1), and the conductance
+    /// of the junction with its GMIN in parallel, which the DC, transient
+    /// and AC stamps take (SPICE's diode)
     Real get_current(Real voltage) const;
     Real get_conductance(Real voltage) const;
 
@@ -120,7 +123,6 @@ public:
 
 private:
     /// Stamp small conductance gmin for numerical stability
-    void stamp_gmin(MNASystem& mna) const;
 
     std::vector<NodeId> nodes_;  // [anode, cathode]
     Real is_;   // Saturation current [A] (temperature-dependent)

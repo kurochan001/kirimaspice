@@ -85,37 +85,10 @@ Real Diode::get_current(Real voltage) const {
 }
 
 Real Diode::get_conductance(Real voltage) const {
-    // dI/dV = (Is/(N*Vt)) * exp(V/(N*Vt))
-    // Use safe_exp_conductance for numerical stability
-    Real n_vt = n_ * vt_;
-    Real g_scale = is_ / n_vt;
-    return core::safe_exp_conductance(voltage, n_vt, g_scale, gmin_default);
-}
-
-void Diode::stamp_gmin(MNASystem& mna) const {
-    // Add small conductance gmin for numerical stability
-    // Same pattern as resistor
-
-    NodeId anode_node = nodes_[0];
-    NodeId cathode_node = nodes_[1];
-    Real g = gmin_default;
-
-    auto anode_idx = (anode_node == NODE_GND) ? -1 : static_cast<int>(anode_node - 1);
-    auto cathode_idx = (cathode_node == NODE_GND) ? -1 : static_cast<int>(cathode_node - 1);
-
-    if (anode_idx >= 0) {
-        mna.G.add_entry(anode_idx, anode_idx, g);
-        if (cathode_idx >= 0) {
-            mna.G.add_entry(anode_idx, cathode_idx, -g);
-        }
-    }
-
-    if (cathode_idx >= 0) {
-        mna.G.add_entry(cathode_idx, cathode_idx, g);
-        if (anode_idx >= 0) {
-            mna.G.add_entry(cathode_idx, anode_idx, -g);
-        }
-    }
+    // The junction's conductance with the GMIN that SPICE puts in parallel
+    // with it: the derivative of the current the stamps take,
+    // Is (exp(V/(N Vt)) - 1) + GMIN V
+    return get_small_signal_conductance(voltage) + gmin_default;
 }
 
 void Diode::stamp_dc_nonlinear(MNASystem& mna,
@@ -154,8 +127,9 @@ void Diode::stamp_dc_nonlinear(MNASystem& mna,
     v_last_eval_ = voltage_limited;
     limited_in_last_stamp_ = (voltage_limited != voltage);
 
-    // Linearize the junction at the voltage where it is evaluated
-    Real current = get_current(voltage_limited);
+    // Linearize the junction, with its GMIN in parallel (get_conductance),
+    // at the voltage where it is evaluated
+    Real current = get_current(voltage_limited) + gmin_default * voltage_limited;
     Real g_eq = get_conductance(voltage_limited);
     Real i_eq = current - g_eq * voltage_limited;
 
@@ -318,7 +292,7 @@ void Diode::stamp_ac(ComplexMNASystem& sys, Real omega,
     Real voltage = v_anode - v_cathode;
 
     // Calculate small-signal parameters
-    Real gd = get_small_signal_conductance(voltage);
+    Real gd = get_conductance(voltage);
     Real cj = get_junction_capacitance(voltage);
 
     // Complex admittance: Y = gd + jωCj

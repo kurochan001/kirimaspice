@@ -21,6 +21,7 @@
 
 #include "kirimaspice/parser/netlist_parser.hpp"
 #include "kirimaspice/solvers/ac_solver.hpp"
+#include "kirimaspice/solvers/dc_solver.hpp"
 
 using namespace kirimaspice;
 
@@ -78,4 +79,19 @@ TEST(DiodeCard, UnusedNamesAreWarned) {
     spdlog::set_default_logger(previous);
     EXPECT_NE(captured.str().find("Diode model DM: foo is not used"), std::string::npos) << captured.str();
     EXPECT_NE(captured.str().find("D1: 'AREA=2' is not used"), std::string::npos) << captured.str();
+}
+
+TEST(DiodeCard, GminIsInParallelWithTheJunction) {
+    // SPICE puts GMIN (1e-12 S) in parallel with the junction: 1 pA into a
+    // node with 1 Tohm to ground and a diode (IS=1e-14) to 1 kohm gives
+    // V(a) = 0.1128295 V in ngspice-47 (run 2026-11-21); without the GMIN
+    // the junction alone takes 0.884 pA and V(a) is 0.116208 V
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "t\nI1 0 a 1p\nR1 a 0 1T\nD1 a b DM\nR2 b 0 1k\n.model DM D IS=1e-14\n.end\n");
+    solvers::DCSolver solver(*parsed.circuit, parsed.config);
+    DenseVector x;
+    SolverStats stats;
+    ASSERT_EQ(solver.solve(x, stats), ConvergenceStatus::SUCCESS);
+    EXPECT_NEAR(x[parsed.circuit->get_node_id("a") - 1], 0.1128295, 2e-7);
 }
