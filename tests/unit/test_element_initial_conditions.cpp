@@ -70,6 +70,17 @@ TEST(ElementInitialConditions, InductorUnderUic) {
               bound);
 }
 
+// .IC sets node voltages, not inductor currents: under UIC an inductor
+// without IC= starts with no current. With L1 and R1 both across node a and
+// no source, the current of L1 stays 0 and so does v(a) after t = 0, the
+// .IC value of 1 V at t = 0 notwithstanding; ngspice-47 gives 0 V at every
+// point of this netlist (run 2026-11-21).
+TEST(ElementInitialConditions, NodeIcGivesAnInductorNoCurrent) {
+    EXPECT_LE(worst_error("t\nL1 a 0 1n\nR1 a 0 1\n.IC V(a)=1\n.tran 0.1n 3n UIC\n.end\n", "a",
+                          3e-9, 0.1e-9, zero),
+              1e-12);
+}
+
 TEST(ElementInitialConditions, NotUsedWithoutUic) {
     // The operating point of a lone RC is 0 V, and stays so
     EXPECT_LE(worst_error("t\nR1 out 0 1k\nC1 out 0 1u IC=2\n.tran 10u 1m\n.end\n", "out", 1e-3,

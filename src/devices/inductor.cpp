@@ -25,9 +25,9 @@ Inductor::Inductor(DeviceId id, const std::string& name,
     , current_saved3_(0.0)  // For BDF3
     , flux_(0.0)
     , flux_prev_(0.0)  // For physical LTE estimation
-    , last_timestep_(1e-9)  // Default timestep
+    , last_timestep_(0.0)  // No step stamped yet (see reset_state)
     , last_method_(IntegrationMethod::BACKWARD_EULER)  // Default method
-    , timestep_saved_(1e-9)  // Default timestep for saved state
+    , timestep_saved_(0.0)
     , method_saved_(IntegrationMethod::BACKWARD_EULER)  // Default method for saved state
     , first_accept_(true)  // initialize to true
     , bdf_alpha0_(0.0)
@@ -301,9 +301,12 @@ void Inductor::reset_state() {
     voltage_gamma_ = 0.0;  // TR-BDF2 gamma point voltage
     current_gamma_saved_ = 0.0;
     voltage_gamma_saved_ = 0.0;
-    last_timestep_ = 1e-9;  // Default timestep
+    // No step has been stamped: a point accepted before the first step (the
+    // start under UIC) integrates nothing, so the inductor carries no
+    // current until its own IC= gives it one (apply_initial_condition)
+    last_timestep_ = 0.0;
     last_method_ = IntegrationMethod::BACKWARD_EULER;
-    timestep_saved_ = 1e-9;  // Default timestep for saved state
+    timestep_saved_ = 0.0;
     method_saved_ = IntegrationMethod::BACKWARD_EULER;  // Default method for saved state
 
     spdlog::trace("[{}] reset_state: all state variables reset to initial values", name_);
