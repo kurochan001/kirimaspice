@@ -732,6 +732,10 @@ struct SimulationConfig {
 
     // Device models
     std::map<std::string, ModelDefinition> models;  ///< .MODEL definitions (model_name -> ModelDefinition)
+    /// The .MODEL lines inside each .SUBCKT, by the subcircuit's name: they
+    /// are local to its body, where they hide a global model of their name,
+    /// as in ngspice-47 (the parser's BodyLineReader)
+    std::map<std::string, std::map<std::string, ModelDefinition>> subcircuit_models;
 
     /// Find a .MODEL definition by name, ignoring case as SPICE does.
     /// Elements and subcircuit expansion look models up only through this.

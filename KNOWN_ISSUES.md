@@ -122,13 +122,6 @@ document also lists differences not decided there.
 - **In a subcircuit body, `.param x={1k` without its closing brace sets
   nothing, without a message;** an element that uses `x` is then an
   error (run on 2026-11-21 at `21bb991`).
-- **A `.MODEL` inside a `.SUBCKT` is not local to it.** A second
-  definition of a model name is named in a warning, and the elements after
-  it and every subcircuit body use it. ngspice-47 keeps a `.MODEL` of a
-  `.SUBCKT` to that subcircuit, and of two top-level definitions uses the
-  first: with `dm` IS = 1e-14 at the top level and IS = 1e-10 in the
-  subcircuit, its diode at 0.6 V draws 0.119 mA outside and 1.19 A inside
-  (ngspice-47 run on 2026-11-21; the warning is given since `4487d91`).
 - **The default `W` and `L` of BSIM1 (`LEVEL` 9) are 10 µm and 1 µm.**
   Which default ngspice-47 takes is not confirmed: its BSIM1 (its
   `LEVEL` 4) gives `nan` for a card without parameters (run on

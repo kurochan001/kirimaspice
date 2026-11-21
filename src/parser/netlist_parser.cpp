@@ -4176,26 +4176,25 @@ static void parse_model_directive(const std::vector<std::string>& tokens, ParseS
     model.params = params;
     model.version = model_version;
 
-    // Model names are compared without regard to case (find_model), so a
-    // definition replaces an earlier one spelled with other cases: the
-    // elements read after it, those put aside until the end, and those of
-    // subcircuit bodies use it, the elements read before it the earlier one.
-    // Every .MODEL is global, also one in a .SUBCKT, where ngspice-47 keeps it
-    // to the subcircuit; so a second definition of a name is named in a
-    // warning.
-    if (const ModelDefinition* earlier = state.config->find_model(model_name)) {
-        spdlog::warn("Line {}: model {} is defined again; the later definition is used by the "
-                     "elements after it and in subcircuits{}",
-                     state.line_number, earlier->name,
-                     state.inside_subcircuit
-                         ? fmt::format(" (a .MODEL in .SUBCKT {} is not local to it)",
-                                       state.current_subcircuit->name)
-                         : std::string());
+    // A .MODEL in a .SUBCKT is local to its body, where it hides a global
+    // model of its name (BodyLineReader); one at the top level is global.
+    // Model names are compared without regard to case (find_model), and of
+    // two definitions of a name in one scope the first is used, as in
+    // ngspice-47 (run 2026-11-21); the second is named in a warning.
+    std::map<std::string, ModelDefinition>& scope =
+        state.inside_subcircuit ? state.config->subcircuit_models[state.current_subcircuit->name]
+                                : state.config->models;
+    for (const auto& [name, earlier] : scope) {
+        if (util::equals_icase(name, model_name)) {
+            spdlog::warn("Line {}: model {} is defined again{}; the first definition is used",
+                         state.line_number, earlier.name,
+                         state.inside_subcircuit
+                             ? fmt::format(" in .SUBCKT {}", state.current_subcircuit->name)
+                             : std::string());
+            return;
+        }
     }
-    std::erase_if(state.config->models, [&](const auto& entry) {
-        return entry.first != model_name && util::equals_icase(entry.first, model_name);
-    });
-    state.config->models[model_name] = model;
+    scope[model_name] = model;
 
     spdlog::debug("Parsed .MODEL {} {} ({} parameters)",
                  model_name, device_type_str, params.size());
@@ -6493,6 +6492,7 @@ public:
     }
 
     void read(circuit::CircuitGraph& circuit, const std::string& line,
+              const std::string& subcircuit_name,
               const std::string& instance_name,
               const std::function<std::string(const std::string&)>& map_node,
               std::size_t line_number) override {
@@ -6506,18 +6506,39 @@ public:
             return;
         }
         const char type = static_cast<char>(std::toupper(static_cast<unsigned char>(tokens[0][0])));
-        tokens = rename_body_line(std::move(tokens), instance_name, map_node, config_, line_number);
+        SimulationConfig& config = config_for(subcircuit_name);
+        tokens = rename_body_line(std::move(tokens), instance_name, map_node, config, line_number);
         ParseState state;
         state.circuit = &circuit;
         state.evaluator = &evaluator_;
-        state.config = &config_;
+        state.config = &config;
         state.line_number = line_number;
         state.resolving_deferred = true;  // every model is known by now
         parse_element(tokens, type, tokens[0], fmt::format("{}", fmt::join(tokens, " ")), state);
     }
 
 private:
+    /// The configuration a body of the subcircuit reads its lines with: the
+    /// netlist's, with the subcircuit's own .MODEL lines in place of the
+    /// global models of their names (SimulationConfig::subcircuit_models)
+    SimulationConfig& config_for(const std::string& subcircuit_name) {
+        const auto local = config_.subcircuit_models.find(subcircuit_name);
+        if (local == config_.subcircuit_models.end() || local->second.empty()) {
+            return config_;
+        }
+        auto [it, inserted] = scoped_configs_.try_emplace(subcircuit_name, config_);
+        if (inserted) {
+            for (const auto& [name, model] : local->second) {
+                std::erase_if(it->second.models,
+                              [&](const auto& entry) { return util::equals_icase(entry.first, name); });
+                it->second.models[name] = model;
+            }
+        }
+        return it->second;
+    }
+
     SimulationConfig config_;
+    std::map<std::string, SimulationConfig> scoped_configs_;
     ExpressionEvaluator evaluator_;
 };
 

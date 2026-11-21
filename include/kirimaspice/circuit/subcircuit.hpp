@@ -137,11 +137,13 @@ public:
     /// The global .PARAM values that the bodies see
     virtual const std::map<std::string, Real>& global_params() const = 0;
 
-    /// Read one body line of the instance `instance_name`: rename the element
-    /// and the elements it names into the instance, map its nodes with
-    /// `map_node`, and add the element to `circuit`. A nested instance line
-    /// registers a nested instance.
+    /// Read one body line of the instance `instance_name` of the subcircuit
+    /// `subcircuit_name`: rename the element and the elements it names into
+    /// the instance, map its nodes with `map_node`, and add the element to
+    /// `circuit`, with the models of that subcircuit's body. A nested
+    /// instance line registers a nested instance.
     virtual void read(CircuitGraph& circuit, const std::string& line,
+                      const std::string& subcircuit_name,
                       const std::string& instance_name,
                       const std::function<std::string(const std::string&)>& map_node,
                       std::size_t line_number) = 0;

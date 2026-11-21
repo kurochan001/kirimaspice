@@ -333,11 +333,12 @@ at that line. An instance parameter overrides the model's.
   device that reads it; so are `.TEMP` and `.OPTIONS TEMP`. The default
   `TNOM` is 27 °C. The diode and the level-1 MOSFET do not read it (it is
   named in a warning) and take 27 °C.
-- Model names are compared without regard to case. A second `.MODEL` of
-  a name, in any case, is named in a warning; the elements after it and
-  every subcircuit body use it. A `.MODEL` inside a `.SUBCKT` is not local
-  to that subcircuit, where ngspice-47 keeps it to the subcircuit
-  ([known issues](../KNOWN_ISSUES.md#netlist-input)).
+- Model names are compared without regard to case. A `.MODEL` inside a
+  `.SUBCKT` is local to that subcircuit's body, where it hides a model of
+  its name from the top level, and is not found outside it; one at the
+  top level is seen everywhere. Of two `.MODEL` lines of a name in one
+  scope, in any case, the first is used and the second is named in a
+  warning, as in ngspice-47.
 - A `.MODEL` line applies to the whole netlist: a `D`, `Q`, `M` or `Z`
   element may come before its model. An element whose model is not
   defined anywhere is an error

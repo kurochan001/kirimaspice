@@ -1280,6 +1280,10 @@ add_executable(test_sic_reverse unit/test_sic_reverse.cpp)
 target_link_libraries(test_sic_reverse PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_sic_reverse PROPERTIES TIMEOUT 1200)
 
+add_executable(test_model_scope unit/test_model_scope.cpp)
+target_link_libraries(test_model_scope PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_model_scope PROPERTIES TIMEOUT 1200)
+
 add_executable(test_tline_lossy_transient unit/test_tline_lossy_transient.cpp)
 target_link_libraries(test_tline_lossy_transient PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_tline_lossy_transient PROPERTIES TIMEOUT 1200)

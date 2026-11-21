@@ -2094,7 +2094,7 @@ void CircuitGraph::expand_subcircuit_instance(const std::string& instance_name) 
         if (first == std::string::npos || line[first] == '*') {
             continue;
         }
-        subcircuit_line_reader_->read(*this, line, instance_name, map_node,
+        subcircuit_line_reader_->read(*this, line, definition.name, instance_name, map_node,
                                       definition.definition_line);
     }
 
