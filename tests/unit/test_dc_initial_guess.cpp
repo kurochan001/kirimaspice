@@ -69,3 +69,36 @@ TEST(DCInitialGuess, NewtonStepIsLimitedByTheJunctionsOnly) {
     EXPECT_LE(stats.total_iterations, 15u);
     EXPECT_NEAR(x[parsed.circuit->get_node_id("a") - 1], 2.67792, 1e-5);
 }
+
+namespace {
+
+std::pair<double, double> flip_flop_collectors(const std::string& nodeset) {
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "flip-flop\nVCC vcc 0 5\nRC1 vcc c1 1k\nRC2 vcc c2 1k\nRB1 c2 b1 10k\nRB2 c1 b2 10k\n"
+        "Q1 c1 b1 e QN\nQ2 c2 b2 e QN\nRE e 0 100\n.model QN NPN IS=1e-14 BF=100\n.nodeset " +
+        nodeset + "\n.end\n");
+    solvers::DCSolver solver(*parsed.circuit, parsed.config);
+    DenseVector x;
+    SolverStats stats;
+    EXPECT_EQ(solver.solve(x, stats), ConvergenceStatus::SUCCESS) << nodeset;
+    if (x.empty()) {
+        return {0.0, 0.0};
+    }
+    return {x[parsed.circuit->get_node_id("c1") - 1], x[parsed.circuit->get_node_id("c2") - 1]};
+}
+
+}  // namespace
+
+TEST(DCInitialGuess, NodesetChoosesTheStateOfAFlipFlop) {
+    // .NODESET as in SPICE: the nodes are held at their values for a first
+    // solve, then released. ngspice-47 (run 2026-11-21) gives c1 = 4.652429 V
+    // and c2 = 0.552984 V for the first nodeset and the mirror for the second;
+    // as an initial guess alone, both gave the symmetric point 1.67894 V.
+    const auto [c1, c2] = flip_flop_collectors("V(c1)=5 V(c2)=0.2");
+    EXPECT_NEAR(c1, 4.652429, 1e-3);
+    EXPECT_NEAR(c2, 0.552984, 1e-3);
+    const auto [m1, m2] = flip_flop_collectors("V(c1)=0.2 V(c2)=5");
+    EXPECT_NEAR(m1, c2, 1e-6);
+    EXPECT_NEAR(m2, c1, 1e-6);
+}

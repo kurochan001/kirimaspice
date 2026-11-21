@@ -470,6 +470,50 @@ ConvergenceStatus DCSolver::solve(DenseVector& solution, SolverStats& stats) {
         }
     }
 
+    // .NODESET, as in SPICE: a first solve with the nodeset nodes held at
+    // their values (as .IC holds its nodes, hold_node_voltages), then the
+    // hold is released and the iteration goes on from that point to the
+    // solution of the circuit. So a nodeset chooses among the solutions of
+    // a circuit that has several (a flip-flop), where an initial guess alone
+    // may not. Without a solution of the held pass the nodeset is only the
+    // initial guess (initialize_solution).
+    if (!config_.nodeset.empty()) {
+        const auto held_before = held_nodes_;
+        for (const auto& [node_name, voltage] : config_.nodeset) {
+            if (!circuit_.has_node(node_name)) {
+                continue;
+            }
+            const NodeId node_id = circuit_.get_node_id(node_name);
+            if (node_id == NODE_GND) {
+                continue;
+            }
+            const auto row = static_cast<std::uint32_t>(node_id - 1);
+            const bool held = std::any_of(held_nodes_.begin(), held_nodes_.end(),
+                                          [row](const auto& h) { return h.first == row; });
+            if (!held) {
+                held_nodes_.emplace_back(row, voltage);
+            }
+        }
+        DenseVector held_solution;
+        SolverStats held_stats;
+        const auto held_status = solve_standard(held_solution, held_stats);
+        held_nodes_ = held_before;
+        if (held_status == ConvergenceStatus::SUCCESS) {
+            spdlog::debug("DC: .NODESET pass converged in {} iterations; releasing the nodes",
+                          held_stats.total_iterations);
+            const auto status = solve_standard(solution, stats, &held_solution);
+            stats.total_iterations += held_stats.total_iterations;
+            stats.jacobian_evals += held_stats.jacobian_evals;
+            stats.linear_solves += held_stats.linear_solves;
+            stats.function_evals += held_stats.function_evals;
+            if (status == ConvergenceStatus::SUCCESS || !config_.dc.enable_pseudo_transient) {
+                return status;
+            }
+            return solve_with_pseudo_transient(solution, stats);
+        }
+        spdlog::debug("DC: the .NODESET pass did not converge; the nodeset is an initial guess");
+    }
+
     auto status = solve_standard(solution, stats);
     if (status != ConvergenceStatus::SUCCESS && config_.dc.enable_pseudo_transient) {
         auto fallback = solve_with_pseudo_transient(solution, stats);
