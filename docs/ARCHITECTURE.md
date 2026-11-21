@@ -168,8 +168,9 @@ are parsed again; a definition still missing is then a `ParseError`.
 
 **Expressions** use ExprTk, set up in four places, each with its own
 symbol table: element values in braces (`read_element_value` through the
-`ExpressionEvaluator`), `.PARAM` (which also registers the `.FUNC`s
-defined so far), subcircuit parameters
+`ExpressionEvaluator`), `.PARAM` (`evaluate_param_value`, with every
+`.FUNC`; `read_global_definitions` reads the global `.FUNC` and `.PARAM`
+lines before every other line and solves the definitions), subcircuit parameters
 (`SubcircuitDefinition::substitute_parameters`, which sees the global
 `.PARAM` values below the subcircuit's defaults, the instance values and
 the `.PARAM` lines of the body), and `B` sources (`CircuitGraph`).

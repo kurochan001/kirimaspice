@@ -106,8 +106,6 @@ document also lists differences not decided there.
   expressions (`Expression parse error`).
 - **`.IF` cannot read `.PARAM` values.** When the condition cannot be
   evaluated, the parser warns and keeps every branch.
-- **A second `.PARAM` for the same name is ignored** with the warning
-  `Failed to add ... to symbol table`.
 - **The default `W` and `L` of BSIM1 (`LEVEL` 9) are 10 µm and 1 µm.**
   Which default ngspice-47 takes is not confirmed: its BSIM1 (its
   `LEVEL` 4) gives `nan` for a card without parameters (run on

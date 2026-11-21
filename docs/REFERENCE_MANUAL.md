@@ -171,7 +171,7 @@ as 1k and `1.5.3k` as 1.5.
 ### Expressions
 
 A value written in braces, `{...}`, is evaluated with ExprTk. It can use
-the parameters defined so far, the constants `pi` and `e`, ExprTk's
+the global parameters, wherever their `.PARAM` lines are, the constants `pi` and `e`, ExprTk's
 built-in functions, and, in `.PARAM` only, functions defined by `.FUNC`.
 Numbers inside take scale suffixes and units, as in ngspice-47
 (`{2*1k}` is 2000; `util::expand_scale_factors`). A
@@ -449,7 +449,7 @@ parser stores it, but the program does not use it (the library can).
 | `.OPTIONS`, `.OPTION` | `.OPTIONS <name>=<value> ...` | used; see [Options](#options) |
 | `.IC` | `.IC V(<node>)=<value> ...` | used by a transient: with `UIC` it starts from these values, without `UIC` its operating point holds the nodes at them; `V` must be upper case |
 | `.NODESET` | `.NODESET V(<node>)=<value> ...` | used as in SPICE: the operating point is first solved with these nodes held at their values, then the hold is released and the solve goes on from there (with source or gmin stepping or continuation, the values are only the initial guess); `V` must be upper case |
-| `.PARAM` | `.PARAM <name>=<value> ...` | used; the first definition of a name is kept |
+| `.PARAM` | `.PARAM <name>=<value> ...` | used; the global lines are read before every other line, as in ngspice-47: an element may use a parameter defined after it, of two definitions of a name the last is used, and an expression takes the other parameters' final values; a definition that cannot be solved is an error |
 | `.FUNC` | `.FUNC <name>(<a>[,<b>[,<c>]]) {<expr>}` | used in `.PARAM` expressions only; up to three arguments |
 | `.MODEL` | see [Models](#models) | used |
 | `.SUBCKT` / `.ENDS` | `.SUBCKT <name> <pins...> [PARAMS:] [NAME=<default> ...]` | used; no nesting of definitions; `PARAMS:` is optional, on `X` lines too; a `.SUBCKT` without `.ENDS` is an error |

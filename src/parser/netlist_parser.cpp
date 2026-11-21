@@ -2923,22 +2923,18 @@ static void parse_global_directive(const std::vector<std::string>& tokens, Parse
 
 }
 
-static void parse_param_directive(const std::vector<std::string>& tokens, ParseState& state) {
-    // Parse .PARAM directive (Global parameters)
-    // Syntax: .PARAM name1=value1 [name2=value2 ...]
-    // Example: .PARAM Vcc=5 R_load=1k tau={R_load*1u}
-    if (tokens.size() < 2) {
-        throw ParseError("Invalid .PARAM syntax: .PARAM name=value [name2=value2 ...]",
-                        state.line_number);
-    }
-
-    // Setup ExprTk symbol table with the constants of every expression and
-    // the existing global parameters
+// The value of a global .PARAM assignment, a number or an expression in
+// braces or not (util::read_parameter_value), with the constants of every
+// expression, the parameters given and the .FUNC functions
+static Real evaluate_param_value(const std::string& value_str, const std::map<std::string, Real>& params,
+                                 const SimulationConfig& config) {
+    // The constants of every expression, the parameters known so far and
+    // the .FUNC functions
     exprtk::symbol_table<Real> symbol_table;
     for (const auto& constant : util::kExpressionConstants) {
         symbol_table.add_constant(constant.name, constant.value);
     }
-    for (const auto& [name, value] : state.config->global_params) {
+    for (const auto& [name, value] : params) {
         // Check ExprTk return value
         if (!symbol_table.add_constant(name, value)) {
             spdlog::warn(".PARAM: Failed to add constant '{}' to symbol table", name);
@@ -2951,7 +2947,7 @@ static void parse_param_directive(const std::vector<std::string>& tokens, ParseS
     std::vector<std::unique_ptr<UserDefinedFunction<2>>> funcs_2arg;
     std::vector<std::unique_ptr<UserDefinedFunction<3>>> funcs_3arg;
 
-    for (const auto& [func_name, func_data] : state.config->global_funcs) {
+    for (const auto& [func_name, func_data] : config.global_funcs) {
         // Parse function data to determine number of arguments
         size_t pipe_pos = func_data.find('|');
         if (pipe_pos == std::string::npos) {
@@ -2991,72 +2987,17 @@ static void parse_param_directive(const std::vector<std::string>& tokens, ParseS
         }
     }
 
-    // Parse each parameter assignment
-    for (size_t i = 1; i < tokens.size(); ++i) {
-        std::string param_spec = tokens[i];
-        size_t eq_pos = param_spec.find('=');
-
-        if (eq_pos == std::string::npos) {
-            throw ParseError(fmt::format("Invalid .PARAM assignment '{}': expected name=value",
-                                        param_spec), state.line_number);
+    auto evaluate = [&](const std::string& expr) -> Real {
+        exprtk::expression<Real> expression;
+        expression.register_symbol_table(symbol_table);
+        exprtk::parser<Real> parser;
+        if (!parser.compile(util::expand_scale_factors(expr), expression)) {
+            throw std::runtime_error(fmt::format("Failed to parse .PARAM expression '{}': {}",
+                                                 expr, parser.error()));
         }
-
-        std::string param_name = param_spec.substr(0, eq_pos);
-        std::string value_str = param_spec.substr(eq_pos + 1);
-
-        // Trim whitespace
-        param_name.erase(0, param_name.find_first_not_of(" \t"));
-        param_name.erase(param_name.find_last_not_of(" \t") + 1);
-        value_str.erase(0, value_str.find_first_not_of(" \t"));
-        value_str.erase(value_str.find_last_not_of(" \t") + 1);
-
-        spdlog::debug(".PARAM parsing: param_name='{}', value_str='{}'", param_name, value_str);
-
-        // The value: an expression in braces, a number, or an expression
-        // without braces (util::read_parameter_value)
-        auto evaluate = [&](const std::string& expr) -> Real {
-            exprtk::expression<Real> expression;
-            expression.register_symbol_table(symbol_table);
-            exprtk::parser<Real> parser;
-            if (!parser.compile(util::expand_scale_factors(expr), expression)) {
-                throw std::runtime_error(fmt::format("Failed to parse .PARAM expression '{}': {}",
-                                                     expr, parser.error()));
-            }
-            return expression.value();
-        };
-        Real value;
-        try {
-            value = util::read_parameter_value(value_str, evaluate);
-        } catch (const std::exception& e) {
-            throw ParseError(fmt::format("Error evaluating .PARAM {} = {}: {}", param_name,
-                                         value_str, e.what()),
-                             state.line_number);
-        }
-
-        // Check if parameter is already set by initial_params
-        // If so, use the initial value instead of overriding it
-        auto it = state.config->global_params.find(param_name);
-        if (it != state.config->global_params.end()) {
-            // Parameter already exists (set by initial_params)
-            // Use the existing value, don't override
-            value = it->second;
-            spdlog::debug("Preserving initial_params override: {}={} (netlist value ignored)",
-                         param_name, value);
-        } else {
-            // Store parameter (new parameter, not in initial_params)
-            state.config->global_params[param_name] = value;
-            state.evaluator->set_variable(param_name, value);
-            spdlog::debug("Parsed .PARAM {}={}", param_name, value);
-        }
-
-        // Add to symbol table for subsequent parameters in same line
-        // Check ExprTk return value
-        if (!symbol_table.add_constant(param_name, value)) {
-            spdlog::warn(".PARAM: Failed to add '{}' to symbol table for subsequent parameters",
-                        param_name);
-        }
-    }
-
+        return expression.value();
+    };
+    return util::read_parameter_value(value_str, evaluate);
 }
 
 static void parse_step_directive(const std::vector<std::string>& tokens, ParseState& state) {
@@ -6375,6 +6316,124 @@ static void parse_element(const std::vector<std::string>& tokens, char dev_type,
 }
 
 // Helper function to process a single line
+// The global .FUNC and .PARAM lines, read before every other line, as
+// ngspice-47 reads them (run 2026-11-21): an element may use a parameter
+// defined after it; of two definitions of a name (in any case) the last is
+// used, also by the elements before it; and a parameter's expression takes
+// the values of the others, whatever their order, so `.param b={a*2}`
+// followed by `.param a=3k` gives b = 6k. The definitions are solved by
+// evaluating those whose names they use are known, until none is left; one
+// that is never solved (an undefined name, a definition by itself) is an
+// error at its line. The values set before parsing (initial_params, as a
+// sweep sets them) are kept. .PARAM lines in a .SUBCKT are its own
+// (SubcircuitDefinition::substitute_parameters); .FUNC lines are global
+// wherever they are.
+static void read_global_definitions(const std::string& content, ParseState& state) {
+    struct Definition {
+        std::string name, value;
+        std::size_t line;
+    };
+    std::vector<Definition> definitions;
+    std::istringstream input(content);
+    std::string raw;
+    std::size_t line_number = 0;
+    int depth = 0;
+    while (std::getline(input, raw)) {
+        ++line_number;
+        if (line_number == 1) {
+            continue;  // the title
+        }
+        std::string line = raw.substr(0, raw.find(';'));
+        util::trim_inplace(line);
+        if (line.empty() || line[0] != '.') {
+            continue;
+        }
+        const auto tokens = util::split_netlist_line(line);
+        if (tokens.empty()) {
+            continue;
+        }
+        std::string directive = tokens[0];
+        util::to_upper_inplace(directive);
+        state.line_number = line_number;
+        if (directive == ".SUBCKT") {
+            ++depth;
+        } else if (directive == ".ENDS") {
+            depth = std::max(0, depth - 1);
+        } else if (directive == ".FUNC") {
+            parse_func_directive(tokens, line, state);
+        } else if (directive == ".PARAM" && depth == 0) {
+            if (tokens.size() < 2) {
+                throw ParseError("Invalid .PARAM syntax: .PARAM name=value [name2=value2 ...]",
+                                 line_number);
+            }
+            for (std::size_t i = 1; i < tokens.size(); ++i) {
+                const std::size_t eq = tokens[i].find('=');
+                if (eq == std::string::npos) {
+                    throw ParseError(fmt::format("Invalid .PARAM assignment '{}': expected name=value",
+                                                 tokens[i]),
+                                     line_number);
+                }
+                std::string name = tokens[i].substr(0, eq);
+                std::string value = tokens[i].substr(eq + 1);
+                util::trim_inplace(name);
+                util::trim_inplace(value);
+                definitions.push_back({name, value, line_number});
+            }
+        }
+    }
+
+    // The last definition of each name, in the order of the lines
+    std::map<std::string, std::size_t> last;
+    for (std::size_t i = 0; i < definitions.size(); ++i) {
+        std::string key = definitions[i].name;
+        util::to_upper_inplace(key);
+        last[key] = i;
+    }
+    std::set<std::string> fixed;
+    for (const auto& [name, value] : state.config->global_params) {
+        std::string key = name;
+        util::to_upper_inplace(key);
+        fixed.insert(key);
+    }
+    std::vector<std::size_t> pending;
+    for (const auto& [key, index] : last) {
+        if (!fixed.count(key)) {
+            pending.push_back(index);
+        }
+    }
+    std::sort(pending.begin(), pending.end());
+
+    std::map<std::string, Real> known = state.config->global_params;
+    std::map<std::size_t, std::string> errors;
+    bool progress = true;
+    while (!pending.empty() && progress) {
+        progress = false;
+        std::vector<std::size_t> still;
+        for (const std::size_t index : pending) {
+            const Definition& d = definitions[index];
+            try {
+                known[d.name] = evaluate_param_value(d.value, known, *state.config);
+                progress = true;
+            } catch (const std::exception& e) {
+                errors[index] = e.what();
+                still.push_back(index);
+            }
+        }
+        pending = std::move(still);
+    }
+    if (!pending.empty()) {
+        const Definition& d = definitions[pending.front()];
+        throw ParseError(fmt::format("Error evaluating .PARAM {} = {}: {}", d.name, d.value,
+                                     errors[pending.front()]),
+                         d.line);
+    }
+    for (const auto& [name, value] : known) {
+        state.config->global_params[name] = value;
+        state.evaluator->set_variable(name, value);
+    }
+    state.line_number = 1;
+}
+
 void process_line(const std::string& raw_line, ParseState& state) {
     std::string line = raw_line;
 
@@ -6416,12 +6475,11 @@ void process_line(const std::string& raw_line, ParseState& state) {
         if (directive == ".GLOBAL") { parse_global_directive(tokens, state); return; }
         if (directive == ".PARAM") {
             // Inside a .SUBCKT, .PARAM is local: kept with the body and
-            // evaluated per instance (SubcircuitDefinition::substitute_parameters)
+            // evaluated per instance (SubcircuitDefinition::substitute_parameters);
+            // a global one was read before every line (read_global_definitions)
             if (state.inside_subcircuit) {
                 state.current_subcircuit->internal_netlist_lines.push_back(line);
-                return;
             }
-            parse_param_directive(tokens, state);
             return;
         }
         if (directive == ".STEP") { parse_step_directive(tokens, state); return; }
@@ -6435,7 +6493,7 @@ void process_line(const std::string& raw_line, ParseState& state) {
         if (directive == ".PORT") { parse_port_directive(tokens, state); return; }
         if (directive == ".WCASE") { parse_wcase_directive(tokens, state); return; }
         if (directive == ".OPTIMIZE") { parse_optimize_directive(tokens, state); return; }
-        if (directive == ".FUNC") { parse_func_directive(tokens, line, state); return; }
+        if (directive == ".FUNC") { return; }  // read before every line (read_global_definitions)
         if (directive == ".MODEL") { parse_model_directive(tokens, state); return; }
         if (directive == ".SUBCKT") { parse_subckt_directive(tokens, state); return; }
         if (directive == ".ENDS") { parse_ends_directive(tokens, state); return; }
@@ -6736,6 +6794,8 @@ public:
         state.circuit = circuit.get();
         state.evaluator = &eval;
         state.config = &config;  // NEW: Set config pointer
+
+        read_global_definitions(preprocessed_content, state);
 
         pegtl::memory_input input(preprocessed_content, "netlist");
 

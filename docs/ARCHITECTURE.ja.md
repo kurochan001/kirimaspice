@@ -137,7 +137,8 @@ flowchart TD
 その行を保存し、PEGTL の処理の後で保存した行をもう一度解析します。そこでも定義がなければ `ParseError` です。
 
 **式**は ExprTk を使い、4 か所でそれぞれ別の記号表を用意します。中括弧の素子の値（`ExpressionEvaluator` を
-通した `read_element_value`）、`.PARAM`（それまでに定義した `.FUNC` も登録します）、サブ回路の
+通した `read_element_value`）、`.PARAM`（`evaluate_param_value`。すべての `.FUNC` を登録します。`read_global_definitions` が
+グローバルの `.FUNC` と `.PARAM` の行をほかのどの行よりも先に読み、定義を解きます）、サブ回路の
 パラメータ（`SubcircuitDefinition::substitute_parameters`。グローバルの `.PARAM` の値の上に、サブ回路の既定値、
 インスタンスの値、本体の `.PARAM` の行が重なります）、
 `B` 電源（`CircuitGraph`）です。
