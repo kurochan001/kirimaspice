@@ -645,6 +645,17 @@ ConvergenceStatus TransientSolver::solve_timestep_tr_bdf2(DenseVector& solution,
     // Stage 1: Trapezoidal rule with reduced timestep γΔt
     Real gamma_step = gamma * timestep;
 
+    // The caller set current_time_ to the end of the step, t_n + Δt. Stage 1
+    // solves for t_n + γΔt, so the sources take that time
+    // (stamp_devices_transient); stage 2 and the caller have the end again,
+    // however this returns.
+    struct EndOfStepOnExit {
+        Real& time;
+        Real end;
+        ~EndOfStepOnExit() { time = end; }
+    } end_of_step_on_exit{current_time_, current_time_};
+    current_time_ = (end_of_step_on_exit.end - timestep) + gamma_step;
+
     // Create TR-BDF2 Stage 1 coefficients
     TR_BDF2_Coefficients stage1_coef;
     stage1_coef.stage = 1;
@@ -722,6 +733,7 @@ ConvergenceStatus TransientSolver::solve_timestep_tr_bdf2(DenseVector& solution,
     // Temporarily accept Stage 1 solution to update device histories
     // This allows Stage 2 to use solution_gamma as previous state
     accept_timestep_solution(solution_gamma);
+    current_time_ = end_of_step_on_exit.end;
 
     // Stage 2: Modified BDF2 from t_n to t_n + Δt (using V_n and V_{n+γ})
     // Modified BDF2 coefficients derived from Lagrange interpolation:

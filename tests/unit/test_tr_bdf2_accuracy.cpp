@@ -3,6 +3,7 @@
 
 #include <gtest/gtest.h>
 #include "kirimaspice/circuit/circuit_graph.hpp"
+#include "kirimaspice/parser/netlist_parser.hpp"
 #include "kirimaspice/solvers/transient_solver.hpp"
 #include <cmath>
 
@@ -89,4 +90,34 @@ TEST(TransientTrBdf2, ReducesErrorRelativeToBackwardEuler) {
 
     EXPECT_EQ(metrics_trbdf2.rejects, 0u);
     EXPECT_EQ(metrics_be.rejects, 0u);
+}
+
+namespace {
+
+// v(out) at 1 ms of 1 kohm and 1 uF (tau = 1 ms) driven by PWL(0 0 1m -1),
+// with fixed steps h under TR-BDF2
+Real ramp_end_voltage(Real h) {
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "t\nV1 in 0 PWL(0 0 1m -1)\nR1 in out 1k\nC1 out 0 1u\n.options method=tr_bdf2\n.end\n");
+    TransientSolver solver(*parsed.circuit, parsed.config);
+    const auto result = solver.solve(0.0, 1e-3, h);
+    EXPECT_EQ(result.status, ConvergenceStatus::SUCCESS);
+    return result.timepoints.back().node_voltages.at(parsed.circuit->get_node_id("out") - 1);
+}
+
+}  // namespace
+
+// The first stage of TR-BDF2 is the trapezoidal rule from t_n to
+// t_n + gamma h, so the sources are taken at t_n + gamma h there, and the
+// method is of second order for a source that changes with time. For the
+// ramp v_in = -t/T into tau = T = 1 ms, v(out) = -(t/T - 1 + exp(-t/tau)),
+// -exp(-1) V at 1 ms. The trapezoidal rule errs by 1.5e-5 V here with
+// h = 10 us; the error of a second-order method falls by 4 when h halves.
+TEST(TransientTrBdf2, SourcesOfTheFirstStageAreAtItsTime) {
+    const Real exact = -std::exp(-1.0);
+    const Real coarse = std::abs(ramp_end_voltage(10e-6) - exact);
+    const Real fine = std::abs(ramp_end_voltage(5e-6) - exact);
+    EXPECT_LT(coarse, 5e-5);
+    EXPECT_GT(coarse / fine, 3.5);
 }
