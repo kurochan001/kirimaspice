@@ -17,7 +17,8 @@ Steps, in order:
      or unreadable result file, and a run without tests also fail the run;
      tests that skip themselves and disabled tests do not
   3. tools/check_banned.py (and --history with --history); private patterns
-     come from KIRIMASPICE_PRIVATE_PATTERNS if it is set
+     come from KIRIMASPICE_PRIVATE_PATTERNS if it is set, and the summary
+     says for each scan whether it had any ("private patterns: yes" or "no")
   4. tools/check_spdx.py
 
 Logs go to build/local-ci/. This script builds in build/; the tests
@@ -27,6 +28,7 @@ themselves read their data from the source tree wherever the build is.
 import argparse
 import os
 import platform
+import re
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -44,6 +46,20 @@ def run(name, cmd, results):
         rc = subprocess.run(cmd, cwd=ROOT, stdout=fh, stderr=subprocess.STDOUT).returncode
     results.append((name, rc == 0, f"exit {rc}, log {log.relative_to(ROOT)}"))
     return rc
+
+
+def note_private_patterns(results):
+    """Adds to the detail of the check_banned step just run whether it had
+    private patterns, as check_banned reported it on its last line: a scan
+    without them passes without having looked for the private names."""
+    name, passed, detail = results[-1]
+    try:
+        text = (LOGS / f"{name}.log").read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        text = ""
+    found = re.findall(r"private patterns: (yes|no)", text)
+    given = found[-1] if found else "not reported"
+    results[-1] = (name, passed, f"{detail}, private patterns: {given}")
 
 
 def tool_version(cmd):
@@ -141,8 +157,10 @@ def main() -> int:
         results.append(("tests", passed, detail))
 
     run("check_banned", [sys.executable, "tools/check_banned.py"], results)
+    note_private_patterns(results)
     if args.history:
         run("check_banned_history", [sys.executable, "tools/check_banned.py", "--history"], results)
+        note_private_patterns(results)
     run("check_spdx", [sys.executable, "tools/check_spdx.py"], results)
 
     head = subprocess.run(["git", "rev-parse", "--short=12", "HEAD"], cwd=ROOT,

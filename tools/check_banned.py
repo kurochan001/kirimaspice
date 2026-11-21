@@ -143,8 +143,9 @@ def main() -> int:
             seen.append(item)
     for item in seen:
         print(item)
-    note = "" if private else " (no private patterns given)"
-    print(f"check_banned: {len(seen)} finding(s){note}", file=sys.stderr)
+    # local_ci.py reads "private patterns: yes|no" from this line
+    given = "yes" if any(private) else "no"
+    print(f"check_banned: {len(seen)} finding(s), private patterns: {given}", file=sys.stderr)
     return 1 if seen else 0
 
 
