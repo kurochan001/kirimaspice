@@ -5303,22 +5303,28 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
             vth = 0.0;
             w = 100e-6;
             l = 100e-6;
-        } else if (model.device_type == DeviceType::MOSFET_LEVEL3_N) {
-            mosfet_type = "LEVEL3_N";
-        } else if (model.device_type == DeviceType::MOSFET_LEVEL3_P) {
-            mosfet_type = "LEVEL3_P";
+        } else if (model.device_type == DeviceType::MOSFET_LEVEL3_N ||
+                   model.device_type == DeviceType::MOSFET_LEVEL3_P) {
+            // Level 3 takes SPICE's DEFW and DEFL, 100 um, as ngspice-47
+            mosfet_type = (model.device_type == DeviceType::MOSFET_LEVEL3_N) ? "LEVEL3_N" : "LEVEL3_P";
+            w = 100e-6;
+            l = 100e-6;
         } else if (model.device_type == DeviceType::MOSFET_BSIM1_N) {
             mosfet_type = "BSIM1_N";
         } else if (model.device_type == DeviceType::MOSFET_BSIM1_P) {
             mosfet_type = "BSIM1_P";
-        } else if (model.device_type == DeviceType::MOSFET_BSIM3_N) {
-            mosfet_type = "BSIM3_N";
-        } else if (model.device_type == DeviceType::MOSFET_BSIM3_P) {
-            mosfet_type = "BSIM3_P";
-        } else if (model.device_type == DeviceType::MOSFET_BSIM4_N) {
-            mosfet_type = "BSIM4_N";
-        } else if (model.device_type == DeviceType::MOSFET_BSIM4_P) {
-            mosfet_type = "BSIM4_P";
+        } else if (model.device_type == DeviceType::MOSFET_BSIM3_N ||
+                   model.device_type == DeviceType::MOSFET_BSIM3_P ||
+                   model.device_type == DeviceType::MOSFET_BSIM4_N ||
+                   model.device_type == DeviceType::MOSFET_BSIM4_P) {
+            // BSIM3 and BSIM4 take their instance defaults W = L = 5 um, as
+            // ngspice-47
+            static const std::map<DeviceType, std::string> kNames = {
+                {DeviceType::MOSFET_BSIM3_N, "BSIM3_N"}, {DeviceType::MOSFET_BSIM3_P, "BSIM3_P"},
+                {DeviceType::MOSFET_BSIM4_N, "BSIM4_N"}, {DeviceType::MOSFET_BSIM4_P, "BSIM4_P"}};
+            mosfet_type = kNames.at(model.device_type);
+            w = 5e-6;
+            l = 5e-6;
         } else if (model.device_type == DeviceType::MOSFET_SIC_N) {
             mosfet_type = "SIC_N";
         } else if (model.device_type == DeviceType::MOSFET_SIC_P) {
