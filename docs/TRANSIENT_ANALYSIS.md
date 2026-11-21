@@ -189,7 +189,9 @@ Mutual-inductance devices are accepted after their coupled inductors.
 
 `.IC V(out)=1` adds a temporary Norton hold of `1e10 S` to the initial
 DC system, then releases it for time stepping. It therefore changes the
-starting state. `.NODESET V(out)=1` supplies an initial DC guess instead.
+starting state. `.NODESET V(out)=1` holds the node the same way only for a
+first pass of the DC solve, which then goes on with the hold released, so
+it chooses among operating points without fixing the starting state.
 In the discharge example, removing `UIC` still started near 1 V
 (`0.9999999999999 V` measured) because of the hold; it did not start at
 the unconstrained zero-voltage equilibrium.
@@ -221,7 +223,7 @@ There are important input limits:
 - A circuit with no dynamic devices takes the algebraic initialization
   path even with `UIC`; the UIC/nodal-IC path above is not used there.
 
-The distinction between `.IC` with and without UIC and a `.NODESET` guess
+The distinction between `.IC` with and without UIC and `.NODESET`
 also appears in the [ngspice manual: .IC](https://nmg.gitlab.io/ngspice-manual/analysesandoutputcontrol_batchmode/initialconditions/ic_setinitialconditions.html).
 Device-level support and the finite hold above describe kirimaspice.
 

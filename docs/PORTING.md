@@ -60,6 +60,9 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
   commands of a `.control` block, only `dc` and `ac` are run.
 - [ ] **`.OP` with `.DC`.** A `.DC` sweep replaces the operating point,
   also when `.OP` is there; ngspice runs both.
+- [ ] **`.DC` with the values of one or two sources only.** A `.DC` line
+  with another count of values (an incomplete second sweep, or values
+  after the second) is an error, where ngspice-47 ignores the extra ones.
 - [ ] **Directives that do nothing here:**
 
   | Status | Directives |
@@ -94,6 +97,12 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
   arguments that ngspice defaults from `.TRAN` (`TR`, `TF`, `PW`, `PER` of
   `PULSE`, `FREQ` of `SIN`, the `EXP` times, `FC` of `SFFM`) must be given.
   Anything after the waveform other than `DC` or `AC` is an error.
+- [ ] **A `PULSE` with `TR` or `TF` of 0 is an ideal step.** The corner
+  takes the level before it and the step after it the new level, which
+  gives the analytic step response; ngspice-47 ramps a zero `TR` or `TF`
+  over `TSTEP`, so its result depends on `TSTEP` (0.6131 V where the ideal
+  step gives 0.6321 V for `PULSE(0 1 0 0 0 1m 2m)` into 1 kΩ and 1 µF at
+  1 ms). Give the rise you mean when the two must agree.
 - [ ] **`B` expressions cannot use `I(...)` or `.PARAM` names**
   ([KNOWN_ISSUES](../KNOWN_ISSUES.md#netlist-input)).
 

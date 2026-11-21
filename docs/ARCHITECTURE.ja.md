@@ -70,7 +70,9 @@ flowchart LR
 1. メッセージを、標準出力を書き出した後に `kirimaspice: <レベル>: <本文>` の形で標準エラーに書く
    ロガー（`StderrAfterStdout`）を設定し、オプション（`-o`、`--raw-out`、`--raw-binary-out`、
    `--wav-*`、`--log-level`、`--version`、`--help`）を読みます。知らないオプション、値のないオプション、
-   2 つ目のネットリストは、終了コード 1 のエラーです。
+   2 つ目のネットリストは、終了コード 2 のエラーです。終了コードは kirimasim と同じで、0 は終了、1 は解析の
+   失敗、2 はコマンドラインか入力の誤り（書けない出力ファイル、`output::OutputFileError` を含む）、3 は
+   内部の誤りです。
 2. `NetlistParser::parse_file` を呼びます。これは回路と `SimulationConfig` を返します。`.TEMP` があると、
    最初の温度が基準の温度になります。
 3. `CircuitGraph::expand_all_subcircuits` を呼びます。展開はパーサーではなく、プログラムの仕事です。
@@ -261,7 +263,9 @@ flowchart TD
 `PSEUDO_TRANSIENT=1` のときは、それが失敗すると疑似過渡法に切り替えます（既定では切り替えません）。
 
 - **初期推定値。** 0 と、`.NODESET` が名指すノードではその値です（`DCSolver::initialize_solution`）。
-  デバイスの種類やつながり方からは何も推定しません。
+  デバイスの種類やつながり方からは何も推定しません。`.NODESET` があると、`DCSolver::solve` は、SPICE と
+  同じく、まずそのノードをその値に固定して解き（`.IC` がノードを固定するのと同じ）、その点から固定を外して
+  解き続けます。そのため、動作点がいくつもある回路で、`.NODESET` がその一つを選びます。
 - **Newton 法のループ。** 書き込みから系を組み立て、分解し、解き、収束を調べます
   （`DCSolver::check_convergence`）。
 - **収束。** まず一歩の大きさを調べます。ノードが不合格になるのは、変化が `vntol` と、値の `reltol` 倍の
@@ -274,8 +278,8 @@ flowchart TD
   グラウンドへの経路のない回路は、これらがあってもなくても失敗します。過渡解析の 1 ステップの Newton 反復も、そのステップの各デバイスの `stamp_transient` で
   同じ判定をします（`TransientSolver::check_convergence`）。そのため、書き込みはデバイスの履歴を変えては
   いけません。履歴を進めるのは `accept_solution` です。
-- **制限。** 未知数が 4 個を超える非線形の回路では、最初の 10 回の反復で、Newton 法の一歩全体を 5 V 以下に
-  縮めます（動的 gmin を使うときを除きます）。ダイオードとバイポーラトランジスタ（NPN と PNP）は、反復の間に接合電圧が動く幅も
+- **制限。** Newton 法の一歩全体は制限しません。SPICE と同じく、デバイスが自分の電圧を制限します。
+  ダイオードとバイポーラトランジスタ（NPN と PNP）は、反復の間に接合電圧が動く幅を
   制限し（`core::limit_junction_step`。SPICE と同じです）、IGBT は V<sub>CE</sub> を SPICE3 の FET の
   V<sub>DS</sub> の規則で制限します（`core::limit_fet_drain_step`）。レベル 1 の MOSFET と MESFET は、V<sub>GS</sub> を
   SPICE3 の FET のゲートの規則で（`core::limit_fet_gate_step`。逆モードでは V<sub>GD</sub>）、V<sub>DS</sub> をドレインの

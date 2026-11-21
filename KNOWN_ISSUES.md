@@ -220,12 +220,6 @@ says otherwise.
   pseudo-transient fallback run only when `.OPTIONS` asks for them, so a
   DC solve that Newton's method alone does not finish fails. What
   ngspice-47 does by default is not confirmed.
-- **`.NODESET` does not choose between stable states.** For a flip-flop
-  of two NPN transistors (5 V, 1 kΩ collector and 10 kΩ cross-coupling
-  resistors, 100 Ω common emitter resistor), `.NODESET V(c1)=5 V(c2)=0.2`
-  and its mirror both give the symmetric point, 1.72451 V at both
-  collectors; ngspice-47 gives 4.65779 V and 0.552872 V, and their mirror
-  (measured on 2026-11-21).
 - **A transient takes longer than in ngspice-47.** A ladder of 200
   sections of 100 Ω and 10 pF (201 unknowns), `.TRAN 1n 10u` with 10 001
   points, took 2.1 s; ngspice-47 with `tmax` 1 ns, 10 024 points, took
@@ -374,14 +368,6 @@ says otherwise.
   The resistor, level 1 and level 3 take 300.15 K as their noise
   temperature, and the MESFET and the SCR their TNOM. The diode gives no
   shot noise below 1 fA.
-- **The P-type GaN HEMT reads `VTO` in the N-like convention:** it
-  compares V<sub>SG</sub> with `VTO` as written, which
-  `tests/unit/test_p_channel_stamps.cpp` and
-  `test_small_signal_consistency.cpp` rely on, while its defaults, −2 V for
-  N and +2 V for P, are the mirror of each other under the MOSFET
-  convention. A P device with the defaults is then normally off where the
-  N device is normally on. Which convention is meant is not decided (read
-  in the code at `63ce9a6`).
 - **The MESFET's `LEVEL=2` is not Statz's model.** It computes
   β·v<sub>ov</sub><sup>3</sup>·(1 + λ V<sub>DS</sub>)·(1 − (1 −
   V<sub>DS</sub>/VP)<sup>3</sup>)/3 and does not use `B`, where Statz's is

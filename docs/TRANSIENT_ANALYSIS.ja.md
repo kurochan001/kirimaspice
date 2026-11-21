@@ -161,7 +161,8 @@ flowchart TD
 相互インダクタンス素子の受理は、結合するインダクタの後です。
 
 `.IC V(out)=1` は初期DC系に `1e10 S` の一時的なNorton保持を加え、時間積分時には解除します。
-したがって、開始状態そのものを変えます。`.NODESET V(out)=1` はDC解析の初期推測です。
+したがって、開始状態そのものを変えます。`.NODESET V(out)=1` は、同じ保持をDC解析の最初の段にだけ加え、
+その後は保持を外して解き続けます。そのため動作点を選びますが、開始状態は固定しません。
 放電例から `UIC` を外しても、保持により約1 V（実測 `0.9999999999999 V`）から始まり、
 制約のないゼロ電圧の平衡状態からは始まりませんでした。
 
@@ -185,7 +186,7 @@ flowchart TD
   ノード電圧を持つので、コンデンサの `IC=` だけで決まるノードは、そこで 0 V と表示されます。
 - 動的素子がない回路では `UIC` があっても代数回路の初期化を通り、上記のUIC・ノードIC経路は使いません。
 
-UICの有無による `.IC` の違いと `.NODESET` の初期推測という区別は、
+UICの有無による `.IC` の違いと `.NODESET` の区別は、
 [ngspiceマニュアルの .IC](https://nmg.gitlab.io/ngspice-manual/analysesandoutputcontrol_batchmode/initialconditions/ic_setinitialconditions.html)にも
 説明されています。素子ごとの対応と有限コンダクタンスの保持は、kirimaspiceの実装の説明です。
 

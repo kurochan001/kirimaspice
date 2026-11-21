@@ -40,7 +40,7 @@ Options may come before or after the netlist, and there is one netlist.
 An option that takes a value accepts both `--opt value` and
 `--opt=value` (`-o` only `-o value`). An option the program does not
 know, an option without its value and a second netlist are errors: the program says which and exits with
-code 1.
+code 2.
 The output options write files only for some runs; the table under
 [How the program chooses analyses](#how-the-program-chooses-analyses)
 says which.
@@ -73,8 +73,14 @@ the SuperLU_DIST backend of the library is a placeholder.
 | Code | Meaning |
 | --- | --- |
 | 0 | the requested analyses finished, or `--help` or `--version` |
-| 1 | no netlist, a second netlist, an unknown option or one without its value, a rejected option value such as a non-numeric `--wav-sample-rate` or an unknown `--log-level`, unreadable file, parse error, failed analysis (also the operating point of a netlist without analysis lines) |
-| other | the program was stopped by a signal, or by an exception not derived from `std::exception` (`main` catches those that are) |
+| 1 | an analysis failed (also the operating point of a netlist without analysis lines) |
+| 2 | an error of the command line or the input: no netlist, a second netlist, an unknown option or one without its value, a rejected option value such as a non-numeric `--wav-sample-rate` or an unknown `--log-level`, a file that cannot be read, a parse error, an error in building the circuit, an output file that cannot be written |
+| 3 | an internal error: an exception while an analysis runs, or one not derived from `std::exception` |
+| other | the program was stopped by a signal |
+
+The codes are those of kirimasim, the sister simulator (its
+`docs/spec/CLI.md` section 5), so that a script driving both reads them
+alike.
 
 ## Netlist syntax
 
@@ -345,7 +351,7 @@ For `NMOS` and `PMOS`, `LEVEL` selects the device:
 | 8, 49 | BSIM3, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W`, `L` |
 | 14, 54 | BSIM4 (a model card with a `VERSION` other than 4.8.3 or 4.83 gives a warning) | warning, once per card | `W` (the width of all `NF` fingers), `L`, `NF`, `M`, `AS`, `AD`, `PS`, `PD`, `NRD`, `NRS`, `MULT_I`, `MULT_FN`; `MULT_Q` is accepted and not used; others named in a warning |
 | 10 | SiC MOSFET | warning | all, by name |
-| 11 | GaN HEMT | warning | all, by name |
+| 11 | GaN HEMT (`VTO` with the device's sign, as for the other levels: −2 V for N and +2 V for P by default; `KT1`, `KT2` move the threshold of the N-like voltages) | warning | all, by name |
 | 12 | FinFET | warning | `L` only (others ignored without a message) |
 | 20 | VDMOS | warning | all, by name |
 | 21 | IGBT (`M` terminals are collector, gate, emitter) | warning | all, by name |
@@ -431,7 +437,7 @@ parser stores it, but the program does not use it (the library can).
 | `.TEMP` | `.TEMP <t1> [<t2> ...]` (°C) | used; one value is `.OPTIONS TEMP=<t1>` (as in ngspice-47, which takes one value only); with several, every analysis runs at each value (see [below](#how-the-program-chooses-analyses)) |
 | `.OPTIONS`, `.OPTION` | `.OPTIONS <name>=<value> ...` | used; see [Options](#options) |
 | `.IC` | `.IC V(<node>)=<value> ...` | used by a transient: with `UIC` it starts from these values, without `UIC` its operating point holds the nodes at them; `V` must be upper case |
-| `.NODESET` | `.NODESET V(<node>)=<value> ...` | used as the initial guess; `V` must be upper case |
+| `.NODESET` | `.NODESET V(<node>)=<value> ...` | used as in SPICE: the operating point is first solved with these nodes held at their values, then the hold is released and the solve goes on from there (with source or gmin stepping or continuation, the values are only the initial guess); `V` must be upper case |
 | `.PARAM` | `.PARAM <name>=<value> ...` | used; the first definition of a name is kept |
 | `.FUNC` | `.FUNC <name>(<a>[,<b>[,<c>]]) {<expr>}` | used in `.PARAM` expressions only; up to three arguments |
 | `.MODEL` | see [Models](#models) | used |

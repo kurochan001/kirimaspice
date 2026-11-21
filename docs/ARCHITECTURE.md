@@ -77,7 +77,10 @@ and the second half of `core/device_utils.hpp` is in
    (`StderrAfterStdout`), and reads the options (`-o`, `--raw-out`,
    `--raw-binary-out`, `--wav-*`, `--log-level`, `--version`, `--help`).
    An unknown option, a missing value or a second netlist is an error
-   with exit code 1.
+   with exit code 2. The exit codes are kirimasim's: 0 finished, 1 an
+   analysis failed, 2 an error of the command line or the input (an
+   output file that cannot be written, `output::OutputFileError`,
+   included), 3 an internal error.
 2. Calls `NetlistParser::parse_file`, which returns the circuit and a
    `SimulationConfig`. With `.TEMP`, the first temperature becomes the
    base temperature.
@@ -323,7 +326,11 @@ ground fails with them as without them.
 
 - **Initial guess.** Zero, and the value of `.NODESET` at the nodes it
   names (`DCSolver::initialize_solution`); nothing is guessed from the
-  kinds of the devices or their connections.
+  kinds of the devices or their connections. With `.NODESET`,
+  `DCSolver::solve` first solves with those nodes held at their values (as
+  `.IC` holds its nodes) and then goes on from that point with the hold
+  released, as SPICE does, so a nodeset chooses among the operating points
+  of a circuit that has several.
 - **Newton loop.** Build the system from the stamps, factorise, solve,
   and check convergence (`DCSolver::check_convergence`).
 - **Convergence.** First the step: a node fails only when its change
@@ -339,10 +346,9 @@ ground fails with them as without them.
   same test with each device's `stamp_transient` of that step
   (`TransientSolver::check_convergence`), so a stamp must not change the
   device's history; `accept_solution` advances it.
-- **Limiting.** For the first ten iterations of a nonlinear circuit with
-  more than four unknowns, the whole Newton step is scaled to at most 5 V
-  (unless dynamic gmin is on). The diode and the bipolar transistor (NPN
-  and PNP) also limit
+- **Limiting.** The Newton step as a whole is not limited; as in SPICE,
+  the devices limit their own voltages. The diode and the bipolar
+  transistor (NPN and PNP) limit
   how far a junction voltage moves from one iteration to the next
   (`core::limit_junction_step`, as SPICE does), the IGBT limits its V<sub>CE</sub>
   by SPICE3's rule for a FET's V<sub>DS</sub> (`core::limit_fet_drain_step`),
