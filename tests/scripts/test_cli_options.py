@@ -4,8 +4,8 @@
 
 """The command line (src/main.cpp): options anywhere, each value as
 "<option> <value>" or "<option>=<value>", one netlist; an unknown option,
-an option without its value and a second netlist are errors (exit 1), not
-ignored; --version prints the version."""
+an option without its value and a second netlist are errors (exit 2), not
+ignored; --version prints the version. The exit codes are kirimasim's."""
 import argparse
 import os
 from pathlib import Path
@@ -30,7 +30,7 @@ class CliOptions(unittest.TestCase):
                               capture_output=True, text=True, timeout=60)
 
     def assert_rejected(self, result, text):
-        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
         self.assertIn(text, result.stdout + result.stderr)
 
     def test_unknown_option_is_an_error(self):

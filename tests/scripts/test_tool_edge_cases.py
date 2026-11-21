@@ -47,7 +47,7 @@ class ToolEdgeCases(unittest.TestCase):
                      ("--wav-bits",), ("--wav-sample-rate",)]:
             with self.subTest(args=args):
                 result = self.run_cli(".op", *args)
-                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+                self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
                 self.assertIn("Invalid command-line option", result.stdout + result.stderr)
 
     def test_failed_analyses_return_failure_without_sweep_output(self):
