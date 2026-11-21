@@ -2967,33 +2967,25 @@ static void parse_param_directive(const std::vector<std::string>& tokens, ParseS
 
         spdlog::debug(".PARAM parsing: param_name='{}', value_str='{}'", param_name, value_str);
 
-        Real value;
-
-        // Check if value contains {expression}
-        if (!value_str.empty() && value_str.front() == '{' && value_str.back() == '}') {
-            // Evaluate expression
-            std::string expr = value_str.substr(1, value_str.size() - 2);
-
-            try {
-                exprtk::expression<Real> expression;
-                expression.register_symbol_table(symbol_table);
-
-                exprtk::parser<Real> parser;
-                if (!parser.compile(expr, expression)) {
-                    throw ParseError(fmt::format(
-                        "Failed to parse .PARAM expression '{{{}}}': {}",
-                        expr, parser.error()), state.line_number);
-                }
-
-                value = expression.value();
-            } catch (const std::exception& e) {
-                throw ParseError(fmt::format(
-                    "Error evaluating .PARAM expression '{{{}}}': {}",
-                    expr, e.what()), state.line_number);
+        // The value: an expression in braces, a number, or an expression
+        // without braces (util::read_parameter_value)
+        auto evaluate = [&](const std::string& expr) -> Real {
+            exprtk::expression<Real> expression;
+            expression.register_symbol_table(symbol_table);
+            exprtk::parser<Real> parser;
+            if (!parser.compile(expr, expression)) {
+                throw std::runtime_error(fmt::format("Failed to parse .PARAM expression '{}': {}",
+                                                     expr, parser.error()));
             }
-        } else {
-            // Parse as literal value with units
-            value = parse_value_with_unit(value_str);
+            return expression.value();
+        };
+        Real value;
+        try {
+            value = util::read_parameter_value(value_str, evaluate);
+        } catch (const std::exception& e) {
+            throw ParseError(fmt::format("Error evaluating .PARAM {} = {}: {}", param_name,
+                                         value_str, e.what()),
+                             state.line_number);
         }
 
         // Check if parameter is already set by initial_params
@@ -3997,11 +3989,16 @@ static void parse_model_directive(const std::vector<std::string>& tokens, ParseS
 
             // Parse value (support expressions in { } )
             Real value;
-            if (value_str.size() >= 2 && value_str.front() == '{' && value_str.back() == '}') {
-                std::string expr = value_str.substr(1, value_str.size() - 2);
-                value = state.evaluator->evaluate(expr);
-            } else {
-                value = parse_value_with_unit(value_str);
+            try {
+                if (value_str.size() >= 2 && value_str.front() == '{' && value_str.back() == '}') {
+                    std::string expr = value_str.substr(1, value_str.size() - 2);
+                    value = state.evaluator->evaluate(expr);
+                } else {
+                    value = parse_value_with_unit(value_str);
+                }
+            } catch (const std::runtime_error& e) {
+                throw ParseError(fmt::format(".MODEL {}: {}: {}", model_name, current, e.what()),
+                                 state.line_number);
             }
 
             params[key] = value;

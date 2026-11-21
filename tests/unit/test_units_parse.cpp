@@ -99,3 +99,32 @@ TEST(UnitsParse, ScaleFactorsKeepDoublePrecisionWithoutWarning) {
     spdlog::set_default_logger(previous);
     EXPECT_EQ(captured.str(), "");
 }
+
+// Only letters, a scale factor and a unit, may follow the number; anything
+// else is an error, not dropped (parse_value_with_unit). ngspice-47 (run
+// 2026-11-21) stops on "R1 a 0 2*1k" with "unknown parameter (*)", and reads
+// 1.5.3k as 1.5, 1k5 as 1k and 2k_x as 2k; here each is an error.
+TEST(UnitsParse, TextAfterTheNumberIsAnError) {
+    for (const char* text : {"2*1k", "1.5.3k", "1k5", "2k_x", "2.5e+", "3)", "0x10", "1k,"}) {
+        EXPECT_THROW(parse_value_with_unit(text), std::runtime_error) << text;
+    }
+    EXPECT_DOUBLE_EQ(parse_value_with_unit(" 1.5k "), 1.5e3);
+    EXPECT_DOUBLE_EQ(parse_value_with_unit("-2.5e-3"), -2.5e-3);
+    EXPECT_DOUBLE_EQ(parse_value_with_unit("1e3meg"), 1e9);
+}
+
+// A .PARAM value is an expression in braces, a number, or else an expression
+// without braces (read_parameter_value): ngspice-47 (run 2026-11-21) gives
+// r = 2000 for ".param r = 2*1000", in a subcircuit too
+TEST(UnitsParse, ParameterValueWithoutBraces) {
+    auto twice = [](const std::string& expression) -> Real {
+        if (expression == "2*1000") {
+            return 2000.0;
+        }
+        throw std::runtime_error("not an expression: " + expression);
+    };
+    EXPECT_DOUBLE_EQ(kirimaspice::util::read_parameter_value("2*1000", twice), 2000.0);
+    EXPECT_DOUBLE_EQ(kirimaspice::util::read_parameter_value("{2*1000}", twice), 2000.0);
+    EXPECT_DOUBLE_EQ(kirimaspice::util::read_parameter_value("1.5k", twice), 1500.0);
+    EXPECT_THROW(kirimaspice::util::read_parameter_value("2*1k", twice), std::runtime_error);
+}

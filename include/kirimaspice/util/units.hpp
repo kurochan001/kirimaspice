@@ -21,6 +21,10 @@ namespace kirimaspice::util {
 //   its case; mega is MEG.
 // - Letters after the number that are not a scale factor, and letters after a
 //   scale factor, are ignored: "10mA" -> 0.01, "1kHz" -> 1000, "10MHz" -> 0.01.
+// - Anything else after the number is an error, not dropped: "2*1k", "1.5.3k",
+//   "1k5" and "2k_x" are not numbers (ngspice-47 stops on the first and reads
+//   the others as 1.5, 1k and 2k). A token that is not a number may be an
+//   expression, which the caller evaluates.
 // - Handles scientific notation (1e-3) and leading +/-, trims surrounding whitespace.
 // - The scale factor multiplies the number in double precision. IEEE 754
 //   rounds the product correctly, so its relative error is one rounding,
@@ -86,6 +90,16 @@ inline Real parse_value_with_unit(std::string_view str) {
         throw std::runtime_error("Invalid number format: " + num_part);
     }
 
+    // What strtod leaves of the numeric part ("1.5.3" leaves ".3"; "1e"
+    // leaves "e") belongs with the suffix, and only letters may follow the
+    // number: a scale factor and a unit
+    const std::string rest = std::string(endptr) + suffix_part;
+    if (!std::all_of(rest.begin(), rest.end(),
+                     [](unsigned char c) { return std::isalpha(c) != 0; })) {
+        throw std::runtime_error("Invalid number format: '" + s +
+                                 "' (only a scale factor and a unit, letters, may follow the number)");
+    }
+
     Real scale_factor = 1.0;
 
     if (!suffix_part.empty()) {
@@ -114,6 +128,25 @@ inline Real parse_value_with_unit(std::string_view str) {
     }
 
     return value;
+}
+
+// The value of a .PARAM assignment: an expression in braces; a number with
+// an optional scale factor (parse_value_with_unit); or else an expression
+// without braces, as ngspice-47 reads ".param r = 2*1000" (r = 2000), not the
+// number at its start. evaluate(expression) gives the value of an
+// expression, or throws. The .PARAM lines of the top level
+// (parse_param_directive) and of a subcircuit body
+// (SubcircuitDefinition::substitute_parameters) read their values here.
+template <typename Evaluate>
+Real read_parameter_value(const std::string& text, Evaluate&& evaluate) {
+    if (text.size() >= 2 && text.front() == '{' && text.back() == '}') {
+        return evaluate(text.substr(1, text.size() - 2));
+    }
+    try {
+        return parse_value_with_unit(text);
+    } catch (const std::runtime_error&) {
+        return evaluate(text);
+    }
 }
 
 } // namespace kirimaspice::util

@@ -288,9 +288,9 @@ std::vector<std::string> SubcircuitDefinition::substitute_parameters(
                 const std::string param_name = (*it)[1].str();
                 const std::string value_str = (*it)[2].str();
                 try {
-                    set(param_name, (value_str.front() == '{')
-                        ? evaluate(value_str.substr(1, value_str.size() - 2))
-                        : util::parse_value_with_unit(value_str));
+                    // A number or an expression, in braces or not, as on a
+                    // global .PARAM line (util::read_parameter_value)
+                    set(param_name, util::read_parameter_value(value_str, evaluate));
                 } catch (const std::exception& e) {
                     throw std::runtime_error(fmt::format(
                         "Error evaluating .PARAM {} in subcircuit '{}': {}",

@@ -394,6 +394,49 @@ TEST(NetlistLines, LossyLineValuesInBraces) {
     EXPECT_DOUBLE_EQ(o1->td(), 2e-9);
 }
 
+// Where a number is read, text after the number other than letters is an
+// error, not dropped (parse_value_with_unit): R1 a 0 2*1k was 2 ohm, 1.5.3k
+// was 1.5 kohm. ngspice-47 (run 2026-11-21) stops on the first ("unknown
+// parameter (*)") and reads the second as 1.5 ohm.
+TEST(NetlistLines, TextAfterANumberIsAnError) {
+    for (const std::string line : {"R1 a 0 2*1k", "R1 a 0 1.5.3k", "C1 a 0 1n5", ".tran 1n 1u*2",
+                                   ".model dm D IS=1e-14x2"}) {
+        parser::NetlistParser parser;
+        EXPECT_THROW(parser.parse_string("t\nV1 a 0 1\nR9 a 0 1k\n" + line + "\n.op\n.end\n"),
+                     parser::ParseError)
+            << line;
+    }
+}
+
+// A .PARAM value without braces that is not a number is an expression, at the
+// top level and in a subcircuit (util::read_parameter_value). ngspice-47 (run
+// 2026-11-21) gives r = 2000 for .param r = 2*1000: I(V1) = -0.5 mA, and
+// -0.5 mA with the .PARAM in the subcircuit. Scale factors are not read in
+// expressions here (KNOWN_ISSUES), so .param r = 2*1k is an error, not 2.
+TEST(NetlistLines, ParameterValueWithoutBraces) {
+    {
+        parser::NetlistParser parser;
+        const auto parsed = parser.parse_string(
+            "t\n.param r = 2*1000 q=1.5k\nV1 a 0 1\nR1 a 0 {r}\nR2 a 0 {q}\n.op\n.end\n");
+        EXPECT_DOUBLE_EQ(parsed.config.global_params.at("r"), 2000.0);
+        EXPECT_DOUBLE_EQ(device_as<devices::Resistor>(parsed, "R1")->resistance(), 2e3);
+        EXPECT_DOUBLE_EQ(device_as<devices::Resistor>(parsed, "R2")->resistance(), 1.5e3);
+    }
+    {
+        parser::NetlistParser parser;
+        EXPECT_THROW(parser.parse_string("t\n.param r = 2*1k\nV1 a 0 1\nR1 a 0 {r}\n.op\n.end\n"),
+                     parser::ParseError);
+    }
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "t\n.subckt load a\n.param rr = 2*1000\nR1 a 0 {rr}\n.ends\nV1 a 0 1\nX1 a load\n"
+        ".op\n.end\n");
+    parsed.circuit->expand_all_subcircuits();
+    const auto r1 = device_as<devices::Resistor>(parsed, "X1.R1");
+    ASSERT_NE(r1, nullptr);
+    EXPECT_DOUBLE_EQ(r1->resistance(), 2e3);
+}
+
 // The .FUNC keyword is read in any case (parse_func_directive); the name of
 // the function is the text before its '('. ngspice-47 (run 2026-11-21) gives
 // I(V1) = -0.5 mA for .Func dbl(x) {2*x}, .param r={dbl(1000)}, R1 a 0 {r}.
