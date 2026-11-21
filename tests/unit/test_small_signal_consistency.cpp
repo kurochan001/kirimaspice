@@ -274,9 +274,10 @@ TEST(SmallSignalConsistency, Mesfet) {
 
 // Every voltage of the PMF stage is minus that of the NMF stage, and its
 // drain voltage satisfies KCL with the channel current of the card's
-// formula (Curtice, BETA (Vgs - VTO)^2 (1 + LAMBDA Vds) tanh(ALPHA Vds))
+// formula (Statz, BETA (Vgs - VTO)^2 / (1 + B (Vgs - VTO)) (1 + LAMBDA Vds)
+// (1 - (1 - ALPHA Vds / 3)^3) below Vds = 3/ALPHA)
 TEST(SmallSignalConsistency, MesfetPMirrorsN) {
-    const std::string params = " beta=0.01 lambda=0.05 alpha=2 cgs=0 cgd=0 cds=0";
+    const std::string params = " beta=0.01 lambda=0.05 alpha=2 b=0.3 cgs=0 cgd=0 cds=0";
     for (const Real vg : {0.0, -1.0, -1.5}) {
         SCOPED_TRACE(vg);
         const Real vd_n = drain_voltage({"N", "Z1 d g 0 NMF" + params, "", 10.0, 200.0, vg}, vg);
@@ -284,7 +285,9 @@ TEST(SmallSignalConsistency, MesfetPMirrorsN) {
             drain_voltage({"P", "Z1 d g 0 PMF" + params, "", -10.0, 200.0, -vg}, -vg);
         EXPECT_NEAR(vd_p, -vd_n, 1e-9);
         const Real vov = vg + 2.0;
-        const Real id = 0.01 * vov * vov * (1.0 + 0.05 * vd_n) * std::tanh(2.0 * vd_n);
+        const Real r = 1.0 - 2.0 * vd_n / 3.0;
+        const Real id = 0.01 * vov * vov / (1.0 + 0.3 * vov) * (1.0 + 0.05 * vd_n) *
+                        ((r > 0.0) ? 1.0 - r * r * r : 1.0);
         // KCL at the operating point holds to what the iteration converges
         // to: relative 1e-6, far below the solver's criterion (RELTOL 1e-3)
         EXPECT_NEAR((10.0 - vd_n) / 200.0, id, 1e-6 * id);

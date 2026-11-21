@@ -64,15 +64,15 @@ double statz_drain_current(const std::string& card, double vds, double vgs) {
 
 }  // namespace
 
-TEST(MesfetStatz, Level2IsStatzModel) {
+TEST(MesfetStatz, Level1IsStatzModel) {
     // Statz et al. (1987): beta vov^2 / (1 + B vov) (1 + lambda Vds)
     // (1 - (1 - alpha Vds / 3)^3) below Vds = 3/alpha. ngspice-47's MESFET
     // (its LEVEL 1, run 2026-11-21) gives these currents.
-    const std::string card = ".model mm NMF LEVEL=2 BETA=0.1 VTO=-2 B=0.3 ALPHA=2 LAMBDA=0";
+    const std::string card = ".model mm NMF LEVEL=1 BETA=0.1 VTO=-2 B=0.3 ALPHA=2 LAMBDA=0";
     EXPECT_NEAR(statz_drain_current(card, 1.0, 0.0), 0.240741, 1e-6);
     EXPECT_NEAR(statz_drain_current(card, 0.5, 0.0), 0.175926, 1e-6);
     EXPECT_NEAR(statz_drain_current(card, 2.0, 0.0), 0.25, 1e-9);  // above 3/alpha
-    EXPECT_NEAR(statz_drain_current(".model mm NMF LEVEL=2 BETA=0.05 VTO=-1.5 B=1 ALPHA=1.5 LAMBDA=0.1",
+    EXPECT_NEAR(statz_drain_current(".model mm NMF LEVEL=1 BETA=0.05 VTO=-1.5 B=1 ALPHA=1.5 LAMBDA=0.1",
                                     1.0, -0.5),
                 2.40625e-2, 1e-7);
 }
