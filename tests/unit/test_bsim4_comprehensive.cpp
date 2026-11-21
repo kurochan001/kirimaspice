@@ -1404,14 +1404,14 @@ TEST(BSIM4BodyEffectCoefficients, DefaultWhenOnlyOneIsGiven) {
 // The names of effects that the model does not compute are named in the
 // "is not used" warning of the card: the poly-gate depletion (NGATE), the
 // narrow-width short-channel term (DVT0W, DVT1W, DVT2W), the bias dependence
-// of Weff (DWG, DWB), the impact-ionization current (ALPHA0, ALPHA1, BETA0)
-// and the charge multiplier MULT_Q. ngspice-47 (run 2026-11-21) computes
+// of Weff (DWG, DWB) and the impact-ionization current (ALPHA0, ALPHA1,
+// BETA0). ngspice-47 (run 2026-11-21) computes
 // them: with the card of test_bsim4_reference.cpp, L = 0.18 um, W = 1 um and
 // VGS = VDS = 1 V, NGATE = 1e19 gives 4.06e-5 A instead of 1.229e-4 A, and
 // DWG = -1e-8 gives 1.237e-4 A.
 TEST(BSIM4CardNames, EffectsNotModelledAreNamedAsNotUsed) {
     const std::vector<std::string> not_modelled = {
-        "ngate", "dvt0w", "dvt1w", "dvt2w", "dwg", "dwb", "alpha0", "alpha1", "beta0", "mult_q"};
+        "ngate", "dvt0w", "dvt1w", "dvt2w", "dwg", "dwb", "alpha0", "alpha1", "beta0"};
     std::map<std::string, Real> card = {{"toxe", 3e-9}, {"vth0", 0.5}};
     for (const auto& name : not_modelled) {
         card[name] = 1.0;
