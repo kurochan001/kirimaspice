@@ -1173,6 +1173,10 @@ add_executable(test_wcase unit/test_wcase.cpp)
 target_link_libraries(test_wcase PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_wcase PROPERTIES TIMEOUT 1200)
 
+add_executable(test_wcase_nominal unit/test_wcase_nominal.cpp)
+target_link_libraries(test_wcase_nominal PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_wcase_nominal PROPERTIES TIMEOUT 1200)
+
 #==============================================================================
 # Circuit Optimization Tests
 #==============================================================================

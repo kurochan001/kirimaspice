@@ -25,6 +25,23 @@ WorstCaseResult WCaseAnalyzer::analyze() {
         return WorstCaseResult{};
     }
 
+    // The values of the varied parameters as the circuit has them, to be
+    // restored after the cases
+    std::map<std::string, Real> original_values;
+    for (const auto& var : config_.wcase.variations) {
+        const std::size_t dot_pos = var.parameter_name.find('.');
+        if (dot_pos == std::string::npos) {
+            continue;
+        }
+        auto device = circuit_.get_device(var.parameter_name.substr(0, dot_pos));
+        if (!device) {
+            continue;
+        }
+        if (auto value = device->get_parameter(var.parameter_name.substr(dot_pos + 1))) {
+            original_values[var.parameter_name] = *value;
+        }
+    }
+
     // Generate all corner case combinations
     auto corner_cases = generate_corner_cases();
     spdlog::info("Generated {} corner cases", corner_cases.size());
@@ -57,14 +74,22 @@ WorstCaseResult WCaseAnalyzer::analyze() {
                  result.worst_case_name, result.worst_value, result.worst_parameter_values,
                  result.best_case_name, result.best_value, result.best_parameter_values);
 
-    // Find nominal (typical) case
+    // The nominal case is the one combination with every parameter at its
+    // typical value (generate_corner_cases names those values <param>_typ;
+    // with no variations it is the single empty case)
     for (const auto& case_result : result.all_cases) {
-        if (case_result.case_name.find("typ") != std::string::npos ||
-            case_result.case_name.find("nominal") != std::string::npos) {
+        const auto& values = case_result.parameter_values;
+        const bool all_typical = std::all_of(values.begin(), values.end(), [](const auto& entry) {
+            return entry.first.ends_with("_typ");
+        });
+        if (all_typical) {
             result.nominal_value = case_result.output_value;
             break;
         }
     }
+
+    // Leave the circuit as it was found
+    apply_parameters(original_values);
 
     result.success = true;
 
