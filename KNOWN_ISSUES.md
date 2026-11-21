@@ -106,12 +106,6 @@ document also lists differences not decided there.
   expressions (`Expression parse error`).
 - **`.IF` cannot read `.PARAM` values.** When the condition cannot be
   evaluated, the parser warns and keeps every branch.
-- **`SFFM` differs from ngspice-47's.** Its omitted arguments take
-  SPICE3's defaults (`FC` and `FS` 1/`TSTOP`, `MDI` 0), where ngspice-47
-  modulates `SFFM(0 1)` with the warning `MDI in v1 limited to FC/FM`
-  (run on 2026-11-21; its rule not confirmed). An `SFFM` source without a
-  DC value has `VO` in the operating point, where ngspice-47 gives 0 V
-  (measured at `eaf0629`).
 - **The diode reads `IS`, `N`, `CJO`, `VJ`, `M`, `RS`, `TT`, `BV` and
   `IBV` only, not `FC`, `KF`, `AF` and the others, which it names in a
   warning (its FC is 0.5); the bipolar

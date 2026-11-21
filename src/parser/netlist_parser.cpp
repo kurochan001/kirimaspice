@@ -4557,10 +4557,23 @@ static std::shared_ptr<const devices::Waveform> make_waveform(const std::string&
         return std::make_shared<devices::ExpWaveform>(a[0], a[1], td1, tau1, td2, tau2);
     }
     if (keyword == "SFFM") {
-        // FC 1/TSTOP, MDI 0, FS 1/TSTOP
-        need(2, 5, "2 to 5 arguments: VO VA [FC [MDI [FS]]]");
-        return std::make_shared<devices::SffmWaveform>(a[0], a[1], arg(2, per_tstop), arg(3, zero),
-                                                       arg(4, per_tstop));
+        // As ngspice-47 takes them (vsrcload.c, read 2026-11-21): FC
+        // 5/TSTOP, MDI 90, FS 500/TSTOP (also when given as 0), TD, PHASEM
+        // and PHASEC 0; MDI within 0 and FC/FS, named in a warning when it
+        // is not
+        need(2, 8, "2 to 8 arguments: VO VA [FC [MDI [FS [TD [PHASEM [PHASEC]]]]]]");
+        const Real fc = arg(2, [&] { return 5.0 / tran().second; });
+        Real mdi = arg(3, [] { return 90.0; });
+        const Real fs = (a.size() > 4 && a[4] != 0.0) ? a[4] : 500.0 / tran().second;
+        if (fs > 0.0 && mdi > fc / fs) {
+            spdlog::warn("Line {}: SFFM: MDI {} is limited to FC/FS = {}", state.line_number, mdi, fc / fs);
+            mdi = fc / fs;
+        } else if (mdi < 0.0) {
+            spdlog::warn("Line {}: SFFM: MDI {} is set to 0", state.line_number, mdi);
+            mdi = 0.0;
+        }
+        return std::make_shared<devices::SffmWaveform>(a[0], a[1], fc, mdi, fs, arg(5, zero), arg(6, zero),
+                                                       arg(7, zero));
     }
     // PWL
     if (a.size() < 2 || a.size() % 2 != 0) {

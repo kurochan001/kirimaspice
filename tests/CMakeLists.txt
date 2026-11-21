@@ -1280,6 +1280,10 @@ add_executable(test_sic_reverse unit/test_sic_reverse.cpp)
 target_link_libraries(test_sic_reverse PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_sic_reverse PROPERTIES TIMEOUT 1200)
 
+add_executable(test_sffm unit/test_sffm.cpp)
+target_link_libraries(test_sffm PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_sffm PROPERTIES TIMEOUT 1200)
+
 add_executable(test_global_params unit/test_global_params.cpp)
 target_link_libraries(test_global_params PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_global_params PROPERTIES TIMEOUT 1200)

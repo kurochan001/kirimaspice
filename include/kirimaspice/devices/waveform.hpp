@@ -261,23 +261,35 @@ private:
     Real v1_, v2_, td1_, tau1_, td2_, tau2_;
 };
 
-/// Single-frequency FM waveform, SPICE syntax SFFM(VO VA FC MDI FS):
-///   VO + VA sin(2 pi FC t + MDI sin(2 pi FS t))
+/// Single-frequency FM waveform, SFFM(VO VA FC MDI FS TD PHASEM PHASEC), as
+/// ngspice-47 gives it (src/spicelib/devices/vsrc/vsrcload.c, Modified BSD,
+/// read 2026-11-21): 0 up to TD, then, with t = time - TD,
+///   VO + VA sin(2 pi FC t + PHASEC + MDI sin(2 pi FS t + PHASEM))
+/// with the phases in degrees. The parser gives the defaults of the
+/// arguments left out and keeps MDI within 0 and FC/FS (make_waveform).
 class SffmWaveform : public Waveform {
 public:
     SffmWaveform(Real offset, Real amplitude, Real carrier, Real modulation_index,
-                 Real signal)
+                 Real signal, Real delay = 0.0, Real signal_phase_deg = 0.0,
+                 Real carrier_phase_deg = 0.0)
         : offset_(offset), amplitude_(amplitude), carrier_(carrier),
-          modulation_index_(modulation_index), signal_(signal) {}
+          modulation_index_(modulation_index), signal_(signal), delay_(delay),
+          signal_phase_(signal_phase_deg * M_PI / 180.0),
+          carrier_phase_(carrier_phase_deg * M_PI / 180.0) {}
 
     Real evaluate(Real time) const override {
-        return offset_ + amplitude_ * std::sin(2.0 * M_PI * carrier_ * time +
+        const Real t = time - delay_;
+        if (t <= 0.0) {
+            return 0.0;
+        }
+        return offset_ + amplitude_ * std::sin(2.0 * M_PI * carrier_ * t + carrier_phase_ +
                                                modulation_index_ *
-                                                   std::sin(2.0 * M_PI * signal_ * time));
+                                                   std::sin(2.0 * M_PI * signal_ * t + signal_phase_));
     }
 
 private:
-    Real offset_, amplitude_, carrier_, modulation_index_, signal_;
+    Real offset_, amplitude_, carrier_, modulation_index_, signal_, delay_, signal_phase_,
+        carrier_phase_;
 };
 
 } // namespace kirimaspice::devices

@@ -78,10 +78,9 @@ ngspice-47 は、kirimaspice が書く ASCII とバイナリの raw ファイル
 
 ### 電源
 
-- [ ] **`SFFM` の引数は書く。** `PULSE`、`SIN`、`EXP`、`PWL`、`SFFM` は、ngspice と同じく電圧源でも
-  電流源でも使え、省いた引数は、`PULSE`、`SIN`、`EXP` では ngspice-47 と同じく `.TRAN` から既定値を
-  取ります。ngspice-47 の `SFFM` の既定値は違います（[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#ネットリストの入力)）。
-  波形の後に `DC` か `AC` 以外のものがあるとエラーです。
+- [ ] **波形の後には `DC` か `AC` だけ。** `PULSE`、`SIN`、`EXP`、`PWL`、`SFFM` は、ngspice-47 と同じく、
+  省いた引数の既定値も含めて電圧源でも電流源でも使えます。波形の後に `DC` か `AC` 以外のものがあると
+  エラーです。
 - [ ] **`TR` か `TF` が 0 の `PULSE` は理想的な段差です。** 角ではその前の値を取り、角の後のステップから
   新しい値になるので、解析解どおりの段差の応答になります。ngspice-47 は 0 の `TR` や `TF` を `TSTEP` で
   上げるので、結果が `TSTEP` によって変わります（1 kΩ と 1 µF に `PULSE(0 1 0 0 0 1m 2m)` を加えると、
