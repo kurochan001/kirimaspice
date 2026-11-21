@@ -6,7 +6,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <numeric>
 #include <spdlog/spdlog.h>
 
 namespace kirimaspice::measure {
@@ -119,38 +118,29 @@ MeasureResult MeasureEngine::measure_min(const MeasureConfig& config,
 
 MeasureResult MeasureEngine::measure_avg(const MeasureConfig& config,
                                          const WaveformData& data) {
-    auto [start_idx, end_idx] = get_range_indices(data.x_values, config.from, config.to);
-
-    if (start_idx >= end_idx || end_idx > data.y_values.size()) {
+    // The mean over time (or frequency): the integral over the interval
+    // divided by its width, as ngspice-47 measures AVG
+    const auto range = integrate_range(data, config.from, config.to, false);
+    if (!range) {
         return MeasureResult::failure_result(config.name, "Invalid measurement range");
     }
+    const auto [integral, width] = *range;
 
-    // Calculate average value in range
-    Real sum = std::accumulate(data.y_values.begin() + start_idx,
-                               data.y_values.begin() + end_idx,
-                               0.0);
-    Real avg_value = sum / (end_idx - start_idx);
-
-    return MeasureResult::success_result(config.name, avg_value,
+    return MeasureResult::success_result(config.name, integral / width,
                                          determine_unit(config));
 }
 
 MeasureResult MeasureEngine::measure_rms(const MeasureConfig& config,
                                          const WaveformData& data) {
-    auto [start_idx, end_idx] = get_range_indices(data.x_values, config.from, config.to);
-
-    if (start_idx >= end_idx || end_idx > data.y_values.size()) {
+    // sqrt of the mean of y^2 over time (or frequency), as ngspice-47
+    // measures RMS
+    const auto range = integrate_range(data, config.from, config.to, true);
+    if (!range) {
         return MeasureResult::failure_result(config.name, "Invalid measurement range");
     }
+    const auto [integral, width] = *range;
 
-    // Calculate RMS value: sqrt(mean(y^2))
-    Real sum_squares = 0.0;
-    for (std::size_t i = start_idx; i < end_idx; ++i) {
-        sum_squares += data.y_values[i] * data.y_values[i];
-    }
-    Real rms_value = std::sqrt(sum_squares / (end_idx - start_idx));
-
-    return MeasureResult::success_result(config.name, rms_value,
+    return MeasureResult::success_result(config.name, std::sqrt(integral / width),
                                          determine_unit(config));
 }
 
@@ -174,19 +164,11 @@ MeasureResult MeasureEngine::measure_pp(const MeasureConfig& config,
 
 MeasureResult MeasureEngine::measure_integ(const MeasureConfig& config,
                                            const WaveformData& data) {
-    auto [start_idx, end_idx] = get_range_indices(data.x_values, config.from, config.to);
-
-    if (start_idx >= end_idx || end_idx > data.y_values.size()) {
+    const auto range = integrate_range(data, config.from, config.to, false);
+    if (!range) {
         return MeasureResult::failure_result(config.name, "Invalid measurement range");
     }
-
-    // Calculate integral using trapezoidal rule
-    Real integral = 0.0;
-    for (std::size_t i = start_idx; i < end_idx - 1; ++i) {
-        Real dx = data.x_values[i + 1] - data.x_values[i];
-        Real avg_y = (data.y_values[i] + data.y_values[i + 1]) / 2.0;
-        integral += avg_y * dx;
-    }
+    const Real integral = range->first;
 
     // Unit is signal_unit * x_unit (e.g., V*s, A*s)
     std::string unit = determine_unit(config);
@@ -378,6 +360,43 @@ std::pair<std::size_t, std::size_t> MeasureEngine::get_range_indices(
     }
 
     return {start_idx, end_idx};
+}
+
+std::optional<std::pair<Real, Real>> MeasureEngine::integrate_range(
+    const WaveformData& data,
+    std::optional<Real> from,
+    std::optional<Real> to,
+    bool squared) {
+
+    // The interval is [FROM, TO] within the data, the whole data by default
+    const auto& x = data.x_values;
+    const auto& y = data.y_values;
+    const Real a = std::max(from.value_or(x.front()), x.front());
+    const Real b = std::min(to.value_or(x.back()), x.back());
+    if (!(b > a)) {
+        return std::nullopt;
+    }
+
+    // The trapezoidal rule on the samples inside the interval, with y
+    // interpolated linearly at its ends when they fall between samples (at
+    // a time held twice, a step, the interval takes the side inside it)
+    const auto f = [squared](Real v) { return squared ? v * v : v; };
+    const auto inside = std::upper_bound(x.begin(), x.end(), a);
+    Real x_prev = a;
+    Real f_prev = (inside != x.begin() && *(inside - 1) == a)
+                      ? f(y[static_cast<std::size_t>(std::distance(x.begin(), inside)) - 1])
+                      : f(*interpolate(x, y, a));
+    Real integral = 0.0;
+    for (auto it = inside; it != x.end() && *it < b; ++it) {
+        const auto i = static_cast<std::size_t>(std::distance(x.begin(), it));
+        const Real f_i = f(y[i]);
+        integral += (f_prev + f_i) / 2.0 * (x[i] - x_prev);
+        x_prev = x[i];
+        f_prev = f_i;
+    }
+    integral += (f_prev + f(*interpolate(x, y, b))) / 2.0 * (b - x_prev);
+
+    return std::pair<Real, Real>{integral, b - a};
 }
 
 std::string MeasureEngine::determine_unit(const MeasureConfig& config) {

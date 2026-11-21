@@ -7,6 +7,7 @@
 #include "kirimaspice/core/matrix_types.hpp"
 #include "kirimaspice/core/types.hpp"
 
+#include <optional>
 #include <utility>
 #include <vector>
 
@@ -68,11 +69,11 @@ private:
     static MeasureResult measure_min(const MeasureConfig& config,
                                      const WaveformData& data);
 
-    /// AVG measurement: average value in range
+    /// AVG measurement: mean over time (or frequency) in range
     static MeasureResult measure_avg(const MeasureConfig& config,
                                      const WaveformData& data);
 
-    /// RMS measurement: root-mean-square value in range
+    /// RMS measurement: root of the mean of y^2 over time (or frequency) in range
     static MeasureResult measure_rms(const MeasureConfig& config,
                                      const WaveformData& data);
 
@@ -129,6 +130,16 @@ private:
         const std::vector<Real>& x_values,
         std::optional<Real> from,
         std::optional<Real> to);
+
+    /// Integral of y, or of y^2, over [from, to] by the trapezoidal rule,
+    /// with y interpolated linearly at from and to when they fall between
+    /// samples; from and to default to the ends of the data and are kept
+    /// within them. AVG, RMS and INTEG all integrate through it.
+    /// @return (integral, to - from), or empty when the interval has no width
+    static std::optional<std::pair<Real, Real>> integrate_range(const WaveformData& data,
+                                                                std::optional<Real> from,
+                                                                std::optional<Real> to,
+                                                                bool squared);
 
     /// Check if crossing is valid for specified edge type
     static bool is_valid_edge(Real y_before, Real y_after, Real threshold, MeasureEdge edge);

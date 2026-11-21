@@ -481,6 +481,10 @@ add_executable(test_measure unit/test_measure.cpp)
 target_link_libraries(test_measure PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_measure PROPERTIES TIMEOUT 1200)
 
+add_executable(test_measure_time_weighted unit/test_measure_time_weighted.cpp)
+target_link_libraries(test_measure_time_weighted PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_measure_time_weighted PROPERTIES TIMEOUT 1200)
+
 # JFET devices
 add_executable(test_jfet unit/test_jfet.cpp)
 target_link_libraries(test_jfet PRIVATE kirimaspice_lib GTest::gtest_main)
