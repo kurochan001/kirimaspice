@@ -233,11 +233,15 @@ std::vector<std::vector<Complex>> SParameterSolver::calculate_s_matrix(Real omeg
 }
 
 ComplexDenseVector SParameterSolver::solve_with_port_excitation(Real omega, std::uint32_t excitation_port) {
-    std::uint32_t num_nodes = circuit_.num_nodes();
+    // The node voltages without ground and the branch currents of the
+    // voltage sources, VCVS, CCVS and voltage-mode B sources, as in the AC
+    // analysis (ACSolver::solve_at_frequency)
+    const std::uint32_t num_nodes = circuit_.num_nodes() - 1;
+    const auto num_branches = static_cast<std::uint32_t>(circuit_.get_voltage_sources().size());
 
     // Build complex MNA system with port excitation
     ComplexMNASystem sys_complex;
-    sys_complex.resize(num_nodes, 0);  // No branches in AC analysis
+    sys_complex.resize(num_nodes, num_branches);
     sys_complex.zero();
 
     build_sparam_system(sys_complex, omega, excitation_port);
@@ -267,10 +271,14 @@ ComplexDenseVector SParameterSolver::solve_with_port_excitation(Real omega, std:
 void SParameterSolver::build_sparam_system(ComplexMNASystem& sys, Real omega, std::uint32_t excitation_port) {
     std::uint32_t num_ports = static_cast<std::uint32_t>(config_.sparam.ports.size());
 
-    // Step 1: Stamp all circuit devices (AC analysis)
+    // Step 1: Stamp all circuit devices (AC analysis). The ports are the
+    // only excitation: the AC values of the circuit's own sources are
+    // removed, so a voltage source is a short and a current source open,
+    // as for any network parameter
     for (const auto& device : circuit_.get_devices()) {
         device->stamp_ac(sys, omega, dc_solution_);
     }
+    std::fill(sys.I.begin(), sys.I.end(), Complex(0.0, 0.0));
 
     // Step 2: Add port excitation and terminations
     for (std::uint32_t p = 1; p <= num_ports; ++p) {
@@ -348,9 +356,9 @@ void SParameterSolver::convert_to_real_system(const ComplexSparseMatrix& Y_compl
     // [Re(Y)  -Im(Y)] [Re(V)]   [Re(I)]
     // [Im(Y)   Re(Y)] [Im(V)] = [Im(I)]
 
-    // Add numerical stabilization to prevent singular matrix in resistive-only circuits
-    // This is equivalent to adding a tiny conductance to avoid zero rows/columns
-    const Real epsilon = 1e-12;  // Numerical stabilization term (similar to GMIN)
+    // Nothing is added: a resistive circuit gives the blocks Re(Y) and
+    // Re(Y), which are as regular as Re(Y) is, and the AC analysis adds no
+    // conductance from the nodes to ground either
 
     for (std::uint32_t row = 0; row < Y_complex.rows.size(); ++row) {
         std::uint32_t i = Y_complex.rows[row];
@@ -368,12 +376,6 @@ void SParameterSolver::convert_to_real_system(const ComplexSparseMatrix& Y_compl
         system_real.G.add_entry(i + N, j, y_im);
         // Bottom-right: Re(Y)
         system_real.G.add_entry(i + N, j + N, y_re);
-    }
-
-    // Add epsilon to diagonal for numerical stability (prevent singular matrix in pure resistive circuits)
-    for (std::uint32_t i = 0; i < N; ++i) {
-        system_real.G.add_entry(i, i + N, epsilon);     // Top-right diagonal
-        system_real.G.add_entry(i + N, i, epsilon);     // Bottom-left diagonal
     }
 
     // RHS vector

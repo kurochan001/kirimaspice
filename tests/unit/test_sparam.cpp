@@ -636,3 +636,32 @@ R2 n2 out 50
         EXPECT_LE(sum_mag_squared, 2.5);  // Allow some margin
     }
 }
+
+TEST(SParam, SourcesOfTheCircuitAreNotExcitations) {
+    // A voltage source has a branch current in the AC system, which the
+    // S-parameter system now holds; its AC value is not an excitation, so
+    // the source is a short: the port sees 150 ohm, and S11 = (150 - 50) /
+    // (150 + 50) = 0.5 (analytic)
+    std::string netlist = R"(
+* Port into a resistor and a voltage source
+R1 in b 150
+V1 b 0 DC 1 AC 1
+.PORT 1 in 0 Z=50
+.END
+)";
+    NetlistParser parser;
+    auto result = parser.parse_string(netlist);
+    result.config.sparam.enabled = true;
+    result.config.sparam.start_freq = 1e6;
+    result.config.sparam.stop_freq = 1e6;
+    result.config.sparam.num_points = 1;
+    result.config.sparam.sweep_type = "LIN";
+
+    SParameterSolver solver(*result.circuit, result.config);
+    SParameterResult sparam_result = solver.solve();
+    ASSERT_TRUE(sparam_result.success);
+    ASSERT_EQ(sparam_result.frequency_points.size(), 1u);
+    const Complex s11 = sparam_result.frequency_points[0].S_matrix.at(0).at(0);
+    EXPECT_NEAR(s11.real(), 0.5, 1e-9);
+    EXPECT_NEAR(s11.imag(), 0.0, 1e-9);
+}
