@@ -303,9 +303,15 @@ void BSIM4Params::compute_derived_params(Real temp) {
 
     // Quantum Correction Parameters (Coxeff support)
 
-    // Step 1: the flat-band voltage, TYPE * VTH0 - phi - K1 sqrt(phi) (BSIM4
-    // 4.8.3 b4temp.c), with VTH0 signed as on the card
-    const Real vfb = type * vth0 - phi - k1 * sqrtPhi;
+    // Step 1: VTH0 from the flat-band voltage when the card does not give it
+    // (see vth0_given): ngspice-47's current for a card without parameters
+    // is that of this VTH0 (run 2026-11-21). Then the flat-band voltage,
+    // the card's or TYPE * VTH0 - phi - K1 sqrt(phi) (BSIM4 4.8.3
+    // b4temp.c), with VTH0 signed as on the card
+    if (!vth0_given) {
+        vth0 = type * (vfb + phi + k1 * sqrtPhi);
+    }
+    const Real vfb = vfb_given ? this->vfb : type * vth0 - phi - k1 * sqrtPhi;
 
     // Step 2: Calculate vtfbphi2 (ENABLED)
     // Formula from ngspice b4temp.c lines 1786-1788:
@@ -389,6 +395,8 @@ BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_par
     bsim4_params.vbx_given = model_params.count("vbx") > 0;
     bsim4_params.u0_given = model_params.count("u0") > 0;
     bsim4_params.eu_given = model_params.count("eu") > 0;
+    bsim4_params.vth0_given = model_params.count("vth0") > 0 || model_params.count("vto") > 0;
+    bsim4_params.vfb_given = model_params.count("vfb") > 0;
 
     for (const auto& [key, value] : model_params) {
         // Process Parameters
@@ -435,6 +443,7 @@ BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_par
         else if (key == "xt") bsim4_params.xt = value;
         // Threshold Voltage Parameters
         else if (key == "vth0") bsim4_params.vth0 = value;
+        else if (key == "vfb") bsim4_params.vfb = value;
         else if (key == "vto") bsim4_params.vth0 = value;  // Alias
         else if (key == "k1") bsim4_params.k1 = value;
         else if (key == "k2") bsim4_params.k2 = value;

@@ -291,14 +291,6 @@ says otherwise.
   +1.1e-5 relative to ngspice-47's. How much of the threshold difference
   above remains is not confirmed (measure V<sub>th</sub> again with the
   reference test's card).
-- **A BSIM4 card without `VTH0` takes 0.7 V (−0.7 V for P).** ngspice-47
-  computes it from other parameters, as the BSIM4 manual's notes to its
-  parameter list describe (from `VFB`, Φs and `K1`; how `K1` and `K2` are
-  then found is not confirmed). A card without parameters at W = L = 5 µm
-  and VD = VG = 2 V carries 2.626e-4 A here and 5.650e-4 A in ngspice-47;
-  with `VTH0=0.7` on the card both give 2.6256e-4 A, and with the
-  0.274 V that VFB + Φs + K1√Φs gives from the defaults ngspice-47 gives
-  4.928e-4 A (run on 2026-11-21).
 - **Some BSIM4 parameters and limits are not BSIM4's.** `RDSWMIN`,
   `RDSMOD` and `TEMPMOD` are not read from a card. A card with
   `DROUT = 0` gives −8.7e5 A and one with `DSUB = 0` 1.2e-3 A, where

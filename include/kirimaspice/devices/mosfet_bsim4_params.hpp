@@ -82,6 +82,13 @@ struct BSIM4Params {
     bool gamma1_given = false;
     bool gamma2_given = false;
     bool vbx_given = false;
+    // VTH0 that the card does not give follows from the flat-band voltage,
+    // TYPE (VFB + phi + K1 sqrt(phi)), with VFB = -1 V unless the card gives
+    // it (BSIM4 manual, appendix A, the notes to VTH0 and VFB); values set in
+    // code count as given
+    bool vth0_given = true;
+    bool vfb_given = false;
+    Real vfb = -1.0;        ///< Flat-band voltage of the card [V] (see vfb_given)
     // U0 and EU default by TYPE (compute_derived_params); values set in code
     // count as given
     bool u0_given = true;
