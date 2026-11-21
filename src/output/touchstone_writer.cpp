@@ -8,6 +8,8 @@
 #include <fstream>
 #include <cmath>
 #include <algorithm>
+#include <utility>
+#include <vector>
 
 namespace kirimaspice::output {
 
@@ -42,17 +44,16 @@ bool TouchstoneWriter::write(const std::string& filename,
     std::string header = format_header(result, format);
     ofs << header;
 
-    // Write comment line with column descriptions
+    // Write comment line with column descriptions, in the order of the data
     ofs << "! " << num_ports << "-port S-parameters\n";
     ofs << "! Freq";
-    for (std::uint32_t i = 1; i <= num_ports; ++i) {
-        for (std::uint32_t j = 1; j <= num_ports; ++j) {
-            std::string format_str = get_format_string(format);
+    for (const auto& data_line : data_layout(num_ports)) {
+        for (const auto& [i, j] : data_line) {
             if (format == Format::MA || format == Format::DB) {
-                ofs << fmt::format(" S{}{}_{} S{}{}_ang", i, j,
-                                  (format == Format::MA) ? "mag" : "dB", i, j);
+                ofs << fmt::format(" S{}{}_{} S{}{}_ang", i + 1, j + 1,
+                                  (format == Format::MA) ? "mag" : "dB", i + 1, j + 1);
             } else {
-                ofs << fmt::format(" S{}{}_re S{}{}_im", i, j, i, j);
+                ofs << fmt::format(" S{}{}_re S{}{}_im", i + 1, j + 1, i + 1, j + 1);
             }
         }
     }
@@ -99,49 +100,52 @@ std::string TouchstoneWriter::format_header(const SParameterResult& result, Form
     return fmt::format("# Hz S {} R {}\n", format_str, reference_impedance);
 }
 
+std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>>
+TouchstoneWriter::data_layout(std::uint32_t num_ports) {
+    // Touchstone 1.1, section 3 (Data Lines): a 2-port file writes its four
+    // entries on one line as N11 N21 N12 N22, the one case in column order.
+    // Every other size writes the matrix row by row: each row starts a new
+    // line, and a line holds at most four pairs, so a row of 5 or more ports
+    // runs on to further lines. 1 port is the single line N11.
+    std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>> lines;
+    if (num_ports == 2) {
+        lines.push_back({{0, 0}, {1, 0}, {0, 1}, {1, 1}});
+        return lines;
+    }
+    constexpr std::uint32_t max_pairs_per_line = 4;
+    for (std::uint32_t i = 0; i < num_ports; ++i) {
+        for (std::uint32_t j = 0; j < num_ports; ++j) {
+            if (j % max_pairs_per_line == 0) {
+                lines.emplace_back();
+            }
+            lines.back().emplace_back(i, j);
+        }
+    }
+    return lines;
+}
+
 std::string TouchstoneWriter::format_data_lines(const SParameterPoint& point,
                                                 Format format,
                                                 std::uint32_t num_ports) {
-    std::string line = fmt::format("{:15.6e}", point.frequency);
-
-    // Touchstone format:
-    // - 2-port: all S-parameters on one line (freq S11 S21 S12 S22)
-    // - 3-port and above: freq on first line, then S-parameters (with line breaks)
-    //   For 3-port: freq\n S11 S21 S31\n S12 S22 S32\n S13 S23 S33
-    //   For 4-port: freq\n S11 S21 S31 S41\n S12 S22 S32 S42\n S13 S23 S33 S43\n S14 S24 S34 S44
-
-    if (num_ports == 2) {
-        // 2-port: all on one line
-        // Order: S11, S21, S12, S22
-        std::vector<std::pair<std::uint32_t, std::uint32_t>> order = {
-            {0, 0}, {1, 0}, {0, 1}, {1, 1}  // S11, S21, S12, S22
-        };
-
-        for (const auto& [i, j] : order) {
+    // The frequency starts the first line of the set (Touchstone 1.1,
+    // section 3); the entries follow in the order of data_layout
+    std::string text = fmt::format("{:15.6e}", point.frequency);
+    bool first_line = true;
+    for (const auto& data_line : data_layout(num_ports)) {
+        if (!first_line) {
+            text += std::string(15, ' ');
+        }
+        first_line = false;
+        for (const auto& [i, j] : data_line) {
             Complex s_param = point.S_matrix[i][j];
             auto [val1, val2] = (format == Format::MA) ? to_ma_format(s_param) :
                                (format == Format::DB) ? to_db_format(s_param) :
                                                        to_ri_format(s_param);
-            line += fmt::format(" {:15.6e} {:15.6e}", val1, val2);
+            text += fmt::format(" {:15.6e} {:15.6e}", val1, val2);
         }
-        line += "\n";
-    } else {
-        // 3-port and above: multi-line format
-        line += "\n";
-
-        for (std::uint32_t j = 0; j < num_ports; ++j) {
-            for (std::uint32_t i = 0; i < num_ports; ++i) {
-                Complex s_param = point.S_matrix[i][j];
-                auto [val1, val2] = (format == Format::MA) ? to_ma_format(s_param) :
-                                   (format == Format::DB) ? to_db_format(s_param) :
-                                                           to_ri_format(s_param);
-                line += fmt::format(" {:15.6e} {:15.6e}", val1, val2);
-            }
-            line += "\n";
-        }
+        text += "\n";
     }
-
-    return line;
+    return text;
 }
 
 std::pair<Real, Real> TouchstoneWriter::to_ma_format(const Complex& s_param) {

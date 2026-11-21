@@ -1146,6 +1146,10 @@ add_executable(test_sparam unit/test_sparam.cpp)
 target_link_libraries(test_sparam PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_sparam PROPERTIES TIMEOUT 1200)
 
+add_executable(test_touchstone_layout unit/test_touchstone_layout.cpp)
+target_link_libraries(test_touchstone_layout PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_touchstone_layout PROPERTIES TIMEOUT 1200)
+
 #==============================================================================
 # Worst-Case Analysis Tests
 #==============================================================================

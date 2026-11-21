@@ -6,6 +6,8 @@
 
 #include "kirimaspice/core/types.hpp"
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace kirimaspice::output {
 
@@ -38,6 +40,14 @@ private:
     /// @param format Output format
     /// @return Header string
     static std::string format_header(const SParameterResult& result, Format format);
+
+    /// The matrix entries (row, column, from 0) of each data line of one
+    /// frequency, in the order the format sets: N11 N21 N12 N22 for 2 ports,
+    /// otherwise row by row, each row on new lines of at most four pairs
+    /// @param num_ports Number of ports
+    /// @return One list of entries per data line
+    static std::vector<std::vector<std::pair<std::uint32_t, std::uint32_t>>>
+    data_layout(std::uint32_t num_ports);
 
     /// Format a single frequency point as data line(s)
     /// @param point Frequency point with S-matrix
