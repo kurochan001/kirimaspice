@@ -181,7 +181,10 @@ TEST(FourierAnalyzer, PureSineWave) {
 
     // Fundamental (1st harmonic) should have magnitude 1.0
     EXPECT_NEAR(result.harmonics[0].magnitude, 1.0, 0.01);
-    EXPECT_NEAR(result.harmonics[0].phase_degrees, -90.0, 5.0);  // Relaxed tolerance
+    // The phase of a sine is measured from a sine, as ngspice-47 prints it
+    // (FourierAnalyzer.PhaseIsMeasuredFromASine); the last period starts
+    // 0.99 periods after a zero of the sine here, so it is -3.6 degrees
+    EXPECT_NEAR(result.harmonics[0].phase_degrees, 0.0, 5.0);  // Relaxed tolerance
 
     // Higher harmonics should be nearly zero
     for (size_t i = 1; i < result.harmonics.size(); ++i) {
