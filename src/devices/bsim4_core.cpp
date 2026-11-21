@@ -78,6 +78,20 @@ inline T guard_positive(T value, T fallback) {
 
 }  // namespace
 
+BSIM4ShortChannelFactor bsim4_short_channel_factor(Real x) {
+    // EXP_THRESHOLD, MAX_EXP and MIN_EXP of the BSIM4 4.8.3 code
+    constexpr Real kExpThreshold = 34.0;
+    constexpr Real kMaxExp = 5.834617425e14;
+    constexpr Real kMinExp = 1.713908431e-15;
+    if (x >= kExpThreshold) {
+        return {1.0 / (kMaxExp - 2.0), 0.0};
+    }
+    const Real t1 = std::exp(x);
+    const Real t2 = t1 - 1.0;
+    const Real t4 = t2 * t2 + 2.0 * t1 * kMinExp;
+    return {t1 / t4, t1 * (t4 - 2.0 * t1 * (t2 + kMinExp)) / (t4 * t4)};
+}
+
 BSIM4Core::BSIM4Core(const BSIM4Params& params, bool p_channel)
     : params_(params), polarity_(p_channel ? -1.0 : 1.0) {
     // Align parameter polarity with device type for vtfbphi2/vfb calculations
@@ -447,45 +461,12 @@ BSIM4ThresholdState BSIM4Core::compute_threshold(const BSIM4BiasState& bias,
     // Previously, the MIN_EXP guard caused Theta0 to explode to ~2.9e14 when T2=0
     Real Theta0;
     if (lt1 > 0.0 && std::abs(params_.dvt1) > 1e-10) {  // Only compute if dvt1 is non-zero
+        // Theta0 is the short-channel factor of DVT1 Leff / lt1; from here
+        // on dlt1_dVb holds dTheta0/dVb, through dT0/dlt1 = -T0 / lt1
         const Real T0 = params_.dvt1 * leff / lt1;
-        if (T0 < 60.0) {  // EXP_THRESHOLD
-            const Real T1 = std::exp(T0);
-            const Real T2 = T1 - 1.0;
-            const Real T3_theta = T2 * T2;
-            const Real MIN_EXP = 1.713908431e-15;
-            const Real T4 = T3_theta + 2.0 * T1 * MIN_EXP;
-            Theta0 = T1 / std::max(T4, 1e-40);
-
-            // DEBUG: Theta0 calculation breakdown
-            thread_local static int theta_debug_count = 0;
-            if (theta_debug_count < 20) {
-                spdlog::debug("Theta0 calculation [debug {}]:", theta_debug_count);
-                spdlog::debug("  T0 = dvt1 * leff / lt1 = {:.6e} * {:.6e} / {:.6e} = {:.6e}",
-                             params_.dvt1, leff, lt1, T0);
-                spdlog::debug("  T1 = exp(T0) = {:.6e}", T1);
-                spdlog::debug("  T2 = T1 - 1.0 = {:.6e}", T2);
-                spdlog::debug("  T3 = T2^2 = {:.6e}", T3_theta);
-                spdlog::debug("  MIN_EXP term = 2.0 * T1 * MIN_EXP = 2.0 * {:.6e} * {:.6e} = {:.6e}",
-                             T1, MIN_EXP, 2.0 * T1 * MIN_EXP);
-                spdlog::debug("  T4 = T3 + MIN_EXP_term = {:.6e} + {:.6e} = {:.6e}",
-                             T3_theta, 2.0 * T1 * MIN_EXP, T4);
-                spdlog::debug("  Theta0 = T1 / T4 = {:.6e} / {:.6e} = {:.6e}", T1, T4, Theta0);
-                theta_debug_count++;
-            }
-            // Update derivative: dTheta0_dVb using quotient rule
-            // Theta0 = T1 / T4, where T1 = exp(T0), T0 = dvt1*leff/lt1
-            // dTheta0_dVb = dT1_dVb * (T4 - 2*T1*(T2+MIN_EXP)) / T4^2  (ngspice formula)
-            // dT1_dVb = T1 * dT0_dVb = T1 * (-dvt1*leff/lt1^2) * dlt1_dVb
-            // So: dTheta0_dVb = T1 * (-dvt1*leff/lt1^2) * (T4 - 2*T1*(T2+MIN_EXP)) / T4^2 * dlt1_dVb
-            const Real dT0_dlt1 = -params_.dvt1 * leff / (lt1 * lt1);
-            const Real dT1_dlt1 = T1 * dT0_dlt1;
-            const Real T4_factor = T4 - 2.0 * T1 * (T2 + MIN_EXP);
-            const Real dTheta0_dlt1 = dT1_dlt1 * T4_factor / (T4 * T4);
-            dlt1_dVb = dTheta0_dlt1 * dlt1_dVb;
-        } else {
-            Theta0 = std::exp(60.0);
-            dlt1_dVb = 0.0;  // Saturated region
-        }
+        const BSIM4ShortChannelFactor theta = bsim4_short_channel_factor(T0);
+        Theta0 = theta.value;
+        dlt1_dVb = theta.derivative * (-T0 / lt1) * dlt1_dVb;
     } else {
         // When dvt1=0 (SCE disabled) or lt1<=0, set Theta0=0 (no SCE contribution)
         Theta0 = 0.0;

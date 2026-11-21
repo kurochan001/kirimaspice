@@ -301,3 +301,52 @@ TEST(BSIM4Conductances, AreTheDerivativesOfTheStampedCurrent) {
         EXPECT_NEAR(row.gmb, gmb, 1e-3 * std::abs(gmb)) << c.what;
     }
 }
+
+// Long channels: Theta0, the short-channel factor of Vth, takes BSIM4's
+// constant 1 / (MAX_EXP - 2), about zero, once DVT1 Leff / lt1 reaches 34
+// (BSIM4 4.8.3 b4ld.c), so that Vth tends to its long-channel value. DSUB and
+// DROUT are small here so that their factors stay below that limit.
+// ngspice-47, run 2026-11-21: `id gm gds gmbs` of m1 for
+//
+//   .model nch nmos level=14 version=4.8.1 toxe=3e-9 vth0=0.5 u0=0.067 vsat=8e4
+//   +   dsub=0.05 drout=0.05
+//   .model pch pmos level=14 version=4.8.1 toxe=3e-9 vth0=-0.5 u0=0.025 vsat=8e4
+//   +   dsub=0.05 drout=0.05
+//   M1 d g 0 b nch W=10u L=<L>
+TEST(BSIM4AgainstNgspice, LongChannelThreshold) {
+    const std::string nmos =
+        ".model nch nmos level=14 version=4.8.1 toxe=3e-9 vth0=0.5 u0=0.067 vsat=8e4 "
+        "dsub=0.05 drout=0.05\n";
+    const std::string pmos =
+        ".model pch pmos level=14 version=4.8.1 toxe=3e-9 vth0=-0.5 u0=0.025 vsat=8e4 "
+        "dsub=0.05 drout=0.05\n";
+    struct Point {
+        const char* instance;
+        const std::string& card;
+        Real vgs, vds, vbs;
+        Real id, gm, gds, gmbs;
+    };
+    const Point points[] = {
+        {"M1 d g s b nch L=3.1u W=10u", nmos, 1.8, 1.8, 0.0,
+         9.034393e-04, 1.137719e-03, 2.762677e-05, 1.060951e-04},
+        {"M1 d g s b nch L=3.1u W=10u", nmos, 1.8, 1.8, -1.0,
+         8.178243e-04, 1.129566e-03, 2.661236e-05, 6.582295e-05},
+        {"M1 d g s b nch L=3.1u W=10u", nmos, 0.6, 0.1, 0.0,
+         5.300985e-06, 9.942084e-05, 1.480805e-05, 1.369951e-05},
+        {"M1 d g s b nch L=10u W=10u", nmos, 1.8, 1.8, 0.0,
+         2.944434e-04, 3.808298e-04, 5.489122e-06, 3.366409e-05},
+        // ngspice gives the magnitudes; the PMOS current flows from source
+        // to drain
+        {"M1 d g s b pch L=10u W=10u", pmos, -1.8, -1.8, 0.0,
+         1.115056e-04, 1.453695e-04, 1.916612e-06, 1.275424e-05},
+    };
+    for (const auto& p : points) {
+        const DrainRow row = drain_row_of_m1(p.instance, p.card, p.vds, p.vgs, 0.0, p.vbs);
+        const std::string at = std::string(p.instance) + " VGS=" + std::to_string(p.vgs) +
+                               " VDS=" + std::to_string(p.vds) + " VBS=" + std::to_string(p.vbs);
+        EXPECT_NEAR(std::abs(row.ids), p.id, 2e-4 * p.id) << at;
+        EXPECT_NEAR(std::abs(row.gm), p.gm, 1e-3 * p.gm) << at;
+        EXPECT_NEAR(std::abs(row.gds), p.gds, 1e-3 * p.gds) << at;
+        EXPECT_NEAR(std::abs(row.gmb), p.gmbs, 1e-3 * p.gmbs) << at;
+    }
+}

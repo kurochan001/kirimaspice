@@ -90,6 +90,17 @@ struct BSIM4ThresholdState {
     Real pvag_term = 1.0;  ///< PVAG model term [dimensionless]
 };
 
+/// BSIM4's short-channel factor of a length ratio x, about 1 / (2 (cosh x - 1)),
+/// and its derivative with respect to x. The BSIM4 4.8.3 code computes it as
+/// e^x / ((e^x - 1)^2 + 2 e^x MIN_EXP), and from x = EXP_THRESHOLD = 34 on
+/// takes the constant 1 / (MAX_EXP - 2) with zero derivative, where the factor
+/// is about e^-x. Theta0 of Vth takes it of DVT1 Leff / lt1.
+struct BSIM4ShortChannelFactor {
+    Real value = 0.0;
+    Real derivative = 0.0;  ///< d value / d x
+};
+BSIM4ShortChannelFactor bsim4_short_channel_factor(Real x);
+
 /// Lightweight evaluator for BSIM4 DC operating points.
 /// This is an intermediate step toward the full BSIM4.8.3 implementation.
 ///
