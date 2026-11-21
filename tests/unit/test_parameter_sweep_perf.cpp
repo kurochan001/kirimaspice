@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include <gtest/gtest.h>
+#include "gtest_output.hpp"
 #include "kirimaspice/solvers/parameter_sweep.hpp"
 #include <fstream>
 #include <cstdio>
@@ -18,7 +19,7 @@ R1 in 0 1k
 .op
 .end
 )";
-    const std::string path = "tmp_param_perf.cir";
+    const std::string path = kirimaspice::test::test_output_path("tmp_param_perf.cir").string();
     {
         std::ofstream f(path);
         f << net;

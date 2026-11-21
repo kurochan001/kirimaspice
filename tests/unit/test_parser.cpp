@@ -3,6 +3,7 @@
 
 // tests/unit/test_parser.cpp
 #include <gtest/gtest.h>
+#include "gtest_output.hpp"
 #include "kirimaspice/parser/netlist_parser.hpp"
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/circuit/subcircuit.hpp"
@@ -598,7 +599,7 @@ R1 in out 1k
 
 // Helper function to create a temporary file with content
 std::filesystem::path create_temp_file(const std::string& filename, const std::string& content) {
-    std::filesystem::path temp_dir = std::filesystem::temp_directory_path() / "kirimaspice_test";
+    std::filesystem::path temp_dir = kirimaspice::test::test_output_path("x").parent_path();
     std::filesystem::create_directories(temp_dir);
 
     std::filesystem::path filepath = temp_dir / filename;
@@ -765,7 +766,7 @@ X1 in out TRUNK
 
 // Test 3: Relative path (1 test)
 TEST(NetlistParser, IncludeRelativePath) {
-    std::filesystem::path temp_dir = std::filesystem::temp_directory_path() / "kirimaspice_test";
+    std::filesystem::path temp_dir = kirimaspice::test::test_output_path("x").parent_path();
     std::filesystem::path models_dir = temp_dir / "models";
     std::filesystem::create_directories(models_dir);
 
@@ -807,7 +808,7 @@ C1 out 0 1n
 
 // Test 4: Absolute path (1 test)
 TEST(NetlistParser, IncludeAbsolutePath) {
-    std::filesystem::path temp_dir = std::filesystem::temp_directory_path() / "kirimaspice_test";
+    std::filesystem::path temp_dir = kirimaspice::test::test_output_path("x").parent_path();
     std::filesystem::create_directories(temp_dir);
 
     // Create library with absolute path
@@ -865,7 +866,7 @@ V1 in 0 DC 1
 
 // Test 6: Error - Circular include (1 test)
 TEST(NetlistParser, IncludeCircular) {
-    std::filesystem::path temp_dir = std::filesystem::temp_directory_path() / "kirimaspice_test";
+    std::filesystem::path temp_dir = kirimaspice::test::test_output_path("x").parent_path();
     std::filesystem::create_directories(temp_dir);
 
     auto file_a = temp_dir / "circular_a.lib";
@@ -911,7 +912,7 @@ TEST(NetlistParser, IncludeCircular) {
 
 // Test 7: Error - Depth limit exceeded (1 test)
 TEST(NetlistParser, IncludeDepthLimit) {
-    std::filesystem::path temp_dir = std::filesystem::temp_directory_path() / "kirimaspice_test";
+    std::filesystem::path temp_dir = kirimaspice::test::test_output_path("x").parent_path();
     std::filesystem::create_directories(temp_dir);
 
     // Create 12 levels of includes (exceeds limit of 10)
@@ -2735,7 +2736,7 @@ TEST(LibSectionSelection, BasicSectionSelection) {
     namespace fs = std::filesystem;
 
     // Create temporary library file with multiple sections
-    fs::path temp_dir = fs::temp_directory_path();
+    fs::path temp_dir = kirimaspice::test::test_output_path("x").parent_path();
     fs::path lib_file = temp_dir / "test_lib.lib";
 
     {
@@ -2787,7 +2788,7 @@ TEST(LibSectionSelection, WithoutSectionIncludesEntireFile) {
     namespace fs = std::filesystem;
 
     // Create temporary library file
-    fs::path temp_dir = fs::temp_directory_path();
+    fs::path temp_dir = kirimaspice::test::test_output_path("x").parent_path();
     fs::path lib_file = temp_dir / "test_lib2.lib";
 
     {
@@ -2821,7 +2822,7 @@ TEST(LibSectionSelection, SectionNotFoundThrows) {
     namespace fs = std::filesystem;
 
     // Create temporary library file
-    fs::path temp_dir = fs::temp_directory_path();
+    fs::path temp_dir = kirimaspice::test::test_output_path("x").parent_path();
     fs::path lib_file = temp_dir / "test_lib3.lib";
 
     {
@@ -2848,7 +2849,7 @@ Test Circuit
 TEST(LibSectionSelection, NestedLibraryFiles) {
     namespace fs = std::filesystem;
 
-    fs::path temp_dir = fs::temp_directory_path();
+    fs::path temp_dir = kirimaspice::test::test_output_path("x").parent_path();
     fs::path lib1 = temp_dir / "lib1.lib";
     fs::path lib2 = temp_dir / "lib2.lib";
 
@@ -2894,7 +2895,7 @@ V1 in 0 DC 5
 TEST(LibSectionSelection, CaseInsensitiveSectionName) {
     namespace fs = std::filesystem;
 
-    fs::path temp_dir = fs::temp_directory_path();
+    fs::path temp_dir = kirimaspice::test::test_output_path("x").parent_path();
     fs::path lib_file = temp_dir / "test_lib4.lib";
 
     {

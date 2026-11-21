@@ -56,17 +56,12 @@
   `test_initial_timestep_control` のテストは、`UIC` なしで DC 電源の動作点から始まるので、回路は静止した
   ままで、LTE のコードが何をしても確認は成り立ちます（`63ce9a6` でテストを読みました）。
 - **失敗しえないテストや、確かめることの少ないテストがあります**（`63ce9a6` で読みました）。VDMOS の
-  `LinearRegion` と `SaturationRegion` は電源が固定するノードを読み、MESFET のテストはどれもドレイン電流の
-  値を確かめず、伝送線路のテストの「ngspice validation」の参照は DC の値です。`bsim4_dc_smoke` は Id が有限で
+  `LinearRegion` と `SaturationRegion` は電源が固定するノードを読み、MESFET のドレイン電流の値を確かめるのは
+  `LEVEL=2` のもの（`MesfetStatz`）だけで、伝送線路のテストの「ngspice validation」の参照は DC の値です。`bsim4_dc_smoke` は Id が有限で
   あることだけを確かめ、`BSIM4NgspiceCompareTest.IdsVsNgspice_T27C` は誤差 100 % まで合格し（コメントは
   30 % と書いています）、DVT0、DVT1、ETA0、K3 を BSIM4 の既定値でない 0 にしています。BJT の検証の
   プログラムのいくつかは名前と違う領域を確かめるか、5〜21 % を許します。レベル 3 の「Meyer」容量の
   テストは、どのスタンプも使わない補助関数から、線形領域で Cgs = Cgd = 2/3 Cox W L を期待します。
-- **ソースツリーや、一時ディレクトリの決まった名前に書き込むテストがあります。**
-  `ParameterSweepPerf.NoStepFallsBackSingleRun`（ソースツリーの `tmp_param_perf.cir`）、`NetlistParser` の
-  include のテスト（`$TMPDIR/kirimaspice_test/`）、`test_rc_ac_validation`
-  （`kirimaspice_ac_reference_test.csv`）で、同時に動かした 2 つのテストの実行がこれらのファイルを共有します
-  （`63ce9a6` で読みました）。
 
 ## ネットリストの入力
 

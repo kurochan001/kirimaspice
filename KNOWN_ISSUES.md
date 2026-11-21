@@ -75,8 +75,8 @@ table. They are not an additional set of tests.
   at `63ce9a6`).
 - **Some tests cannot fail, or check little** (read at `63ce9a6`). The
   VDMOS tests `LinearRegion` and `SaturationRegion` read a node that a
-  source fixes; no MESFET test checks the value of a drain current; the
-  "ngspice validation" references of the transmission-line tests are DC values;
+  source fixes; of the MESFET's drain currents only `LEVEL=2`'s is checked
+  against a value (`MesfetStatz`); the "ngspice validation" references of the transmission-line tests are DC values;
   `bsim4_dc_smoke` checks only that Id is finite;
   `BSIM4NgspiceCompareTest.IdsVsNgspice_T27C` passes with errors up to
   100 % (its comment says 30 %) and sets DVT0, DVT1, ETA0 and K3 to 0,
@@ -84,12 +84,6 @@ table. They are not an additional set of tests.
   another region than they name, or allow 5 to 21 %; the level-3 "Meyer"
   capacitance tests expect Cgs = Cgd = 2/3 Cox W L in the linear region
   from helpers that no stamp uses.
-- **Some tests write into the source tree or into fixed names in the
-  temporary directory:** `ParameterSweepPerf.NoStepFallsBackSingleRun`
-  (`tmp_param_perf.cir` in the source tree), the `NetlistParser` include
-  tests (`$TMPDIR/kirimaspice_test/`) and `test_rc_ac_validation`
-  (`kirimaspice_ac_reference_test.csv`), so two test runs at the same
-  time share these files (read at `63ce9a6`).
 
 ## Netlist input
 

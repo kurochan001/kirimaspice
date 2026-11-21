@@ -5,6 +5,7 @@
 // RC filter AC analysis validation against ngspice (Google Test version)
 
 #include <gtest/gtest.h>
+#include "gtest_output.hpp"
 #include "../validation/ngspice_ac_utils.hpp"
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/solvers/ac_solver.hpp"
@@ -193,7 +194,7 @@ TEST_F(RCFilterACValidation, AttenuationRateCorrect) {
 namespace {
 
 fs::path write_reference(const std::string& name, const std::string& text) {
-    const fs::path path = fs::temp_directory_path() / name;
+    const fs::path path = kirimaspice::test::test_output_path(name);
     std::ofstream(path) << text;
     return path;
 }
