@@ -12,6 +12,25 @@
 
 namespace kirimaspice::devices {
 
+namespace {
+
+constexpr Real kReferenceTemperature = 300.15;  // [K], of SPICE's temperature laws
+
+// SPICE's band gap of silicon [eV] at temp [K]
+Real band_gap(Real temp) {
+    return 1.16 - 7.02e-4 * temp * temp / (temp + 1108.0);
+}
+
+// SPICE's -3 Vt ln(T/Tref) + Eg(T) - Eg(Tref) T/Tref [V], the temperature
+// dependence of a potential (PHI) on the band gap
+Real band_gap_potential(Real temp) {
+    const Real fact = temp / kReferenceTemperature;
+    return -3.0 * core::compute_thermal_voltage(temp) * std::log(fact) + band_gap(temp) -
+           band_gap(kReferenceTemperature) * fact;
+}
+
+}  // namespace
+
 template<Polarity P>
 MOSFET_Level1<P>::MOSFET_Level1(DeviceId id, const std::string& name,
                                   NodeId drain, NodeId gate, NodeId source,
@@ -55,6 +74,7 @@ MOSFET_Level1<P>::MOSFET_Level1(DeviceId id, const std::string& name,
     if (cgso < 0.0 || cgdo < 0.0 || cgbo < 0.0) {
         throw std::runtime_error("MOSFET overlap capacitance must be non-negative: " + name);
     }
+    set_temperature(tnom);  // the values at TNOM, which set_temperature derives
 
     spdlog::debug("Created MOSFET_{} {} (D={}, G={}, S={}, Kp={:.6e}A/V², W={:.6e}m, L={:.6e}m, Vth={:.3f}V, β={:.6e}A/V²)",
                   Traits::type_string, name, drain, gate, source, kp_, w_, l_, vth_, beta_);
@@ -74,23 +94,35 @@ void MOSFET_Level1<P>::set_temperature(Real temp_kelvin) {
     }
     temperature_ = temp_kelvin;
 
-    // Temperature difference
-    Real temp_diff = temp_kelvin - tnom_;
+    // SPICE's level 1, with r = T/TNOM, the band gap
+    // Eg(T) = 1.16 - 7.02e-4 T^2 / (T + 1108) and, with the reference
+    // temperature 300.15 K, p(T) = -3 Vt(T) ln(T/300.15) + Eg(T) - Eg(300.15) T/300.15:
+    //   KP(T)  = KP r^UTE (UTE = -1.5, SPICE's exponent)
+    //   PHI(T) = r PHI + p(T) - r p(TNOM)
+    //   Vbi(T) = VTO - GAMMA sqrt(PHI) + (PHI(T) - PHI)/2 +- (Eg(TNOM) - Eg(T))/2
+    //   VTO(T) = Vbi(T) + GAMMA sqrt(PHI(T))
+    // in the device's own terms (+ for N, - for P), the threshold at VBS
+    // being Vbi(T) + GAMMA sqrt(PHI(T) - VBS) (threshold()). KT1 and KT2,
+    // which only the C++ constructor gives (0 from a netlist), add
+    // KT1 dT + KT2 dT^2 to the signed VTO. At T = TNOM each change is 0.
+    constexpr Real type = (P == Polarity::N) ? 1.0 : -1.0;
+    const Real ratio = temp_kelvin / tnom_;
+    const Real dt = temp_kelvin - tnom_;
+    const Real dphi = (ratio - 1.0) * phi_tnom_ + band_gap_potential(temp_kelvin) -
+                      ratio * band_gap_potential(tnom_);
+    const Real half_deg = 0.5 * (band_gap(tnom_) - band_gap(temp_kelvin));
+    const Real dvto_kt = kt1_ * dt + kt2_ * dt * dt;
+    phi_ = phi_tnom_ + dphi;
+    vbi_eff_ = type * (vth_tnom_ + half_deg + dvto_kt) - gamma_body_ * std::sqrt(phi_tnom_) +
+               0.5 * dphi;
+    vth_ = vth_tnom_ + half_deg + dvto_kt +
+           type * (gamma_body_ * (std::sqrt(phi_) - std::sqrt(phi_tnom_)) + 0.5 * dphi);
 
-    // Update threshold voltage VTO(T)
-    // SPICE equation: VTO(T) = VTO(Tnom) + KT1 * (T - Tnom) + KT2 * (T - Tnom)²
-    vth_ = vth_tnom_ + kt1_ * temp_diff + kt2_ * temp_diff * temp_diff;
-
-    // Update mobility (process transconductance) KP(T)
-    // SPICE equation: KP(T) = KP(Tnom) * (T/Tnom)^UTE
-    Real temp_ratio = temp_kelvin / tnom_;
-    kp_ = kp_tnom_ * std::pow(temp_ratio, ute_);
-
-    // Recompute beta
+    kp_ = kp_tnom_ * std::pow(ratio, ute_);
     beta_ = kp_ * w_ / l_;
 
-    spdlog::debug("{} set temperature to {:.2f}K (VTO={:.4f}V, KP={:.6e}A/V²)",
-                  name_, temp_kelvin, vth_, kp_);
+    spdlog::debug("{} set temperature to {:.2f}K (VTO={:.4f}V, PHI={:.4f}V, KP={:.6e}A/V²)",
+                  name_, temp_kelvin, vth_, phi_, kp_);
 }
 
 template<Polarity P>
@@ -100,27 +132,30 @@ void MOSFET_Level1<P>::set_body(NodeId bulk, Real gamma, Real phi, Real lambda) 
     }
     bulk_ = bulk;
     gamma_body_ = gamma;
-    phi_ = phi;
+    phi_tnom_ = phi;
     lambda_ = lambda;
     nodes_.resize(3);
     if (bulk != nodes_[2]) {
         nodes_.push_back(bulk);
     }
+    set_temperature(temperature_);  // PHI(T) and VTO(T) with the new body
 }
 
 template<Polarity P>
 typename MOSFET_Level1<P>::Threshold MOSFET_Level1<P>::threshold(Real v_bs_eff) const {
-    // VTO + GAMMA (sqrt(PHI - VBS) - sqrt(PHI)); with the body forward
-    // biased, the tangent of the square root at VBS = 0, not below 0, as
-    // ngspice-47 gives (VTO 0.7 V, GAMMA 0.5, PHI 0.6 V: 4.182331e-4 A at
-    // VBS = 0.3 V for the device of tests/unit/test_mosfet_level1_spice.cpp)
-    const Real sqrt_phi = std::sqrt(phi_);
+    // Vbi + GAMMA sqrt(PHI - VBS), which is VTO + GAMMA (sqrt(PHI - VBS) -
+    // sqrt(PHI)), at the present temperature (set_temperature); with the
+    // body forward biased, the tangent of the square root at VBS = 0, not
+    // below 0, as ngspice-47 gives (VTO 0.7 V, GAMMA 0.5, PHI 0.6 V:
+    // 4.182331e-4 A at VBS = 0.3 V for the device of
+    // tests/unit/test_mosfet_level1_spice.cpp)
     Real sarg = 0.0;
     Real dsarg = 0.0;
     if (v_bs_eff <= 0.0) {
         sarg = std::sqrt(phi_ - v_bs_eff);
         dsarg = -0.5 / sarg;
     } else {
+        const Real sqrt_phi = std::sqrt(phi_);
         sarg = sqrt_phi - v_bs_eff / (2.0 * sqrt_phi);
         dsarg = -0.5 / sqrt_phi;
         if (sarg < 0.0) {
@@ -128,7 +163,7 @@ typename MOSFET_Level1<P>::Threshold MOSFET_Level1<P>::threshold(Real v_bs_eff) 
             dsarg = 0.0;
         }
     }
-    return {get_effective_threshold() + gamma_body_ * (sarg - sqrt_phi), gamma_body_ * dsarg};
+    return {vbi_eff_ + gamma_body_ * sarg, gamma_body_ * dsarg};
 }
 
 template<Polarity P>

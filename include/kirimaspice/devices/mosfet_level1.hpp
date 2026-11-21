@@ -31,7 +31,9 @@ namespace kirimaspice::devices {
 /// with the threshold of the body effect,
 ///    Vth_eff = VTO_eff + GAMMA × (sqrt(PHI - Vbs_eff) - sqrt(PHI)),
 /// and for Vbs_eff > 0, sqrt(PHI) - Vbs_eff / (2 sqrt(PHI)), not below 0,
-/// in place of sqrt(PHI - Vbs_eff) (threshold()).
+/// in place of sqrt(PHI - Vbs_eff) (threshold()). KP, PHI and VTO are
+/// those at the device's temperature, by SPICE's level-1 laws
+/// (set_temperature).
 ///
 /// For N-channel: Vgs_eff = Vg - Vs, Vds_eff = Vd - Vs, Vbs_eff = Vb - Vs, Vth_eff = Vth
 /// For P-channel: Vgs_eff = Vs - Vg, Vds_eff = Vs - Vd, Vbs_eff = Vs - Vb, Vth_eff = -Vth
@@ -113,7 +115,9 @@ public:
     /// device takes it at its present temperature
     void set_threshold_voltage(Real vth);
 
-    /// Set temperature and update temperature-dependent parameters
+    /// Set the temperature: KP(T) = KP (T/TNOM)^UTE, and PHI(T) and VTO(T)
+    /// through the band gap, as SPICE's level 1 (the equations in the
+    /// implementation)
     void set_temperature(Real temp_kelvin);
 
     /// Get operating point currents and conductances (for debugging/validation)
@@ -219,7 +223,9 @@ private:
     mutable Real vgs_last_eval_ = 0.0;   // VGS_eff of the last Newton evaluation
     mutable Real vds_last_eval_ = 0.0;   // VDS_eff of the last Newton evaluation
     mutable bool limited_in_last_stamp_ = false;
-    Real phi_ = 0.6;             // PHI [V]
+    Real phi_tnom_ = 0.6;        // PHI [V] of the card, at TNOM
+    Real phi_ = 0.6;             // PHI [V] at the present temperature
+    Real vbi_eff_ = 0.0;         // VTO_eff - GAMMA sqrt(PHI) at the present temperature
     Real lambda_ = 0.0;          // LAMBDA [1/V]
     Real kp_;    // Process transconductance parameter [A/V²]
     Real w_;     // Channel width [m]
