@@ -79,7 +79,9 @@ public:
     bool voltage_limiting_enabled() const { return enable_voltage_limiting_; }
     bool limited_in_last_stamp() const override { return limited_in_last_stamp_; }
 
-    /// Scale IS, ISE, ISC (XTI, EG) and BF, BR (XTB) to temp_kelvin
+    /// Scale IS (XTI, EG), BF and BR (XTB), and ISE and ISC (XTI, EG, NE or
+    /// NC, XTB) to temp_kelvin by SPICE's Gummel-Poon laws; the junction
+    /// potentials and capacitances are not scaled
     void set_temperature(Real temp_kelvin);
 
     // Parameters

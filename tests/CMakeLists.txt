@@ -1367,6 +1367,11 @@ add_executable(test_circuit_temperature unit/test_circuit_temperature.cpp)
 target_link_libraries(test_circuit_temperature PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_circuit_temperature)
 
+# The Gummel-Poon temperature laws against ngspice-47 and by hand
+add_executable(test_bjt_temperature unit/test_bjt_temperature.cpp)
+target_link_libraries(test_bjt_temperature PRIVATE kirimaspice_lib GTest::gtest_main)
+gtest_discover_tests(test_bjt_temperature)
+
 # The level 3 MOSFET against its published equations and ngspice-47
 add_executable(test_mosfet_level3_reference unit/test_mosfet_level3_reference.cpp)
 target_link_libraries(test_mosfet_level3_reference PRIVATE kirimaspice_lib GTest::gtest_main)

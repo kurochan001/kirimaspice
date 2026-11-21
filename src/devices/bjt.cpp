@@ -105,12 +105,22 @@ void BJT<Pol>::set_temperature(Real temp_kelvin) {
     }
     temp_ = temp_kelvin;
     vt_ = core::compute_thermal_voltage(temp_kelvin);
-    is_ = core::scale_saturation_current(is_tnom_, xti_, eg_, nf_, temp_kelvin, tnom_);
-    isc_ = core::scale_saturation_current(isc_tnom_, xti_, eg_, nr_, temp_kelvin, tnom_);
-    ise_ = core::scale_saturation_current(ise_tnom_, xti_, eg_, ne_, temp_kelvin, tnom_);
-    isc_leak_ = core::scale_saturation_current(isc_leak_tnom_, xti_, eg_, nc_, temp_kelvin, tnom_);
-    beta_f_ = core::scale_mobility_temperature(beta_f_tnom_, xtb_, temp_kelvin, tnom_);
-    beta_r_ = core::scale_mobility_temperature(beta_r_tnom_, xtb_, temp_kelvin, tnom_);
+    // SPICE's Gummel-Poon, with r = T/TNOM and
+    // f = EG/Vt(T) (r - 1) + XTI ln r:
+    //   IS(T) = IS exp(f), the emission coefficients not in it
+    //   BF(T) = BF r^XTB, BR(T) = BR r^XTB
+    //   ISE(T) = ISE exp(f/NE) / r^XTB, ISC(T) = ISC exp(f/NC) / r^XTB
+    // The reverse transport current, IS unless the constructor gave
+    // another, follows IS. At T = TNOM f = 0 and r^XTB = 1 exactly.
+    const Real ratio = temp_kelvin / tnom_;
+    const Real factlog = eg_ / vt_ * (ratio - 1.0) + xti_ * std::log(ratio);
+    const Real bfactor = std::pow(ratio, xtb_);
+    is_ = is_tnom_ * std::exp(factlog);
+    isc_ = isc_tnom_ * std::exp(factlog);
+    ise_ = ise_tnom_ * std::exp(factlog / ne_) / bfactor;
+    isc_leak_ = isc_leak_tnom_ * std::exp(factlog / nc_) / bfactor;
+    beta_f_ = beta_f_tnom_ * bfactor;
+    beta_r_ = beta_r_tnom_ * bfactor;
 }
 
 // SPICE's Gummel-Poon model:
