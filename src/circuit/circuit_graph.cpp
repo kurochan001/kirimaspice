@@ -43,6 +43,7 @@
 #include <exprtk.hpp>
 #include <stdexcept>
 #include <algorithm>
+#include <set>
 
 #include "kirimaspice/util/string_utils.hpp"
 #include "kirimaspice/util/units.hpp"
@@ -2024,10 +2025,16 @@ void CircuitGraph::expand_subcircuit_instance(const std::string& instance_name) 
             definition.name, definition.pins.size(), instance.instance_line));
     }
 
-    // Create pin mapping: internal_pin_name -> external_node_name
+    // Create pin mapping: internal_pin_name -> external_node_name. Node
+    // names are compared without case (fold_node_name), as in add_node, so
+    // a pin or a .GLOBAL node matches the body however either is written
     std::map<std::string, std::string> pin_mapping;
     for (size_t i = 0; i < definition.pins.size(); ++i) {
-        pin_mapping[definition.pins[i]] = instance.connected_nodes[i];
+        pin_mapping[fold_node_name(definition.pins[i])] = instance.connected_nodes[i];
+    }
+    std::set<std::string> global_nodes;
+    for (const auto& global : subcircuits_->get_global_nodes()) {
+        global_nodes.insert(fold_node_name(global));
     }
 
     spdlog::debug("Expanding subcircuit instance '{}' of type '{}'",
@@ -2046,12 +2053,13 @@ void CircuitGraph::expand_subcircuit_instance(const std::string& instance_name) 
 
     // The circuit's node for a node of the body: a pin's external node, a
     // global node, ground, or the node of this instance, X1.n1
-    auto map_node = [&, this](const std::string& node) -> std::string {
-        auto pin_it = pin_mapping.find(node);
+    auto map_node = [&](const std::string& node) -> std::string {
+        const std::string folded = fold_node_name(node);
+        auto pin_it = pin_mapping.find(folded);
         if (pin_it != pin_mapping.end()) {
             return pin_it->second;
         }
-        if (subcircuits_->get_global_nodes().count(node) > 0) {
+        if (global_nodes.count(folded) > 0) {
             return node;
         }
         if (is_ground_name(node)) {
