@@ -261,3 +261,16 @@ TEST(SubcircuitInstances, ParamsKeywordIsOptional) {
     const double parallel = 1.0 / (1.0 / 2e3 + 1.0 / 4e3 + 1.0 / 1e3);
     EXPECT_NEAR(op.voltage("a"), parallel / (parallel + 1e3), 1e-9);
 }
+
+// A .PARAM line in a subcircuit body that cannot be read in full is an
+// error, as on a global .PARAM line and in ngspice-47 ("Missing }", run
+// 2026-11-21); before, `.param x={1k` without its closing brace set
+// nothing, without a message
+TEST(SubcircuitInstances, UnreadableBodyParamIsAnError) {
+    const std::string message = parse_error(
+        "t\nV1 a 0 1\nX1 a 0 s\n.subckt s p q\n.param x={1k\nR1 p q 1k\n.ends\n.end\n");
+    EXPECT_NE(message.find("Cannot read 'x={1k'"), std::string::npos) << message;
+    EXPECT_EQ(parse_error("t\nV1 a 0 1\nX1 a 0 s\n.subckt s p q\n.param x=1k y={2*x}\nR1 p q {y}\n"
+                          ".ends\n.end\n"),
+              "");
+}

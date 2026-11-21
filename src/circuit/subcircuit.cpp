@@ -290,6 +290,18 @@ std::vector<std::string> SubcircuitDefinition::substitute_parameters(
 
     for (const auto& line : internal_netlist_lines) {
         if (is_param_line(line)) {
+            // Every character after .PARAM belongs to an assignment: what
+            // none takes, such as x={1k without its closing brace, is an error,
+            // as on a global .PARAM line, not dropped
+            {
+                std::string rest = line.substr(line.find_first_not_of(" \t") + 6);
+                rest = std::regex_replace(rest, assignment, " ");
+                const auto bad = rest.find_first_not_of(" \t,");
+                if (bad != std::string::npos) {
+                    throw std::runtime_error(fmt::format(
+                        "Cannot read '{}' of a .PARAM line in subcircuit '{}'", rest.substr(bad), name));
+                }
+            }
             for (auto it = std::sregex_iterator(line.begin(), line.end(), assignment);
                  it != std::sregex_iterator(); ++it) {
                 const std::string param_name = (*it)[1].str();

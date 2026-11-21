@@ -111,9 +111,6 @@ document also lists differences not decided there.
   evaluated, the parser warns and keeps every branch.
 - **A second `.PARAM` for the same name is ignored** with the warning
   `Failed to add ... to symbol table`.
-- **In a subcircuit body, `.param x={1k` without its closing brace sets
-  nothing, without a message;** an element that uses `x` is then an
-  error (run on 2026-11-21 at `21bb991`).
 - **The default `W` and `L` of BSIM1 (`LEVEL` 9) are 10 µm and 1 µm.**
   Which default ngspice-47 takes is not confirmed: its BSIM1 (its
   `LEVEL` 4) gives `nan` for a card without parameters (run on
