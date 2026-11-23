@@ -29,6 +29,11 @@ recorded time.
 build/kirimaspice build/rc-algorithm.cir --raw-out build/rc-algorithm.raw
 ```
 
+![RC charging circuit with the source positive terminal at in, the resistor leading to out and the capacitor connected to ground. Positive i_V enters the source.](figures/solver-rc.svg)
+
+The arrows define positive current. During initial charging, the resistor carries current in
+the direction shown and the source branch current `i_V` is negative.
+
 Modified nodal analysis (MNA) sets ground to 0 V and treats the remaining node voltages as
 unknowns. An ideal voltage source sets the voltage across its terminals. The surrounding circuit
 determines its current. MNA therefore adds the branch current `i_V` as an unknown and adds one
@@ -60,6 +65,17 @@ next point. Backward Euler (BE) replaces `i_C = C dv_out/dt` by `i_C ≈ (C/h)(v
 this step the capacitor acts like a conductance `G_C = C/h` in parallel with a current source of
 value `−G_C v_n`. This equivalent circuit is called its **companion model**. At `out`, `C1` adds
 `G_C` to the diagonal and `+G_C v_n` to the right-hand side.
+
+Add the contributions with the same row name to obtain the matrix and right-hand side below.
+A dash marks a position to which that device makes no contribution.
+
+| Device | Equation row | `v_in` column | `v_out` column | `i_V` column | Right-hand side |
+| --- | --- | ---: | ---: | ---: | ---: |
+| `R1` | `in` | `+g` | `−g` | — | — |
+| `R1` | `out` | `−g` | `+g` | — | — |
+| `C1` (BE) | `out` | — | `+G_C` | — | `+G_C v_n` |
+| `V1` | `in` | — | — | `+1` | — |
+| `V1` | `V1` | `+1` | — | — | `+V_s` |
 
 ```math
 \begin{bmatrix}
@@ -104,6 +120,14 @@ unknowns, the **Jacobian matrix** `J` plays the role of the denominator. Its ent
 unknown `j`. In the full MNA system, the derivative of the `out` residual with respect to `v_out` is
 `g + G_C + g_D` and its derivative with respect to `v_in` is `−g`. In the voltage-constraint
 row, `∂(v_in − V_s)/∂v_in = 1`.
+
+![RC-diode residual curve and its tangent. The tangent crosses the horizontal axis at the next iterate, to the right of the root of the curve.](figures/solver-newton.svg)
+
+This illustration uses `v_n = 0.500 V` and an ideal diode
+`i_D(v) = I_S (exp(v/(nV_T)) − 1)` with `I_S = 1 pA` and `nV_T = 26 mV`.
+The other circuit values and the step are those of the first example. The dashed tangent at
+`u = 0.550 V` crosses zero at `v_next ≈ 0.52736 V`. The solid residual curve is still positive
+there. Taking its tangent again moves the iterate toward the root `v* ≈ 0.51246 V`.
 
 Newton's method solves `J(x_k) Δx = −F(x_k)` and takes `x_next = x_k + Δx`. The code stamps the
 rearranged equation `J(x_k) x_next = J(x_k) x_k − F(x_k)` to solve directly for the next values.
@@ -196,6 +220,14 @@ when the slow waveform would allow a larger one.
   at some step sizes. These results concern constant-step formulas. Startup and changes in
   step length also affect a computed waveform. [BDF stability regions](https://sundials.readthedocs.io/en/v6.3.0/cvode/Mathematics_link.html#bdf-stability-limit-detection) · [BDF stability angles](https://arxiv.org/abs/1901.08347)
 
+![Signed amplification of one RC decay mode. At steps much longer than the time constant, trapezoidal approaches minus one while BE and TR-BDF2 approach zero.](figures/solver-damping.svg)
+
+The horizontal axis is the ratio of step length to time constant, `h/τ`, on a logarithmic
+scale. The vertical axis is the signed factor multiplying the voltage deviation in one step.
+The dotted curve gives the exact decay. Beyond the open circle at `h/τ = 2` the trapezoidal
+factor reverses sign and retains more amplitude as the ratio grows. BE and TR-BDF2 damp
+the fast component in that limit.
+
 ### Try two time constants
 
 In the original RC netlist, replace the `.IC` line with the three lines below. The `out`
@@ -282,6 +314,20 @@ controller. Multiplier and step bounds and an adjustment on order change also ap
 indicator cannot guarantee a maximum error for the whole waveform.
 [Adaptive API example](TRANSIENT_ANALYSIS.md#adaptive-stepping-in-the-library) ·
 [Prediction, rejection and step control](../src/solvers/transient_solver.cpp)
+
+An adaptive step makes two decisions, one about Newton convergence and one about LTE.
+LTE is checked once all required Newton solves have converged. Each retry starts at the same
+time `t_n`. Reaching the retry limit returns a failure.
+
+```mermaid
+flowchart LR
+    T["Try endpoint<br/>tₙ + h"] --> N{"Newton solves<br/>converged?"}
+    N -->|Yes| E{"E ≤ TRTOL?"}
+    N -->|No| R["Restore device state"]
+    E -->|No| R
+    R -->|Reduce h| T
+    E -->|Yes| A["Accept step<br/>Update time and history"]
+```
 
 ## When adaptive steps save simulation time
 

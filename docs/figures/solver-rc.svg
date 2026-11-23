@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="560" height="226" viewBox="0 0 560 226" role="img" aria-labelledby="title desc">
+  <title id="title">V1, R1 and C1</title>
+  <desc id="desc">V1 connects in to ground, R1 connects in to out, and C1 connects out to ground. Positive i_V enters V1 at its positive terminal.</desc>
+  <rect width="560" height="226" rx="8" fill="#fff"/>
+  <defs>
+    <marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0 0 8 4 0 8Z" fill="#126757"/>
+    </marker>
+  </defs>
+  <g fill="none" stroke="#233848" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M122 94V61H237 M323 61H428V117 M428 130V188H122V150"/>
+    <rect x="237" y="51" width="86" height="20"/>
+    <circle cx="122" cy="122" r="28"/>
+    <path d="M117 111h10 M122 106v10 M117 134h10 M403 117h50 M403 130h50"/>
+    <path d="M280 188v9 M266 197h28 M271 203h18 M276 209h8"/>
+  </g>
+  <g fill="#233848">
+    <circle cx="122" cy="61" r="4"/><circle cx="428" cy="61" r="4"/><circle cx="280" cy="188" r="3.5"/>
+  </g>
+  <g fill="none" stroke="#126757" stroke-width="2" marker-end="url(#arrow)">
+    <path d="M100 64v26"/><path d="M160 46h40"/><path d="M406 75v28"/>
+  </g>
+  <g fill="#192d3b" font-family="sans-serif" font-size="16">
+    <g text-anchor="middle">
+      <text x="122" y="43" font-weight="bold">in</text><text x="428" y="43" font-weight="bold">out</text>
+      <text x="280" y="37">R1 · 1 kΩ</text>
+    </g>
+    <text x="86" y="128" text-anchor="end">V1 · 1 V</text><text x="462" y="130">C1 · 1 µF</text>
+    <text x="303" y="207">0</text>
+    <g fill="#126757" font-style="italic">
+      <text x="77" y="85">i<tspan dy="4" font-size="11">V</tspan></text>
+      <text x="176" y="35">i<tspan dy="4" font-size="11">R</tspan></text>
+      <text x="385" y="92">i<tspan dy="4" font-size="11">C</tspan></text>
+    </g>
+  </g>
+</svg>
