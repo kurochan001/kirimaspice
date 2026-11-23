@@ -452,7 +452,7 @@ parser stores it, but the program does not use it (the library can).
 | `.GLOBAL` | `.GLOBAL <node> ...` | used in subcircuit expansion |
 | `.INCLUDE`, `.INC` | `.INCLUDE <file>` | used; relative to the directory of the file that includes it |
 | `.LIB` / `.ENDL` | `.LIB <file> [<section>]` | used; without a section, the whole file |
-| `.IF` / `.ELIF` / `.ELSE` / `.ENDIF` | `.IF (<expr>)` or `.IF(<expr>)`; `.ELSEIF` for `.ELIF` | used, but `.PARAM` values are not visible; an expression that cannot be evaluated keeps all branches; ngspice-47 has `.ELSEIF` and not `.ELIF` |
+| `.IF` / `.ELIF` / `.ELSE` / `.ENDIF` | `.IF (<expr>)` or `.IF(<expr>)`; `.ELSEIF` for `.ELIF` | conditions use the final global `.PARAM` values. A condition that cannot be evaluated is a parse error. Use `.ELSEIF` for ngspice-47 compatibility |
 | `.END` | `.END` | ignored; lines after it are read, as in ngspice-47 |
 | `.PRINT`, `.SAVE` | `.PRINT DC\|TRAN\|AC <signals>`, `.SAVE <signals>` | `.PRINT TRAN` used: its signals are the transient's table on standard output; `.PRINT DC`, `.PRINT AC` and `.SAVE` read only, named in a warning |
 | `.FOUR` | `.FOUR <frequency> <signal> ...`, each `v(<node>)` or `i(<source>)` | used with `.TRAN`: prints the harmonics and the THD of the last period of each signal after the transient; the phase of each harmonic is that of a sine from the start of that period, as ngspice-47 prints it |

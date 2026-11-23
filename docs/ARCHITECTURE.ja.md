@@ -104,7 +104,8 @@ SSF、WAV、AC の CSV の名前には、その温度が付きます（`out_27C.
    （10 段まで入れ子にできます）、継続行です。空の行は捨て（空白だけの行は残します）、継続行はつなぎ、
    インクルードしたファイルは差し込み、段階 2 の `.IF` と `.CONTROL` の行は取り除くので、`ParseError` の
    行番号は前処理の後の行を数えます。
-2. 解析の前に分かっているパラメータで評価する `.IF`／`.ELIF`／`.ELSE`／`.ENDIF` と、`.CONTROL` のブロック。
+2. 呼び出し側が上書きした値を優先して、グローバルの `.PARAM` を解決します。
+   その値で条件分岐を選び、次に `.CONTROL` ブロックを取り出します。
 3. PEGTL による処理。文法はテキストをタイトルの行とほかの行に分けるだけで、それぞれの行は
    `process_line` に渡ります。その中の解析は、手書きの字句の切り出し（`util::split_netlist_tokens`）です。
    文法が読めないテキストは、捨てずに `ParseError` にします。
@@ -115,7 +116,7 @@ SSF、WAV、AC の CSV の名前には、その温度が付きます（`out_27C.
 ```mermaid
 flowchart TD
   A[preprocess_includes] --> B[preprocess_lib_sections] --> C[preprocess_continuations]
-  C --> D[preprocess_conditionals] --> E[preprocess_control_blocks]
+  C --> P[read_global_definitions] --> D[preprocess_conditionals] --> E[preprocess_control_blocks]
   E --> G["PEGTL による処理：行ごとに process_line"]
   G -->|ディレクティブ| H["parse_*_directive"]
   G -->|".SUBCKT の中"| I["本体をテキストのまま保存"]

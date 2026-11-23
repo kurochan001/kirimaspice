@@ -70,3 +70,31 @@ TEST(GlobalParams, ValuesSetBeforeParsingAreKept) {
     EXPECT_NEAR(current("t\n.param r=1k\nV1 a 0 1\nR1 a 0 {r}\n.param r=4k\n.end\n", {{"r", 5e3}}), 0.2e-3,
                 1e-12);
 }
+
+// ngspice-47 (2026-11-23) selects the resistor using the final global
+// parameter values, even when their definitions follow the conditional.
+TEST(GlobalParams, IfAndElseifUseTheFinalValues) {
+    const std::string netlist =
+        "t\nV1 a 0 1\n.if (mode == 2)\nR1 a 0 1k\n.elseif (mode == 1)\nR2 a 0 2k\n"
+        ".else\nR3 a 0 4k\n.endif\n.param mode={pick-1}\n.param pick=2\n.end\n";
+    EXPECT_NEAR(current(netlist), 0.5e-3, 1e-12);
+    EXPECT_NEAR(current(netlist, {{"PICK", 3}}), 1e-3, 1e-12);
+    EXPECT_NEAR(current(netlist, {{"pick", 1}}), 0.25e-3, 1e-12);
+}
+
+// ngspice-47 reads global definitions before selecting the elements of a
+// branch. The last definition of rv therefore supplies the selected R1.
+TEST(GlobalParams, GlobalDefinitionsPrecedeBranchSelection) {
+    EXPECT_NEAR(current("t\nV1 a 0 1\n.param flag=1\n.if (flag)\n.param rv=2k\nR1 a 0 {rv}\n"
+                        ".else\n.param rv=4k\nR2 a 0 1k\n.endif\n.end\n"), 0.25e-3, 1e-12);
+}
+
+TEST(GlobalParams, ConditionsOnlySeeGlobalNetlistParameters) {
+    parser::NetlistParser parser;
+    const std::string conditional = ".if (flag)\nR1 a 0 1k\n.else\nR2 a 0 2k\n.endif\n.end\n";
+    for (const std::string scope : {"", ".subckt load x\n.param flag=1\n.ends\n",
+                                    ".control\n.param flag=1\n.endc\n"}) {
+        EXPECT_THROW(parser.parse_string("t\nV1 a 0 1\n" + scope + conditional), parser::ParseError)
+            << scope;
+    }
+}

@@ -428,9 +428,10 @@ X1 in out DIV RTOP=3k
   from the directory of the file that holds the `.INCLUDE`.
 - `.LIB <file> <section>` reads the part of `<file>` between
   `.LIB <section>` and `.ENDL`.
-- `.IF (<condition>)` ... `.ELSE` ... `.ENDIF` cannot use parameters from
-  `.PARAM`. If its condition cannot be evaluated, the parser warns and keeps
-  every branch.
+- A condition in `.IF` or `.ELSEIF` can use a global `.PARAM` defined anywhere
+  in the netlist. Global definitions are read before branch selection, even
+  inside a branch. An undefined name in a condition that is evaluated stops
+  the run with a parse error.
 
 ## Help the operating point converge
 

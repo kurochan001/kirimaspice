@@ -109,9 +109,9 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
   sees the global `.PARAM` values, and a `.PARAM` inside a `.SUBCKT` is
   local to it.
 - [ ] **`.FUNC` only in `.PARAM` expressions**, not in element values.
-- [ ] **`.IF` conditions without `.PARAM` names.** `.IF` cannot read them,
-  and keeps every branch when it cannot evaluate the condition.
-- [ ] **One `.PARAM` per name.** A second one is ignored with a warning.
+- [ ] **Global parameters in `.IF`.** The last global definition of a name
+  supplies its value, even if that definition is inside a branch or below the
+  condition. An undefined name in a condition that is evaluated is an error.
 
 ### Models
 

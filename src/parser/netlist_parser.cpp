@@ -511,6 +511,10 @@ std::string preprocess_conditionals(
 
     while (std::getline(input, line)) {
         ++line_number;
+        if (line_number == 1) {
+            output << line << '\n';  // The title may look like a directive.
+            continue;
+        }
 
         // Remove inline comments
         size_t comment_pos = line.find(';');
@@ -6365,6 +6369,7 @@ static void read_global_definitions(const std::string& content, ParseState& stat
     std::string raw;
     std::size_t line_number = 0;
     int depth = 0;
+    bool inside_control = false;
     while (std::getline(input, raw)) {
         ++line_number;
         if (line_number == 1) {
@@ -6373,6 +6378,15 @@ static void read_global_definitions(const std::string& content, ParseState& stat
         std::string line = raw.substr(0, raw.find(';'));
         util::trim_inplace(line);
         if (line.empty() || line[0] != '.') {
+            continue;
+        }
+        // Commands in a .CONTROL block do not define netlist parameters.
+        if (util::equals_icase(line, ".CONTROL")) {
+            inside_control = true;
+            continue;
+        }
+        if (inside_control) {
+            inside_control = !util::equals_icase(line, ".ENDC");
             continue;
         }
         const auto tokens = util::split_netlist_line(line);
@@ -6779,28 +6793,18 @@ public:
 
         auto circuit = std::make_unique<circuit::CircuitGraph>();
         ExpressionEvaluator eval;
-        SimulationConfig config;  // NEW: Create simulation config
+        SimulationConfig config;
+        config.global_params.insert(initial_params.begin(), initial_params.end());
 
-        // Apply initial_params to evaluator BEFORE parsing
-        // This ensures that sweep parameters override .PARAM definitions in netlist
-        for (const auto& [name, value] : initial_params) {
-            eval.set_variable(name, value);
-            config.global_params[name] = value;  // Also store in config
-            spdlog::debug("Initial parameter override: {}={}", name, value);
-        }
+        ParseState state;
+        state.circuit = circuit.get();
+        state.evaluator = &eval;
+        state.config = &config;
 
-        // Preprocess conditional directives (.IF/.ELIF/.ELSE/.ENDIF)
-        // Note: This is a simplified integration. Full integration requires parsing .PARAM first.
-        // For now, conditionals can use initial_params but not .PARAM from netlist.
-        std::string preprocessed_content = content;
-        try {
-            preprocessed_content = preprocess_conditionals(content, eval);
-            spdlog::debug("Conditional preprocessing completed");
-        } catch (const std::exception& e) {
-            spdlog::warn("Conditional preprocessing failed: {}", e.what());
-            // Continue with original content if preprocessing fails
-            preprocessed_content = content;
-        }
+        // ngspice-47 resolves global parameters before selecting the elements
+        // of an .IF, including definitions that follow the conditional.
+        read_global_definitions(content, state);
+        std::string preprocessed_content = preprocess_conditionals(content, eval);
 
         // Preprocess .CONTROL/.ENDC blocks
         ControlBlock control_block;
@@ -6816,13 +6820,6 @@ public:
         } catch (const std::exception& e) {
             throw ParseError(fmt::format(".CONTROL/.ENDC preprocessing failed: {}", e.what()), 0);
         }
-
-        ParseState state;
-        state.circuit = circuit.get();
-        state.evaluator = &eval;
-        state.config = &config;  // NEW: Set config pointer
-
-        read_global_definitions(preprocessed_content, state);
 
         pegtl::memory_input input(preprocessed_content, "netlist");
 

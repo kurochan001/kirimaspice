@@ -122,8 +122,9 @@ steps:
    blanks are kept), continuation lines are joined, included files are
    inserted, and the `.IF` and `.CONTROL` lines of step 2 are removed, so
    the line number of a `ParseError` counts the preprocessed lines.
-2. `.IF`/`.ELIF`/`.ELSE`/`.ENDIF`, evaluated with the parameters known
-   before parsing, and `.CONTROL` blocks.
+2. Resolve the global `.PARAM` definitions, keeping any parameter overrides
+   supplied by the caller. Use these values to select conditional branches,
+   then extract the `.CONTROL` block.
 3. A PEGTL pass. The grammar only splits the text into a title line and
    other lines; each line goes to `process_line`, where the parsing is
    hand-written tokenising (`util::split_netlist_tokens`). Text that the
@@ -137,7 +138,7 @@ steps:
 ```mermaid
 flowchart TD
   A[preprocess_includes] --> B[preprocess_lib_sections] --> C[preprocess_continuations]
-  C --> D[preprocess_conditionals] --> E[preprocess_control_blocks]
+  C --> P[read_global_definitions] --> D[preprocess_conditionals] --> E[preprocess_control_blocks]
   E --> G["PEGTL pass: process_line for each line"]
   G -->|directive| H["parse_*_directive"]
   G -->|inside .SUBCKT| I["the body, stored as text"]

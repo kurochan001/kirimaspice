@@ -104,8 +104,6 @@ document also lists differences not decided there.
   after the output nodes is an error.
 - **`.FUNC` cannot be called in an element value,** only in `.PARAM`
   expressions (`Expression parse error`).
-- **`.IF` cannot read `.PARAM` values.** When the condition cannot be
-  evaluated, the parser warns and keeps every branch.
 - **The diode reads `IS`, `N`, `CJO`, `VJ`, `M`, `RS`, `TT`, `BV` and
   `IBV` only, not `FC`, `KF`, `AF` and the others, which it names in a
   warning (its FC is 0.5); the bipolar
