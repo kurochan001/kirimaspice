@@ -4,8 +4,7 @@
 #include <gtest/gtest.h>
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/solvers/transient_solver.hpp"
-#include "kirimaspice/devices/mosfet_bsim4_params.hpp"
-#include "kirimaspice/devices/mosfet_bsim4.hpp"
+#include "kirimaspice/parser/netlist_parser.hpp"
 #include <spdlog/spdlog.h>
 #include <fstream>
 #include <sstream>
@@ -17,7 +16,6 @@
 using namespace kirimaspice;
 using namespace kirimaspice::circuit;
 using namespace kirimaspice::solvers;
-using namespace kirimaspice::devices;
 
 namespace {
 
@@ -89,9 +87,7 @@ Real interpolate_signal(const std::vector<ReferencePoint>& ref, Real t, int sign
 
 } // namespace
 
-// DISABLED: the run converges, but the switching edges come earlier than the
-// reference because BSIM4's capacitances are a simplified Meyer model (see
-// KNOWN_ISSUES); the worst errors are 0.40/0.83/1.83 V for n1/n2/n3.
+// The three switching edges must all meet the reference waveform tolerance.
 TEST(BSIM4Transient, DISABLED_InverterChain_MatchesNgspiceReference) {
     // Reduce log chatter (BSIM4 debug logs are extremely verbose) but keep errors
     spdlog::set_level(spdlog::level::err);
@@ -99,108 +95,19 @@ TEST(BSIM4Transient, DISABLED_InverterChain_MatchesNgspiceReference) {
     auto reference = load_bsim4_reference("validation/bsim4_inv_chain_tran_ref.txt");
     ASSERT_FALSE(reference.empty()) << "Run scripts/generate_bsim4_tran_ref.py first";
 
-    CircuitGraph circuit;
-    
-    // Common BSIM4 Parameters (matching generation script)
-    BSIM4Params n_params;
-    n_params.type = 1.0; // NMOS
-    n_params.toxe = 3.0e-9;
-    n_params.vth0 = 0.5;
-    n_params.u0 = 0.067;
-    n_params.vsat = 8.0e4;
-    n_params.w = 10e-6;
-    n_params.l = 180e-9;
-    n_params.cgso = 2.0e-10;
-    n_params.cgdo = 2.0e-10;
-    n_params.cgbo = 1.0e-10;
-    n_params.compute_derived_params();
+    // The reference generator reads the same deck, including the BSIM4
+    // card defaults, instance dimensions, integration method and time step.
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_file(
+        kirimaspice::test::source_path("validation/bsim4_inv_chain.cir").string());
+    auto& circuit = *parsed.circuit;
+    const auto& tran = parsed.config.transient;
+    TransientSolver solver(circuit, parsed.config);
+    auto result = solver.solve(0.0, tran.end_time, tran.initial_step);
+    ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS);
+    ASSERT_FALSE(result.timepoints.empty());
+    ASSERT_NEAR(result.timepoints.back().time, tran.end_time, 1e-18);
 
-    BSIM4Params p_params;
-    p_params.type = -1.0; // PMOS
-    p_params.toxe = 3.0e-9;
-    p_params.vth0 = -0.5;
-    p_params.u0 = 0.025;
-    p_params.vsat = 8.0e4;
-    p_params.w = 20e-6;
-    p_params.l = 180e-9;
-    p_params.cgso = 2.0e-10;
-    p_params.cgdo = 2.0e-10;
-    p_params.cgbo = 1.0e-10;
-    p_params.compute_derived_params();
-
-    // Power Supply
-    circuit.add_voltage_source("Vdd", "vdd", "0", 1.8);
-    
-    // Input Pulse: PULSE(0 1.8 1ns 100ps 100ps 4ns 10ns)
-    // Use Behavioral Voltage Source for PULSE
-    // Or better, implement Pulse source if available. Assuming Behavioral for flexibility
-    // V(t) logic: 
-    // 0 < t < 1ns: 0
-    // 1ns < t < 1.1ns: rise to 1.8
-    // 1.1ns < t < 5.1ns: 1.8
-    // 5.1ns < t < 5.2ns: fall to 0
-    // 5.2ns < t < 10ns: 0
-    
-    // Input Pulse: PULSE(0 1.8 1ns 100ps 100ps 4ns 10ns)
-    Real v1 = 0.0;
-    Real v2 = 1.8;
-    Real delay = 1e-9;
-    Real tr = 100e-12; // Match reference edge rate
-    Real tf = 100e-12; // Match reference edge rate
-    Real pw = 4e-9;
-    Real period = 10e-9;
-    
-    circuit.add_pulse_voltage_source("Vin", "vin", "0", v1, v2, delay, tr, tf, pw, period);
-
-    // Inverter Chain (3 stages)
-    // Stage 1
-    circuit.add_mosfet_bsim4_p("Mp1", "n1", "vin", "vdd", "vdd", p_params);
-    circuit.add_mosfet_bsim4_n("Mn1", "n1", "vin", "0", "0", n_params);
-    circuit.add_capacitor("Cload1", "n1", "0", 10e-15);
-
-    // Stage 2
-    circuit.add_mosfet_bsim4_p("Mp2", "n2", "n1", "vdd", "vdd", p_params);
-    circuit.add_mosfet_bsim4_n("Mn2", "n2", "n1", "0", "0", n_params);
-    circuit.add_capacitor("Cload2", "n2", "0", 10e-15);
-
-    // Stage 3
-    circuit.add_mosfet_bsim4_p("Mp3", "n3", "n2", "vdd", "vdd", p_params);
-    circuit.add_mosfet_bsim4_n("Mn3", "n3", "n2", "0", "0", n_params);
-    circuit.add_capacitor("Cload3", "n3", "0", 10e-15);
-
-    SimulationConfig config;
-    config.gmin = 1e-9; // add shunt conductance for transient robustness
-    // Strengthen DC solve to get a robust operating point for transient
-    config.dc.enable_source_stepping = true;
-    config.dc.source_stepping_steps = 10;
-    config.dc.enable_gmin_stepping = true;
-    config.dc.gmin_stepping_steps = 5;
-
-    config.transient.use_initial_conditions = false; // Recompute DC op each run (no UIC shortcut)
-    config.transient.method = IntegrationMethod::TRAPEZOIDAL; // match ngspice default
-    config.transient.initial_step = 5e-12;  // Seed step equal to output resolution
-    config.transient.min_step = 5e-15;      // Allow a few more halvings near edges
-    config.transient.max_step = 5e-12;      // Upper bound aligned with reference resolution
-    config.transient.use_adaptive_timestep = false; // Fixed 5 ps step with NR backoff
-    config.transient.max_iterations = 150;   // Allow more NR iterations per step
-    config.transient.max_timesteps = 200000; // Safety margin vs ITL5
-    config.transient.adaptive_order = false; // Not used for fixed trapezoidal
-    config.transient.lte_reltol = 1e-2;      // (unused in fixed-step)
-    config.transient.lte_abstol = 1e-5;
-    config.transient.trtol = 10.0;
-    config.transient.chgtol = 1e-13;
-    
-    // Relax LTE slightly if needed, but Gear2 is robust (fixed-step so LTE unused)
-    config.transient.reltol = 1e-2; // Relax NR criteria
-    config.transient.abstol = 1e-9;
-    
-    TransientSolver solver(circuit, config);
-    // Use fixed 5 ps step to match ngspice reference resolution while aiding convergence
-    auto result = solver.solve(0.0, 10e-9, 5e-12);
-    
-    EXPECT_EQ(result.status, ConvergenceStatus::SUCCESS);
-    
-    NodeId n_vin = circuit.get_node_id("vin");
     NodeId n_n1 = circuit.get_node_id("n1");
     NodeId n_n2 = circuit.get_node_id("n2");
     NodeId n_n3 = circuit.get_node_id("n3");

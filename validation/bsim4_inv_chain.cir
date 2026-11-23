@@ -1,0 +1,19 @@
+BSIM4 three-stage inverter chain
+.options method=gear
+.model n1 nmos level=14 version=4.8.1 toxe=3n vth0=0.5 u0=0.067 vsat=8e4
++ cgso=2e-10 cgdo=2e-10 cgbo=1e-10
+.model p1 pmos level=14 version=4.8.1 toxe=3n vth0=-0.5 u0=0.025 vsat=8e4
++ cgso=2e-10 cgdo=2e-10 cgbo=1e-10
+Vdd vdd 0 1.8
+Vin vin 0 PULSE(0 1.8 1n 100p 100p 4n 10n)
+Mp1 n1 vin vdd vdd p1 W=20u L=180n
+Mn1 n1 vin 0 0 n1 W=10u L=180n
+Cload1 n1 0 10f
+Mp2 n2 n1 vdd vdd p1 W=20u L=180n
+Mn2 n2 n1 0 0 n1 W=10u L=180n
+Cload2 n2 0 10f
+Mp3 n3 n2 vdd vdd p1 W=20u L=180n
+Mn3 n3 n2 0 0 n1 W=10u L=180n
+Cload3 n3 0 10f
+.tran 1p 10n 0 1p
+.end
