@@ -1,8 +1,7 @@
 * Multi-Device Integration Test (WORKING version)
 * BJT with emitter directly grounded
 
-* Include manufacturer models
-.INCLUDE ../models/2N3904.lib
+.INCLUDE ../models/example_npn.inc
 
 * Power supply
 Vcc vcc 0 DC 12

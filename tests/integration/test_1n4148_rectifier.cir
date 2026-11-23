@@ -1,8 +1,7 @@
 * 1N4148 Half-Wave Rectifier Circuit
-* Integration test with manufacturer model file
+* Integration test with the project's example diode model
 
-* Include manufacturer model
-.INCLUDE ../models/1N4148.lib
+.INCLUDE ../models/example_diode.inc
 
 * AC input voltage (5V peak)
 Vin in 0 DC 0

@@ -1,8 +1,7 @@
 * 2N3904 Emitter Follower Circuit
-* Integration test with manufacturer model file
+* Integration test with the project's example NPN model
 
-* Include manufacturer model
-.INCLUDE ../models/2N3904.lib
+.INCLUDE ../models/example_npn.inc
 
 * Power supply
 Vcc vcc 0 DC 12

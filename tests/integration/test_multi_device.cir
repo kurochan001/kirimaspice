@@ -1,9 +1,8 @@
 * Multi-Device Integration Test
-* BJT + Diode with manufacturer models
+* Load the project's example BJT and diode models
 
-* Include manufacturer models
-.INCLUDE ../models/2N3904.lib
-.INCLUDE ../models/1N4148.lib
+.INCLUDE ../models/example_npn.inc
+.INCLUDE ../models/example_diode.inc
 
 * Power supply
 Vcc vcc 0 DC 12
