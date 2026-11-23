@@ -90,7 +90,7 @@ Real interpolate_signal(const std::vector<ReferencePoint>& ref, Real t, int sign
 } // namespace
 
 // The three switching edges must all meet the reference waveform tolerance.
-TEST(BSIM4Transient, DISABLED_InverterChain_MatchesNgspiceReference) {
+TEST(BSIM4Transient, InverterChain_MatchesNgspiceReference) {
     // Reduce log chatter (BSIM4 debug logs are extremely verbose) but keep errors
     spdlog::set_level(spdlog::level::err);
 
