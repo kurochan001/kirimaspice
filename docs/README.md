@@ -16,6 +16,7 @@ a result.
 | What does an option, element, directive or output file mean? | [Reference Manual](REFERENCE_MANUAL.md) | [Glossary](GLOSSARY.md) |
 | I have a netlist for ngspice. What do I change? | [Moving from ngspice](PORTING.md) | [NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.md) |
 | Is this result right? What is known to be wrong? | [KNOWN_ISSUES](../KNOWN_ISSUES.md) | [FAQ](FAQ.md#results-and-accuracy) |
+| How does the solver assemble a circuit matrix and find the next voltage? | [How the circuit solver works](SOLVER_ALGORITHMS.md) | [Architecture](ARCHITECTURE.md) |
 | How do I choose transient settings and check waveform accuracy? | [Transient analysis](TRANSIENT_ANALYSIS.md) (draft) | |
 | How do I drive it from Python? | [User Manual: Python tools](USER_MANUAL.md#use-the-python-tools) | |
 | How is the code organised? | [Architecture](ARCHITECTURE.md) | |

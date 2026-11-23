@@ -136,6 +136,7 @@ you want to do.
 
 - [User Manual](docs/USER_MANUAL.md): building, writing a netlist, running and reading the results, the Python tools
 - [Reference Manual](docs/REFERENCE_MANUAL.md): options, elements, directives and output formats
+- [How the circuit solver works](docs/SOLVER_ALGORITHMS.md) follows MNA, device stamps, Newton iteration, integration and error estimation in an RC circuit.
 - [Examples](examples/README.md): small netlists with analytic solutions, checked by CTest
 - [Moving from ngspice](docs/PORTING.md): what is the same, and a checklist for a netlist
 - [Glossary](docs/GLOSSARY.md): the terms the documents use

@@ -21,6 +21,8 @@ waveforms, nonlinear iteration and numerical integration. A successful
 solve establishes convergence of the discretized equations. Accuracy also
 depends on the time step and the device model.
 
+For a worked RC example, assemble its stamps, differentiate the equations and calculate a step error in [How the circuit solver works](SOLVER_ALGORITHMS.md).
+
 ## Contents
 
 - [Start with a small circuit](#start-with-a-small-circuit)
@@ -378,6 +380,8 @@ values are not supported. Tightening `RELTOL` cannot replace a time-step
 study or activate LTE control in the CLI.
 
 ## Adaptive stepping in the library
+
+For measured step counts, solve times and waveform errors on the same circuit, see the [RC cost and accuracy comparison](SOLVER_ALGORITHMS.md#measure-cost-and-accuracy-on-the-same-rc-circuit).
 
 Adaptive stepping must be enabled through `SimulationConfig` in C++.
 There is no netlist/CLI switch that sets `use_adaptive_timestep=true` at
