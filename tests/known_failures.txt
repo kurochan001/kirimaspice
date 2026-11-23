@@ -2,12 +2,3 @@
 # failure, and report a listed test that passes so that it can be removed.
 # Adding a test here needs the same human approval as changing an expected
 # value. One test name per line; text after # is a comment.
-
-# Need model files that are not in the repository (tests/models/2N3904.lib,
-# tests/models/1N4148.lib).
-ManufacturerModels.2N3904_EmitterFollower
-ManufacturerModels.1N4148_Rectifier
-ManufacturerModels.MultiDevice_BJT_Diode
-ManufacturerModels.ModelFilePathResolution
-ManufacturerModels.MultipleModelFiles
-BJTModelTest.SimpleCommonEmitter
