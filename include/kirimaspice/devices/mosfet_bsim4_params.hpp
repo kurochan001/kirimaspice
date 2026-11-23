@@ -27,6 +27,7 @@
 
 #include "kirimaspice/core/types.hpp"
 
+#include <limits>
 #include <map>
 #include <string>
 
@@ -323,7 +324,12 @@ struct BSIM4Params {
     Real cgdl = 0.0;        ///< New gate-drain overlap capacitance [F/m]
     Real ckappas = 0.6;     ///< S/D to channel coupling coefficient
     Real ckappad = 0.6;     ///< S/D to channel coupling coefficient
-    Real cf = 0.0;          ///< Fringing field capacitance [F/m]
+    Real cf = std::numeric_limits<Real>::quiet_NaN(); ///< Outer fringe [F/m], derived from TOXE if omitted
+    Real xpart = 0.0;       ///< Drain charge partition selector (negative disables intrinsic charge)
+    int cvchargemod = 0;    ///< Effective gate overdrive selector for C-V
+    Real voffcvl = 0.0;     ///< Length correction to the C-V overdrive offset [V m]
+    Real dlc = std::numeric_limits<Real>::quiet_NaN();  ///< C-V length reduction (defaults to LINT)
+    Real dwc = std::numeric_limits<Real>::quiet_NaN();  ///< C-V width reduction (defaults to WINT)
     Real clc = 1.0e-7;      ///< Constant term for short-channel Leff CV model [m]
     Real cle = 0.6;         ///< Exponential term for short-channel Leff CV model
     Real vfbcv = -1.0;      ///< Flat-band voltage for C-V model [V]
@@ -348,8 +354,8 @@ struct BSIM4Params {
     Real mjswd = 0.33;      ///< Drain sidewall junction grading coefficient
     Real pbsws = 1.0;       ///< Source sidewall junction built-in potential [V]
     Real pbswd = 1.0;       ///< Drain sidewall junction built-in potential [V]
-    Real cjswgs = 0.0;      ///< Source gate-edge sidewall junction capacitance [F/m]
-    Real cjswgd = 0.0;      ///< Drain gate-edge sidewall junction capacitance [F/m]
+    Real cjswgs = 5.0e-10;  ///< Source gate-edge sidewall junction capacitance [F/m]
+    Real cjswgd = 5.0e-10;  ///< Drain gate-edge sidewall junction capacitance [F/m]
     Real mjswgs = 0.33;     ///< Source gate-edge sidewall grading coefficient
     Real mjswgd = 0.33;     ///< Drain gate-edge sidewall grading coefficient
     Real pbswgs = 1.0;      ///< Source gate-edge sidewall built-in potential [V]
@@ -461,11 +467,11 @@ struct BSIM4Params {
     Real mult_i = 1.0;      ///< Current variability multiplier
     Real mult_q = 1.0;      ///< Charge variability multiplier
     Real mult_fn = 1.0;     ///< Flicker-noise variability multiplier
-    Real min = 0;           ///< Flag to select minimum length/width (0=actual, 1=min)
+    Real min = 0;           ///< Minimize drain (0) or source (1) diffusion for even NF
     Real as = 0.0;          ///< Source diffusion area [m²]
     Real ad = 0.0;          ///< Drain diffusion area [m²]
-    Real ps = 0.0;          ///< Source diffusion perimeter [m]
-    Real pd = 0.0;          ///< Drain diffusion perimeter [m]
+    Real ps = std::numeric_limits<Real>::quiet_NaN(); ///< Source perimeter [m], from geometry if omitted
+    Real pd = std::numeric_limits<Real>::quiet_NaN(); ///< Drain perimeter [m], from geometry if omitted
     int nrd = 1;            ///< Number of drain diffusion squares
     int nrs = 1;            ///< Number of source diffusion squares
     Real sa = 0.0;          ///< Distance between OD edge and poly of one side [m]
@@ -488,12 +494,12 @@ struct BSIM4Params {
     int rdsmod = 0;         ///< S/D resistance model selector
     int rgatemod = 0;       ///< Gate resistance model selector
     int rbodymod = 0;       ///< Body resistance model selector
-    int capmod = 0;         ///< Capacitance model selector
+    int capmod = 2;         ///< Capacitance model selector
     int trnqsmod = 0;       ///< Transient NQS model selector
     int acnqsmod = 0;       ///< AC NQS model selector
     int fnoimod = 1;        ///< Flicker noise model selector
     int tnoimod = 0;        ///< Thermal noise model selector
-    int permod = 1;         ///< Periodic AC small-signal model selector
+    int permod = 1;         ///< Given PS and PD include the gate edge when nonzero
     int geomod = 0;         ///< Geometry-dependent parasitics model selector
     int rgeomod = 0;        ///< Source/drain resistance geometry model
     int mtrlmod = 0;        ///< High-k metal gate model selector
@@ -508,6 +514,10 @@ struct BSIM4Params {
     //==========================================================================
     // Helper Methods
     //==========================================================================
+
+    bool uses_terminal_charges() const {
+        return capmod == 2 && xpart >= 0.0 && mult_q != 0.0;
+    }
 
     /// Effective channel length [m]: the drawn length with the mask and etch
     /// offset XL, less 2 LINT (BSIM4 4.8.3 b4temp.c: Lnew = L + XL)

@@ -22,6 +22,7 @@
 
 #include "kirimaspice/core/types.hpp"
 #include "kirimaspice/devices/mosfet_bsim4_params.hpp"
+#include <array>
 #include <mutex>
 #include <utility>
 
@@ -39,6 +40,10 @@ struct BSIM4OperatingPoint {
     Real ids_conductance = 0.0;  ///< Ids before Vdseff multiplication [A/V] (ngspice line 2118)
     Real vdseff = 0.0;           ///< Effective Vds used in final multiplication [V]
 };
+
+// Physical terminals in gate, drain, source, bulk order.
+using BSIM4Terminals = std::array<Real, 4>;
+using BSIM4ChargeJacobian = std::array<BSIM4Terminals, 4>;
 
 struct BSIM4Capacitances {
     Real cgs = 0.0;
@@ -122,7 +127,11 @@ public:
     BSIM4OperatingPoint evaluate(Real vg, Real vd, Real vs, Real vb,
                                    Real temperature, Real theta0vb0) const;
 
-    /// Compute small-signal capacitances (Meyer + junction) for the current bias.
+    /// Quasi-static intrinsic charges [C] and optional dQi/dVj [F] (BSIM4 chapter 7).
+    BSIM4Terminals intrinsic_charges(const BSIM4Terminals& voltages, Real temperature,
+                                     Real theta0vb0, BSIM4ChargeJacobian* jacobian = nullptr) const;
+
+    /// Two-terminal overlap and junction capacitances, plus Meyer branches for legacy modes.
     /// Uses the same polarity handling as evaluate(): vgs/vds are internally
     /// transformed to positive values for P-channel. vth is the threshold as
     /// evaluate() returns it, with the device's sign; the junction voltages

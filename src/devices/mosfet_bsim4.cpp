@@ -194,8 +194,6 @@ void MOSFET_BSIM4<P>::stamp_transient(MNASystem& mna, const DenseVector& node_vo
     stamp_dc_nonlinear(mna, node_voltages);
 
     // Step 2: Stamp nonlinear capacitances using companion model
-    timestep_ = timestep;
-    last_method_ = method;
 
     Real vg = (gate_ != NODE_GND) ? node_voltages[gate_ - 1] : 0.0;
     Real vd = (drain_ != NODE_GND) ? node_voltages[drain_ - 1] : 0.0;
@@ -222,22 +220,38 @@ void MOSFET_BSIM4<P>::stamp_transient(MNASystem& mna, const DenseVector& node_vo
     cap_method_ = method;
     cap_bdf_ = bdf_coef ? std::optional<BDFCoefficients>(*bdf_coef) : std::nullopt;
     cap_tr_bdf2_ = tr_bdf2_coef ? std::optional<TR_BDF2_Coefficients>(*tr_bdf2_coef) : std::nullopt;
-    auto stamp_capacitance = [&](Real c_now, Real v_prev, Real v_prev2, Real v_prev3,
-                                 Real i_prev, int node_p_idx, int node_n_idx) {
-        const auto cc = device_utils::capacitor_companion(method, c_now, timestep, v_prev,
-                                                          v_prev2, v_prev3, i_prev, bdf_coef,
-                                                          tr_bdf2_coef);
-        device_utils::stamp_capacitor_companion(mna, node_p_idx, node_n_idx, cc.g, cc.i_eq, 1.0);
-    };
+    const Branches c{cgs, cgd, cgb, cbd, cbs};
+    const int positive[] = {ng_idx, ng_idx, ng_idx, nb_idx, nb_idx};
+    const int negative[] = {ns_idx, nd_idx, nb_idx, nd_idx, ns_idx};
+    const auto& h = history_;
+    for (size_t k = 0; k < c.size(); ++k) {
+        const auto cc = device_utils::capacitor_companion(method, c[k], timestep, h.branch_v[0][k],
+            h.branch_v[1][k], h.branch_v[2][k], h.branch_i[k], bdf_coef, tr_bdf2_coef);
+        device_utils::stamp_capacitor_companion(mna, positive[k], negative[k], cc.g, cc.i_eq, 1.0);
+    }
 
-    // Stamp each capacitance
-    stamp_capacitance(cgs, vgs_prev_, vgs_prev2_, vgs_prev3_, icap_prev_[0], ng_idx, ns_idx);
-    stamp_capacitance(cgd, vgd_prev_, vgd_prev2_, vgd_prev3_, icap_prev_[1], ng_idx, nd_idx);
-    stamp_capacitance(cgb, vgb_prev_, vgb_prev2_, vgb_prev3_, icap_prev_[2], ng_idx, nb_idx);
-    stamp_capacitance(cbd, vbd_prev_, vbd_prev2_, vbd_prev3_, icap_prev_[3], nb_idx, nd_idx);
-    stamp_capacitance(cbs, vbs_prev_, vbs_prev2_, vbs_prev3_, icap_prev_[4], nb_idx, ns_idx);
-
-    (void)bdf_coef;
+    if (params_.uses_terminal_charges()) {
+        const int node[] = {ng_idx, nd_idx, ns_idx, nb_idx};
+        const BSIM4Terminals v{vg, vd, vs, vb};
+        BSIM4ChargeJacobian dq;
+        const auto q = core_.intrinsic_charges(v, temperature_, theta0vb0_, &dq);
+        for (int i = 0; i < 4; ++i) {
+            if (node[i] < 0) continue;
+            // Apply the integration rule to Qi itself. Its Newton slope is
+            // the present-time coefficient times the full row dQi/dV.
+            const auto cc = device_utils::capacitor_companion(method, 1.0, timestep,
+                history_.intrinsic_q[0][i], history_.intrinsic_q[1][i], history_.intrinsic_q[2][i],
+                history_.intrinsic_i[i], bdf_coef, tr_bdf2_coef);
+            Real current = cc.g * q[i] + cc.i_eq;
+            for (int j = 0; j < 4; ++j) {
+                if (node[j] < 0) continue;
+                const Real g = cc.g * dq[i][j];
+                mna.G.add_entry(node[i], node[j], g);
+                current -= g * v[j];
+            }
+            mna.b[node[i]] -= current;
+        }
+    }
 }
 
 //==============================================================================
@@ -288,6 +302,18 @@ void MOSFET_BSIM4<P>::stamp_ac(ComplexMNASystem& mna, Real omega,
     Complex yds(gds, 0.0);
     Complex gmvgs(gm, 0.0);
     Complex gmbvbs(gmb, 0.0);
+
+    if (params_.uses_terminal_charges()) {
+        BSIM4ChargeJacobian dq;
+        core_.intrinsic_charges({vg, vd, vs, vb}, temperature_, theta0vb0_, &dq);
+        const int node[] = {ng_idx, nd_idx, ns_idx, nb_idx};
+        for (int i = 0; i < 4; ++i) {
+            if (node[i] < 0) continue;
+            for (int j = 0; j < 4; ++j) {
+                if (node[j] >= 0) mna.Y.add_entry(node[i], node[j], Complex(0.0, omega * dq[i][j]));
+            }
+        }
+    }
 
     // Stamp G-S capacitance
     if (ng_idx >= 0) {
@@ -381,75 +407,50 @@ void MOSFET_BSIM4<P>::accept_solution(const DenseVector& node_voltages) {
     Real vs = (source_ != NODE_GND) ? node_voltages[source_] : 0.0;
     Real vb = (bulk_ != NODE_GND) ? node_voltages[bulk_] : 0.0;
 
-    Real vgs_new = vg - vs;
-    Real vgd_new = vg - vd;
-    Real vgb_new = vg - vb;
-    Real vbd_new = vb - vd;
-    Real vbs_new = vb - vs;
+    const Branches v{vg - vs, vg - vd, vg - vb, vb - vd, vb - vs};
+    const auto op = core_.evaluate(vg, vd, vs, vb, temperature_, theta0vb0_);
+    const auto caps = core_.compute_capacitances(vg, vd, vs, vb, op.vth, temperature_);
+    const Branches c{caps.cgs, caps.cgd, caps.cgb, caps.cbd, caps.cbs};
+    auto& h = history_;
+    for (size_t k = 0; k < c.size(); ++k) {
+        const auto cc = device_utils::capacitor_companion(cap_method_, c[k], cap_dt_,
+            h.branch_v[0][k], h.branch_v[1][k], h.branch_v[2][k], h.branch_i[k],
+            cap_bdf_ ? &*cap_bdf_ : nullptr, cap_tr_bdf2_ ? &*cap_tr_bdf2_ : nullptr);
+        h.branch_i[k] = cc.g * v[k] + cc.i_eq;
+        h.branch_q[k] = c[k] * v[k];
+    }
+    if (cap_dt_ > 0.0) {
+        h.branch_v = {v, h.branch_v[0], h.branch_v[1]};
+    } else {
+        h.branch_v.fill(v);
+    }
 
-    // The capacitances' currents at this point, with the companion of the
-    // step just accepted (none at the operating point)
-    {
-        const BSIM4OperatingPoint op_now = core_.evaluate(vg, vd, vs, vb, temperature_, theta0vb0_);
-        const BSIM4Capacitances c_now =
-            core_.compute_capacitances(vg, vd, vs, vb, op_now.vth, temperature_);
-        const Real c[5] = {c_now.cgs, c_now.cgd, c_now.cgb, c_now.cbd, c_now.cbs};
-        const Real v_new[5] = {vgs_new, vgd_new, vgb_new, vbd_new, vbs_new};
-        const Real v1[5] = {vgs_prev_, vgd_prev_, vgb_prev_, vbd_prev_, vbs_prev_};
-        const Real v2[5] = {vgs_prev2_, vgd_prev2_, vgb_prev2_, vbd_prev2_, vbs_prev2_};
-        const Real v3[5] = {vgs_prev3_, vgd_prev3_, vgb_prev3_, vbd_prev3_, vbs_prev3_};
-        const BDFCoefficients* bdf = cap_bdf_ ? &*cap_bdf_ : nullptr;
-        const TR_BDF2_Coefficients* tr = cap_tr_bdf2_ ? &*cap_tr_bdf2_ : nullptr;
-        for (int k = 0; k < 5; ++k) {
-            const auto cc = device_utils::capacitor_companion(cap_method_, c[k], cap_dt_, v1[k], v2[k],
-                                                              v3[k], icap_prev_[k], bdf, tr);
-            icap_prev_[k] = (cap_dt_ > 0.0) ? cc.g * v_new[k] + cc.i_eq : 0.0;
+    if (params_.uses_terminal_charges()) {
+        const auto q = core_.intrinsic_charges({vg, vd, vs, vb}, temperature_, theta0vb0_);
+        if (cap_dt_ > 0.0) {
+            for (int i = 0; i < 4; ++i) {
+                const auto cc = device_utils::capacitor_companion(cap_method_, 1.0, cap_dt_,
+                    history_.intrinsic_q[0][i], history_.intrinsic_q[1][i], history_.intrinsic_q[2][i],
+                    history_.intrinsic_i[i], cap_bdf_ ? &*cap_bdf_ : nullptr,
+                    cap_tr_bdf2_ ? &*cap_tr_bdf2_ : nullptr);
+                history_.intrinsic_i[i] = cc.g * q[i] + cc.i_eq;
+            }
+            history_.intrinsic_q[2] = history_.intrinsic_q[1];
+            history_.intrinsic_q[1] = history_.intrinsic_q[0];
+            history_.intrinsic_q[0] = q;
+        } else {
+            history_.intrinsic_q.fill(q);
+            history_.intrinsic_i = {};
         }
     }
 
-    // Shift voltage history for each junction (BDF3 requires 3 past timesteps)
-    vgs_prev3_ = vgs_prev2_;
-    vgs_prev2_ = vgs_prev_;
-    vgs_prev_ = vgs_new;
-
-    vgd_prev3_ = vgd_prev2_;
-    vgd_prev2_ = vgd_prev_;
-    vgd_prev_ = vgd_new;
-
-    vgb_prev3_ = vgb_prev2_;
-    vgb_prev2_ = vgb_prev_;
-    vgb_prev_ = vgb_new;
-
-    vbd_prev3_ = vbd_prev2_;
-    vbd_prev2_ = vbd_prev_;
-    vbd_prev_ = vbd_new;
-
-    vbs_prev3_ = vbs_prev2_;
-    vbs_prev2_ = vbs_prev_;
-    vbs_prev_ = vbs_new;
-
-    // Update charge history for Physical LTE estimation
-    const BSIM4OperatingPoint op = core_.evaluate(vg, vd, vs, vb, temperature_, theta0vb0_);
-    const BSIM4Capacitances caps = core_.compute_capacitances(vg, vd, vs, vb, op.vth, temperature_);
-
-    charge_gs_prev_ = caps.cgs * vgs_new;
-    charge_gd_prev_ = caps.cgd * vgd_new;
-    charge_gb_prev_ = caps.cgb * vgb_new;
-    charge_bd_prev_ = caps.cbd * vbd_new;
-    charge_bs_prev_ = caps.cbs * vbs_new;
-
-    // Legacy DC analysis state
-    vds_prev_ = vd - vs;
+    cap_dt_ = 0.0;
 }
 
 template<Polarity P>
 void MOSFET_BSIM4<P>::reset_state() {
-    vgs_prev_ = vgs_prev2_ = vgs_prev3_ = 0.0;
-    vgd_prev_ = vgd_prev2_ = vgd_prev3_ = 0.0;
-    vgb_prev_ = vgb_prev2_ = vgb_prev3_ = 0.0;
-    vbd_prev_ = vbd_prev2_ = vbd_prev3_ = 0.0;
-    vbs_prev_ = vbs_prev2_ = vbs_prev3_ = 0.0;
-    for (Real& i : icap_prev_) i = 0.0;
+    history_ = {};
+    saved_history_ = {};
     cap_dt_ = 0.0;
     cap_method_ = IntegrationMethod::BACKWARD_EULER;
     cap_bdf_.reset();
@@ -495,21 +496,29 @@ Real MOSFET_BSIM4<P>::get_physical_lte(Real chgtol, const DenseVector& node_volt
         return delta_q / (chgtol + q_scale);
     };
 
-    Real lte_gs = compute_lte(caps.cgs, vgs, charge_gs_prev_);
+    Real lte_gs = compute_lte(caps.cgs, vgs, history_.branch_q[0]);
     total_lte_sq += lte_gs * lte_gs;
 
-    Real lte_gd = compute_lte(caps.cgd, vgd, charge_gd_prev_);
+    Real lte_gd = compute_lte(caps.cgd, vgd, history_.branch_q[1]);
     total_lte_sq += lte_gd * lte_gd;
 
-    Real lte_gb = compute_lte(caps.cgb, vgb, charge_gb_prev_);
+    Real lte_gb = compute_lte(caps.cgb, vgb, history_.branch_q[2]);
     total_lte_sq += lte_gb * lte_gb;
 
-    Real lte_bd = compute_lte(caps.cbd, vbd, charge_bd_prev_);
+    Real lte_bd = compute_lte(caps.cbd, vbd, history_.branch_q[3]);
     total_lte_sq += lte_bd * lte_bd;
 
-    Real lte_bs = compute_lte(caps.cbs, vbs, charge_bs_prev_);
+    Real lte_bs = compute_lte(caps.cbs, vbs, history_.branch_q[4]);
     total_lte_sq += lte_bs * lte_bs;
 
+    if (params_.uses_terminal_charges()) {
+        const auto q = core_.intrinsic_charges({vg, vd, vs, vb}, temperature_, theta0vb0_);
+        for (int i = 0; i < 4; ++i) {
+            const Real prev = history_.intrinsic_q[0][i];
+            const Real error = (q[i] - prev) / (chgtol + std::max(std::abs(prev), std::abs(q[i])));
+            total_lte_sq += error * error;
+        }
+    }
     return std::sqrt(total_lte_sq);
 }
 

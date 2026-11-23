@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include <gtest/gtest.h>
+#include "kirimaspice/devices/bsim4_core.hpp"
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/solvers/transient_solver.hpp"
+#include "kirimaspice/solvers/ac_solver.hpp"
 #include "kirimaspice/parser/netlist_parser.hpp"
 #include <spdlog/spdlog.h>
 #include <fstream>
@@ -142,4 +144,78 @@ TEST(BSIM4Transient, DISABLED_InverterChain_MatchesNgspiceReference) {
     EXPECT_LT(max_err_n1, 0.05);
     EXPECT_LT(max_err_n2, 0.05);
     EXPECT_LT(max_err_n3, 0.05);
+}
+
+// ngspice-47 .op at |Vgs|=|Vds|=0.9 V with source tied to bulk,
+// TOXE=3 nm, L=180 nm, Wn=10 um, Wp=20 um. Charges below are in fC
+// and derivatives in fF. The P device's physical charges change sign.
+TEST(BSIM4Transient, IntrinsicTerminalChargesAndTheirDerivatives) {
+    struct BiasPoint {
+        bool pmos;
+        Real partition;
+        int cvcharge;
+        Real qg, qd, cdg, cgd;
+    };
+    for (const auto& point : std::array{
+            BiasPoint{false, 0.0, 0, 8.55482, -1.11553, -4.65603, 0.0199291},
+            BiasPoint{true,  0.0, 0, 17.3078, -2.29636, -9.33208, 0.0397836},
+            BiasPoint{false, 0.5, 1, 8.02427, -1.12783, -8.44439, 0.0305576},
+            BiasPoint{false, 1.0, 0, 8.55482, -0.00252256, -0.0135005, 0.0199291}}) {
+        const Real sign = point.pmos ? -1.0 : 1.0;
+        auto p = devices::bsim4_params_from_model({
+            {"toxe", 3e-9}, {"vth0", sign * 0.5}, {"vsat", 8e4},
+            {"u0", point.pmos ? 0.025 : 0.067}, {"xpart", point.partition},
+            {"cvchargemod", double(point.cvcharge)}}, "m");
+        p.w = point.pmos ? 20e-6 : 10e-6;
+        p.l = 180e-9;
+        p.type = sign;
+        p.compute_derived_params(p.tnom);
+        const auto theta = devices::bsim4_short_channel_factor(
+            p.dsub * p.get_leff() / (p.factor1 * std::sqrt(p.Xdep0))).value;
+        devices::BSIM4Core model(p, point.pmos);
+        const Real rail = point.pmos ? 1.8 : 0.0;
+        const devices::BSIM4Terminals v{0.9, 0.9, rail, rail};
+        devices::BSIM4ChargeJacobian dq;
+        const auto q = model.intrinsic_charges(v, p.tnom, theta, &dq);
+        SCOPED_TRACE(::testing::Message() << "pmos=" << point.pmos << " xpart=" << point.partition
+                                         << " cvchargemod=" << point.cvcharge);
+        EXPECT_NEAR(sign * q[0] * 1e15, point.qg, 0.005 * point.qg);
+        EXPECT_NEAR(sign * q[1] * 1e15, point.qd, 0.005 * std::abs(point.qd));
+        EXPECT_NEAR(dq[1][0] * 1e15, point.cdg, 0.005 * std::abs(point.cdg));
+        EXPECT_NEAR(dq[0][1] * 1e15, point.cgd, 0.005 * point.cgd);
+        EXPECT_NEAR(q[0] + q[1] + q[2] + q[3], 0.0, 1e-28);
+        for (int j = 0; j < 4; ++j) {
+            EXPECT_NEAR(dq[0][j] + dq[1][j] + dq[2][j] + dq[3][j], 0.0, 4e-23);
+            EXPECT_NEAR(dq[j][0] + dq[j][1] + dq[j][2] + dq[j][3], 0.0, 1e-28);
+        }
+        const auto reverse = model.intrinsic_charges({v[0], v[2], v[1], v[3]}, p.tnom, theta);
+        EXPECT_DOUBLE_EQ(reverse[0], q[0]);
+        EXPECT_DOUBLE_EQ(reverse[1], q[2]);
+        EXPECT_DOUBLE_EQ(reverse[2], q[1]);
+        EXPECT_DOUBLE_EQ(reverse[3], q[3]);
+    }
+}
+
+// The imaginary transadmittance divided by omega is the corresponding
+// off-diagonal dQ/dV. Voltage-source currents are positive into the supply.
+TEST(BSIM4Transient, AcUsesDistinctGateAndDrainChargeDerivatives) {
+    for (bool drive_gate : {false, true}) {
+        const std::string gate_ac = drive_gate ? "1" : "0";
+        const std::string drain_ac = drive_gate ? "0" : "1";
+        parser::NetlistParser parser;
+        auto parsed = parser.parse_string(
+            "BSIM4 intrinsic transfer capacitance\nVG g 0 DC 0.9 AC " + gate_ac +
+            "\nVD d 0 DC 0.9 AC " + drain_ac +
+            "\nM1 d g 0 0 m W=10u L=180n\n.model m nmos level=14 vth0=0.5 toxe=3n"
+            " cgso=0 cgdo=0 cgbo=0 cf=0 cjs=0 cjsws=0 cjswgs=0\n"
+            "Hmeter meter 0 " + (drive_gate ? "VD" : "VG") + " 1\n.ac lin 1 1meg 1meg\n.end\n");
+        ACSolver solver(*parsed.circuit, parsed.config);
+        const auto ac = solver.solve();
+        ASSERT_EQ(ac.status, ConvergenceStatus::SUCCESS);
+        const auto meter = parsed.circuit->get_node_id("meter");
+        const Real ff = -ac.frequency_points.at(0).solution.at(meter - 1).imag() *
+                        1e15 / (2.0 * std::acos(-1.0) * 1e6);
+        const Real reference = drive_gate ? -4.6560253 : 0.0199291;  // ngspice-47
+        EXPECT_NEAR(ff, reference, 0.005 * std::abs(reference));
+    }
 }

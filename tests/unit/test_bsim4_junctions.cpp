@@ -13,6 +13,7 @@
 
 #include <cmath>
 #include <string>
+#include <vector>
 
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/parser/netlist_parser.hpp"
@@ -57,4 +58,38 @@ TEST(Bsim4Junctions, DrainTakesTheSourceParameters) {
     EXPECT_NEAR(capacitance_at_s("VB b 0 DC -1\nM1 s 0 0 b m L=1u W=10u AD=1e-10\n.model m nmos" +
                                  kCard + " vth0=0.5 cjs=1e-3 mjs=0.4 pbs=0.8 cjsws=0 cjswgs=0"),
                 expected, 1e-6 * expected);
+}
+
+// With fixed terminal biases, changing CF adds W*CF at each of the source
+// and drain terminals. Subtracting the CF=0 result isolates the fringe.
+TEST(Bsim4Junctions, OuterFringeOnBothSidesOfTheGate) {
+    const std::string card = "\n.model m nmos level=14 toxe=3n epsrox=3.9 vth0=0.5";
+    constexpr Real width = 10e-6;
+    const Real default_cf = 2.0 * 3.9 * 8.8541878128e-12 / M_PI * std::log1p(400.0 / 3.0);
+    for (const std::string device : {"M1 s 0 0 0 m W=10u L=1u", "M1 0 0 s 0 m W=10u L=1u"}) {
+        const Real baseline = capacitance_at_s(device + card + " cf=0");
+        EXPECT_NEAR(capacitance_at_s(device + card + " cf=2e-10") - baseline,
+                    width * 2e-10, 1e-20);
+        EXPECT_NEAR(capacitance_at_s(device + card) - baseline, width * default_cf, 1e-20);
+    }
+}
+
+// BSIM4 manual 11.2 and 12.2; ngspice-47 gives these zero-bias values
+// with W=10 um and 1 nF/m on the isolation edge and (by default) gate edge.
+TEST(Bsim4Junctions, GateEdgeAndIsolationPerimeters) {
+    struct Example {
+        std::string instance, model;
+        Real source_ff, drain_ff;
+    };
+    for (const Example& e : std::vector<Example>{
+             {"", "", 20, 20}, {"PS=0 PD=0", "", 10, 10},
+             {"PS=30u PD=20u", "", 30, 20}, {"PS=30u PD=20u", "permod=0", 40, 30},
+             {"NF=2", "", 20, 10}, {"NF=2 MIN=1", "", 10, 20},
+             {"NF=3", "", 40.0 / 3, 40.0 / 3}}) {
+        SCOPED_TRACE(e.instance + " " + e.model);
+        const std::string model = " m W=10u L=1u " + e.instance +
+            "\n.model m nmos level=14 vth0=0.5 cjs=0 cgso=0 cgdo=0 cf=0 cjsws=1n " + e.model;
+        EXPECT_NEAR(capacitance_at_s("M1 0 0 s 0" + model), e.source_ff * 1e-15, 1e-20);
+        EXPECT_NEAR(capacitance_at_s("M1 s 0 0 0" + model), e.drain_ff * 1e-15, 1e-20);
+    }
 }

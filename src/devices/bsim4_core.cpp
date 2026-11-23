@@ -96,6 +96,12 @@ BSIM4Core::BSIM4Core(const BSIM4Params& params, bool p_channel)
     : params_(params), polarity_(p_channel ? -1.0 : 1.0) {
     // Align parameter polarity with device type for vtfbphi2/vfb calculations
     params_.type = polarity_;
+    // BSIM4 manual section 7.5.1, eq. 7.86. An explicit CF=0 disables the
+    // outer fringe on both sides of the gate.
+    if (std::isnan(params_.cf)) {
+        params_.cf = (2.0 * params_.epsrox * eps0 / std::numbers::pi) *
+                     std::log1p(4.0e-7 / params_.toxe);
+    }
     // Compute derived parameters from basic parameters at nominal temperature
     params_.compute_derived_params(params_.tnom);
 }
@@ -200,10 +206,122 @@ Real BSIM4Core::saturation_velocity(Real T) const {
     return std::max(params_.vsat - params_.at * (T / params_.tnom - 1.0), 1e4);
 }
 
+BSIM4Terminals BSIM4Core::intrinsic_charges(const BSIM4Terminals& voltages, Real temperature,
+                                            Real theta0vb0, BSIM4ChargeJacobian* jacobian) const {
+    std::lock_guard<std::mutex> lock(evaluate_mutex_);
+    if (jacobian) *jacobian = {};
+    const auto& p = params_;  // nominal material parameters; Vtm and Vth use operating T
+    if (!p.uses_terminal_charges()) return {};
+
+    const Real vt = kBoltz * temperature / qElectron;
+    const Real leff = p.get_leff();
+    const Real length = p.l + p.xl - 2.0 * (std::isnan(p.dlc) ? p.lint : p.dlc);
+    const Real width = p.w / p.nf + p.xw - 2.0 * (std::isnan(p.dwc) ? p.wint : p.dwc);
+    const Real area = length * width * p.nf * p.m * p.mult_q;
+    if (length <= 0.0 || width <= 0.0 || p.ndep <= 0.0) return {};
+
+    // Flat-band voltage at zero body and drain bias, including length, width
+    // and temperature corrections (4.8.3 b4temp). Geometry uses nominal phi.
+    const Real lt = p.factor1 * std::sqrt(p.Xdep0);
+    const Real rolloff = p.dvt0 * bsim4_short_channel_factor(p.dvt1 * leff / lt).value +
+                         p.dvt0w * bsim4_short_channel_factor(p.dvt1w * p.get_weff() * leff / lt).value;
+    const Real vfb = polarity_ * p.vth0 - p.phi - p.k1 * p.sqrtPhi -
+                     rolloff * (p.vbi - p.phi) + p.k3 * p.toxe * p.phi / (p.get_weff() + p.w0) +
+                     p.k1ox * p.sqrtPhi * (std::sqrt(1.0 + p.lpe0 / leff) - 1.0) +
+                     (p.kt1 + p.kt1l / leff) * (temperature / p.tnom - 1.0);
+    const Real debye = std::sqrt(p.epssub * kBoltz * p.tnom /
+                                 (qElectron * qElectron * p.ndep * 1e6)) / 3.0;
+    const Real acde = p.acde * std::pow(p.ndep / 2e16, -0.25);
+    const Real abulk_factor = 1.0 + std::pow(p.clc / length, p.cle);
+    auto charge = [&](const BSIM4Terminals& v) -> BSIM4Terminals {
+        const auto bias = compute_bias(v[0], v[1], v[2], v[3], temperature);
+        const auto th = compute_threshold(bias, temperature, theta0vb0, p.sqrtPhi, p.vbi, p.phi);
+        const Real vgb = bias.vgs_eff - (bias.vbs_eff < 0.0 ? bias.vbs_eff : p.phi - bias.phis);
+        const Real raw = bias.vgs_eff - th.vth;
+        const Real nvt = th.n * vt;
+        auto overdrive = [](Real v, Real scale) {
+            const Real ratio = v / scale;
+            return ratio > 34.0 ? v : scale * std::log1p(std::exp(std::max(ratio, -34.0)));
+        };
+        Real vgst;
+        if (p.cvchargemod == 1) {
+            const Real mstar = 0.5 + std::atan(p.minvcv) / std::numbers::pi;
+            const Real offset = p.voffcv + p.voffcvl / leff - (1.0 - mstar) * raw;
+            const Real coxe = p.epsrox * eps0 / p.toxe;
+            const Real cdep = p.epssub / p.Xdep0;
+            vgst = overdrive(mstar * raw, nvt) /
+                   (mstar + th.n * coxe / cdep * std::exp(std::clamp(offset / nvt, -34.0, 34.0)));
+        } else {
+            vgst = overdrive(raw - p.voffcv, guard_positive(p.noff * nvt, vt));
+        }
+
+        // Accumulation and depletion share the field-dependent Debye centroid.
+        const Real field = (vgb - vfb) / (1e8 * p.toxp);
+        const Real depth = debye * std::exp(std::clamp(acde * field, -34.0, 34.0));
+        const Real link = 1e-3 * p.toxp;
+        const Real separation = debye - depth - link;
+        // Rationalized smaller root avoids cancellation in accumulation.
+        const Real centroid = 2.0 * debye * depth /
+            (debye + depth + link + std::hypot(separation, 2.0 * std::sqrt(link * debye)));
+        const Real cacc = area * p.coxp / (1.0 + p.coxp * centroid / p.epssub);
+        const Real flatband_arg = vfb - vgb - 0.02;
+        const Real vfbeff = vfb - 0.5 * (flatband_arg +
+            std::sqrt(flatband_arg * flatband_arg + 0.08 * std::abs(vfb)));
+        const Real dep = vgb - vfbeff - vgst;
+        const Real k = p.k1ox;
+        const Real depletion = k == 0.0 ? 0.0 : dep < 0.0 ? dep :
+                               k * (std::sqrt(0.25 * k * k + dep) - 0.5 * k);
+        const Real field_charge = cacc * (vfbeff - vfb + depletion);
+
+        // Inversion centroid and gate-bias-dependent surface potential.
+        const Real body_factor = k > 0.0 ? k : 0.5;
+        const Real dphi = vt * std::log1p((2.0 * body_factor * p.sqrtPhi + vgst) * vgst /
+                                          (guard_positive(p.moin, 15.0) * vt * body_factor * body_factor));
+        const Real diff = vgst - dphi - 0.001;
+        const Real drive = 0.5 * (diff + std::sqrt(diff * diff + 0.004 * vgst));
+        const Real c = area * compute_coxeff_and_beta(vgst, 0.0).first;
+        const Real abulk = th.abulk0 * th.keta_factor * abulk_factor;
+        const Real vd = compute_vdseff(drive / abulk, bias.vds, 0.02).first;
+        const Real drop = abulk * vd;
+        const Real mean = drive - 0.5 * drop + 1e-20;
+        const Real shape = 0.5 - drop / (12.0 * mean);
+        const Real channel = c * (drive - drop * shape);
+        const Real bulk = c * (1.0 - abulk) * vd * shape - field_charge;
+
+        Real source;
+        if (p.xpart < 0.5) {  // 40/60 partition at saturation
+            const Real moment = drive * (drive * (drive - 4.0 * drop / 3.0) +
+                                2.0 * drop * drop / 3.0) - 2.0 * drop * drop * drop / 15.0;
+            source = -0.5 * c * moment / (mean * mean);
+        } else if (p.xpart > 0.5) {
+            source = -c * (0.5 * drive + 0.25 * drop - drop * drop / (24.0 * mean));
+        } else {
+            source = -0.5 * channel;
+        }
+        const Real drain = -channel - source;
+        return {polarity_ * (channel - bulk), polarity_ * (bias.reverse_mode ? source : drain),
+                polarity_ * (bias.reverse_mode ? drain : source), polarity_ * bulk};
+    };
+
+    if (jacobian) {
+        // Independent gate, drain and bulk perturbations at fixed source. A
+        // common voltage shift leaves every charge unchanged, fixing column S.
+        constexpr Real step = 1e-6;
+        for (int j : {0, 1, 3}) {
+            auto hi = voltages, lo = voltages;
+            hi[j] += step;
+            lo[j] -= step;
+            const auto plus = charge(hi), minus = charge(lo);
+            for (int i = 0; i < 4; ++i) (*jacobian)[i][j] = (plus[i] - minus[i]) / (2.0 * step);
+        }
+        for (auto& row : *jacobian) row[2] = -(row[0] + row[1] + row[3]);
+    }
+    return charge(voltages);
+}
+
 BSIM4Capacitances BSIM4Core::compute_capacitances(Real vg, Real vd, Real vs, Real vb,
                                                   Real vth, Real temperature) const {
-    // Reuse bias handling (polarity and drain/source swap)
-    const BSIM4BiasState bias = compute_bias(vg, vd, vs, vb, temperature);
+    std::lock_guard<std::mutex> lock(evaluate_mutex_);
 
     // Effective dimensions, as the current takes them: NF fingers of Weff
     Real weff = std::max(params_.nf, 1.0) * params_.get_weff();
@@ -211,48 +329,51 @@ BSIM4Capacitances BSIM4Core::compute_capacitances(Real vg, Real vd, Real vs, Rea
     if (weff <= 0.0) weff = params_.w;
     if (leff <= 0.0) leff = params_.l;
 
-    // Gate oxide capacitance
-    const Real epsilon_ox = EPSILON_OX;     // SiO2 permittivity [F/m]
-    Real cox = epsilon_ox / params_.toxe;   // [F/m²]
-    Real cgate = cox * weff * leff;         // total gate cap
-
-    // Gate capacitances (Meyer-style) using unified vgs/vds (already polarity-adjusted).
-    // vth comes with the device's sign, as evaluate() returns it (-0.5 V for
-    // a P device of VTH0 -0.5 V); in the device's own terms it is polarity * vth
-    vth = polarity_ * vth;
-    Real vgs = bias.vgs;
-    Real vds = bias.vds;
-    Real vbs = bias.vbs;
-    Real vgs_eff = vgs - vth;
-
     Real cgs = 0.0, cgd = 0.0, cgb = 0.0;
-    if (vgs_eff < 0.0) {
-        cgb = cgate; // cutoff: all to bulk
-    } else {
-        // Velocity saturation dependent vdsat (simple)
-        Real vdsat = vgs_eff;
-        // The saturation velocity at the temperature, as the current takes it
-        const Real vsat_temp = saturation_velocity(temperature);
-        {
-            Real mu_eff = compute_mobility(vgs_eff, vth, vbs, temperature);
-            Real vsat_l = leff * vsat_temp / guard_positive(mu_eff, params_.u0);
-            if (vsat_l > 0.0) {
-                vdsat = vgs_eff / (1.0 + vgs_eff / vsat_l);
-            }
-        }
+    if (params_.capmod != 2 && params_.xpart >= 0.0) {
+        const auto bias = compute_bias(vg, vd, vs, vb, temperature);
+        // Gate oxide capacitance
+        const Real epsilon_ox = EPSILON_OX;     // SiO2 permittivity [F/m]
+        Real cox = epsilon_ox / params_.toxe;   // [F/m²]
+        Real cgate = cox * weff * leff;         // total gate cap
 
-        if (vds < vdsat) {
-            cgs = (2.0 / 3.0) * cgate;
-            cgd = (2.0 / 3.0) * cgate;
+        // Gate capacitances (Meyer-style) using unified vgs/vds (already polarity-adjusted).
+        // vth comes with the device's sign, as evaluate() returns it (-0.5 V for
+        // a P device of VTH0 -0.5 V); in the device's own terms it is polarity * vth
+        vth = polarity_ * vth;
+        Real vgs = bias.vgs;
+        Real vds = bias.vds;
+        Real vbs = bias.vbs;
+        Real vgs_eff = vgs - vth;
+
+        if (vgs_eff < 0.0) {
+            cgb = cgate; // cutoff: all to bulk
         } else {
-            cgs = (2.0 / 3.0) * cgate;
-            cgd = 0.0;
+            // Velocity saturation dependent vdsat (simple)
+            Real vdsat = vgs_eff;
+            // The saturation velocity at the temperature, as the current takes it
+            const Real vsat_temp = saturation_velocity(temperature);
+            {
+                Real mu_eff = compute_mobility(vgs_eff, vth, vbs, temperature);
+                Real vsat_l = leff * vsat_temp / guard_positive(mu_eff, params_.u0);
+                if (vsat_l > 0.0) {
+                    vdsat = vgs_eff / (1.0 + vgs_eff / vsat_l);
+                }
+            }
+
+            if (vds < vdsat) {
+                cgs = (2.0 / 3.0) * cgate;
+                cgd = (2.0 / 3.0) * cgate;
+            } else {
+                cgs = (2.0 / 3.0) * cgate;
+                cgd = 0.0;
+            }
         }
     }
 
     // Overlap capacitances
-    cgs += params_.cgso * weff;
-    cgd += params_.cgdo * weff;
+    cgs += (params_.cgso + params_.cf) * weff;
+    cgd += (params_.cgdo + params_.cf) * weff;
     cgb += params_.cgbo * leff;
 
     // The junctions belong to the physical source and drain (not swapped),
@@ -273,18 +394,29 @@ BSIM4Capacitances BSIM4Core::compute_capacitances(Real vg, Real vd, Real vs, Rea
         return cj0 / std::pow(arg, mj);
     };
 
+    // BSIM4 sections 11.2 and 12.2: every finger has one gate edge on
+    // each side. Only the isolation edge uses PS/PD. In the supported
+    // default layout (GEOMOD=0, zero diffusion lengths), each outer end
+    // contributes one finger width and shared internal diffusions none.
+    const Real nf = std::max(params_.nf, 1.0);
+    const bool even_fingers = std::fmod(nf, 2.0) == 0.0;
+    const int source_ends = even_fingers ? (params_.min == 0 ? 2 : 0) : 1;
+    auto isolation_perimeter = [&](Real perimeter, int ends) {
+        if (std::isnan(perimeter)) return ends * (weff / nf);
+        return std::max(0.0, perimeter - (params_.permod ? weff : 0.0));
+    };
     Real cbd = 0.0, cbs = 0.0;
     // Drain side
     Real cj0_d = params_.cjd * params_.ad;
-    Real cj0_sw_d = params_.cjswd * params_.pd;
-    Real cj0_swg_d = params_.cjswgd * params_.pd;
+    Real cj0_sw_d = params_.cjswd * isolation_perimeter(params_.pd, 2 - source_ends);
+    Real cj0_swg_d = params_.cjswgd * weff;
     cbd += compute_cj(cj0_d, vbd_raw, params_.pbd, params_.mjd);
     cbd += compute_cj(cj0_sw_d, vbd_raw, params_.pbswd, params_.mjswd);
     cbd += compute_cj(cj0_swg_d, vbd_raw, params_.pbswgd, params_.mjswgd);
     // Source side
     Real cj0_s = params_.cjs * params_.as;
-    Real cj0_sw_s = params_.cjsws * params_.ps;
-    Real cj0_swg_s = params_.cjswgs * params_.ps;
+    Real cj0_sw_s = params_.cjsws * isolation_perimeter(params_.ps, source_ends);
+    Real cj0_swg_s = params_.cjswgs * weff;
     cbs += compute_cj(cj0_s, vbs_raw, params_.pbs, params_.mjs);
     cbs += compute_cj(cj0_sw_s, vbs_raw, params_.pbsws, params_.mjsws);
     cbs += compute_cj(cj0_swg_s, vbs_raw, params_.pbswgs, params_.mjswgs);

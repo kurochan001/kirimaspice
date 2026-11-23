@@ -116,6 +116,8 @@ public:
     void accept_solution(const DenseVector& node_voltages) override;
     /// Back to the state before any transient: no voltage or current history
     void reset_state() override;
+    void save_state() override { saved_history_ = history_; }
+    void restore_state() override { history_ = saved_history_; }
 
     // Physical LTE estimation
     Real get_physical_lte(Real chgtol, const DenseVector& node_voltages) const override;
@@ -162,46 +164,21 @@ private:
     BSIM4Params params_;         ///< Model parameters
     BSIM4Core core_;             ///< Compact-model core evaluator (DC gm/gds/gmb)
 
-    // State variables for transient analysis
-    // Junction voltage history for BDF integration (prev = t-Δt, prev2 = t-2Δt, prev3 = t-3Δt)
-    mutable Real vgs_prev_ = 0.0;   ///< V_GS(t-Δt)
-    mutable Real vgs_prev2_ = 0.0;  ///< V_GS(t-2Δt) - for BDF2
-    mutable Real vgs_prev3_ = 0.0;  ///< V_GS(t-3Δt) - for BDF3
-    mutable Real vgd_prev_ = 0.0;   ///< V_GD(t-Δt)
-    mutable Real vgd_prev2_ = 0.0;  ///< V_GD(t-2Δt) - for BDF2
-    mutable Real vgd_prev3_ = 0.0;  ///< V_GD(t-3Δt) - for BDF3
-    mutable Real vgb_prev_ = 0.0;   ///< V_GB(t-Δt)
-    mutable Real vgb_prev2_ = 0.0;  ///< V_GB(t-2Δt) - for BDF2
-    mutable Real vgb_prev3_ = 0.0;  ///< V_GB(t-3Δt) - for BDF3
-    mutable Real vbd_prev_ = 0.0;   ///< V_BD(t-Δt)
-    mutable Real vbd_prev2_ = 0.0;  ///< V_BD(t-2Δt) - for BDF2
-    mutable Real vbd_prev3_ = 0.0;  ///< V_BD(t-3Δt) - for BDF3
-    mutable Real vbs_prev_ = 0.0;   ///< V_BS(t-Δt)
-    mutable Real vbs_prev2_ = 0.0;  ///< V_BS(t-2Δt) - for BDF2
-    mutable Real vbs_prev3_ = 0.0;  ///< V_BS(t-3Δt) - for BDF3
+    // Branch order is GS, GD, GB, BD, BS. The two TR-BDF2 stages and
+    // rejected steps must restore all accepted charges and currents together.
+    using Branches = std::array<Real, 5>;
+    struct History {
+        std::array<Branches, 3> branch_v{};
+        Branches branch_i{}, branch_q{};
+        std::array<BSIM4Terminals, 3> intrinsic_q{};
+        BSIM4Terminals intrinsic_i{};
+    };
+    History history_, saved_history_;
 
-    // The capacitances' currents at the last accepted point (cgs, cgd, cgb,
-    // cbd, cbs), for the trapezoidal rule, and the step they were
-    // integrated with (device_utils::capacitor_companion)
-    mutable Real icap_prev_[5] = {0.0, 0.0, 0.0, 0.0, 0.0};
     mutable Real cap_dt_ = 0.0;
     mutable IntegrationMethod cap_method_ = IntegrationMethod::BACKWARD_EULER;
     mutable std::optional<BDFCoefficients> cap_bdf_;
     mutable std::optional<TR_BDF2_Coefficients> cap_tr_bdf2_;
-
-    // Integration method state (for accept_solution)
-    mutable Real timestep_ = 0.0;
-    mutable IntegrationMethod last_method_ = IntegrationMethod::BACKWARD_EULER;
-
-    // Charge history for Physical LTE estimation
-    mutable Real charge_gs_prev_ = 0.0;  ///< Q_GS(t-Δt) - gate-source charge
-    mutable Real charge_gd_prev_ = 0.0;  ///< Q_GD(t-Δt) - gate-drain charge
-    mutable Real charge_gb_prev_ = 0.0;  ///< Q_GB(t-Δt) - gate-bulk charge
-    mutable Real charge_bd_prev_ = 0.0;  ///< Q_BD(t-Δt) - bulk-drain charge
-    mutable Real charge_bs_prev_ = 0.0;  ///< Q_BS(t-Δt) - bulk-source charge
-
-    // Legacy DC analysis state (for compatibility)
-    mutable Real vds_prev_ = 0.0;   ///< Previous Vds (DC analysis)
 
     // Temperature dependence
     mutable Real temperature_ = 300.15;  ///< Operating temperature [K] (default 27°C)

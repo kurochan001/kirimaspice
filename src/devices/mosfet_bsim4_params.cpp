@@ -366,6 +366,7 @@ bool set_bsim4_instance_parameter(BSIM4Params& p, const std::string& key, Real v
     if (key == "w") p.w = value;
     else if (key == "l") p.l = value;
     else if (key == "nf") p.nf = value;
+    else if (key == "min") p.min = value;
     else if (key == "m") p.m = value;
     else if (key == "mult_i") p.mult_i = value;
     else if (key == "mult_fn") p.mult_fn = value;
@@ -504,6 +505,7 @@ BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_par
         else if (key == "cgso") bsim4_params.cgso = value;
         else if (key == "cgdo") bsim4_params.cgdo = value;
         else if (key == "cgbo") bsim4_params.cgbo = value;
+        else if (key == "cf") bsim4_params.cf = value;
         // Geometry Scaling
         else if (key == "lint") bsim4_params.lint = value;
         else if (key == "wint") bsim4_params.wint = value;
@@ -517,7 +519,20 @@ BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_par
         }
         // Model selection flags
         else if (key == "mobmod") bsim4_params.mobmod = static_cast<int>(value);
+        else if (key == "xpart") bsim4_params.xpart = value;
+        else if (key == "clc") bsim4_params.clc = value;
+        else if (key == "cle") bsim4_params.cle = value;
+        else if (key == "acde") bsim4_params.acde = value;
+        else if (key == "moin") bsim4_params.moin = value;
+        else if (key == "noff") bsim4_params.noff = value;
+        else if (key == "voffcv") bsim4_params.voffcv = value;
+        else if (key == "minvcv") bsim4_params.minvcv = value;
+        else if (key == "voffcvl") bsim4_params.voffcvl = value;
+        else if (key == "dlc") bsim4_params.dlc = value;
+        else if (key == "dwc") bsim4_params.dwc = value;
+        else if (key == "cvchargemod") bsim4_params.cvchargemod = static_cast<int>(value);
         else if (key == "capmod") bsim4_params.capmod = static_cast<int>(value);
+        else if (key == "permod") bsim4_params.permod = static_cast<int>(value);
         else if (key == "gidlmod") bsim4_params.gidlmod = static_cast<int>(value);
         else if (key == "gidlclamp") bsim4_params.gidlclamp = value;
         else if (key == "idovvds" || key == "idovvdsc") bsim4_params.idovvdsc = value;
@@ -564,6 +579,7 @@ BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_par
         Real BSIM4Params::*source;
         const char* drain_key;
         Real BSIM4Params::*drain;
+        Real BSIM4Params::*source_default = nullptr;
     };
     static const Junction junctions[] = {
         {"cjs", &BSIM4Params::cjs, "cjd", &BSIM4Params::cjd},
@@ -572,13 +588,17 @@ BSIM4Params bsim4_params_from_model(const std::map<std::string, Real>& model_par
         {"cjsws", &BSIM4Params::cjsws, "cjswd", &BSIM4Params::cjswd},
         {"mjsws", &BSIM4Params::mjsws, "mjswd", &BSIM4Params::mjswd},
         {"pbsws", &BSIM4Params::pbsws, "pbswd", &BSIM4Params::pbswd},
-        {"cjswgs", &BSIM4Params::cjswgs, "cjswgd", &BSIM4Params::cjswgd},
-        {"mjswgs", &BSIM4Params::mjswgs, "mjswgd", &BSIM4Params::mjswgd},
-        {"pbswgs", &BSIM4Params::pbswgs, "pbswgd", &BSIM4Params::pbswgd},
+        {"cjswgs", &BSIM4Params::cjswgs, "cjswgd", &BSIM4Params::cjswgd, &BSIM4Params::cjsws},
+        {"mjswgs", &BSIM4Params::mjswgs, "mjswgd", &BSIM4Params::mjswgd, &BSIM4Params::mjsws},
+        {"pbswgs", &BSIM4Params::pbswgs, "pbswgd", &BSIM4Params::pbswgd, &BSIM4Params::pbsws},
     };
     for (const auto& j : junctions) {
+        // Appendix A: the source gate-edge values default to the source
+        // isolation-edge values, before the drain inherits the source.
         if (auto it = model_params.find(j.source_key); it != model_params.end()) {
             bsim4_params.*j.source = it->second;
+        } else if (j.source_default) {
+            bsim4_params.*j.source = bsim4_params.*j.source_default;
         }
         if (auto it = model_params.find(j.drain_key); it != model_params.end()) {
             bsim4_params.*j.drain = it->second;
