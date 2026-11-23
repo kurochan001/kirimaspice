@@ -21,25 +21,24 @@ tests and the review, under the [AI policy](docs/spec/AI_POLICY.md).
 
 ## Status
 
-Measured on 2026-11-20 at commit `f3d6423` with `tools/local_ci.py` on
-macOS 27.2 (arm64) with GCC 16.2.0, CMake 4.4.4 and SuiteSparse 7.6.1;
-ngspice-47 was installed, so the test that compares BSIM4 with ngspice
-ran. Homebrew's clang 23.1.4 and Apple clang 21.0.0 gave the same results
-on 2026-11-14 (not checked again at this commit).
+On 2026-11-23, `python3 tools/local_ci.py` passed at commit `6b334da` on
+macOS 27.2.1 (arm64) with GCC 16.2.0, CMake 4.4.4 and SuiteSparse 7.6.1.
+The run included the live comparison with ngspice-47.
 
-| CTest tests | Count |
-| --- | --- |
-| Registered | 1293 |
-| Passed | 1286 |
+| CTest tests on macOS | Count |
+| --- | ---: |
+| Registered | 1505 |
+| Passed | 1505 |
+| Failed | 0 |
 | Skipped | 0 |
-| Failed (listed in `tests/known_failures.txt`) | 6 |
-| Disabled | 1 |
+| Disabled | 0 |
 
-In CI on Ubuntu 24.04 (x86-64), GCC 13.3.0 and clang 18.1.3 build
-kirimaspice; the six tests listed in `tests/known_failures.txt` fail there
-as well.
-[KNOWN_ISSUES.md](KNOWN_ISSUES.md) lists the failing and
-skipped tests and the other known problems.
+The six diode and BJT tests now use the project's own model cards.
+The three-stage BSIM4 inverter test runs in the default suite. Its largest
+waveform error against ngspice-47 was 2.51 mV (limit 50 mV).
+
+GitHub Actions tests Ubuntu 24.04 with GCC and clang. The history check
+for this revision flagged an earlier commit. [CI run for `6b334da`](https://github.com/kurochan001/kirimaspice/actions/runs/45160936314) · [Known issues](KNOWN_ISSUES.md)
 
 ## What it handles
 

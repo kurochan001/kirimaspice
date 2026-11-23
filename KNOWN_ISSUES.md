@@ -8,31 +8,25 @@ and SuiteSparse 7.6.1 unless an entry says otherwise.
 
 ## Tests
 
-The groups below summarize the exceptions described in detail after the
-table. They are not an additional set of tests.
+At `6b334da` the macOS run passed all 1505 tests. The five
+`ManufacturerModels.*` tests and `BJTModelTest.SimpleCommonEmitter`
+use the diode and NPN example cards in [tests/models](tests/models).
+The known-failure list is empty.
 
-| Group | State | Main obstacle |
+| Comparison | State | Reference |
 | --- | --- | --- |
-| Manufacturer models and common-emitter test (6) | known failures | model files are absent |
 | BSIM4 temperature reference (1) | runs | reference from ngspice-45.2 is committed |
 | BSIM4 VDSAT branch (1) | runs | reference verified with ngspice-45.2 |
-| BSIM4 transient inverter chain (1) | disabled | edges differ; simplified capacitance model |
+| BSIM4 transient inverter chain (1) | runs | stored ngspice-47 waveform |
 | Live ngspice comparison | conditional | runs only when ngspice is installed |
 
-- **Six tests fail** and are listed in `tests/known_failures.txt`:
-  - `ManufacturerModels.*` (five tests) and `BJTModelTest.SimpleCommonEmitter`
-    include `tests/models/2N3904.lib` and `tests/models/1N4148.lib`, which are
-    not in the repository. The tests expect `BF=200` for the 2N3904 and
-    `IS=2.52e-9`, `N=1.752` for the 1N4148. The files must not be added
-    before their origin and redistribution terms are checked; their origin
-    is not confirmed.
 - `CMOS_Inverter.DCTransferCharacteristic_HighInput` used to require an output
   of at least 0 V and saw -4.1e-25 V on arm64, which is roundoff around the
   exact value of 0 V; its lower bound now allows -1e-12 V.
 - The ngspice version used to make most of the reference data in
-  `validation/` and `tests/validation/` is not recorded. The exception is
+  `validation/` and `tests/validation/` is not recorded. Recorded examples include
   `validation/mosfet_2stage_amplifier_ac_ngspice.csv`, written by
-  ngspice-45.2. The twenty comparison tests that read `validation/` were
+  ngspice-45.2, and the inverter-chain reference described below. The twenty comparison tests that read `validation/` were
   skipped until their data paths were corrected; they have run since then
   on Linux (x86-64) with clang 20.1.8 and GCC 15.2.0, and CI run
   44613253295 passed them with GCC 13.3.0 and clang 18.1.3; other
@@ -53,15 +47,11 @@ table. They are not an additional set of tests.
   `validation/bsim4_vdsat_branch.cir`. With ngspice-45.2 that deck gives
   id = 2.1016 A and vdsat = 0.8418 V; the test passes, 0.08% and 0.45%
   from the stored values.
-- `BSIM4Transient.InverterChain_MatchesNgspiceReference` is disabled
-  (`DISABLED_` in its name). Its comment says that the transient does not
-  converge near 1 ns, but on Linux (x86-64) it now completes: with the
-  reference's 50 mV bound the worst errors are 0.40 V (n1), 0.83 V (n2)
-  and 1.83 V (n3), all during the switching edges. The DC levels match;
-  the simulated edges come earlier, consistent with the simplified
-  capacitance model described below. The reference deck uses `.options method=gear`
-  while the test uses trapezoidal; repeating the run with Gear2 changes
-  the errors only slightly.
+- `BSIM4Transient.InverterChain_MatchesNgspiceReference` and the reference
+  generator read the [same netlist](validation/bsim4_inv_chain.cir) (Gear,
+  1 ps step, 10 ns duration). On macOS at `6b334da`, the maximum absolute
+  voltage errors against ngspice-47 were 2.51 mV at n1, 2.07 mV at n2
+  and 2.39 mV at n3. The limit is 50 mV at each node.
 - At commit `02261a2` on macOS, CTest had 1188 tests: 1158 passed, 22 were
   skipped (the twenty comparison tests, which looked for their data in the
   wrong directory then, `TemperatureSweepValidation` and
@@ -239,16 +229,13 @@ says otherwise.
   bias raise it, and the current falls by six decades as VG rises past
   it: 1.90e-4 A at VG = 0.4999 V, 4.1e-11 A at 0.5001 V (run on
   2026-11-21 at `21bb991`; the body-bias terms read in the code).
-- **BSIM4's capacitances are a simplified Meyer model with BSIM4's
-  junctions,** not BSIM4's charge model (`BSIM4Core::compute_capacitances`).
-  The junctions take their perimeters from `PS` and `PD` alone, 0 when the
-  element line does not give them, where ngspice-47 takes a perimeter
-  then: with no junction parameters on the card and AS = 1e-10 m², it gives
-  a source capacitance of 4.331e-14 F at 1 V reverse, where the bottom
-  junction alone is 3.536e-14 F; the rest fits the default sidewall
-  capacitance over a perimeter of 2 W (run on 2026-11-15; ngspice's rule
-  not read). The outer fringe capacitance CF is not modelled. In the
-  linear region Cgs = Cgd = 2/3 Cox W L (4/3 Cox W L in all).
+- **BSIM4 uses simplified Meyer capacitances for `CAPMOD=0` and `1`.**
+  The default `CAPMOD=2` uses `BSIM4Core::intrinsic_charges` for AC and
+  transient analysis. Overlap, outer fringe (`CF`) and junction
+  capacitances are calculated separately. When `PS` or `PD` is omitted,
+  the isolation perimeter follows the finger layout for the supported
+  default geometry (`GEOMOD=0`, zero diffusion lengths). Each finger
+  also contributes a gate-edge junction capacitance on both sides.
 - **BSIM4's MOBMOD 3 (the high-k mobility model) to 6 are computed as
   MOBMOD 0,** and the card is named in a warning. MOBMOD 0, 1 and 2 follow
   the BSIM4 4.8.3 code.

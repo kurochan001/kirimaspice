@@ -7,26 +7,23 @@
 
 ## テスト
 
-後の箇条書きで説明する例外をまとめます。この表が別のテスト群を追加するわけではありません。
+`6b334da` の macOS では 1505 件すべてが合格しました。`ManufacturerModels.*` と
+`BJTModelTest.SimpleCommonEmitter` の計 6 件は、[tests/models](tests/models) にあるダイオードと
+NPN のテスト用モデルカードを使います。既知の失敗の一覧に登録されたテストはありません。
 
-| 対象 | 状態 | 主な障害 |
+| 比較テスト | 状態 | 参照 |
 | --- | --- | --- |
-| メーカーモデルとエミッタ接地のテスト（6 件） | 既知の失敗 | モデルファイルがない |
 | BSIM4 の温度の参照（1 件） | 実行 | ngspice-45.2 の参照をリポジトリに置いた |
 | BSIM4 の VDSAT 分岐（1 件） | 実行 | ngspice-45.2 で参照を確認した |
-| BSIM4 過渡解析のインバータ列（1 件） | 無効 | 遷移がずれる。簡略化した容量モデル |
+| BSIM4 の 3 段インバータの過渡解析（1 件） | 実行 | ngspice-47 の参照波形を同梱 |
 | ngspice を実行する比較 | 環境による | ngspice があるときに実行 |
 
-- **6 件のテストが失敗します。** `tests/known_failures.txt` に並べてあります。
-  - `ManufacturerModels.*`（5 件）と `BJTModelTest.SimpleCommonEmitter` は、リポジトリにない
-    `tests/models/2N3904.lib` と `tests/models/1N4148.lib` を読み込みます。テストは 2N3904 に
-    `BF=200`、1N4148 に `IS=2.52e-9`、`N=1.752` を期待します。追加の前に出自と再配布条件を
-    確かめる必要があり、出自は未確認です。
 - `CMOS_Inverter.DCTransferCharacteristic_HighInput` は、以前は出力電圧が 0 V 以上であることを
   確かめ、arm64 で -4.1e-25 V を得ていました。これは厳密解 0 V の丸め誤差なので、下限を
   -1e-12 V まで許すようにしました。
 - `validation/` と `tests/validation/` の参照データの大部分は、作った ngspice の版が記録されていません。
-  例外は `validation/mosfet_2stage_amplifier_ac_ngspice.csv` で、ngspice-45.2 で書き出しました。
+  版が分かっている例には、ngspice-45.2 で作った `validation/mosfet_2stage_amplifier_ac_ngspice.csv` と、
+  下記のインバータの参照波形があります。
   `validation/` を読む比較のテスト 20 件は、データの探索先を直すまでスキップされていました。
   それ以後は Linux（x86-64）の clang 20.1.8 と GCC 15.2.0 で実行し、CI run 44613253295 では
   GCC 13.3.0 と clang 18.1.3 でもすべて合格しました。ほかの環境は未確認です。
@@ -42,12 +39,10 @@
 - `BSIM4ComprehensiveTest.VdsatBranchSelection` は、`validation/bsim4_vdsat_branch.cir` の
   参照を読みます。ngspice-45.2 では、このデッキは id = 2.1016 A、vdsat = 0.8418 V を与え、
   テストは保存した値から 0.08% と 0.45% の差で合格します。
-- `BSIM4Transient.InverterChain_MatchesNgspiceReference` は無効です（名前に `DISABLED_` があります）。
-  そのコメントには、BSIM4 の過渡解析が 1 ns 付近で収束しないと書いてありますが、Linux（x86-64）では
-  完走します。参照の許容 50 mV に対して最悪の誤差は n1 0.40 V、n2 0.83 V、n3 1.83 V で、いずれも
-  遷移の途中です。DC レベルは一致し、シミュレーションの遷移が早く、後述の簡略化した容量モデルと
-  整合します。参照のデッキは `.options method=gear` を使い、テストは台形法を使いますが、Gear2 で
-  やり直しても誤差はほとんど変わりません。
+- `BSIM4Transient.InverterChain_MatchesNgspiceReference` と参照データの生成スクリプトは、
+  [同じ回路](validation/bsim4_inv_chain.cir) を Gear 法、1 ps 刻みで 10 ns まで解析します。
+  `6b334da` の macOS での ngspice-47 との最大絶対電圧誤差は、n1 が 2.51 mV、n2 が 2.07 mV、
+  n3 が 2.39 mV でした。許容値は各ノードとも 50 mV です。
 - コミット `02261a2` の macOS では、CTest のテストは 1188 件でした。1158 件が合格、22 件がスキップ
   （当時はデータを別のディレクトリで探していた比較のテスト 20 件、`TemperatureSweepValidation`、
   `VdsatBranchSelection`）、7 件が失敗、1 件が無効でした。
@@ -170,13 +165,11 @@ ngspice について書いていることは、それぞれのマニュアルに
   √(|V<sub>BS</sub>| + φ) のために順方向のバックゲート電圧がしきい値を上げ、VG がしきい値を越えて上がると
   電流が 6 桁落ちます。VG = 0.4999 V で 1.90e-4 A、0.5001 V で 4.1e-11 A です（2026-11-21 に `21bb991`
   で実行。バックゲート電圧の項はコードで読みました）。
-- **BSIM4 の容量は、BSIM4 の接合を持つ簡略化した Meyer のモデルで、** BSIM4 の電荷のモデルではありません
-  （`BSIM4Core::compute_capacitances`）。接合の周囲長は `PS` と `PD` だけから取り、素子の行に書かなければ 0 です。
-  ngspice-47 はそのとき周囲長を取ります。カードに接合のパラメーターがなく AS = 1e-10 m² のとき、
-  ソースの容量は逆バイアス 1 V で 4.331e-14 F で、底面の接合だけでは 3.536e-14 F です。残りは、既定の側面の
-  容量に周囲長 2 W を掛けたものに合います（2026-11-15 に実行。ngspice の決まりは読んでいません）。
-  外側のフリンジ容量 CF はモデルにありません。線形領域では Cgs = Cgd = 2/3 Cox W L（合わせて
-  4/3 Cox W L）です。
+- **BSIM4 の `CAPMOD=0` と `1` は簡略化した Meyer 容量を使います。** 既定の `CAPMOD=2` では、
+  AC 解析と過渡解析が `BSIM4Core::intrinsic_charges` で端子電荷を求めます。オーバーラップ容量、
+  外側のフリンジ容量（`CF`）、接合容量は別に計算します。`PS` または `PD` を省略すると、対応する
+  素子分離側の周囲長は、実装が扱う既定の形状（`GEOMOD=0`、拡散領域の長さは 0）でのフィンガー配置から
+  求めます。各フィンガーの両側にはゲート端の接合容量も加わります。
 - **BSIM4 の MOBMOD 3（high-k の移動度モデル）〜6 は MOBMOD 0 として計算し、** そのカードを警告で
   名指しします。MOBMOD 0、1、2 は BSIM4 4.8.3 のコードに従います。
 - **バックゲート電圧があると、BSIM4 のしきい値が ngspice-47 と最大 10 µV 違います**（参照テストの

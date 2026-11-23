@@ -56,9 +56,9 @@ ctest --test-dir build --output-on-failure
 - The build directory may be anywhere; the commands here use `build/`.
 - If SuiteSparse is installed somewhere CMake does not search, add
   `-DCMAKE_PREFIX_PATH=<its prefix>` to the first command.
-- Some tests fail today; they are listed in `tests/known_failures.txt`.
-  `python3 tools/local_ci.py` builds, runs the tests and reports only
-  failures that are not in that list.
+- `python3 tools/local_ci.py` builds the project, runs the tests and reports
+  failures, skips and disabled cases. See the [README status](../README.md#status)
+  for the latest measured totals.
 
 The program is `build/kirimaspice`; `build/kirimaspice --version` prints
 its version, for example `kirimaspice 0.0.0`, and the first line it logs

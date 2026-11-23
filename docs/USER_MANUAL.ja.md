@@ -50,8 +50,8 @@ ctest --test-dir build --output-on-failure
 - ビルドディレクトリはどこに置いてもかまいません。ここのコマンドは `build/` を使います。
 - SuiteSparse が CMake の探さない場所にある場合は、最初のコマンドに `-DCMAKE_PREFIX_PATH=<その場所>`
   を加えます。
-- 今は失敗するテストがあり、`tests/known_failures.txt` に並べてあります。
-  `python3 tools/local_ci.py` は、ビルドとテストを行い、その一覧にない失敗だけを報告します。
+- `python3 tools/local_ci.py` はビルドとテストを実行し、失敗・スキップ・無効の件数を報告します。
+  最新の実測値は [README の「現状」](../README.ja.md#現状) にあります。
 
 プログラムは `build/kirimaspice` です。`build/kirimaspice --version` が版を表示します（例：`kirimaspice 0.0.0`）。
 実行のときに最初に出すログの行にも版があります。結果を再現したいときは、版とビルドしたコミットを結果と

@@ -13,10 +13,8 @@ KNOWN_ISSUES in the same commit.
 
 Small items with a direct effect on netlists written for ngspice.
 
-- [ ] **`.IF` reads `.PARAM` values** (S). The conditions are evaluated
-  before the `.PARAM` lines are read; `read_global_definitions` now solves
-  the global parameters first, so the conditions can take them
-  ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+- [x] **Global parameters in `.IF` and `.ELSEIF`** (S). Since `0faf3b9`,
+  both conditions use the final global `.PARAM` values, including forward definitions.
 - [ ] **`.FUNC` in element values** (S). Functions can be called in
   `.PARAM` only ([netlist input](KNOWN_ISSUES.md#netlist-input)).
 - [ ] **`I(<source>)` in `B` expressions** (M). The current of a
@@ -80,8 +78,8 @@ commit.
   `bsim4_dc_smoke`, `BSIM4NgspiceCompareTest.IdsVsNgspice_T27C` (errors up
   to 100 %), the BJT validation programs, the level-3 Meyer tests
   ([tests](KNOWN_ISSUES.md#tests)).
-- [ ] **The six known failures** (M): decide for each whether the model
-  or the expected value is wrong ([tests](KNOWN_ISSUES.md#tests)).
+- [x] **Restore the six diode and BJT tests** (M). `45a7bf2` supplies
+  the project-owned model cards. `91b4def` removes the passing cases from the known-failure list.
 
 ## 4. Device models
 
@@ -93,9 +91,10 @@ commit.
   ([netlist input](KNOWN_ISSUES.md#netlist-input)).
 - [ ] **The diode's remaining parameters** (S): FC, KF, AF, TNOM, EG, XTI
   ([netlist input](KNOWN_ISSUES.md#netlist-input)).
-- [ ] **BSIM4's charge model** (L), in place of the Meyer capacitances,
-  and its source and drain junctions in DC
-  ([device models](KNOWN_ISSUES.md#device-models)).
+- [x] **BSIM4 terminal charges for the default `CAPMOD=2`** (L).
+  Implemented in `57a155a` and covered by the inverter-chain regression enabled in `6b334da`.
+- [ ] **BSIM4 intrinsic capacitance for `CAPMOD=0` and `1`, and source
+  and drain junction currents in DC** ([device models](KNOWN_ISSUES.md#device-models)).
 - [ ] **BSIM4's noise and parameter extractor through the device's
   equations** (M), not a separate model
   ([device models](KNOWN_ISSUES.md#device-models)).

@@ -354,7 +354,7 @@ For `NMOS` and `PMOS`, `LEVEL` selects the device:
 | 1 (default) | level 1 (square law) | warning, once per card | `KP`, `W`, `L`, `VTH`, `KF`, `AF`, `EF`; others named in a warning |
 | 3 | SPICE's level 3 | warning | `W`, `L` (100 µm, SPICE's `DEFW` and `DEFL`); others named in a warning |
 | 8, 49 | BSIM3, simplified ([known issues](../KNOWN_ISSUES.md#device-models)) | warning | `W`, `L` (5 µm); others named in a warning |
-| 14, 54 | BSIM4 (a model card with a `VERSION` other than 4.8.3 or 4.83 gives a warning) | warning, once per card | `W` (the width of all `NF` fingers), `L` (5 µm), `NF`, `M`, `AS`, `AD`, `PS`, `PD`, `NRD`, `NRS`, `MULT_I`, `MULT_Q` (every capacitance), `MULT_FN`; others named in a warning |
+| 14, 54 | BSIM4 (a model card with a `VERSION` other than 4.8.3 or 4.83 gives a warning) | warning, once per card | `W` (the width of all `NF` fingers), `L` (5 µm), `NF`, `MIN`, `M`, `AS`, `AD`, `PS`, `PD`, `NRD`, `NRS`, `MULT_I`, `MULT_Q` (scales all charges and capacitances), `MULT_FN`; others named in a warning |
 | 10 | SiC MOSFET | warning | all, by name |
 | 11 | GaN HEMT (`VTO` with the device's sign, as for the other levels: −2 V for N and +2 V for P by default; `KT1`, `KT2` move the threshold of the N-like voltages; above `VBD` the drain adds 1 mS × (V<sub>DS</sub> − `VBD`), with the channel on or off) | warning | all, by name |
 | 12 | FinFET | warning | `L` only; others named in a warning |
@@ -379,6 +379,21 @@ for BSIM4 in `bsim4_params_from_model` in
 `src/devices/mosfet_bsim4_params.cpp`. Levels 10, 11, 12, 20 and 21 start
 from the device's own defaults, those of its polarity, and take the
 parameters of the card and then of the element line by name.
+
+### BSIM4 capacitances (`LEVEL=14` or `54`)
+
+The default model-card setting `CAPMOD=2` uses four terminal charges in
+transient analysis. AC uses the derivatives of the same charges with
+respect to the terminal voltages. `XPART` selects the drain/source charge
+split in saturation. It is 40/60 for `0 <= XPART < 0.5` (default 0), 50/50 at
+0.5 and 0/100 above 0.5. A negative value disables intrinsic charge.
+`CAPMOD=0` and `1` use the simplified Meyer approximation.
+
+`CF` adds outer fringing capacitance at both gate edges. The model
+derives it from `TOXE` and `EPSROX` when omitted. Set `CF=0` to disable
+that contribution. For the supported default diffusion geometry, omitted
+`PS` and `PD` are derived from the finger layout. `PERMOD` determines
+whether a supplied perimeter includes the gate edge (default 1).
 
 ### FinFET (`LEVEL=12`)
 

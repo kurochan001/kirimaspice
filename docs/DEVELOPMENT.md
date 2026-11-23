@@ -68,8 +68,7 @@ GoogleTest programs are registered with `gtest_discover_tests`, so CTest
 lists each test case as `Suite.Name`. The command-line tests (`cli_*`,
 among them the `.TEMP` runs `cli_temperature_*`), the examples
 (`example_*`), the Python tools (`python_tools_*`), `bsim4_dc_smoke`, `install_program_only` and `MutualInductanceFixTest` are registered with
-`add_test`, one CTest test each. At commit `2826a81` CTest has 1335 tests
-on macOS.
+`add_test`, one CTest test each. The [README status](../README.md#status) gives the measured totals on macOS.
 
 Tests write their files under the build tree, each in a directory of its
 own: `<build>/tests/test_output/<Suite.Name>/` for a GoogleTest case and
@@ -86,8 +85,9 @@ ctest --test-dir build -R 'BSIM4' -j 8          # in parallel
 build/tests/test_parser --gtest_filter='*Ground*' # one GoogleTest program directly
 ```
 
-A test whose expected data is missing skips instead of failing; the skips
-and their reasons are in [KNOWN_ISSUES](../KNOWN_ISSUES.md#tests).
+The inverter-chain test requires its committed reference waveform and fails
+if the file is missing. The live BSIM4 comparison skips when ngspice is
+unavailable. [Test details](../KNOWN_ISSUES.md#tests)
 
 ### Known failures
 
@@ -230,8 +230,8 @@ holds no knowledge of the tests.
   reason, and needs a person's approval, recorded as an `Approved-by`
   trailer. New tests with their expected values may go with the
   implementation.
-- The reference data in `validation/` came from ngspice runs whose version
-  is not recorded. New reference data records the ngspice version, the
+- Some older reference files in `validation/` omit the ngspice version.
+  The inverter-chain waveform records ngspice-47 in its header. New reference data records the ngspice version, the
   command and the netlist. The scripts in `scripts/` run ngspice to make
   BSIM4 reference data:
 

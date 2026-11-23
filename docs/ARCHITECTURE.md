@@ -383,7 +383,9 @@ steps in time.
   BJT, BSIM3, BSIM4 and IGBT integrate their capacitances through
   `device_utils::capacitor_companion`, and the SiC MOSFET, GaN HEMT,
   VDMOS, FinFET and MESFET through `device_utils::CapacitorHistory`, which
-  keeps the history it needs.
+  keeps the history it needs. BSIM4 also uses the shared integration rule
+  for its `CAPMOD=2` terminal charges, saving the accepted charges and
+  currents so they can be restored after a rejected step.
 - **Fixed steps, the path the program uses.** The step is the shorter of
   TSTEP and TMAX (`main.cpp`; the parser sets TMAX to TSTEP when it is
   absent or 0). `run_timestepping_loop` ends a segment at each source

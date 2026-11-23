@@ -18,23 +18,24 @@ kirimaspice は、開発初期のオープンソースの SPICE 回路シミュ�
 
 ## 現状
 
-2026-11-20 に、コミット `f3d6423` で、`tools/local_ci.py` を使い、macOS 27.2（arm64）、GCC 16.2.0、
-CMake 4.4.4、SuiteSparse 7.6.1 で測った結果です。ngspice-47 を入れてあったので、BSIM4 を ngspice と比べる
-テストも走りました。Homebrew の clang 23.1.4 と Apple clang 21.0.0 でも、2026-11-14 には同じ結果でした
-（このコミットでは確かめ直していません）。
+2026-11-23 にコミット `6b334da` で `python3 tools/local_ci.py` を実行し、すべての検査に合格しました。
+環境は macOS 27.2.1（arm64）、GCC 16.2.0、CMake 4.4.4、SuiteSparse 7.6.1 です。
+ngspice-47 を実行して結果を照合するテストも含みます。
 
-| CTest のテスト | 件数 |
-| --- | --- |
-| 登録 | 1293 |
-| 合格 | 1286 |
+| macOS での CTest の結果 | 件数 |
+| --- | ---: |
+| 登録 | 1505 |
+| 合格 | 1505 |
+| 失敗 | 0 |
 | スキップ | 0 |
-| 失敗（`tests/known_failures.txt` に記載） | 6 |
-| 無効 | 1 |
+| 無効 | 0 |
 
-Ubuntu 24.04（x86-64）の CI では、GCC 13.3.0 と clang 18.1.3 でビルドでき、
-`tests/known_failures.txt` に並ぶ 6 件はそこでも失敗します。
-失敗するテスト、スキップされるテスト、そのほかの分かっている問題は
-[KNOWN_ISSUES.md](KNOWN_ISSUES.ja.md) にあります。
+ダイオードと BJT のテスト 6 件は、プロジェクトのモデルカードを使って実行できます。
+BSIM4 の 3 段インバータのテストも通常実行の対象です。ngspice-47 との波形の最大誤差は
+2.51 mV で、許容値は 50 mV です。
+
+GitHub Actions では Ubuntu 24.04 の GCC と clang でテストします。この版の履歴検査では、
+過去のコミットが指摘されています。[この版の CI 結果](https://github.com/kurochan001/kirimaspice/actions/runs/45160936314) · [既知の問題](KNOWN_ISSUES.ja.md)
 
 ## 扱えるもの
 

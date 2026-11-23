@@ -15,7 +15,7 @@ dependencies, CI policy or published text. The approval rules remain in
 
 ## Starting point
 
-The latest local review build was based on commit `75f8cb0` with uncommitted
+The initial review build on 2026-11-15 was based on commit `75f8cb0` with uncommitted
 review fixes, on macOS 27.2 arm64, GCC 16.2.0 and CMake 4.4.4. Running
 `python3 tools/local_ci.py --jobs 8 --history` registered 1,276 tests:
 1,246 passed, 7 failed with all 7 already listed as known failures,
@@ -94,14 +94,17 @@ action requiring an explicit request.
   output. The simulator agrees with ngspice-45.2 and with the small-signal
   solution worked by hand within 3e-7 dB. The helper that reported 0 dB
   against a zero reference was corrected.
-- [ ] Resolve the six known failures caused by missing model files, with
-  the origin and redistribution terms checked before adding any files.
+- [x] Restore six tests that depended on missing diode and BJT model files.
+  `45a7bf2` supplies project-owned test cards and `91b4def` removes the
+  six cases from the known-failure list.
 - [x] Investigate the remaining CMOS near-zero assertion against the
   analytic solution and floating-point error. Done in `6088f8a`: the exact
   value is 0 V and -4.1e-25 V is roundoff; the lower bound now allows
   -1e-12 V, and the test leaves `tests/known_failures.txt`.
-- [ ] Account for the disabled BSIM4 transient test described in
-  KNOWN_ISSUES. The BSIM4 temperature test now runs against the committed
+- [x] Restore the BSIM4 inverter-chain comparison. `adc1013` records the
+  ngspice-47 reference, `57a155a` implements the terminal-charge model,
+  and `6b334da` enables the test. All three stages meet the 50 mV limit.
+  The BSIM4 temperature test now runs against the committed
   ngspice-45.2 reference (commit `7f3bd69`); on Linux (x86-64) the model
   matches it within 0.65% (Vth), 2.41% (Ids) and 2.44% (Vdsat). The VDSAT
   branch test runs against values verified with ngspice-45.2 (commit
@@ -176,10 +179,8 @@ rules already defined in CLAUDE.md and AI_POLICY.
 1. Read this plan, CLAUDE.md, AI_POLICY and KNOWN_ISSUES; inspect the current
    branch, working tree and approval record.
 2. Check which review fixes and proposals have actually been applied. Start
-   with the first incomplete priority. In priority 2 the CI-classification
-   change and the 20 reference comparisons are done; its open items are
-   the six known failures caused by missing model files and the disabled
-   BSIM4 transient test.
+   with the first incomplete priority. All items in priority 2 are complete.
+   For current test counts, see the [README status](../README.md#status).
 3. After meaningful changes, update completion markers with the commit,
    verification command and result, and record unresolved questions.
 4. Before a requested push, run `python3 tools/local_ci.py` and attach its

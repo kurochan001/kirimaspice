@@ -61,7 +61,7 @@ GoogleTest のプログラムは `gtest_discover_tests` で登録するので、
 `Suite.Name` として並べます。コマンドラインのテスト（`cli_*`。`.TEMP` の実行を調べる `cli_temperature_*`
 もその中にあります）、例題（`example_*`）、Python のツール（`python_tools_*`）、`bsim4_dc_smoke`、
 `install_program_only`、`MutualInductanceFixTest` は `add_test` で登録し、それぞれが CTest の 1 つのテストです。
-コミット `2826a81` では、macOS で CTest のテストは 1335 個です。
+macOS の実測件数は [README の「現状」](../README.ja.md#現状) にあります。
 
 テストは、ファイルをビルドのツリーの下の、テストごとのディレクトリに書きます。GoogleTest のケースは
 `<build>/tests/test_output/<Suite.Name>/`、それ以外は `<build>/tests/test_output/<テストかプログラムの名前>/` です
@@ -76,8 +76,8 @@ ctest --test-dir build -R 'BSIM4' -j 8          # 並列に
 build/tests/test_parser --gtest_filter='*Ground*' # GoogleTest のプログラムを直接
 ```
 
-期待するデータがないテストは、失敗せずにスキップします。スキップとその理由は
-[KNOWN_ISSUES](../KNOWN_ISSUES.ja.md#テスト) にあります。
+3 段インバータのテストは、同梱の参照波形がなければ失敗します。ngspice を直接起動する BSIM4 の
+比較テストは、ngspice がなければスキップします。[テストの詳細](../KNOWN_ISSUES.ja.md#テスト)
 
 ### 既知の失敗
 
@@ -194,7 +194,8 @@ flowchart TD
 - 既存の期待値を変える、消す、緩める変更、テストを消すか名前を変える変更、`tests/known_failures.txt` に
   テストを足す変更は、`src/` の変更とは別のコミットにし、理由を書き、人の承認を得て、それを
   `Approved-by` のトレーラーに記録します。新しいテストとその期待値は、実装と一緒でかまいません。
-- `validation/` の参照データは、版を記録していない ngspice の実行から作られました。新しい参照データには、
+- `validation/` の古い参照データには、生成に使った ngspice の版が分からないものがあります。
+  3 段インバータの波形はヘッダーに ngspice-47 と記録しています。新しい参照データには、
   ngspice の版、コマンド、ネットリストを記録します。`scripts/` のスクリプトは、ngspice を実行して BSIM4 の
   参照データを作ります。
 

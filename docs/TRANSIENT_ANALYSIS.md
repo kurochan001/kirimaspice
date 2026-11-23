@@ -577,8 +577,8 @@ request; each device determines its actual discretization.
 | Level-1 MOSFET | No capacitance from a netlist (the parser names `CGSO`, `CGDO` and `CGBO` as not used); overlap capacitors set through the API use BE regardless of the requested method |
 | Level-3 MOSFET | Transient stamp has no intrinsic capacitance contribution; AC capacitances do not establish transient support |
 | BSIM1 (library only) | Capacitances use BE regardless of the requested method |
-| BSIM3 / BSIM4 | Shared capacitor helper for every method |
-| BSIM4 | Simplified Meyer capacitances, not a complete terminal-charge formulation; inverter-chain transient reference test is disabled |
+| BSIM3 | Shared capacitor helper for every method |
+| BSIM4 | The default `CAPMOD=2` integrates the four terminal charges using the selected method. `CAPMOD=0` and `1` use simplified Meyer capacitances. Overlap, fringe and junction capacitances use the shared capacitor helper. |
 | SiC, GaN, VDMOS, FinFET, MESFET | Capacitances through `device_utils::CapacitorHistory`, by the chosen method |
 | IGBT | `CGE` and `CCE` through the shared capacitor helper for every method; the tail is the stored-carrier current, a lag of `TAU` behind the channel current, integrated exactly between accepted points |
 | Lossless transmission line | The step is no longer than `TD` (`Device::max_time_step`) |
@@ -692,10 +692,16 @@ Separately, the documented CLI timing/accuracy experiments ran 38 netlists:
 30 discharge/ramp comparisons, three time-boundary probes, the quickstart,
 two initialization variants, the explicit-DC/waveform comparison and an
 intentional `ITL5` failure. The adaptive API example and two-method diode
-probe were compiled and run. Passing the selected tests does not cover all
-models, the disabled BSIM4 chain, or every error path; the ramp and diode
-errors described above, which those tests did not catch, illustrate that
-boundary.
+probe were compiled and run. The ramp and diode errors above illustrate
+the limits of that 74-test selection.
+
+Since `6b334da`, the default CTest suite also compares all three BSIM4
+inverter outputs against a stored ngspice-47 waveform. To run that
+comparison alone:
+
+```sh
+ctest --test-dir build -R '^BSIM4Transient[.]InverterChain_MatchesNgspiceReference$' --output-on-failure
+```
 
 Mermaid blocks were checked for structure and translation consistency;
 rendering in a Mermaid-capable viewer is **not confirmed**. To verify the

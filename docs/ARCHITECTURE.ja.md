@@ -305,7 +305,8 @@ flowchart TD
   BDF3（`gear3`、`bdf3`）、TR-BDF2 で、`.OPTIONS METHOD=` で選びます。各デバイスの `stamp_transient` が、
   その方法のコンパニオンモデルを書きます。ダイオード、BJT、BSIM3、BSIM4、IGBT は容量を
   `device_utils::capacitor_companion` を通して積分し、SiC MOSFET、GaN HEMT、VDMOS、FinFET、MESFET は、
-  必要な履歴を持つ `device_utils::CapacitorHistory` を通して積分します。
+  必要な履歴を持つ `device_utils::CapacitorHistory` を通して積分します。BSIM4 の `CAPMOD=2` は
+  端子電荷にも共通の積分則を適用し、ステップを棄却したときに戻せるよう、受理した電荷と電流を保存します。
 - **固定刻み。プログラムが使う経路です。** 刻みは TSTEP と TMAX の短いほうです（`main.cpp`。TMAX が
   ないか 0 ならパーサーが TSTEP にします）。`run_timestepping_loop` は電源の折れ点（`Waveform::breakpoints`。
   `PULSE` の角、`PWL` の点、`SIN` と `EXP` の遅れ）ごとに区間を区切るので、そこに必ず点があります。
