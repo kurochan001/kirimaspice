@@ -43,9 +43,9 @@ a warning and the run goes on without that setting.
 
 ### Where is the result of an AC analysis?
 
-It is not printed. It is always written to `<base>_ac.csv`, where `<base>`
-is the `-o` path, or the netlist path, without its extension
-([User Manual](USER_MANUAL.md#save-the-results)).
+Open `<base>_ac.csv`, where `<base>` is the `-o` path, or the netlist path,
+without its extension. With several temperatures on `.TEMP`, each run has
+its own file, for example `out_ac_27C.csv`. See [Save the results](USER_MANUAL.md#save-the-results).
 
 ### Why is my DC sweep not printed?
 
@@ -110,7 +110,7 @@ come from model specifications, analytic solutions and recorded reference
 runs, never from the implementation itself. The [examples](../examples/README.md)
 are netlists with analytic solutions, and CTest checks each of them: for
 example an RC low-pass filter at 1 kHz (−16.072 dB, −80.96°) and an RC
-charge at 1 ms (0.632105 for the exact 0.632121).
+charge at 1 ms (0.632105 V against 0.632121 V for an ideal step).
 
 ### Which integration method should I use?
 

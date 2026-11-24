@@ -37,8 +37,8 @@ The six diode and BJT tests now use the project's own model cards.
 The three-stage BSIM4 inverter test runs in the default suite. Its largest
 waveform error against ngspice-47 was 2.51 mV (limit 50 mV).
 
-GitHub Actions tests Ubuntu 24.04 with GCC and clang. The history check
-for this revision flagged an earlier commit. [CI run for `6b334da`](https://github.com/kurochan001/kirimaspice/actions/runs/45160936314) · [Known issues](KNOWN_ISSUES.md)
+On Ubuntu 24.04, the GCC and Clang builds and the repository history check
+passed at `8e748f7`. [CI run for `8e748f7`](https://github.com/kurochan001/kirimaspice/actions/runs/45192220562) · [Known issues](KNOWN_ISSUES.md)
 
 ## What it handles
 
@@ -65,34 +65,26 @@ HEMT), 12 (FinFET), 20 (VDMOS) and 21 (IGBT). The library also has a JFET
 model, but the parser has no `J` element yet. How complete each model is
 varies; each has its own tests.
 
-The parser accepts these directives: `.OP`, `.AC`, `.DC`, `.TRAN`, `.OPTIONS`,
-`.IC`, `.NODESET`, `.PRINT`, `.SAVE`, `.GLOBAL`, `.PARAM`, `.FUNC`,
-`.MODEL`, `.SUBCKT`/`.ENDS`, `.INCLUDE`, `.LIB`/`.ENDL`,
-`.IF`/`.ELIF`/`.ELSE`/`.ENDIF`, `.CONTROL`/`.ENDC`, `.STEP`, `.TEMP`,
-`.SENS`, `.MC`, `.TF`, `.FOUR`, `.PZ`, `.DISTO`, `.PORT`, `.WCASE` and
-`.OPTIMIZE`. Of these, the program runs `.OP`, `.DC`, `.TRAN` (with
-`.FOUR`) and `.AC`, and the operating point when there are none; it names
-each of the others that it reads and does not run in a warning
-([Reference Manual](docs/REFERENCE_MANUAL.md#how-the-program-chooses-analyses)).
+The CLI runs operating-point, DC sweep (including nested sweeps), transient
+and AC analyses. It runs the operating point when none of the four is
+requested. With both `.OP` and `.DC`, it runs the sweep. `.FOUR` computes
+harmonics after a transient, and a `.TEMP` list repeats the analyses at each temperature.
 
-The program `kirimaspice` runs the operating point, DC sweeps (also
-nested), the transient analysis with the Fourier analysis of `.FOUR`, and
-AC analysis, each also at every temperature of a `.TEMP` list. Sources
-take a DC value, an AC input and a `PULSE`, `SIN`, `EXP`, `PWL` or `SFFM`
-waveform. The library also implements noise, transfer function,
-pole-zero, distortion, sensitivity, S-parameter, Monte Carlo, worst-case
-and optimization analyses, which the tests exercise; the program does not
-run them yet.
+Directives such as `.MODEL`, `.PARAM` and `.SUBCKT` define the circuit.
+The parser also accepts directives such as `.STEP`, `.TF` and `.MC` for which
+the CLI issues a warning and skips that analysis. Noise analysis is available
+through the C++ library. See the [directive reference](docs/REFERENCE_MANUAL.md#directives)
+and the [list of library analyses](docs/ARCHITECTURE.md#other-analyses-in-the-library).
 
-The linear solver is KLU from SuiteSparse.
+Voltage and current sources accept DC and AC inputs and the `PULSE`, `SIN`, `EXP`,
+`PWL` and `SFFM` waveforms. The linear solver is KLU from SuiteSparse.
 
 ## Building
 
 You need CMake 3.25 or newer, a C++23 compiler, Ninja, Python 3, and the
 SuiteSparse development files (KLU 2.3.2 or newer, as in SuiteSparse
-7.6.1), and Git. The other dependencies are downloaded by CMake with Git at
-configure time, pinned to fixed versions, so the first configure needs
-network access.
+7.6.1), and Git. The first configure needs network access. CMake downloads a
+checksum-pinned release archive for Boost and fixed Git revisions for the other dependencies.
 
 On Ubuntu 24.04 (the packages CI installs, and Git, which its runners
 already have):
@@ -114,20 +106,24 @@ The build directory may be anywhere; `tools/local_ci.py` uses `build/`. If Suite
 
 ## Running
 
+After building, run the voltage divider from the repository root:
+
 ```sh
-build/kirimaspice circuit.cir --raw-out circuit.raw
+build/kirimaspice examples/test_simple_divider.sp
 ```
 
-| Option | Output |
-| --- | --- |
-| `--raw-out <file>` | SPICE3 raw file in ASCII (operating point, DC sweep and transient) |
-| `--raw-binary-out <file>` | SPICE3 raw file in binary (operating point, DC sweep and transient) |
-| `-o <file>` | SSF (operating point and transient); also names the CSV of an AC analysis |
-| `--wav-out <file>` | WAV audio of a transient result |
+Two 1 kΩ resistors divide 3.3 V in half, so the program prints
+`V(n2) = 1.65 V`. To try another analysis, pass the arguments below to `build/kirimaspice`.
 
-`build/kirimaspice --help` lists all options. The AC result is always written
-to a CSV file; the [User Manual](docs/USER_MANUAL.md#save-the-results) says
-where.
+| What to inspect | Example and arguments | Where to read the result |
+| --- | --- | --- |
+| Operating point (`.OP`) | `examples/test_simple_divider.sp` | Standard output lists node voltages and source currents. |
+| Diode I–V curve (`.DC`) | `examples/diode_iv.sp --raw-out diode.raw` | Standard output summarizes the sweep. Read `i(v1)` in `diode.raw` for the source current at each voltage. |
+| RC charging curve (`.TRAN`) | `examples/rc_step.sp --raw-out step.raw` | Read `time` and `v(out)` in `step.raw`. |
+| RC frequency response (`.AC`) | `examples/rc_lowpass_ac.sp -o lowpass` | Read magnitude in dB and phase in degrees in `lowpass_ac.csv` in the working directory. |
+
+For binary raw, SSF and WAV output, see [Save the results](docs/USER_MANUAL.md#save-the-results).
+Run `build/kirimaspice --help` for all options.
 
 ## Documents
 

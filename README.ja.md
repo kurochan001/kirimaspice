@@ -8,6 +8,7 @@
 [![Nightly](https://github.com/kurochan001/kirimaspice/actions/workflows/nightly.yml/badge.svg?branch=main)](https://github.com/kurochan001/kirimaspice/actions/workflows/nightly.yml?query=branch%3Amain)
 [![C++23](https://img.shields.io/badge/C%2B%2B-23-00599C?logo=cplusplus&logoColor=white)](#ビルド)
 [![Linux](https://img.shields.io/badge/OS-Linux-FCC624?logo=linux&logoColor=black)](#ビルド)
+[![macOS](https://img.shields.io/badge/OS-macOS-000000?logo=apple&logoColor=white)](#ビルド)
 [![License: Apache-2.0 WITH LLVM-exception](https://img.shields.io/badge/license-Apache--2.0%20WITH%20LLVM--exception-blue)](LICENSE)
 
 kirimaspice は、開発初期のオープンソースの SPICE 回路シミュレータで、SystemVerilog シミュレータ
@@ -34,8 +35,8 @@ ngspice-47 を実行して結果を照合するテストも含みます。
 BSIM4 の 3 段インバータのテストも通常実行の対象です。ngspice-47 との波形の最大誤差は
 2.51 mV で、許容値は 50 mV です。
 
-GitHub Actions では Ubuntu 24.04 の GCC と clang でテストします。この版の履歴検査では、
-過去のコミットが指摘されています。[この版の CI 結果](https://github.com/kurochan001/kirimaspice/actions/runs/45160936314) · [既知の問題](KNOWN_ISSUES.ja.md)
+コミット `8e748f7` では、Ubuntu 24.04 の GCC・Clang によるビルドとテスト、
+リポジトリの履歴検査に合格しました。[この版の CI 結果](https://github.com/kurochan001/kirimaspice/actions/runs/45192220562) · [既知の問題](KNOWN_ISSUES.ja.md)
 
 ## 扱えるもの
 
@@ -61,26 +62,23 @@ GitHub Actions では Ubuntu 24.04 の GCC と clang でテストします。こ
 ライブラリには JFET のモデルもありますが、パーサーにはまだ `J` 素子がありません。どこまで
 実装されているかはモデルごとに違い、それぞれにテストがあります。
 
-パーサーが受け付けるディレクティブ：`.OP`、`.AC`、`.DC`、`.TRAN`、`.OPTIONS`、`.IC`、`.NODESET`、
-`.PRINT`、`.SAVE`、`.GLOBAL`、`.PARAM`、`.FUNC`、`.MODEL`、`.SUBCKT`/`.ENDS`、`.INCLUDE`、
-`.LIB`/`.ENDL`、`.IF`/`.ELIF`/`.ELSE`/`.ENDIF`、`.CONTROL`/`.ENDC`、`.STEP`、`.TEMP`、`.SENS`、`.MC`、
-`.TF`、`.FOUR`、`.PZ`、`.DISTO`、`.PORT`、`.WCASE`、`.OPTIMIZE`。このうちプログラムが実行するのは
-`.OP`、`.DC`、`.TRAN`（`.FOUR` を含む）、`.AC` で、1 つもなければ動作点を実行します。読んでも実行しない
-ものは、警告で名指しします（[リファレンスマニュアル](docs/REFERENCE_MANUAL.ja.md#プログラムが解析を選ぶ仕組み)）。
+CLI は動作点、DC スイープ（入れ子も可）、過渡解析、AC 解析を実行します。4 種類の指定が
+どれもなければ動作点を求めます。`.OP` と `.DC` を併記すると DC スイープを実行します。
+`.FOUR` は過渡解析の結果から高調波を求め、`.TEMP` で温度を複数指定すると各温度で解析を繰り返します。
 
-プログラム `kirimaspice` が実行するのは、動作点、DC スイープ（入れ子を含む）、`.FOUR` のフーリエ解析を
-含む過渡解析、AC 解析で、どれも `.TEMP` に並べた各温度でも実行します。電源は、DC の値、AC の入力と、
-`PULSE`、`SIN`、`EXP`、`PWL`、`SFFM` のいずれかの波形を取ります。ライブラリには、ノイズ、伝達関数、
-極零点、ひずみ、感度、S パラメータ、モンテカルロ、ワーストケース、最適化の解析も実装されていて
-テストで使われていますが、プログラムからはまだ実行しません。
+`.MODEL`、`.PARAM`、`.SUBCKT` などは回路を定義します。一方、`.STEP`、`.TF`、`.MC` などは
+パーサーが受け付けても CLI は警告を出し、その解析を実行しません。ノイズ解析は C++ ライブラリから
+利用できます。各ディレクティブの扱いは[リファレンスマニュアル](docs/REFERENCE_MANUAL.ja.md#ディレクティブ)、
+ライブラリで利用できる解析は[設計](docs/ARCHITECTURE.ja.md#ライブラリにあるほかの解析)にあります。
 
-線形ソルバーは SuiteSparse の KLU です。
+電圧源と電流源には DC 値、AC 入力のほか、`PULSE`、`SIN`、`EXP`、`PWL`、`SFFM` の
+波形を指定できます。線形ソルバーは SuiteSparse の KLU です。
 
 ## ビルド
 
 CMake 3.25 以上、C++23 のコンパイラ、Ninja、Python 3、SuiteSparse の開発用ファイル（KLU 2.3.2 以上。
-SuiteSparse 7.6.1 に含まれる版）、Git が必要です。そのほかの依存は、configure のときに CMake が Git で
-固定した版を取得するので、最初の configure にはネットワークへの接続が要ります。
+SuiteSparse 7.6.1 に含まれる版）、Git が必要です。最初の configure にはネットワーク接続が必要です。CMake は
+Boost のリリースアーカイブを取得してチェックサムを照合し、残りの依存は Git で指定のコミットを取得します。
 
 Ubuntu 24.04 の場合（CI が入れるパッケージと、CI のランナーには最初から入っている Git です）：
 
@@ -101,19 +99,24 @@ SuiteSparse がほかの場所にある場合は、最初のコマンドに `-DC
 
 ## 実行
 
+ビルドしたら、リポジトリの最上位で分圧回路の例を実行します。
+
 ```sh
-build/kirimaspice circuit.cir --raw-out circuit.raw
+build/kirimaspice examples/test_simple_divider.sp
 ```
 
-| オプション | 出力 |
-| --- | --- |
-| `--raw-out <ファイル>` | ASCII の SPICE3 raw ファイル（動作点、DC スイープ、過渡） |
-| `--raw-binary-out <ファイル>` | バイナリの SPICE3 raw ファイル（動作点、DC スイープ、過渡） |
-| `-o <ファイル>` | SSF（動作点と過渡）。AC 解析の CSV の名前もこれから決まる |
-| `--wav-out <ファイル>` | 過渡解析の結果の WAV 音声 |
+1 kΩ の抵抗 2 本で 3.3 V を分圧するので、標準出力に `V(n2) = 1.65 V` と表示されます。
+ほかの解析も `build/kirimaspice` に次の引数を渡して試せます。
 
-すべてのオプションは `build/kirimaspice --help` で見られます。AC 解析の結果は常に CSV ファイルに
-書き出されます。その場所は[ユーザーマニュアル](docs/USER_MANUAL.ja.md#結果を保存する)にあります。
+| 調べたいこと | 同梱の例題と引数 | 結果の読み方 |
+| --- | --- | --- |
+| 動作点 `.OP` | `examples/test_simple_divider.sp` | 標準出力にノード電圧と電源電流が出ます。 |
+| ダイオードの I–V 特性 `.DC` | `examples/diode_iv.sp --raw-out diode.raw` | 標準出力はスイープの要約です。各電圧での電源電流は `diode.raw` の `i(v1)` で読めます。 |
+| RC の充電波形 `.TRAN` | `examples/rc_step.sp --raw-out step.raw` | `step.raw` の `time` と `v(out)` が時刻と出力電圧です。 |
+| RC の周波数応答 `.AC` | `examples/rc_lowpass_ac.sp -o lowpass` | カレントディレクトリの `lowpass_ac.csv` に振幅（dB）と位相（度）が出ます。 |
+
+バイナリ raw、SSF、WAV の保存方法は[ユーザーマニュアル](docs/USER_MANUAL.ja.md#結果を保存する)にあります。
+すべてのオプションは `build/kirimaspice --help` で確認できます。
 
 ## 文書
 

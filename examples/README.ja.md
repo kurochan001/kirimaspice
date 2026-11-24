@@ -19,17 +19,7 @@
 
 ## 分圧回路
 
-`test_simple_divider.sp` の接続です。線は電気的な接続を表し、電流の向きを指定しません。
-
-```mermaid
-flowchart LR
-    N1["n1: 3.3 V"] --- R1["R1: 1 kΩ"]
-    R1 --- N2["n2: 1.65 V"]
-    N2 --- R2["R2: 1 kΩ"]
-    R2 --- G["0: GND"]
-    N1 --- V["VDD: 3.3 V"]
-    V --- G
-```
+![VDD の正端子は n1、負端子はグラウンド 0。1 kΩ の抵抗 R1 と R2 の中点 n2 は 1.65 V。矢印は I(VDD) の正方向を示す。](../docs/figures/voltage-divider.svg)
 
 ```sh
 build/kirimaspice examples/test_simple_divider.sp
@@ -70,9 +60,8 @@ SPICE と同じく、Newton 法の 1 回ごとに接合電圧が動く幅を制�
 build/kirimaspice examples/rc_step.sp --raw-out rc_step.raw
 ```
 
-1 kΩ と 1 µF（RC = 1 ms）を 0 V から 1 V へのステップで駆動します。1 ms での厳密な値は
-1 − e⁻¹ = 0.632121 で、既定の台形則、`tstep` = 10 µs のプログラムの値は 0.632105 です。差の大部分は、
-最初のステップが後退オイラー法であることによります。
+1 kΩ と 1 µF（RC = 1 ms）を 0 V から 1 V へのステップで駆動します。理想ステップなら 1 ms で
+1 − e⁻¹ ≈ 0.632121 V です。例題の入力は 1 ns で立ち上がります。既定の台形則、`tstep` = 10 µs での計算値は 0.632105 V です。
 
 ## RC の放電と積分法
 
@@ -98,12 +87,15 @@ build/kirimaspice examples/rc_discharge.sp --raw-out rc_discharge.raw
 build/kirimaspice examples/rc_lowpass_ac.sp -o rc_lowpass
 ```
 
-AC 解析の結果は表示されず、`rc_lowpass_ac.csv` に書かれます。`AC 1` により `V1` が入力になります。
-1 kHz で応答 1/(1 + j2πfRC) は −16.0722 dB、−80.957° です。CSV には 16 桁が書かれ、式と合うのは
-約 10 桁です。残りは、ノード `out` にある 10⁻¹² S の GMIN によるもので、式にそれを加えると再現します。
+`rc_lowpass_ac.csv` を開きます。入力が `AC 1` なので、`v(out)_mag_dB` を上段の利得、
+`v(out)_phase_deg` を下段の位相と比較できます。ソルバーはノード `out` に 10⁻¹² S の
+コンダクタンス（`GMIN`）を加えるため、CSV の末尾の桁には理想 RC 回路との差が出ます。
 
 ![RC 低域通過フィルタの 10 Hz～100 kHz の利得と位相。周波数とともに両方が低下し、遮断周波数の約 159 Hz では −3.01 dB、−45°。](../docs/figures/rc-lowpass-bode.svg)
 
-実線は `H = V(out)/V(in)` の利得と位相の解析解です。白丸は AC の CSV から 10 Hz を起点に 5 点間隔で
-取り出した計算値です。破線は遮断周波数 `1/(2πRC) ≈ 159 Hz` を示し、ここで振幅比は `1/√2`（−3.01 dB）、
-位相は −45° になります。1 kHz はこれより高く、すでに信号が大きく減衰しています。
+実線は理想 RC 回路の解析解、白丸は AC の CSV から 10 Hz を起点に 5 点間隔で取り出した計算値です。
+
+| 周波数 | 利得 | 位相 | 図と CSV の読み方 |
+| --- | ---: | ---: | --- |
+| 遮断周波数 ≈ 159.15 Hz | −3.010 dB | −45° | 縦の破線です。$1/(2\pi RC)$ で求めた周波数は、掃引点の間にあります。 |
+| 1 kHz | −16.072 dB | −80.96° | `frequency` が 1000 Hz の行です。CTest が利得と位相を確認します。 |

@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="540" height="276" viewBox="0 0 540 276" role="img" aria-labelledby="title desc">
+  <title id="title">DC voltage divider</title>
+  <desc id="desc">VDD supplies 3.3 V between n1 and ground. R1 connects n1 to n2 and R2 connects n2 to ground. Each resistor is 1 kilohm, so n2 is at 1.65 V. The arrow into the positive terminal of VDD defines positive source current.</desc>
+  <rect width="540" height="276" rx="8" fill="#fff"/>
+  <g fill="none" stroke="#233848" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M168 103V42H316V62 M316 104V154 M316 196V224H168V159"/>
+    <rect x="306" y="62" width="20" height="42"/>
+    <rect x="306" y="154" width="20" height="42"/>
+    <circle cx="168" cy="131" r="28"/>
+    <path d="M162 120h12 M168 114v12 M162 143h12 M316 129h32"/>
+    <path d="M242 224v13 M228 237h28 M233 244h18 M238 251h8"/>
+  </g>
+  <g fill="#233848">
+    <circle cx="316" cy="42" r="3.5"/><circle cx="316" cy="129" r="4.5"/><circle cx="242" cy="224" r="3.5"/>
+  </g>
+  <path d="M151 54v32" stroke="#126757" stroke-width="2.5"/>
+  <path d="m145 82 6 11 6-11" fill="#126757"/>
+  <g font-family="sans-serif" font-size="18" fill="#192d3b">
+    <text x="316" y="29" text-anchor="middle">n1 · 3.3 V</text>
+    <text x="354" y="135" font-weight="bold" fill="#126757">n2 · 1.65 V</text>
+    <text x="342" y="90">R1 · 1 kΩ</text>
+    <text x="342" y="183">R2 · 1 kΩ</text>
+    <text x="124" y="137" text-anchor="end">VDD · 3.3 V</text>
+    <text x="138" y="77" text-anchor="end" fill="#126757">I(VDD)</text>
+    <text x="264" y="248">0</text>
+  </g>
+</svg>

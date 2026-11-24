@@ -21,18 +21,7 @@ digits. Run the examples from the top of the source tree after
 
 ## Voltage divider
 
-Connections of `test_simple_divider.sp`. The lines show electrical
-connections; they do not define current direction.
-
-```mermaid
-flowchart LR
-    N1["n1: 3.3 V"] --- R1["R1: 1 kΩ"]
-    R1 --- N2["n2: 1.65 V"]
-    N2 --- R2["R2: 1 kΩ"]
-    R2 --- G["0: GND"]
-    N1 --- V["VDD: 3.3 V"]
-    V --- G
-```
+![VDD connects n1 to ground. The midpoint n2 between the two 1 kΩ resistors is at 1.65 V. The arrow into the positive supply terminal defines positive I(VDD).](../docs/figures/voltage-divider.svg)
 
 ```sh
 build/kirimaspice examples/test_simple_divider.sp
@@ -79,10 +68,9 @@ as SPICE does; the converged result is still that of the equation.
 build/kirimaspice examples/rc_step.sp --raw-out rc_step.raw
 ```
 
-1 kΩ and 1 µF (RC = 1 ms) driven by a 0-to-1 V step. The exact value at
-1 ms is 1 − e⁻¹ = 0.632121; the program gives 0.632105 with the default
-trapezoidal rule and `tstep` = 10 µs. The first step is a backward Euler
-step, which accounts for most of the difference.
+1 kΩ and 1 µF (RC = 1 ms) driven by a 0-to-1 V step. For an ideal instantaneous step,
+the value at 1 ms is 1 − e⁻¹ ≈ 0.632121 V. The example has a 1 ns rise
+time and gives 0.632105 V with the default trapezoidal rule and `tstep` = 10 µs.
 
 ## RC discharge and the integration methods
 
@@ -111,16 +99,17 @@ The exact value at 1 ms is e⁻¹ = 0.367879. Change `METHOD` on the
 build/kirimaspice examples/rc_lowpass_ac.sp -o rc_lowpass
 ```
 
-The AC result is written to `rc_lowpass_ac.csv`, not printed. `AC 1` makes
-`V1` the input. At 1 kHz the response 1/(1 + j2πfRC) is −16.0722 dB and
-−80.957°. The CSV prints 16 digits, and they agree with the formula to
-about 10: the rest is the 10⁻¹² S GMIN at node `out`, which the formula
-reproduces when it is added.
+Open `rc_lowpass_ac.csv`. With a unit input (`AC 1`), compare `v(out)_mag_dB`
+with the gain in the upper plot and `v(out)_phase_deg` with the phase in the
+lower plot. The solver includes a 10⁻¹² S shunt (`GMIN`) at node `out`,
+which affects the last digits of the CSV.
 
 ![RC low-pass gain and phase from 10 Hz to 100 kHz. Both decrease with frequency. At the cutoff near 159 Hz the gain is −3.01 dB and the phase is −45°.](../docs/figures/rc-lowpass-bode.svg)
 
-The solid curves show the analytic gain and phase of `H = V(out)/V(in)`.
-The circles show every fifth point in the AC CSV, starting at 10 Hz. The
-dashed line marks the cutoff `1/(2πRC) ≈ 159 Hz`, where the amplitude
-ratio is `1/√2` (−3.01 dB) and the phase is −45°. At 1 kHz the signal is
-already well into the falling part of the response.
+The solid curves show the analytic response of the ideal RC filter. The circles
+show every fifth point in the AC CSV, starting at 10 Hz.
+
+| Frequency | Gain | Phase | Where to find it |
+| --- | ---: | ---: | --- |
+| Cutoff ≈ 159.15 Hz | −3.010 dB | −45° | The vertical dashed line. This frequency, $1/(2\pi RC)$, lies between sweep points. |
+| 1 kHz | −16.072 dB | −80.96° | The CSV row with `frequency` equal to 1000 Hz. CTest checks both gain and phase. |

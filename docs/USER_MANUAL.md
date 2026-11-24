@@ -34,9 +34,9 @@ where a rule below exists only to avoid one of those problems.
 
 You need CMake 3.25 or later, a C++23 compiler, Ninja, Python 3 and the
 development files of SuiteSparse (KLU 2.3.2 or later, the version in
-SuiteSparse 7.6.1), and Git. CMake fetches the other dependencies with Git
-at fixed versions during the first configure, so that step needs a network
-connection.
+SuiteSparse 7.6.1), and Git. During the first configure, CMake downloads a pinned Boost
+archive and fetches fixed Git revisions for the remaining dependencies,
+so that step needs a network connection.
 
 On Ubuntu 24.04, these are the packages CI installs (it adds `clang` for
 its Clang job), and Git, which its runners already have:
@@ -84,6 +84,8 @@ R2 n2 0 1k
 
 .end
 ```
+
+![VDD connects n1 to ground. The midpoint n2 between the two 1 kΩ resistors is at 1.65 V. The arrow into the positive supply terminal defines positive I(VDD).](figures/voltage-divider.svg)
 
 Run it:
 
@@ -229,8 +231,8 @@ build/kirimaspice examples/diode_iv.sp --raw-out diode_iv.raw
 
 Without `.PRINT TRAN` the program prints no table; with `.PRINT TRAN
 v(<node>) i(<source>) ...` it prints a `Time (s)` column and one column per
-signal, one row per time point. The raw, SSF and WAV files hold the whole
-result. The program steps by `tstep`, or by `tmax` when that is shorter,
+signal, one row per time point. Raw and SSF record the signal traces. WAV resamples node voltages
+at the audio sample rate. The program steps by `tstep`, or by `tmax` when that is shorter,
 and puts a point on each corner of the sources (the breakpoints of
 `PULSE`, `PWL`, `SIN` and `EXP`). As in SPICE,
 the simulation runs from 0 and the results are kept from `tstart` on, with
@@ -242,18 +244,20 @@ point; `.IC` must be written with an upper-case `V`, as in
 transient holds the `.IC` nodes at their values, and the transient then
 releases them, as in ngspice.
 
-For the RC example above, `V(out)` is 0.632105 at 1 ms; the exact value is
-1 − e⁻¹ = 0.632121.
+For the RC example above, `V(out)` is 0.632105 V at 1 ms. An ideal instantaneous step gives
+1 − e⁻¹ ≈ 0.632121 V.
 
 ### AC
 
 The AC result is not printed. It is always written to a CSV file (see
 [Save the results](#save-the-results)). Only the sources written with
 `AC [<mag> [<phase>]]` are inputs of the AC analysis; `AC` without a
-magnitude means 1. Other sources, such as supplies, take no part in it.
+magnitude means 1. A supply with only a DC value still sets the bias point at which
+the solver linearizes nonlinear devices. Its small-signal excitation is zero.
 
 For an RC low-pass filter (1 kΩ, 1 µF) driven with `AC 1`, the program gave
-−16.072 dB and −80.96° at 1 kHz, which matches 1/(1 + j2πfRC).
+−16.072 dB and −80.96° at 1 kHz. The [worked example](../examples/README.md#rc-low-pass-filter)
+shows where this point falls on the gain and phase curves.
 
 ## Save the results
 
