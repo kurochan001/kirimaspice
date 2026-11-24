@@ -145,9 +145,10 @@ surprise someone who has used another SPICE simulator; the
   the elements that use it.
 - **A source takes a DC value, an AC input and a waveform** (`PULSE`,
   `SIN`, `EXP`, `PWL` or `SFFM`), each optional:
-  `V1 in 0 DC 0 AC 1 PULSE(0 1 0 1n 1n 1 2)`. The arguments that SPICE
-  defaults from `.TRAN` must be given
-  ([Reference Manual](REFERENCE_MANUAL.md#sources)).
+  `V1 in 0 DC 0 AC 1 PULSE(0 1 0 1n 1n 1 2)`. For `PULSE(0 1)`, the delay
+  defaults to zero, both edge times to `TSTEP`, and the width and period to
+  `TSTOP`. The [Reference Manual](REFERENCE_MANUAL.md#sources) illustrates
+  all five intervals.
 - `.END` does not end the file: lines after it are read too.
 
 A transient example, an RC circuit charged through a step:
@@ -408,8 +409,20 @@ R2 out 0 {RLOAD}
 R1 a b {RTOP}
 R2 b 0 1k
 .ENDS DIV
-X1 in out DIV RTOP=3k
+X1 in xout DIV RTOP=3k
+X2 in yout DIV
 ```
+
+The first node on each `X` line connects to pin `a` and the second to `b`.
+With `V(in) = 2 V` and both outputs unloaded, each instance divides the
+input by its own resistor ratio. `R2` is 1 kΩ from `b` to ground in both.
+
+| Instance | Pin `a` | Pin `b` | `R1` between `a` and `b` | Output voltage at `b` |
+| --- | --- | --- | --- | --- |
+| `X1` | `in` | `xout` | 3 kΩ (from `RTOP=3k`) | 2 V × 1/(3 + 1) = 0.5 V |
+| `X2` | `in` | `yout` | 1 kΩ (default) | 2 V × 1/(1 + 1) = 1 V |
+
+The [runnable example](../examples/params_subckt.sp) includes `X1`.
 
 - Default parameter values follow the pins as `NAME=value`; an instance
   overrides them the same way. The keyword `PARAMS:` before them is
@@ -483,11 +496,11 @@ matter), and check that the file holding the model is read with
 defined, the parser takes the line as three-terminal, so the message names
 the bulk node instead: `M1 a a 0 0 NOM` gives `Undefined MOSFET model: 0`.
 
-### `PULSE takes 7 arguments` (or `SIN`, `EXP`, `SFFM`)
+### `PULSE takes 2 to 7 arguments`
 
-The waveform has fewer or more arguments than it takes. The arguments
-that SPICE derives from `.TRAN` when they are left out must be written
-([Reference Manual](REFERENCE_MANUAL.md#sources)).
+Give both levels, for example `PULSE(0 1)`. Up to five timing arguments
+can follow them in order. Check the accepted ranges for other waveforms
+in the [Reference Manual](REFERENCE_MANUAL.md#sources).
 
 ### `singular matrix: check V(<node>)` or `check I(<source>)`
 

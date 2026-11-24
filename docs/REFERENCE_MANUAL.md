@@ -248,6 +248,13 @@ the instance, `X1.R1` and `x1.n1`.
   the netlist's `.TRAN`, which may come after the source; without `.TRAN`,
   `TSTEP` is 0 and `TSTOP` unbounded (an `EXP` then needs its `TAU1` and
   `TAU2`). Too few or too many arguments are an error.
+
+  For `PULSE(0 5 1u 1u 2u 3u 8u)`, the first rise starts at 1 µs and the
+  next at 9 µs. `PW` measures the flat top (2 to 5 µs). In the argument
+  list `TF` comes before `PW`, although the falling edge follows the flat top.
+
+  ![Pulse from 0 to 5 V with a 1 µs delay, 1 µs rise, 3 µs flat top, 2 µs fall and 8 µs period.](figures/pulse-timing.svg)
+
 - Only a source whose line has `AC` is an input of AC analysis; `AC`
   without a magnitude means 1, and the phase, in degrees, defaults to 0. A
   source without `AC` has magnitude 0. Inside subcircuits the same holds.

@@ -60,10 +60,11 @@ It reads SPICE netlists, and where SPICE dialects differ it follows
 [ngspice](GLOSSARY.md#ngspice) for scale factors, AC inputs, the sign of
 source currents, the order of a nested `.DC` and `gnd`
 ([NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.md)); each of these was
-checked by running ngspice-47. Other differences remain: waveform arguments that ngspice defaults from
-`.TRAN` must be written, analyses inside `.control` are not run as
-ngspice runs them, a `.DC` sweep replaces `.OP`, and the parser reads only
-part of the device parameters. [Moving from ngspice](PORTING.md) and
+checked by running ngspice-47. For `PULSE`, an omitted rise or fall time
+defaults to `TSTEP`. An explicit zero gives an ideal step in kirimaspice,
+while ngspice-47 uses a ramp lasting `TSTEP`. Other differences concern
+analyses inside `.control`, `.DC` replacing `.OP`, and which device
+parameters the parser reads. [Moving from ngspice](PORTING.md) and
 [KNOWN_ISSUES](../KNOWN_ISSUES.md) list them.
 
 ### Does it read netlists written for HSPICE or Spectre?

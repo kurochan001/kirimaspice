@@ -116,3 +116,11 @@ The AC result is written to `rc_lowpass_ac.csv`, not printed. `AC 1` makes
 −80.957°. The CSV prints 16 digits, and they agree with the formula to
 about 10: the rest is the 10⁻¹² S GMIN at node `out`, which the formula
 reproduces when it is added.
+
+![RC low-pass gain and phase from 10 Hz to 100 kHz. Both decrease with frequency. At the cutoff near 159 Hz the gain is −3.01 dB and the phase is −45°.](../docs/figures/rc-lowpass-bode.svg)
+
+The solid curves show the analytic gain and phase of `H = V(out)/V(in)`.
+The circles show every fifth point in the AC CSV, starting at 10 Hz. The
+dashed line marks the cutoff `1/(2πRC) ≈ 159 Hz`, where the amplitude
+ratio is `1/√2` (−3.01 dB) and the phase is −45°. At 1 kHz the signal is
+already well into the falling part of the response.
