@@ -516,9 +516,9 @@ the one to change.
 
 ### A `B` source gives `cannot compile the expression`
 
-The expression uses something ExprTk does not know. Common causes: a scale
-suffix (write `0.001`, not `1m`) and `I(<source>)`, which is not
-available.
+The expression uses something ExprTk does not know. A common cause is
+`I(<source>)`, which is not available. Scale factors are not a cause:
+`V={V(a)*1m}` is read as in ngspice.
 
 ### A value is far too small
 
