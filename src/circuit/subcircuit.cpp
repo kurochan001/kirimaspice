@@ -6,9 +6,11 @@
 #include "kirimaspice/core/constants.hpp"
 #include "kirimaspice/util/expression_constants.hpp"
 #include "kirimaspice/util/expression_functions.hpp"
+#include "kirimaspice/util/expression_names.hpp"
 #include "kirimaspice/util/string_utils.hpp"
 #include "kirimaspice/util/units.hpp"
 #include <algorithm>
+#include <optional>
 #include <cctype>
 #include <charconv>
 #include <stdexcept>
@@ -223,6 +225,49 @@ void SubcircuitRegistry::dfs_topological_sort(
 // SubcircuitDefinition Parameter Substitution
 //==============================================================================
 
+namespace {
+
+/// The B line `line` with the names of `scope` (upper case) written as their
+/// values in its expression, the text after its first V= or I= token, or
+/// nothing for a line that is not a B source with an expression. The name and
+/// the nodes are kept as written, also a node with a parameter's name.
+std::optional<std::string> substitute_behavioral_expression(
+    const std::string& line, const std::map<std::string, Real>& scope) {
+    const auto first = line.find_first_not_of(" \t");
+    if (first == std::string::npos || (line[first] != 'B' && line[first] != 'b')) {
+        return std::nullopt;
+    }
+    const std::vector<std::string> tokens = util::split_netlist_line(line);
+    for (std::size_t i = 3; i < tokens.size(); ++i) {
+        const std::string& token = tokens[i];
+        if (token.size() < 2 || token[1] != '=' ||
+            (std::toupper(static_cast<unsigned char>(token[0])) != 'V' &&
+             std::toupper(static_cast<unsigned char>(token[0])) != 'I')) {
+            continue;
+        }
+        std::string expression = token.substr(2);
+        for (std::size_t j = i + 1; j < tokens.size(); ++j) {
+            expression += " " + tokens[j];
+        }
+        std::string out;
+        for (std::size_t j = 0; j < i; ++j) {
+            out += tokens[j] + " ";
+        }
+        out += token.substr(0, 2);
+        out += util::substitute_parameter_names(expression, [&](const std::string& name) -> std::optional<Real> {
+            std::string key = name;
+            std::transform(key.begin(), key.end(), key.begin(),
+                           [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+            const auto it = scope.find(key);
+            return it == scope.end() ? std::nullopt : std::optional<Real>(it->second);
+        });
+        return out;
+    }
+    return std::nullopt;
+}
+
+}  // namespace
+
 std::vector<std::string> SubcircuitDefinition::substitute_parameters(
     const std::map<std::string, Real>& instance_params,
     const std::map<std::string, Real>& global_params,
@@ -322,6 +367,16 @@ std::vector<std::string> SubcircuitDefinition::substitute_parameters(
                 }
             }
             continue;  // a .PARAM line is not an element
+        }
+
+        // A B source's expression is compiled with its node voltages when
+        // the line is read (CircuitGraph::add_behavioral_source), so its
+        // braces are not evaluated here: the names of this instance's
+        // parameters are written as their values, in braces or not, as
+        // ngspice-45.2 reads B1 o 0 V={g*V(i)} and V=g*V(i) in a body.
+        if (auto behavioral = substitute_behavioral_expression(line, scope)) {
+            substituted_lines.push_back(std::move(*behavioral));
+            continue;
         }
 
         auto words_begin = std::sregex_iterator(line.begin(), line.end(), param_pattern);

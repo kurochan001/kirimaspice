@@ -224,6 +224,39 @@ TEST(SubcircuitInstances, BodyMeansWhatTheTopLevelMeans) {
     }
 }
 
+// ... and a B source's expression sees the instance's parameters, in braces
+// or not, beside its node voltages (substitute_behavioral_expression in
+// SubcircuitDefinition::substitute_parameters). With V(in) = 0.25 V and g = 2,
+// ngspice-45.2 gives 0.5 V for each of these bodies, and 1 V for g=4 on the X
+// line; an internal node named as a parameter stays a node (run 2026-11-28).
+// Before, braces were evaluated as a parameter expression ("Undefined symbol:
+// 'V'") and a name without braces was left undefined.
+TEST(SubcircuitInstances, BehavioralExpressionSeesTheInstanceParameters) {
+    const std::string top = "V1 in 0 0.25\nR2 out 0 1k\n";
+    const struct {
+        std::string what, subckt, body, x_line;
+        Real expected;
+    } cases[] = {
+        {"braces", ".subckt amp i o g=2", "B1 o 0 V={g*V(i)}", "X1 in out amp", 0.5},
+        {"no braces", ".subckt amp i o g=2", "B1 o 0 V=g*V(i)", "X1 in out amp", 0.5},
+        {"braces without parameters", ".subckt amp i o", "B1 o 0 V={2*V(i)}", "X1 in out amp", 0.5},
+        {"value on the X line", ".subckt amp i o g=2", "B1 o 0 V={g*V(i)}", "X1 in out amp g=4", 1.0},
+        {"body .param", ".subckt amp i o", ".param g=2\nB1 o 0 V={g*V(i)}", "X1 in out amp", 0.5},
+        {"node named as a parameter", ".subckt amp i o g=2",
+         "R9 i g 1k\nR8 g 0 1k\nB1 o 0 V={g*V(g)*2}", "X1 in out amp", 0.5},
+    };
+    for (const auto& c : cases) {
+        SCOPED_TRACE(c.what);
+        try {
+            const auto op = solve("t\n" + c.subckt + "\n" + c.body + "\n.ends\n" + top + c.x_line + "\n.end\n");
+            ASSERT_EQ(op.status, ConvergenceStatus::SUCCESS);
+            EXPECT_NEAR(op.voltage("out"), c.expected, 1e-12);
+        } catch (const std::exception& e) {
+            ADD_FAILURE() << e.what();
+        }
+    }
+}
+
 // ... a source's waveform too: SIN(0 1 1k) at 0.1 ms is sin(0.2 pi)
 TEST(SubcircuitInstances, WaveformInABody) {
     const auto parsed = parse(
