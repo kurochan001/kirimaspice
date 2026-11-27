@@ -4546,7 +4546,15 @@ static void parse_scr_device(const std::vector<std::string>& tokens, const std::
 
                 param_start = 5;  // Skip model name in parameter parsing
             }
-            // If model not found, use default parameters
+            else {
+                // As for every model name: one defined nowhere in the netlist
+                // is an error, not the defaults without a message. .MODEL has
+                // no SCR type, so the name is never found there.
+                throw UnresolvedDefinition(
+                    fmt::format("Undefined SCR model: {} (an SCR takes NAME=value parameters)",
+                                potential_model),
+                    state.line_number);
+            }
         }
     }
 
@@ -4644,7 +4652,12 @@ static void parse_triac_device(const std::vector<std::string>& tokens, const std
 
                 param_start = 5;  // Skip model name in parameter parsing
             }
-            // If model not found, use default parameters
+            else {
+                throw UnresolvedDefinition(
+                    fmt::format("Undefined TRIAC model: {} (a TRIAC takes NAME=value parameters)",
+                                potential_model),
+                    state.line_number);
+            }
         }
     }
 

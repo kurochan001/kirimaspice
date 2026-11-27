@@ -38,9 +38,8 @@ Small items with a direct effect on netlists written for ngspice.
   tests write their netlists starting with an empty line, so the tests
   change with it (a person's approval)
   ([netlist input](KNOWN_ISSUES.md#netlist-input)).
-- [ ] **`S` and `Y` with a model not defined before them** (S): an error
-  or a warning, not the defaults without a message
-  ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+- [x] **`S` and `Y` with a model not defined before them** (S): an error,
+  as for the other elements; `.MODEL` has no SCR or TRIAC type.
 - [ ] **Directives read but not run** (M each): `.STEP`, `.SAVE`,
   `.PRINT DC` and `.PRINT AC` first; then `.SENS`, `.TF`, `.MC`, `.PZ`,
   `.DISTO`, `.PORT`, `.WCASE`, `.OPTIMIZE`, `.NOISE` and `.MEASURE`

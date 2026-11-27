@@ -534,3 +534,24 @@ TEST(NetlistLines, CarriageReturnInsideALineIsAnError) {
     EXPECT_THROW(parser.parse_string("t\nV1 a 0 1\nR1 a 0 1k\rR2 a 0 1k\nR3 a 0 2k\n.op\n.end\n"),
                  parser::ParseError);
 }
+
+// A model name on an S or Y line that the netlist does not define is an
+// error, as for every other element (parse_scr_device, parse_triac_device),
+// not the device's defaults without a message; .MODEL has no SCR or TRIAC
+// type, so these lines take NAME=value parameters
+TEST(NetlistLines, UndefinedScrAndTriacModels) {
+    for (const auto& [line, message] :
+         std::initializer_list<std::pair<std::string, std::string>>{
+             {"S1 k 0 g SM", "Undefined SCR model: SM"}, {"Y1 k 0 g TM", "Undefined TRIAC model: TM"}}) {
+        parser::NetlistParser parser;
+        try {
+            parser.parse_string("t\nVa a 0 10\nRa a k 100\n" + line + "\nVg g 0 0\n.op\n.end\n");
+            ADD_FAILURE() << line << ": no error";
+        } catch (const parser::ParseError& e) {
+            EXPECT_EQ(e.line(), 4u) << line;
+            EXPECT_NE(std::string(e.what()).find(message), std::string::npos) << e.what();
+        }
+    }
+    parser::NetlistParser parser;
+    EXPECT_NO_THROW(parser.parse_string("t\nVa a 0 10\nRa a k 100\nS1 k 0 g VBF=5\nVg g 0 0\n.op\n.end\n"));
+}

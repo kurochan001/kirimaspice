@@ -210,8 +210,8 @@ are the same element, and a second is an error.
 | Bipolar transistor | `Q<name> <c> <b> <e> <NPN\|PNP\|model> [parameters]` |
 | MOSFET and related | `M<name> <d> <g> <s> [<b>] <NMOS\|PMOS\|model> [parameters]` | model `LEVEL` selects the device |
 | MESFET | `Z<name> <d> <g> <s> [<NMF\|PMF\|model>] [parameters]` |
-| SCR | `S<name> <anode> <cathode> <gate> [parameters]` |
-| TRIAC | `Y<name> <mt2> <mt1> <gate> [parameters]` |
+| SCR | `S<name> <anode> <cathode> <gate> [parameters]` | `NAME=value` parameters only; `.MODEL` has no SCR type, so a model name is an error |
+| TRIAC | `Y<name> <mt2> <mt1> <gate> [parameters]` | `NAME=value` parameters only; `.MODEL` has no TRIAC type, so a model name is an error |
 | Lossless line | `T<name> <a+> <a-> <b+> <b-> Z0=<v> TD=<v>` | both required and positive; `ZO` is accepted for `Z0`; the transient takes no step longer than `TD` |
 | Lossy line | `O<name> <a+> <a-> <b+> <b-> R=<v> L=<v> C=<v> G=<v> TD=<v>` | per unit length; `TD`, `L` and `C` above 0; the length is `TD`/√(`L`·`C`); DC and AC use the line's exact two-port; the transient takes up to 16 sections of the lossless line with their loss lumped at their ends, and no step longer than a section's delay ([known issues](../KNOWN_ISSUES.md#device-models)) |
 | Subcircuit instance | `X<name> <nodes...> <subckt> [NAME=<v> ...]` |

@@ -124,8 +124,8 @@ document also lists differences not decided there.
   scales IS, ISE, ISC, BF and BR by SPICE's Gummel–Poon laws (since
   `ba291cd`), but not the junction potentials or the depletion
   capacitances (read in the code at `ba291cd`).
-- **`S` and `Y` take a model name that is not defined before them without
-  a message,** and use their defaults.
+- **`.MODEL` has no SCR or TRIAC type:** `S` and `Y` take `NAME=value`
+  parameters on their lines only, and a model name there is an error.
 - **`.SAVE`, `.STEP`, `.SENS`, `.MC`, `.TF`, `.PZ`, `.DISTO`, `.PORT`,
   `.WCASE`, `.OPTIMIZE`, `.PRINT DC` and `.PRINT AC` are read but not run,
   each named in a warning; `.PRINT TRAN` is printed.** `.NOISE`,
