@@ -144,7 +144,10 @@ flowchart TD
 インスタンスの値、本体の `.PARAM` の行が重なります）、
 `B` 電源（`CircuitGraph`）です。
 はじめの 3 つは同じ定数 `pi` と `e`（`util::kExpressionConstants`）を知っていて、ExprTk と同じく、名前の
-大文字と小文字を区別しません。
+大文字と小文字を区別しません。4 か所とも、`.FUNC` の関数を 1 か所、`util::ExpressionFunctions` から、それぞれの
+スコープのパラメータとともに受け取ります。関数の本体はそのパラメータを使えます。本体の中の `B` の行の式は
+そこでは評価しません。トップレベルがグローバルの値でするのと同じく、インスタンスのパラメータを値として
+式に書き入れ（`util::substitute_parameter_names`）、`substitute_parameters` はその行をパラメータとともに渡します。
 
 結果は `NetlistParseResult { std::unique_ptr<CircuitGraph>, SimulationConfig }` です。`SimulationConfig`
 （`include/kirimaspice/core/types.hpp`）は、解析、オプション、モデルを持ちます。`find_model` は大文字と
@@ -179,7 +182,7 @@ flowchart TD
 行は、パーサーが回路に渡した `SubcircuitLineReader`（パーサーの `BodyLineReader`）に渡します。
 `rename_body_line` が素子、そのノード、素子が参照するほかの素子の名前を変え、最上位と同じ素子のパーサー
 `parse_element` が、ネットリスト全体のモデルとパラメータで行を読みます。展開の後に、追加した `F` と `H` の
-制御と `K` のインダクタを解決します。
+制御、`B` の式の `I(...)` の電源、`K` のインダクタを解決します。
 
 ## デバイス
 

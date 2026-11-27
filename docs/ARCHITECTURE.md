@@ -177,7 +177,12 @@ lines before every other line and solves the definitions), subcircuit parameters
 the `.PARAM` lines of the body), and `B` sources (`CircuitGraph`).
 The first three know the same constants, `pi` and `e`
 (`util::kExpressionConstants`), and, as ExprTk, compare names without
-case.
+case. All four take the `.FUNC` functions from one place,
+`util::ExpressionFunctions`, with the parameters of their scope, which a
+function's body sees. In a body, a `B` line's expression is not evaluated
+there: the instance's parameters are written into it as values
+(`util::substitute_parameter_names`), as the top level does with the
+global ones, and `substitute_parameters` hands the line on with them.
 
 The result is `NetlistParseResult { std::unique_ptr<CircuitGraph>,
 SimulationConfig }`. `SimulationConfig` (`include/kirimaspice/core/types.hpp`)
@@ -222,8 +227,8 @@ parser attached to the circuit (`BodyLineReader` in the parser):
 `rename_body_line` renames the element, its nodes and the elements it
 refers to, and `parse_element`, the element parsers of the top level, reads
 the line with the models and parameters of the whole netlist. The
-expansion then resolves the controls of `F` and `H` and the inductors of
-`K` that it added.
+expansion then resolves the controls of `F` and `H`, the sources of the
+`I(...)` of `B` expressions and the inductors of `K` that it added.
 
 ## Devices
 

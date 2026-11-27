@@ -219,7 +219,8 @@ are the same element, and a second is an error.
 An element means the same inside a subcircuit as at the top level: the
 lines of a body are read by the same element parsers, with the element's
 name, its nodes and the names of the elements it refers to (the control of
-`F` and `H`, the inductors of `K`, the nodes of `V(...)` in `B`) renamed into
+`F` and `H`, the inductors of `K`, the nodes of `V(...)` and the sources
+of `I(...)` in `B`) renamed into
 the instance, `X1.R1` and `x1.n1`.
 
 ### Sources
