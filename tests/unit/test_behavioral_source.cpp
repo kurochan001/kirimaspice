@@ -294,3 +294,90 @@ TEST(BehavioralSourceParams, GlobalParamsAreRead) {
     EXPECT_NEAR(x[parsed.circuit->get_node_id("b") - 1], 3.0, 1e-9);
     EXPECT_NEAR(x[parsed.circuit->get_node_id("c") - 1], 0.1 * std::exp(0.5), 1e-9);
 }
+
+// I(<source>) in a B expression is the current of a source whose current is
+// an unknown of the circuit (V, E, H, voltage-form B), with the sign of the
+// printed I(<source>): positive into the + terminal (NETLIST_CONVENTIONS,
+// section 3). The source may come after the B line, and Newton and AC take
+// the derivative with respect to that current (BehavioralSource::linearize).
+// ngspice-45.2 gives these V(o) (run 2026-11-28): V1 drives 1 mA into 1 kOhm,
+// so I(V1) = -1 mA.
+TEST(BehavioralSource, CurrentOfASource) {
+    const struct {
+        std::string what, netlist;
+        Real expected;
+    } cases[] = {
+        {"voltage source", "t\nV1 a 0 1\nR1 a 0 1k\nB1 o 0 V={I(V1)*1k}\nR2 o 0 1k\n.end\n", -1.0},
+        {"defined after", "t\nB1 o 0 V={I(v1)*1k}\nR2 o 0 1k\nV1 a 0 1\nR1 a 0 1k\n.end\n", -1.0},
+        {"current form", "t\nV1 a 0 1\nR1 a 0 1k\nB1 0 o I={I(V1)*2}\nR2 o 0 1k\n.end\n", -2.0},
+        {"nonlinear", "t\nV1 a 0 1\nR1 a 0 1k\nB1 o 0 V={I(V1)*I(V1)*1e6}\nR2 o 0 1k\n.end\n", 1.0},
+        {"E", "t\nV1 a 0 1\nE1 d 0 a 0 2\nR3 d 0 1k\nB1 o 0 V={I(E1)*1k}\nR2 o 0 1k\n.end\n", -2.0},
+        {"H", "t\nV1 a 0 1\nVs a c 0\nR1 c 0 1k\nH1 d 0 Vs 1k\nR3 d 0 1k\nB1 o 0 V={I(H1)*1k}\nR2 o 0 1k\n.end\n",
+         -1.0},
+        {"voltage-form B", "t\nV1 a 0 1\nB2 d 0 V={2*V(a)}\nR3 d 0 1k\nB1 o 0 V={I(B2)*1k}\nR2 o 0 1k\n.end\n", -2.0},
+        {"its own current", "t\nB1 o 0 V={1 + I(B1)*500}\nR2 o 0 1k\n.end\n", 2.0 / 3.0},
+    };
+    for (const auto& c : cases) {
+        EXPECT_NEAR(b_output(c.netlist), c.expected, 1e-9) << c.what;
+    }
+}
+
+// ... inside a subcircuit I(Vs) is the body's own Vs (rename_body_line), as
+// the controlling source of F and H is; ngspice-45.2 gives V(out) = 1 V
+TEST(BehavioralSource, CurrentOfASourceInABody) {
+    kirimaspice::parser::NetlistParser parser;
+    auto result = parser.parse_string(
+        "t\nV1 in 0 1\n.subckt s a o\nVs a m 0\nR1 m 0 1k\nB1 o 0 V={I(Vs)*1k}\n.ends\n"
+        "X1 in out s\nR2 out 0 1k\n.end\n");
+    result.circuit->expand_all_subcircuits();
+    kirimaspice::solvers::DCSolver solver(*result.circuit, result.config);
+    DenseVector x;
+    kirimaspice::SolverStats stats;
+    ASSERT_EQ(solver.solve(x, stats), kirimaspice::ConvergenceStatus::SUCCESS);
+    EXPECT_NEAR(x[result.circuit->get_node_id("out") - 1], 1.0, 1e-9);
+}
+
+// ... in AC the slope at the operating point: d(1e6 I^2)/dI = 2e6 I = -2000
+// V/A at I(V1) = -1 mA, times the small-signal I(V1) = -1 mA, gives 2 V, as
+// ngspice-45.2 gives; and in the transient I(V1) follows SIN(0 1 1k):
+// V(o) = -sin(2 pi 1k t)
+TEST(BehavioralSource, CurrentOfASourceInAcAndTransient) {
+    kirimaspice::parser::NetlistParser parser;
+    auto ac_netlist = parser.parse_string(
+        "t\nV1 a 0 DC 1 AC 1\nR1 a 0 1k\nB1 o 0 V={I(V1)*I(V1)*1e6}\nR2 o 0 1k\n.ac lin 1 1k 1k\n.end\n");
+    kirimaspice::solvers::ACSolver ac_solver(*ac_netlist.circuit, ac_netlist.config);
+    const auto ac = ac_solver.solve();
+    ASSERT_EQ(ac.status, kirimaspice::ConvergenceStatus::SUCCESS);
+    ASSERT_EQ(ac.frequency_points.size(), 1u);
+    EXPECT_NEAR(std::abs(ac.frequency_points[0].solution[ac_netlist.circuit->get_node_id("o") - 1] -
+                         kirimaspice::Complex(2.0, 0.0)),
+                0.0, 1e-6);
+
+    auto tran_netlist = parser.parse_string(
+        "t\nV1 a 0 SIN(0 1 1k)\nR1 a 0 1k\nB1 o 0 V={I(V1)*1k}\nR2 o 0 1k\n.end\n");
+    kirimaspice::SimulationConfig config = tran_netlist.config;
+    config.transient.use_adaptive_timestep = false;
+    kirimaspice::solvers::TransientSolver tran_solver(*tran_netlist.circuit, config);
+    const auto tran = tran_solver.solve(0.0, 1e-3, 1e-5);
+    ASSERT_EQ(tran.status, kirimaspice::ConvergenceStatus::SUCCESS);
+    const auto o = tran_netlist.circuit->get_node_id("o") - 1;
+    for (const auto& point : tran.timepoints) {
+        EXPECT_NEAR(point.node_voltages[o], -std::sin(2.0 * M_PI * 1e3 * point.time), 1e-9) << point.time;
+    }
+}
+
+// ... and naming an element without a branch current, or none, is an error
+// that says so; ngspice-45.2 also reads the current of a resistor, I(R1)
+TEST(BehavioralSource, CurrentOfAnElementWithoutABranchIsAnError) {
+    kirimaspice::parser::NetlistParser parser;
+    for (const auto& [name, message] :
+         std::initializer_list<std::pair<std::string, std::string>>{{"R1", "R1 is not one"},
+                                                                     {"V9", "no element is named V9"}}) {
+        try {
+            parser.parse_string("t\nV1 a 0 1\nR1 a 0 1k\nB1 o 0 V={I(" + name + ")*1k}\nR2 o 0 1k\n.end\n");
+            ADD_FAILURE() << name << ": no error";
+        } catch (const std::exception& e) {
+            EXPECT_NE(std::string(e.what()).find(message), std::string::npos) << e.what();
+        }
+    }
+}

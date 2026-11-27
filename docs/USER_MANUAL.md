@@ -516,9 +516,11 @@ the one to change.
 
 ### A `B` source gives `cannot compile the expression`
 
-The expression uses something ExprTk does not know. A common cause is
-`I(<source>)`, which is not available. Scale factors are not a cause:
-`V={V(a)*1m}` is read as in ngspice.
+The expression uses something ExprTk does not know, such as a name that
+is neither a parameter nor a function. Scale factors are not a cause:
+`V={V(a)*1m}` is read as in ngspice. `I(<name>)` reads the current of a
+voltage source or of an `E`, `H` or voltage-form `B` source; for another
+element, such as a resistor, the error says that it is not one.
 
 ### A value is far too small
 

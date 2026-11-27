@@ -6250,16 +6250,34 @@ void process_line(const std::string& raw_line, ParseState& state) {
 
 
 // Each V(node) and V(n1,n2) of a B expression with its nodes renamed by
-// map_node, V in either case (as CircuitGraph's rewrite_node_voltages reads
-// it)
+// map_node, and each I(name) with `prefix` before the name, V and I in
+// either case (as CircuitGraph's rewrite_node_voltages reads them)
 static std::string map_node_voltages(const std::string& expression,
-                                     const std::function<std::string(const std::string&)>& map_node) {
+                                     const std::function<std::string(const std::string&)>& map_node,
+                                     const std::string& prefix) {
     std::string out;
     std::size_t i = 0;
     while (i < expression.size()) {
         const char c = expression[i];
         const bool starts_name = i == 0 ||
             !(std::isalnum(static_cast<unsigned char>(expression[i - 1])) || expression[i - 1] == '_');
+        // I(name) names a source of the body, as the controlling source of F
+        // and H does: X1.name
+        if ((c == 'I' || c == 'i') && starts_name && i + 1 < expression.size() &&
+            expression[i + 1] == '(') {
+            const std::size_t close = expression.find(')', i + 2);
+            if (close != std::string::npos) {
+                std::string name = expression.substr(i + 2, close - i - 2);
+                name.erase(0, name.find_first_not_of(" \t"));
+                name.erase(name.find_last_not_of(" \t") + 1);
+                if (!name.empty() && name.find(',') == std::string::npos) {
+                    out += c;
+                    out += '(' + prefix + name + ')';
+                    i = close + 1;
+                    continue;
+                }
+            }
+        }
         if ((c == 'V' || c == 'v') && starts_name && i + 1 < expression.size() &&
             expression[i + 1] == '(') {
             const std::size_t close = expression.find(')', i + 2);
@@ -6294,9 +6312,9 @@ static std::string map_node_voltages(const std::string& expression,
 
 // A body line of the instance `instance` in the names of the circuit: the
 // element's name, and those of the elements it names (the controlling source
-// of F and H, the inductors of K), prefixed with the instance's name, X1.R1;
-// each node mapped by map_node; the nodes in the V(node) of a B expression
-// mapped too. Which tokens are nodes is decided as each element parser reads
+// of F and H, the inductors of K, the sources in the I(name) of a B
+// expression), prefixed with the instance's name, X1.R1; each node mapped by
+// map_node; the nodes in the V(node) of a B expression mapped too. Which tokens are nodes is decided as each element parser reads
 // its line.
 static std::vector<std::string> rename_body_line(
     std::vector<std::string> tokens, const std::string& instance,
@@ -6321,7 +6339,7 @@ static std::vector<std::string> rename_body_line(
         case 'B':
             nodes(1, 2);
             for (std::size_t k = 3; k < tokens.size(); ++k) {
-                tokens[k] = map_node_voltages(tokens[k], map_node);
+                tokens[k] = map_node_voltages(tokens[k], map_node, prefix);
             }
             break;
         case 'E': case 'G': case 'T': case 'O':

@@ -86,8 +86,11 @@ running ngspice-47 and removed by following ngspice, as
 [NETLIST_CONVENTIONS.md](docs/spec/NETLIST_CONVENTIONS.md) sets out; that
 document also lists differences not decided there.
 
-- **`B` sources have no `I(<source>)`:** an expression with it is an
-  error (`Undefined symbol`).
+- **`I(<name>)` in a `B` expression reads only the current of a voltage
+  source or of an `E`, `H` or voltage-form `B` source;** for any other
+  element it is an error (`R1 is not one`). ngspice-45.2 also reads the
+  current of a resistor: `B1 b 0 V={I(R1)*1k}` with 1 mA through R1
+  gives 1 V (run 2026-11-28).
 - **`E`, `F`, `G` and `H` have no `POLY` form;** a line with `POLY(...)`
   after the output nodes is an error.
 - **The diode reads `IS`, `N`, `CJO`, `VJ`, `M`, `RS`, `TT`, `BV` and

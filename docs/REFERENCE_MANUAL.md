@@ -278,7 +278,11 @@ ExprTk's built-in functions, the functions defined by `.FUNC`, and the global `.
 as in ngspice-47 (the argument of `V(` stays a node, also one with a
 parameter's name), and in a subcircuit body the parameters of the
 instance as well, in braces or not (ngspice-45.2 reads `V={g*V(i)}` and
-`V=g*V(i)` there alike); `I(<source>)` is not available. `TIME` is the time of the transient, and 0 in the operating
+`V=g*V(i)` there alike), and `I(<source>)`, the current of a voltage
+source or of an `E`, `H` or voltage-form `B` source, with the sign it is
+printed with (positive into the `+` terminal), wherever that source is in
+the netlist; inside a subcircuit `I(Vs)` is the body's own `Vs`. The
+current of another element, such as `I(R1)`, is an error. `TIME` is the time of the transient, and 0 in the operating
 point (also in the one that starts a transient). An expression that
 cannot be compiled is an error at the `B` line. Both forms work in the
 operating point, the transient and AC; in AC analysis a `B` source is its

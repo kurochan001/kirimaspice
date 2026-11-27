@@ -4,6 +4,7 @@
 // src/devices/behavioral_source.cpp
 #include "kirimaspice/devices/behavioral_source.hpp"
 #include <spdlog/spdlog.h>
+#include <fmt/format.h>
 
 #include <algorithm>
 #include <cmath>
@@ -16,7 +17,8 @@ BehavioralSource::BehavioralSource(
     BehavioralSourceType type,
     const std::string& expression,
     ExpressionEvaluator evaluator,
-    std::vector<NodeId> controlling_nodes
+    std::vector<NodeId> controlling_nodes,
+    std::vector<std::string> controlling_sources
 )
     : Device(id, name, DeviceType::BEHAVIORAL_SOURCE)
     , nodes_({np, nn})
@@ -25,6 +27,7 @@ BehavioralSource::BehavioralSource(
     , evaluator_(std::move(evaluator))
     , branch_id_(INVALID_BRANCH)
     , current_time_(0.0)
+    , controlling_sources_(std::move(controlling_sources))
 {
     for (const NodeId node : controlling_nodes) {
         if (node != NODE_GND &&
@@ -37,14 +40,18 @@ BehavioralSource::BehavioralSource(
                  name, (type == BehavioralSourceType::VOLTAGE ? "V" : "I"), expression);
 }
 
-Real BehavioralSource::evaluate_expression(Real time, const DenseVector& node_voltages) const {
+Real BehavioralSource::evaluate_expression(Real time, const DenseVector& x, std::size_t num_nodes) const {
     // Check if evaluator is valid before calling
     if (!evaluator_) {
         spdlog::error("BehavioralSource '{}': evaluator is not set", name());
         return 0.0;  // Fallback to zero
     }
+    if (controlling_branches_.size() != controlling_sources_.size()) {
+        throw std::runtime_error(fmt::format(
+            "BehavioralSource '{}': the currents its expression reads have no branches", name()));
+    }
     try {
-        return evaluator_(time, node_voltages);
+        return evaluator_(time, x, num_nodes, controlling_branches_);
     } catch (const std::exception& e) {
         spdlog::error("BehavioralSource '{}': expression evaluation failed: {}", name(), e.what());
         return 0.0;  // Fallback to zero
@@ -52,31 +59,39 @@ Real BehavioralSource::evaluate_expression(Real time, const DenseVector& node_vo
 }
 
 BehavioralSource::Linearization BehavioralSource::linearize(
-    Real time, const DenseVector& node_voltages) const {
+    Real time, const DenseVector& unknowns, std::size_t num_nodes) const {
     Linearization lin;
-    lin.value = evaluate_expression(time, node_voltages);
+    lin.value = evaluate_expression(time, unknowns, num_nodes);
     lin.norton = lin.value;
-    if (controlling_nodes_.empty()) {
+    if (controlling_nodes_.empty() && controlling_branches_.empty()) {
         return lin;
     }
-    DenseVector x = node_voltages;
-    for (const NodeId node : controlling_nodes_) {
-        const auto k = static_cast<std::size_t>(node - 1);
+    DenseVector x = unknowns;
+    // The derivative with respect to the unknown in column k, by a central
+    // difference of relative step 1e-6 above `floor` (1 V for a voltage,
+    // 1 mA for a current)
+    auto differentiate = [&](std::size_t k, Real floor) {
         if (k >= x.size()) {
-            continue;
+            return;
         }
         const Real v = x[k];
-        const Real h = 1e-6 * std::max(Real(1.0), std::abs(v));
+        const Real h = 1e-6 * std::max(floor, std::abs(v));
         x[k] = v + h;
-        const Real up = evaluate_expression(time, x);
+        const Real up = evaluate_expression(time, x, num_nodes);
         x[k] = v - h;
-        const Real down = evaluate_expression(time, x);
+        const Real down = evaluate_expression(time, x, num_nodes);
         x[k] = v;
         const Real derivative = (up - down) / (2.0 * h);
         if (derivative != 0.0 && std::isfinite(derivative)) {
             lin.derivatives.emplace_back(static_cast<int>(k), derivative);
             lin.norton -= derivative * v;
         }
+    };
+    for (const NodeId node : controlling_nodes_) {
+        differentiate(static_cast<std::size_t>(node - 1), 1.0);
+    }
+    for (const BranchId branch : controlling_branches_) {
+        differentiate(num_nodes + static_cast<std::size_t>(branch), 1e-3);
     }
     return lin;
 }
@@ -94,7 +109,7 @@ void BehavioralSource::stamp_dc_linear(
 void BehavioralSource::stamp_at(MNASystem& mna, const DenseVector& node_voltages,
                                 Real time) const {
     // Newton's linearization of the source, value ~ norton + sum d * V
-    const Linearization lin = linearize(time, node_voltages);
+    const Linearization lin = linearize(time, node_voltages, mna.num_nodes);
     const int np_idx = (nodes_[0] == NODE_GND) ? -1 : static_cast<int>(nodes_[0] - 1);
     const int nn_idx = (nodes_[1] == NODE_GND) ? -1 : static_cast<int>(nodes_[1] - 1);
 
@@ -159,7 +174,7 @@ void BehavioralSource::stamp_ac(
     (void)omega;
     // The small-signal source: the derivatives of the expression at the
     // operating point (TIME 0), with no AC input of its own
-    const Linearization lin = linearize(0.0, dc_solution);
+    const Linearization lin = linearize(0.0, dc_solution, sys.num_nodes);
     const int np_idx = (nodes_[0] == NODE_GND) ? -1 : static_cast<int>(nodes_[0] - 1);
     const int nn_idx = (nodes_[1] == NODE_GND) ? -1 : static_cast<int>(nodes_[1] - 1);
 

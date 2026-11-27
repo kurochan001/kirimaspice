@@ -321,13 +321,21 @@ static std::string node_voltage_variable(std::size_t k) {
     return "node_voltage_" + std::to_string(k);
 }
 
+// The ExprTk variable of the k-th source whose current a B source expression
+// reads, I(name)
+static std::string source_current_variable(std::size_t k) {
+    return "source_current_" + std::to_string(k);
+}
+
 // Rewrite each V(node) of a B source expression, with V in either case, as
-// the variable of its node, and each V(n1,n2) as the difference of the
-// variables of its two nodes, as SPICE reads it; list the distinct nodes
+// the variable of its node, each V(n1,n2) as the difference of the
+// variables of its two nodes, as SPICE reads it, and each I(name) as the
+// variable of that source's current; list the distinct nodes and sources
 // named in the order of the variables. This is the only place that reads
-// node references in B expressions.
+// node and source references in B expressions.
 static std::string rewrite_node_voltages(const std::string& expression,
-                                         std::vector<std::string>& nodes) {
+                                         std::vector<std::string>& nodes,
+                                         std::vector<std::string>& sources) {
     std::string out;
     out.reserve(expression.size());
     std::size_t i = 0;
@@ -335,6 +343,26 @@ static std::string rewrite_node_voltages(const std::string& expression,
         const char c = expression[i];
         const bool starts_name = i == 0 ||
             !(std::isalnum(static_cast<unsigned char>(expression[i - 1])) || expression[i - 1] == '_');
+        if ((c == 'I' || c == 'i') && starts_name && i + 1 < expression.size() &&
+            expression[i + 1] == '(') {
+            const std::size_t close = expression.find(')', i + 2);
+            std::string source = close == std::string::npos ? std::string()
+                                                            : expression.substr(i + 2, close - i - 2);
+            source.erase(0, source.find_first_not_of(" \t"));
+            source.erase(source.find_last_not_of(" \t") + 1);
+            if (!source.empty() && source.find(',') == std::string::npos) {
+                // Element names are compared without case, as SPICE does
+                auto it = std::find_if(sources.begin(), sources.end(), [&](const std::string& known) {
+                    return util::equals_icase(known, source);
+                });
+                if (it == sources.end()) {
+                    it = sources.insert(sources.end(), source);
+                }
+                out += source_current_variable(static_cast<std::size_t>(it - sources.begin()));
+                i = close + 1;
+                continue;
+            }
+        }
         if ((c == 'V' || c == 'v') && starts_name && i + 1 < expression.size() &&
             expression[i + 1] == '(') {
             const std::size_t close = expression.find(')', i + 2);
@@ -390,7 +418,8 @@ void CircuitGraph::add_behavioral_source(const std::string& name,
     DeviceId id = next_device_id_++;
 
     std::vector<std::string> referenced_nodes;
-    const std::string processed_expr = rewrite_node_voltages(expression, referenced_nodes);
+    std::vector<std::string> referenced_sources;
+    const std::string processed_expr = rewrite_node_voltages(expression, referenced_nodes, referenced_sources);
 
     // The nodes the expression reads. A node that no element names is still
     // a node of the circuit, as in ngspice-47, which reports it as singular.
@@ -407,6 +436,7 @@ void CircuitGraph::add_behavioral_source(const std::string& name,
     struct Compiled {
         Real time = 0.0;
         std::vector<Real> voltages;
+        std::vector<Real> currents;
         util::ExpressionFunctions functions;
         exprtk::symbol_table<Real> symbol_table;
         exprtk::expression<Real> expr;
@@ -420,6 +450,10 @@ void CircuitGraph::add_behavioral_source(const std::string& name,
     for (std::size_t i = 0; i < referenced_nodes.size(); ++i) {
         compiled->symbol_table.add_variable(node_voltage_variable(i), compiled->voltages[i]);
     }
+    compiled->currents.assign(referenced_sources.size(), 0.0);
+    for (std::size_t i = 0; i < referenced_sources.size(); ++i) {
+        compiled->symbol_table.add_variable(source_current_variable(i), compiled->currents[i]);
+    }
     compiled->expr.register_symbol_table(compiled->symbol_table);
     {
         exprtk::parser<Real> parser;
@@ -429,7 +463,9 @@ void CircuitGraph::add_behavioral_source(const std::string& name,
         }
     }
 
-    auto evaluator = [compiled, referenced_ids](Real time, const DenseVector& node_voltages) -> Real {
+    auto evaluator = [compiled, referenced_ids](Real time, const DenseVector& node_voltages,
+                                                std::size_t num_nodes,
+                                                const std::vector<BranchId>& branches) -> Real {
         compiled->time = time;
         for (std::size_t i = 0; i < referenced_ids.size(); ++i) {
             const NodeId node = referenced_ids[i];
@@ -438,11 +474,15 @@ void CircuitGraph::add_behavioral_source(const std::string& name,
                                         ? 0.0
                                         : node_voltages[k];
         }
+        for (std::size_t i = 0; i < compiled->currents.size() && i < branches.size(); ++i) {
+            const std::size_t k = num_nodes + static_cast<std::size_t>(branches[i]);
+            compiled->currents[i] = k < node_voltages.size() ? node_voltages[k] : 0.0;
+        }
         return compiled->expr.value();
     };
 
     auto bsource = std::make_shared<devices::BehavioralSource>(
-        id, name, np_id, nn_id, type, expression, evaluator, referenced_ids);
+        id, name, np_id, nn_id, type, expression, evaluator, referenced_ids, referenced_sources);
 
     // If voltage source, add to voltage_sources_ and assign branch_id
     if (type == BehavioralSourceType::VOLTAGE) {
@@ -1918,6 +1958,32 @@ std::shared_ptr<devices::Device> CircuitGraph::get_device(const std::string& nam
 void CircuitGraph::resolve_controlled_source_references() {
     // Resolve control voltage source references for CCCS and CCVS
     for (auto& device : devices_) {
+        if (device->type() == DeviceType::BEHAVIORAL_SOURCE) {
+            // The branch of each source whose current the expression reads,
+            // I(name): a source whose current is an unknown of the circuit
+            // (voltage_sources_: V, E, H and voltage-form B), as for F and H
+            auto bsource = std::dynamic_pointer_cast<devices::BehavioralSource>(device);
+            if (!bsource || bsource->controlling_sources().empty()) {
+                continue;
+            }
+            std::vector<BranchId> branches;
+            for (const auto& source : bsource->controlling_sources()) {
+                const auto found = device_map_.find(device_key(source));
+                const auto control = found == device_map_.end() ? nullptr : found->second;
+                const auto it = std::find(voltage_sources_.begin(), voltage_sources_.end(), control);
+                if (!control || it == voltage_sources_.end()) {
+                    throw std::runtime_error(fmt::format(
+                        "{}: I({}) reads the current of a voltage source or of an E, H or "
+                        "voltage-form B source; {}",
+                        bsource->name(), source,
+                        control ? fmt::format("{} is not one", source)
+                                : fmt::format("no element is named {}", source)));
+                }
+                branches.push_back(static_cast<BranchId>(it - voltage_sources_.begin()));
+            }
+            bsource->set_controlling_branches(std::move(branches));
+            continue;
+        }
         if (device->type() == DeviceType::CCCS) {
             auto cccs = std::dynamic_pointer_cast<devices::CCCS>(device);
             if (!cccs) {

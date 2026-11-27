@@ -21,9 +21,11 @@ Small items with a direct effect on netlists written for ngspice.
 - [x] **Parameters and other functions in a `.FUNC` body** (S). A body
   sees the parameters where it is called, in a subcircuit the
   instance's, and the other functions; one that calls itself is an error.
-- [ ] **`I(<source>)` in `B` expressions** (M). The current of a
-  voltage source as a variable of the expression
-  ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+- [x] **`I(<source>)` in `B` expressions** (M). The current of a voltage
+  source, `E`, `H` or voltage-form `B`, with its derivative in Newton and
+  AC (`BehavioralSource::linearize`).
+- [ ] **`I(<name>)` of other elements in `B` expressions** (M), as
+  ngspice-45.2 reads `I(R1)` ([netlist input](KNOWN_ISSUES.md#netlist-input)).
 - [ ] **`POLY` form of `E`, `F`, `G` and `H`** (M)
   ([netlist input](KNOWN_ISSUES.md#netlist-input)).
 - [ ] **`J` elements** (M). The library has a JFET; the parser has no `J`
