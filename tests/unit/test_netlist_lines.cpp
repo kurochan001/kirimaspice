@@ -289,16 +289,37 @@ TEST(NetlistLines, ElementNameUsedTwice) {
                  parser::ParseError);
 }
 
-// The POLY form of a controlled source is not implemented, so it is an error,
-// not a linear source with POLY(1) for a node (reject_poly_form); a node whose
-// name starts with "poly" is a node
+// A controlled source in the POLY form of dimension 1 with the coefficients
+// 0 and g is the linear source of gain g, as in SPICE (POLY in any case, its
+// dimension also after a blank). ngspice-45.2 gives V(out) = 2, -2, 2 and
+// -2 V for these lines and for their linear forms alike, with I(V1) = -1 mA
+// (run 2026-11-28). A node whose name starts with "poly" is a node.
 TEST(NetlistLines, PolyFormOfAControlledSource) {
-    for (const std::string e : {"E1 out 0 POLY(1) in 0 0 2", "G1 out 0 poly (1) in 0 0 2",
-                                "F1 out 0 POLY(1) V1 0 2", "H1 out 0 POLY(1) V1 0 2"}) {
+    const struct {
+        std::string poly, linear;
+        Real expected;
+    } forms[] = {
+        {"E1 out 0 POLY(1) in 0 0 2", "E1 out 0 in 0 2", 2.0},
+        {"G1 out 0 poly (1) in 0 0 2m", "G1 out 0 in 0 2m", -2.0},
+        {"F1 out 0 POLY(1) V1 0 2", "F1 out 0 V1 2", 2.0},
+        {"H1 out 0 POLY(1) V1 0 2k", "H1 out 0 V1 2k", -2.0},
+    };
+    auto out = [](const std::string& line) {
         parser::NetlistParser parser;
-        EXPECT_THROW(parser.parse_string("t\nV1 in 0 1\n" + e + "\nR1 out 0 1k\n.op\n.end\n"),
-                     parser::ParseError)
-            << e;
+        auto parsed = parser.parse_string("t\nV1 in 0 1\nR0 in 0 1k\n" + line + "\nR1 out 0 1k\n.op\n.end\n");
+        solvers::DCSolver solver(*parsed.circuit, parsed.config);
+        DenseVector x;
+        SolverStats stats;
+        EXPECT_EQ(solver.solve(x, stats), ConvergenceStatus::SUCCESS) << line;
+        return x.empty() ? 0.0 : x[parsed.circuit->get_node_id("out") - 1];
+    };
+    for (const auto& form : forms) {
+        try {
+            EXPECT_NEAR(out(form.poly), form.expected, 1e-9) << form.poly;
+            EXPECT_NEAR(out(form.linear), form.expected, 1e-9) << form.linear;
+        } catch (const std::exception& e) {
+            ADD_FAILURE() << form.poly << ": " << e.what();
+        }
     }
     parser::NetlistParser parser;
     const auto parsed = parser.parse_string(
