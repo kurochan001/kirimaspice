@@ -462,6 +462,17 @@ void CircuitGraph::add_behavioral_source(const std::string& name,
                 "cannot compile the expression '{}': {}", expression, parser.error()));
         }
     }
+    // A .FUNC body is compiled when the function is called, so a body that
+    // cannot be compiled, or a function that calls itself, fails only then.
+    // One evaluation here, at TIME 0 with every voltage and current 0, makes
+    // that an error of this line rather than a source of 0 at every
+    // evaluation (evaluate_expression). A function called only in a branch
+    // not taken there is not reached.
+    try {
+        (void)compiled->expr.value();
+    } catch (const std::exception& e) {
+        throw std::runtime_error(fmt::format("cannot evaluate the expression '{}': {}", expression, e.what()));
+    }
 
     auto evaluator = [compiled, referenced_ids](Real time, const DenseVector& node_voltages,
                                                 std::size_t num_nodes,

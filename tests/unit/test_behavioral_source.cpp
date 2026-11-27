@@ -381,3 +381,21 @@ TEST(BehavioralSource, CurrentOfAnElementWithoutABranchIsAnError) {
         }
     }
 }
+
+// A .FUNC that fails when a B expression calls it, because its body cannot
+// be compiled or because it calls itself, is an error at the B line
+// (CircuitGraph::add_behavioral_source evaluates the expression once), not
+// a source of 0 with a message at every evaluation
+TEST(BehavioralSource, FunctionThatFailsIsAnErrorOfTheLine) {
+    for (const std::string body : {"{f(x)+1}", "{x*undefined_name}"}) {
+        kirimaspice::parser::NetlistParser parser;
+        try {
+            parser.parse_string("t\n.func f(x) " + body + "\nV1 a 0 1\nB1 a 0 I={f(V(a))/1k}\n.end\n");
+            ADD_FAILURE() << body << ": no error";
+        } catch (const kirimaspice::parser::ParseError& e) {
+            EXPECT_EQ(e.line(), 4u) << body;
+            EXPECT_NE(std::string(e.what()).find("cannot evaluate the expression"), std::string::npos)
+                << e.what();
+        }
+    }
+}

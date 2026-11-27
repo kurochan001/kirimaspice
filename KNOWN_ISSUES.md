@@ -86,6 +86,11 @@ running ngspice-47 and removed by following ngspice, as
 [NETLIST_CONVENTIONS.md](docs/spec/NETLIST_CONVENTIONS.md) sets out; that
 document also lists differences not decided there.
 
+- **A `B` expression that fails when it is evaluated gives 0, with an
+  error message at each evaluation, and the run goes on.** It is checked
+  once when the line is read, at `TIME` 0 with every voltage and current
+  0, so this is left only for a failure that that evaluation does not
+  reach, such as a failing `.FUNC` in a branch of `? :` not taken there.
 - **`I(<name>)` in a `B` expression reads only the current of a voltage
   source or of an `E`, `H` or voltage-form `B` source;** for any other
   element it is an error (`R1 is not one`). ngspice-45.2 also reads the

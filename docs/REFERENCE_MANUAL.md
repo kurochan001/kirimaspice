@@ -284,7 +284,9 @@ printed with (positive into the `+` terminal), wherever that source is in
 the netlist; inside a subcircuit `I(Vs)` is the body's own `Vs`. The
 current of another element, such as `I(R1)`, is an error. `TIME` is the time of the transient, and 0 in the operating
 point (also in the one that starts a transient). An expression that
-cannot be compiled is an error at the `B` line. Both forms work in the
+cannot be compiled, or that fails when it is evaluated once at `TIME` 0
+with every voltage and current 0 (a `.FUNC` whose body cannot be compiled,
+or one that calls itself), is an error at the `B` line. Both forms work in the
 operating point, the transient and AC; in AC analysis a `B` source is its
 linearization at the operating point, with no AC input of its own. Newton's
 method and AC take the derivatives of the expression by central differences.
