@@ -88,12 +88,6 @@ document also lists differences not decided there.
 
 - **`B` sources have no `I(<source>)`:** an expression with it is an
   error (`Undefined symbol`).
-- **A `.FUNC` body sees only its arguments, ExprTk's constants and `e`:**
-  a body that uses a global parameter or calls another function is an
-  error where the function is called (`Failed to compile .FUNC
-  expression`). ngspice-45.2 takes both: with `.param k=4`,
-  `.func f(x) {x/k}` gives f(8k) = 2k, and `.func g(x) {h(x)*2}` calls `h`
-  (run 2026-11-28).
 - **`E`, `F`, `G` and `H` have no `POLY` form;** a line with `POLY(...)`
   after the output nodes is an error.
 - **The diode reads `IS`, `N`, `CJO`, `VJ`, `M`, `RS`, `TT`, `BV` and

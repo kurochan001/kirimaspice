@@ -382,7 +382,8 @@ void CircuitGraph::add_behavioral_source(const std::string& name,
                                          const std::string& nn,
                                          BehavioralSourceType type,
                                          const std::string& expression,
-                                         const std::map<std::string, std::string>& functions) {
+                                         const std::map<std::string, std::string>& functions,
+                                         const std::map<std::string, Real>& parameters) {
     NodeId np_id = add_node(np);
     NodeId nn_id = add_node(nn);
 
@@ -412,7 +413,7 @@ void CircuitGraph::add_behavioral_source(const std::string& name,
     };
     auto compiled = std::make_shared<Compiled>();
     compiled->voltages.assign(referenced_nodes.size(), 0.0);
-    compiled->functions = util::ExpressionFunctions(functions);
+    compiled->functions = util::ExpressionFunctions(functions, parameters);
     compiled->symbol_table.add_variable("TIME", compiled->time);
     compiled->symbol_table.add_constants();
     compiled->functions.add_to(compiled->symbol_table);
@@ -2128,7 +2129,7 @@ void CircuitGraph::expand_subcircuit_instance(const std::string& instance_name) 
 
     // Perform parameter substitution
     // Merges instance parameters with default parameters and evaluates {expression} patterns
-    std::vector<std::string> expanded_lines = definition.substitute_parameters(
+    std::vector<SubstitutedLine> expanded_lines = definition.substitute_parameters(
         instance.instance_params, subcircuit_line_reader_->global_params(),
         subcircuit_line_reader_->global_functions());
 
@@ -2151,13 +2152,13 @@ void CircuitGraph::expand_subcircuit_instance(const std::string& instance_name) 
 
     // Each element line of the body, as the parser reads a line of the top
     // level (SubcircuitLineReader)
-    for (const auto& line : expanded_lines) {
+    for (const auto& [line, parameters] : expanded_lines) {
         const auto first = line.find_first_not_of(" \t");
         if (first == std::string::npos || line[first] == '*') {
             continue;
         }
         subcircuit_line_reader_->read(*this, line, definition.name, instance_name, map_node,
-                                      definition.definition_line);
+                                      definition.definition_line, parameters);
     }
 
     spdlog::info("Subcircuit instance '{}' expanded successfully ({} internal devices)",

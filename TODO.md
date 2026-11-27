@@ -18,9 +18,9 @@ Small items with a direct effect on netlists written for ngspice.
 - [x] **`.FUNC` in element values** (S). Functions can be called in
   every expression in braces and in `B` expressions, also in subcircuit
   bodies (`util::ExpressionFunctions`).
-- [ ] **Parameters and other functions in a `.FUNC` body** (S), as
-  ngspice-45.2 takes them; decide how a function that calls itself fails
-  ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+- [x] **Parameters and other functions in a `.FUNC` body** (S). A body
+  sees the parameters where it is called, in a subcircuit the
+  instance's, and the other functions; one that calls itself is an error.
 - [ ] **`I(<source>)` in `B` expressions** (M). The current of a
   voltage source as a variable of the expression
   ([netlist input](KNOWN_ISSUES.md#netlist-input)).

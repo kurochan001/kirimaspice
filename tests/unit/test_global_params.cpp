@@ -141,3 +141,48 @@ TEST(GlobalParams, FunctionsInEveryExpression) {
         }
     }
 }
+
+// A .FUNC body sees the parameters of the scope it is called in and the other
+// functions, wherever they are defined; an argument hides a parameter of its
+// name (util::ExpressionFunction). ngspice-45.2 gives these currents for 1 V
+// (run 2026-11-28): in a subcircuit with k=2, f(8k) = 8k/k is 4k although the
+// global k is 4, also when a B expression of the body calls f.
+TEST(GlobalParams, FunctionBodiesSeeParametersAndFunctions) {
+    const struct {
+        std::string what, netlist;
+        Real expected;
+    } cases[] = {
+        {"global parameter", "t\n.param k=4\n.func f(x) {x/k}\nV1 a 0 1\nR1 a 0 {f(8k)}\n.end\n", 0.5e-3},
+        {"parameter defined later", "t\n.func f(x) {x/k}\nV1 a 0 1\nR1 a 0 {f(8k)}\n.param k=4\n.end\n", 0.5e-3},
+        {"in a .param", "t\n.param k=4\n.func f(x) {x/k}\n.param r={f(8k)}\nV1 a 0 1\nR1 a 0 {r}\n.end\n",
+         0.5e-3},
+        {"argument hides a parameter", "t\n.param x=100\n.func f(x) {x/2}\nV1 a 0 1\nR1 a 0 {f(4k)}\n.end\n",
+         0.5e-3},
+        {"another function, defined later",
+         "t\n.func g(x) {h(x)*2}\n.func h(x) {x/4}\nV1 a 0 1\nR1 a 0 {g(4k)}\n.end\n", 0.5e-3},
+        {"instance parameter", "t\n.param k=4\n.func f(x) {x/k}\n.subckt blk n k=2\nR1 n 0 {f(8k)}\n.ends\n"
+                               "V1 a 0 1\nX1 a blk\n.end\n", 0.25e-3},
+        {"b source", "t\n.param k=2\n.func f(x) {x/k}\nV1 a 0 1\nB1 a 0 I={f(V(a))/1k}\n.end\n", 0.5e-3},
+        {"b source in a body", "t\n.param k=4\n.func f(x) {x/k}\n.subckt blk n k=2\nB1 n 0 I={f(V(n))/1k}\n"
+                               ".ends\nV1 a 0 1\nX1 a blk\n.end\n", 0.5e-3},
+    };
+    for (const auto& c : cases) {
+        try {
+            EXPECT_NEAR(current(c.netlist), c.expected, 1e-12) << c.what;
+        } catch (const std::exception& e) {
+            ADD_FAILURE() << c.what << ": " << e.what();
+        }
+    }
+}
+
+// A function that calls itself is an error that names it; ngspice-45.2 stops
+// with a crash on .func f(x) {f(x)+1} (run 2026-11-28)
+TEST(GlobalParams, FunctionThatCallsItselfIsAnError) {
+    parser::NetlistParser parser;
+    try {
+        parser.parse_string("t\n.func f(x) {f(x)+1}\nV1 a 0 1\nR1 a 0 {f(4k)}\n.end\n");
+        ADD_FAILURE() << "no error";
+    } catch (const std::exception& e) {
+        EXPECT_NE(std::string(e.what()).find(".FUNC f nests more than"), std::string::npos) << e.what();
+    }
+}

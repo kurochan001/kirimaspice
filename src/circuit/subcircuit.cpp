@@ -268,7 +268,7 @@ std::optional<std::string> substitute_behavioral_expression(
 
 }  // namespace
 
-std::vector<std::string> SubcircuitDefinition::substitute_parameters(
+std::vector<SubstitutedLine> SubcircuitDefinition::substitute_parameters(
     const std::map<std::string, Real>& instance_params,
     const std::map<std::string, Real>& global_params,
     const std::map<std::string, std::string>& functions) const {
@@ -295,9 +295,10 @@ std::vector<std::string> SubcircuitDefinition::substitute_parameters(
     }
 
     // The same constants and .FUNC functions as at the top level, added
-    // first as there
+    // first as there; the functions' bodies see this instance's parameters
     util::ExpressionFunctions netlist_functions(functions);
     auto evaluate = [&](const std::string& expression) -> Real {
+        netlist_functions.set_parameters(scope);
         exprtk::symbol_table<Real> symbol_table;
         for (const auto& constant : util::kExpressionConstants) {
             symbol_table.add_constant(constant.name, constant.value);
@@ -332,7 +333,7 @@ std::vector<std::string> SubcircuitDefinition::substitute_parameters(
                (line.size() == first + 6 || std::isspace(static_cast<unsigned char>(line[first + 6])));
     };
 
-    std::vector<std::string> substituted_lines;
+    std::vector<SubstitutedLine> substituted_lines;
     substituted_lines.reserve(internal_netlist_lines.size());
 
     // Regular expression to match {expression} patterns
@@ -375,7 +376,7 @@ std::vector<std::string> SubcircuitDefinition::substitute_parameters(
         // parameters are written as their values, in braces or not, as
         // ngspice-45.2 reads B1 o 0 V={g*V(i)} and V=g*V(i) in a body.
         if (auto behavioral = substitute_behavioral_expression(line, scope)) {
-            substituted_lines.push_back(std::move(*behavioral));
+            substituted_lines.push_back({std::move(*behavioral), scope});
             continue;
         }
 
@@ -384,7 +385,7 @@ std::vector<std::string> SubcircuitDefinition::substitute_parameters(
 
         if (words_begin == words_end) {
             // No parameters to substitute
-            substituted_lines.push_back(line);
+            substituted_lines.push_back({line, {}});
             continue;
         }
 
@@ -418,7 +419,7 @@ std::vector<std::string> SubcircuitDefinition::substitute_parameters(
 
         // Add remaining text after last match
         replaced_line += line.substr(last_pos);
-        substituted_lines.push_back(replaced_line);
+        substituted_lines.push_back({replaced_line, {}});
     }
 
     return substituted_lines;

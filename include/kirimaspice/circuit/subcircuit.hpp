@@ -17,6 +17,16 @@ namespace kirimaspice::circuit {
 /// Forward declaration
 class CircuitGraph;
 
+/// A line of an instance's body as substitute_parameters gives it. For a B
+/// line, `parameters` holds the instance's parameters in effect at that line
+/// (names in upper case), which the bodies of the .FUNC functions that its
+/// expression calls see; for other lines it is empty, as their braces are
+/// values already.
+struct SubstitutedLine {
+    std::string text;
+    std::map<std::string, Real> parameters;
+};
+
 /// Subcircuit definition (.SUBCKT ... .ENDS)
 /// Contains the internal circuit structure and interface pins
 struct SubcircuitDefinition {
@@ -72,7 +82,7 @@ struct SubcircuitDefinition {
     /// @param functions The .FUNC functions, "args|expression" by name
     ///        (SimulationConfig::global_funcs)
     /// @return Netlist lines with parameter expressions replaced by values
-    std::vector<std::string> substitute_parameters(
+    std::vector<SubstitutedLine> substitute_parameters(
         const std::map<std::string, Real>& instance_params,
         const std::map<std::string, Real>& global_params = {},
         const std::map<std::string, std::string>& functions = {}) const;
@@ -150,11 +160,13 @@ public:
     /// the instance, map its nodes with `map_node`, and add the element to
     /// `circuit`, with the models of that subcircuit's body. A nested
     /// instance line registers a nested instance.
+    /// `parameters` are the instance's (SubstitutedLine::parameters).
     virtual void read(CircuitGraph& circuit, const std::string& line,
                       const std::string& subcircuit_name,
                       const std::string& instance_name,
                       const std::function<std::string(const std::string&)>& map_node,
-                      std::size_t line_number) = 0;
+                      std::size_t line_number,
+                      const std::map<std::string, Real>& parameters) = 0;
 };
 
 /// Subcircuit registry

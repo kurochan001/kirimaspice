@@ -160,12 +160,15 @@ public:
     /// @param expression Expression to evaluate (e.g., "V(in)*2", "sin(2*pi*1000*TIME)")
     /// @param functions The .FUNC functions the expression may call,
     ///        "args|expression" by name (SimulationConfig::global_funcs)
+    /// @param parameters The parameters the functions' bodies see: the
+    ///        global ones, or in a subcircuit body the instance's
     void add_behavioral_source(const std::string& name,
                               const std::string& np,
                               const std::string& nn,
                               BehavioralSourceType type,
                               const std::string& expression,
-                              const std::map<std::string, std::string>& functions = {});
+                              const std::map<std::string, std::string>& functions = {},
+                              const std::map<std::string, Real>& parameters = {});
 
     /// Add sinusoidal voltage source: V(t) = offset + amplitude * sin(2*pi*freq*t + phase)
     /// @param name Source name (e.g., "V1")

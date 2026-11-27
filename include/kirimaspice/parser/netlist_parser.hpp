@@ -83,8 +83,10 @@ public:
     /// Set variable (e.g., .PARAM definitions)
     void set_variable(const std::string& name, Real value);
 
-    /// Set user-defined functions from .FUNC directives
-    void set_functions(const std::map<std::string, std::string>& global_funcs);
+    /// Set user-defined functions from .FUNC directives, whose bodies see
+    /// `parameters` (the global .PARAM values)
+    void set_functions(const std::map<std::string, std::string>& global_funcs,
+                       const std::map<std::string, Real>& parameters = {});
 
     /// Evaluate expression
     /// @throws std::runtime_error on evaluation error

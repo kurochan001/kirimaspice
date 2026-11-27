@@ -1988,6 +1988,10 @@ struct ParseState {
     bool resolving_deferred = false;
     std::set<std::string> warned_directives;  // each named in one warning
     std::set<std::string> warned_card_names;  // "<what>: <name>", each in one warning
+    // The parameters that the .FUNC bodies of a B expression see: the
+    // instance's in a subcircuit body (SubstitutedLine::parameters), else
+    // the global ones
+    const std::map<std::string, Real>* function_parameters = nullptr;
 };
 
 // Thrown by an element parser when the element names a model or a
@@ -2708,7 +2712,7 @@ static Real evaluate_param_value(const std::string& value_str, const std::map<st
         }
     }
 
-    util::ExpressionFunctions functions(config.global_funcs);
+    util::ExpressionFunctions functions(config.global_funcs, params);
     functions.add_to(symbol_table);
 
     auto evaluate = [&](const std::string& expr) -> Real {
@@ -4052,8 +4056,9 @@ static void parse_behavioral_source_device(const std::vector<std::string>& token
     }
 
     expression = substitute_global_params(expression, *state.config);
-    state.circuit->add_behavioral_source(dev_name, np, nn, type, expression,
-                                         state.config->global_funcs);
+    state.circuit->add_behavioral_source(
+        dev_name, np, nn, type, expression, state.config->global_funcs,
+        state.function_parameters ? *state.function_parameters : state.config->global_params);
     spdlog::debug("Added behavioral source: {} {} {} {}={}",
                  dev_name, np, nn,
                  (type == BehavioralSourceType::VOLTAGE ? "V" : "I"),
@@ -6140,7 +6145,7 @@ static void read_global_definitions(const std::string& content, ParseState& stat
     // The functions as well, before any line is read: an element value, an
     // .IF condition and a .PARAM expression may call them wherever the
     // .FUNC line is, as in ngspice-45.2 (run 2026-11-28).
-    state.evaluator->set_functions(state.config->global_funcs);
+    state.evaluator->set_functions(state.config->global_funcs, state.config->global_params);
     state.line_number = 1;
 }
 
@@ -6360,7 +6365,7 @@ public:
         for (const auto& [name, value] : config_.global_params) {
             evaluator_.set_variable(name, value);
         }
-        evaluator_.set_functions(config_.global_funcs);
+        evaluator_.set_functions(config_.global_funcs, config_.global_params);
     }
 
     const std::map<std::string, Real>& global_params() const override {
@@ -6375,7 +6380,8 @@ public:
               const std::string& subcircuit_name,
               const std::string& instance_name,
               const std::function<std::string(const std::string&)>& map_node,
-              std::size_t line_number) override {
+              std::size_t line_number,
+              const std::map<std::string, Real>& parameters) override {
         std::vector<std::string> tokens = util::split_netlist_line(line);
         if (tokens.empty()) {
             return;
@@ -6394,6 +6400,9 @@ public:
         state.config = &config;
         state.line_number = line_number;
         state.resolving_deferred = true;  // every model is known by now
+        if (!parameters.empty()) {
+            state.function_parameters = &parameters;
+        }
         parse_element(tokens, type, tokens[0], fmt::format("{}", fmt::join(tokens, " ")), state);
     }
 
@@ -6595,9 +6604,10 @@ public:
     }
 
     // The .FUNC functions, in place of those set before
-    void set_functions(const std::map<std::string, std::string>& global_funcs) {
+    void set_functions(const std::map<std::string, std::string>& global_funcs,
+                       const std::map<std::string, Real>& parameters) {
         functions_.remove_from(symbol_table_);
-        functions_ = util::ExpressionFunctions(global_funcs);
+        functions_ = util::ExpressionFunctions(global_funcs, parameters);
         functions_.add_to(symbol_table_);
     }
 
@@ -6734,8 +6744,9 @@ void ExpressionEvaluator::set_variable(const std::string& name, Real value) {
     pimpl_->set_variable(name, value);
 }
 
-void ExpressionEvaluator::set_functions(const std::map<std::string, std::string>& global_funcs) {
-    pimpl_->set_functions(global_funcs);
+void ExpressionEvaluator::set_functions(const std::map<std::string, std::string>& global_funcs,
+                                        const std::map<std::string, Real>& parameters) {
+    pimpl_->set_functions(global_funcs, parameters);
 }
 
 Real ExpressionEvaluator::evaluate(const std::string& expression) {
