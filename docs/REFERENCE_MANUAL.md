@@ -172,7 +172,7 @@ as 1k and `1.5.3k` as 1.5.
 
 A value written in braces, `{...}`, is evaluated with ExprTk. It can use
 the global parameters, wherever their `.PARAM` lines are, the constants `pi` and `e`, ExprTk's
-built-in functions, and, in `.PARAM` only, functions defined by `.FUNC`.
+built-in functions, and the functions defined by `.FUNC`, wherever their lines are.
 Numbers inside take scale suffixes and units, as in ngspice-47
 (`{2*1k}` is 2000; `util::expand_scale_factors`). A
 value that starts with `{` and has no closing `}` is an error. A brace
@@ -274,7 +274,7 @@ element line, without regard to case (`V(A)` and `V(a)` are one node, and
 `V(n.1)` is a node), `V(<n1>,<n2>)`, which is V(n1) − V(n2) at the top
 level and inside subcircuits (either node may be ground),
 `TIME`, `pi` (not `e`) and
-ExprTk's built-in functions, and the global `.PARAM` names, in any case,
+ExprTk's built-in functions, the functions defined by `.FUNC`, and the global `.PARAM` names, in any case,
 as in ngspice-47 (the argument of `V(` stays a node, also one with a
 parameter's name); `I(<source>)` is not available. `TIME` is the time of the transient, and 0 in the operating
 point (also in the one that starts a transient). An expression that
@@ -468,7 +468,7 @@ parser stores it, but the program does not use it (the library can).
 | `.IC` | `.IC V(<node>)=<value> ...` | used by a transient: with `UIC` it starts from these values, without `UIC` its operating point holds the nodes at them; `V` must be upper case |
 | `.NODESET` | `.NODESET V(<node>)=<value> ...` | used as in SPICE: the operating point is first solved with these nodes held at their values, then the hold is released and the solve goes on from there (with source or gmin stepping or continuation, the values are only the initial guess); `V` must be upper case |
 | `.PARAM` | `.PARAM <name>=<value> ...` | used; the global lines are read before every other line, as in ngspice-47: an element may use a parameter defined after it, of two definitions of a name the last is used, and an expression takes the other parameters' final values; a definition that cannot be solved is an error |
-| `.FUNC` | `.FUNC <name>(<a>[,<b>[,<c>]]) {<expr>}` | used in `.PARAM` expressions only; up to three arguments |
+| `.FUNC` | `.FUNC <name>(<a>[,<b>[,<c>]]) {<expr>}` | used in every expression in braces and in `B` expressions, wherever the line is; up to three arguments; the body sees its arguments only, with ExprTk's constants and `e` |
 | `.MODEL` | see [Models](#models) | used |
 | `.SUBCKT` / `.ENDS` | `.SUBCKT <name> <pins...> [PARAMS:] [NAME=<default> ...]` | used; no nesting of definitions; `PARAMS:` is optional, on `X` lines too; a `.SUBCKT` without `.ENDS` is an error |
 | `.GLOBAL` | `.GLOBAL <node> ...` | used in subcircuit expansion |

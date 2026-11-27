@@ -105,10 +105,12 @@ TEST(GlobalParams, ConditionsOnlySeeGlobalNetlistParameters) {
 // an element value, an .IF condition, and in a subcircuit the defaults of the
 // .SUBCKT line, the values of the X line, a .PARAM line of the body and an
 // element value of the body (read_global_definitions, util::ExpressionFunctions,
-// SubcircuitDefinition::substitute_parameters). With half(x) = x/2 and 1 V
-// across half(4k) = 2 kOhm, ngspice-45.2 gives these values (run 2026-11-28).
-// Before, an element value calling a function was "Expression parse error"
-// and a body's braces "Undefined symbol".
+// SubcircuitDefinition::substitute_parameters), and the expression of a B
+// source (CircuitGraph::add_behavioral_source). With half(x) = x/2 and 1 V
+// across half(4k) = 2 kOhm, or a B source of half(V(a))/1k, ngspice-45.2
+// gives 0.5 mA (run 2026-11-28). Before, an element value calling a function
+// was "Expression parse error", and a body's braces and a B source
+// "Undefined symbol".
 TEST(GlobalParams, FunctionsInEveryExpression) {
     const std::string half = ".func half(x) {x/2}\n";
     const std::string blk_tail = ".ends\nV1 a 0 1\n";
@@ -127,6 +129,9 @@ TEST(GlobalParams, FunctionsInEveryExpression) {
                                 "X1 a blk\n.end\n"},
         {"x line value", "t\n" + half + ".subckt blk n r=1k\nR1 n 0 {r}\n" + blk_tail +
                              "X1 a blk r={half(4k)}\n.end\n"},
+        {"b source", "t\n" + half + "V1 a 0 1\nB1 a 0 I={half(V(a))/1k}\n.end\n"},
+        {"b source in a body", "t\n" + half + ".subckt blk n\nB1 n 0 I=half(V(n))/1k\n" +
+                                   blk_tail + "X1 a blk\n.end\n"},
     };
     for (const auto& [where, netlist] : netlists) {
         try {

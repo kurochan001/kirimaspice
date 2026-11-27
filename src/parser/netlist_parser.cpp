@@ -4113,7 +4113,8 @@ static void parse_behavioral_source_device(const std::vector<std::string>& token
     }
 
     expression = substitute_global_params(expression, *state.config);
-    state.circuit->add_behavioral_source(dev_name, np, nn, type, expression);
+    state.circuit->add_behavioral_source(dev_name, np, nn, type, expression,
+                                         state.config->global_funcs);
     spdlog::debug("Added behavioral source: {} {} {} {}={}",
                  dev_name, np, nn,
                  (type == BehavioralSourceType::VOLTAGE ? "V" : "I"),

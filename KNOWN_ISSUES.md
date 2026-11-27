@@ -90,10 +90,14 @@ document also lists differences not decided there.
   error (`Undefined symbol`).
 - **Scale factors are not accepted in `.OPTIONS` values;** the option is
   ignored with a warning. Expressions take them, as in ngspice-47.
+- **A `.FUNC` body sees only its arguments, ExprTk's constants and `e`:**
+  a body that uses a global parameter or calls another function is an
+  error where the function is called (`Failed to compile .FUNC
+  expression`). ngspice-45.2 takes both: with `.param k=4`,
+  `.func f(x) {x/k}` gives f(8k) = 2k, and `.func g(x) {h(x)*2}` calls `h`
+  (run 2026-11-28).
 - **`E`, `F`, `G` and `H` have no `POLY` form;** a line with `POLY(...)`
   after the output nodes is an error.
-- **`.FUNC` cannot be called in an element value,** only in `.PARAM`
-  expressions (`Expression parse error`).
 - **The diode reads `IS`, `N`, `CJO`, `VJ`, `M`, `RS`, `TT`, `BV` and
   `IBV` only, not `FC`, `KF`, `AF` and the others, which it names in a
   warning (its FC is 0.5); the bipolar

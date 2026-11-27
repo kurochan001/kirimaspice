@@ -15,8 +15,12 @@ Small items with a direct effect on netlists written for ngspice.
 
 - [x] **Global parameters in `.IF` and `.ELSEIF`** (S). Since `0faf3b9`,
   both conditions use the final global `.PARAM` values, including forward definitions.
-- [ ] **`.FUNC` in element values** (S). Functions can be called in
-  `.PARAM` only ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+- [x] **`.FUNC` in element values** (S). Functions can be called in
+  every expression in braces and in `B` expressions, also in subcircuit
+  bodies (`util::ExpressionFunctions`).
+- [ ] **Parameters and other functions in a `.FUNC` body** (S), as
+  ngspice-45.2 takes them; decide how a function that calls itself fails
+  ([netlist input](KNOWN_ISSUES.md#netlist-input)).
 - [ ] **`I(<source>)` in `B` expressions** (M). The current of a
   voltage source as a variable of the expression
   ([netlist input](KNOWN_ISSUES.md#netlist-input)).

@@ -4,6 +4,7 @@
 // src/circuit/circuit_graph.cpp
 #include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/circuit/subcircuit.hpp"
+#include "kirimaspice/util/expression_functions.hpp"
 #include "kirimaspice/core/types.hpp"  // For SimulationConfig and ModelDefinition
 #include "kirimaspice/core/constants.hpp"  // For MAX_SUBCIRCUIT_ITERATIONS
 #include "kirimaspice/devices/device.hpp"
@@ -380,7 +381,8 @@ void CircuitGraph::add_behavioral_source(const std::string& name,
                                          const std::string& np,
                                          const std::string& nn,
                                          BehavioralSourceType type,
-                                         const std::string& expression) {
+                                         const std::string& expression,
+                                         const std::map<std::string, std::string>& functions) {
     NodeId np_id = add_node(np);
     NodeId nn_id = add_node(nn);
 
@@ -398,17 +400,22 @@ void CircuitGraph::add_behavioral_source(const std::string& name,
 
     // The expression, compiled once; each evaluation sets TIME and the node
     // voltages and evaluates it. An expression that cannot be compiled is an
-    // error in the netlist rather than a source of 0 at every evaluation.
+    // error in the netlist rather than a source of 0 at every evaluation. It
+    // may call the .FUNC functions (util::ExpressionFunctions), which live
+    // as long as the compiled expression.
     struct Compiled {
         Real time = 0.0;
         std::vector<Real> voltages;
+        util::ExpressionFunctions functions;
         exprtk::symbol_table<Real> symbol_table;
         exprtk::expression<Real> expr;
     };
     auto compiled = std::make_shared<Compiled>();
     compiled->voltages.assign(referenced_nodes.size(), 0.0);
+    compiled->functions = util::ExpressionFunctions(functions);
     compiled->symbol_table.add_variable("TIME", compiled->time);
     compiled->symbol_table.add_constants();
+    compiled->functions.add_to(compiled->symbol_table);
     for (std::size_t i = 0; i < referenced_nodes.size(); ++i) {
         compiled->symbol_table.add_variable(node_voltage_variable(i), compiled->voltages[i]);
     }

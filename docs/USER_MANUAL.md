@@ -401,9 +401,9 @@ R2 out 0 {RLOAD}
 - A value in braces is an expression. It can use parameters defined
   earlier, `pi`, `e` and the usual mathematical functions. A `.PARAM`
   value is an expression without braces too (`.param r = 2*1000`).
-- A function defined with `.FUNC` can be called in `.PARAM` expressions,
-  but not directly in an element value. Define a parameter with it, as
-  above.
+- A function defined with `.FUNC` can be called in any value in braces,
+  as in `.PARAM VH={HALF(VIN)}` above or in `R1 in out {HALF(2k)}`, and in
+  the expression of a `B` source, wherever its `.FUNC` line is.
 - If a parameter is defined twice, the first value is kept.
 
 ### Subcircuits
