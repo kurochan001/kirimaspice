@@ -201,10 +201,10 @@ are the same element, and a second is an error.
 | Mutual inductance | `K<name> <L1> <L2> <k>` | `<L1>`, `<L2>` are inductor names; `<k>` outside 0 to 1 is an error; inductors that several `K` lines couple among themselves take the inverse of their whole inductance matrix, as in ngspice-47 |
 | Voltage source | `V<name> <n+> <n-> [[DC] <value>] [AC [<mag> [<phase>]]] [<waveform>]` | see below |
 | Current source | `I<name> <n+> <n-> [[DC] <value>] [AC [<mag> [<phase>]]] [<waveform>]` | see below |
-| VCVS | `E<name> <n+> <n-> <nc+> <nc-> <gain>` |
-| CCCS | `F<name> <n+> <n-> <Vcontrol> <gain>` | `<Vcontrol>` must be a `V` source |
-| VCCS | `G<name> <n+> <n-> <nc+> <nc-> <gm>` |
-| CCVS | `H<name> <n+> <n-> <Vcontrol> <r>` | `<Vcontrol>` must be a `V` source |
+| VCVS | `E<name> <n+> <n-> <nc+> <nc-> <gain>` or `E<name> <n+> <n-> POLY(<n>) <nc1+> <nc1-> ... <p0> <p1> ...` | `POLY`: see below |
+| CCCS | `F<name> <n+> <n-> <Vcontrol> <gain>` or `F<name> <n+> <n-> POLY(<n>) <V1> ... <p0> <p1> ...` | `<Vcontrol>` must be a `V` source |
+| VCCS | `G<name> <n+> <n-> <nc+> <nc-> <gm>` or `G<name> <n+> <n-> POLY(<n>) <nc1+> <nc1-> ... <p0> <p1> ...` |
+| CCVS | `H<name> <n+> <n-> <Vcontrol> <r>` or `H<name> <n+> <n-> POLY(<n>) <V1> ... <p0> <p1> ...` | `<Vcontrol>` must be a `V` source |
 | Behavioural source | `B<name> <n+> <n-> I=<expr>` or `V=<expr>` | see below |
 | Diode | `D<name> <anode> <cathode> [<model>] [IS=<v>] [N=<v>]` |
 | Bipolar transistor | `Q<name> <c> <b> <e> <NPN\|PNP\|model> [parameters]` |
@@ -216,11 +216,22 @@ are the same element, and a second is an error.
 | Lossy line | `O<name> <a+> <a-> <b+> <b-> R=<v> L=<v> C=<v> G=<v> TD=<v>` | per unit length; `TD`, `L` and `C` above 0; the length is `TD`/√(`L`·`C`); DC and AC use the line's exact two-port; the transient takes up to 16 sections of the lossless line with their loss lumped at their ends, and no step longer than a section's delay ([known issues](../KNOWN_ISSUES.md#device-models)) |
 | Subcircuit instance | `X<name> <nodes...> <subckt> [NAME=<v> ...]` |
 
+In the `POLY` form, as in SPICE, the output is a polynomial of the `<n>`
+controls x1 ... xn (the voltages of the node pairs of `E` and `G`, written
+`<a> <b>` or `(<a>,<b>)`, or the currents of the sources of `F` and `H`):
+the coefficients are those of 1, then x1 ... xn, then the products of
+two, x1·x1, x1·x2, ..., x1·xn, x2·x2, ..., xn·xn, then of three, and so
+on, each degree's products with their factors in increasing order, in
+lexicographic order. At least two coefficients are needed. The line is
+read as a `B` source of that polynomial, voltage-form for `E` and `H` and
+current-form for `G` and `F`, with the signs of the linear forms; it keeps
+its name, so `I(E1)` reads it.
+
 An element means the same inside a subcircuit as at the top level: the
 lines of a body are read by the same element parsers, with the element's
 name, its nodes and the names of the elements it refers to (the control of
-`F` and `H`, the inductors of `K`, the nodes of `V(...)` and the sources
-of `I(...)` in `B`) renamed into
+`F` and `H`, also in the `POLY` form, the inductors of `K`, the nodes of
+`V(...)` and the sources of `I(...)` in `B`) renamed into
 the instance, `X1.R1` and `x1.n1`.
 
 ### Sources

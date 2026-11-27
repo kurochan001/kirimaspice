@@ -96,8 +96,6 @@ document also lists differences not decided there.
   element it is an error (`R1 is not one`). ngspice-45.2 also reads the
   current of a resistor: `B1 b 0 V={I(R1)*1k}` with 1 mA through R1
   gives 1 V (run 2026-11-28).
-- **`E`, `F`, `G` and `H` have no `POLY` form;** a line with `POLY(...)`
-  after the output nodes is an error.
 - **The diode reads `IS`, `N`, `CJO`, `VJ`, `M`, `RS`, `TT`, `BV` and
   `IBV` only, not `FC`, `KF`, `AF` and the others, which it names in a
   warning (its FC is 0.5); the bipolar

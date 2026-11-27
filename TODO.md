@@ -26,8 +26,8 @@ Small items with a direct effect on netlists written for ngspice.
   AC (`BehavioralSource::linearize`).
 - [ ] **`I(<name>)` of other elements in `B` expressions** (M), as
   ngspice-45.2 reads `I(R1)` ([netlist input](KNOWN_ISSUES.md#netlist-input)).
-- [ ] **`POLY` form of `E`, `F`, `G` and `H`** (M)
-  ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+- [x] **`POLY` form of `E`, `F`, `G` and `H`** (M), read as a `B` source
+  of the polynomial (`parse_poly_controlled_source`).
 - [ ] **`J` elements** (M). The library has a JFET; the parser has no `J`
   element, and its gate capacitances need the transient method's
   companion (`device_utils::CapacitorHistory`)

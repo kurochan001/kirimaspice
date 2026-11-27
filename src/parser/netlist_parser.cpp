@@ -5666,21 +5666,160 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
     }
 }
 
-// The POLY form of a controlled source, E/F/G/H <n+> <n-> POLY(<n>) ..., is
-// not implemented. Read as the linear form, its POLY(<n>) would be a node or
-// a source name and a coefficient the gain, so it is an error instead.
-static void reject_poly_form(const std::vector<std::string>& tokens, ParseState& state) {
-    if (tokens.size() > 3 &&
-        (util::starts_with_icase(tokens[3], "POLY(") || util::equals_icase(tokens[3], "POLY"))) {
-        throw ParseError(fmt::format("{}: the POLY form of a controlled source is not implemented",
-                                     tokens[0]),
+// The tokens of a controlled source in the POLY form, E/F/G/H <n+> <n->
+// POLY(<n>) <controls> <coefficients>, with POLY(<n>) in one token and each
+// control in its own: for E and G, n pairs of nodes, written <a> <b> or
+// (<a>,<b>); for F and H, n voltage sources. Nothing for a line in the
+// linear form. An error for a dimension that is not a whole number of at
+// least 1 or for too few controls.
+struct PolyForm {
+    std::size_t dimension = 0;
+    std::vector<std::string> tokens;  // name, n+, n-, POLY(<n>), controls, coefficients
+    std::size_t first_coefficient = 0;
+};
+
+static std::optional<PolyForm> read_poly_form(const std::vector<std::string>& tokens, char letter,
+                                              std::size_t line_number) {
+    if (tokens.size() < 4 ||
+        !(util::starts_with_icase(tokens[3], "POLY(") || util::equals_icase(tokens[3], "POLY"))) {
+        return std::nullopt;
+    }
+    // POLY(<n>), or POLY followed by (<n>)
+    std::size_t next = 4;
+    std::string dimension = tokens[3].substr(4);
+    if (dimension.empty() && next < tokens.size()) {
+        dimension = tokens[next++];
+    }
+    if (dimension.size() < 3 || dimension.front() != '(' || dimension.back() != ')') {
+        throw ParseError(fmt::format("{}: POLY needs its dimension, POLY(<n>)", tokens[0]), line_number);
+    }
+    dimension = dimension.substr(1, dimension.size() - 2);
+    std::size_t end = 0;
+    long n = 0;
+    try {
+        n = std::stol(dimension, &end);
+    } catch (const std::exception&) {
+        end = 0;
+    }
+    if (end != dimension.size() || n < 1 || n > 64) {
+        throw ParseError(fmt::format("{}: the dimension of POLY must be a whole number from 1 to 64, not '{}'",
+                                     tokens[0], dimension),
+                         line_number);
+    }
+    PolyForm form;
+    form.dimension = static_cast<std::size_t>(n);
+    form.tokens = {tokens[0], tokens[1], tokens[2], fmt::format("POLY({})", n)};
+    const std::size_t controls = (letter == 'E' || letter == 'G') ? 2 * form.dimension : form.dimension;
+    // Controls, with the parentheses and commas of (<a>,<b>) taken away
+    while (form.tokens.size() < 4 + controls && next < tokens.size()) {
+        std::string token = tokens[next++];
+        for (char& c : token) {
+            if (c == '(' || c == ')' || c == ',') {
+                c = ' ';
+            }
+        }
+        std::istringstream words(token);
+        for (std::string word; words >> word;) {
+            form.tokens.push_back(word);
+        }
+    }
+    if (form.tokens.size() != 4 + controls) {
+        throw ParseError(fmt::format("{}: POLY({}) needs {} {}", tokens[0], n, controls,
+                                     (letter == 'E' || letter == 'G') ? "controlling nodes"
+                                                                      : "controlling voltage sources"),
+                         line_number);
+    }
+    form.first_coefficient = form.tokens.size();
+    form.tokens.insert(form.tokens.end(), tokens.begin() + static_cast<std::ptrdiff_t>(next), tokens.end());
+    return form;
+}
+
+// A controlled source in the POLY form as a B source of its polynomial, as
+// SPICE defines it: with the controls x1 ... xn (the voltages V(a,b) of E
+// and G, the currents I(V) of F and H), the coefficients are those of 1,
+// then x1 ... xn, then the products of two, x1 x1, x1 x2, ... x1 xn, x2 x2,
+// ..., then of three, and so on: every product of a degree, its factors in
+// increasing order, in lexicographic order. ngspice-45.2 gives these values
+// (run 2026-11-28), and stops on a single coefficient, as this does. E and H
+// are voltage-form B sources, G and F current-form ones, with the signs of
+// the linear forms. The polynomial is the B source's expression, evaluated
+// and differentiated by BehavioralSource in every analysis.
+static void parse_poly_controlled_source(const PolyForm& form, char letter, ParseState& state) {
+    const std::vector<std::string>& tokens = form.tokens;
+    std::vector<std::string> controls;
+    for (std::size_t k = 0; k < form.dimension; ++k) {
+        if (letter == 'E' || letter == 'G') {
+            controls.push_back(fmt::format("V({},{})", tokens[4 + 2 * k], tokens[5 + 2 * k]));
+        } else {
+            const std::string& source = tokens[4 + k];
+            if (element_letter(source) != 'V') {
+                throw ParseError(fmt::format("{}: POLY control '{}' must be a voltage source (V<name>)",
+                                             tokens[0], source),
+                                 state.line_number);
+            }
+            controls.push_back(fmt::format("I({})", source));
+        }
+    }
+    std::vector<Real> coefficients;
+    for (std::size_t k = form.first_coefficient; k < tokens.size(); ++k) {
+        coefficients.push_back(read_element_value(tokens[k], state));
+    }
+    if (coefficients.size() < 2) {
+        throw ParseError(fmt::format("{}: POLY needs at least two coefficients", tokens[0]),
                          state.line_number);
     }
+    // The terms in order: each a list of control indices, nondecreasing
+    std::string expression;
+    std::vector<std::size_t> factors;  // the present term; empty is the constant
+    for (const Real coefficient : coefficients) {
+        if (coefficient != 0.0) {
+            std::string term = fmt::format("({:.17g})", coefficient);
+            for (const std::size_t f : factors) {
+                term += "*" + controls[f];
+            }
+            expression += (expression.empty() ? "" : " + ") + term;
+        }
+        // The next term: the last factor that can grow does, and those after
+        // it take its value; when none can, the degree grows
+        std::size_t k = factors.size();
+        while (k > 0 && factors[k - 1] + 1 == form.dimension) {
+            --k;
+        }
+        if (k == 0) {
+            factors.assign(factors.size() + 1, 0);
+        } else {
+            const std::size_t value = factors[k - 1] + 1;
+            for (std::size_t j = k - 1; j < factors.size(); ++j) {
+                factors[j] = value;
+            }
+        }
+    }
+    if (expression.empty()) {
+        expression = "0";
+    }
+    const BehavioralSourceType type = (letter == 'E' || letter == 'H') ? BehavioralSourceType::VOLTAGE
+                                                                       : BehavioralSourceType::CURRENT;
+    state.circuit->add_behavioral_source(
+        tokens[0], tokens[1], tokens[2], type, expression, state.config->global_funcs,
+        state.function_parameters ? *state.function_parameters : state.config->global_params);
+    spdlog::debug("Added {} in the POLY form as {} = {}", tokens[0],
+                  type == BehavioralSourceType::VOLTAGE ? "V" : "I", expression);
+}
+
+// The POLY form, if the line is in it; true if it was
+static bool parse_if_poly_form(const std::vector<std::string>& tokens, char letter, ParseState& state) {
+    if (const auto form = read_poly_form(tokens, letter, state.line_number)) {
+        parse_poly_controlled_source(*form, letter, state);
+        return true;
+    }
+    return false;
 }
 
 static void parse_vcvs_device(const std::vector<std::string>& tokens, const std::string& dev_name, ParseState& state) {
     // VCVS: E<name> <n+> <n-> <nc+> <nc-> <gain>
-    reject_poly_form(tokens, state);
+    if (parse_if_poly_form(tokens, 'E', state)) {
+        return;
+    }
     if (tokens.size() < 6) {
         throw ParseError("Invalid VCVS syntax (E<name> <n+> <n-> <nc+> <nc-> <gain>)", state.line_number);
     }
@@ -5699,7 +5838,9 @@ static void parse_vcvs_device(const std::vector<std::string>& tokens, const std:
 
 static void parse_cccs_device(const std::vector<std::string>& tokens, const std::string& dev_name, ParseState& state) {
     // CCCS: F<name> <n+> <n-> V<control> <gain>
-    reject_poly_form(tokens, state);
+    if (parse_if_poly_form(tokens, 'F', state)) {
+        return;
+    }
     if (tokens.size() < 5) {
         throw ParseError("Invalid CCCS syntax (F<name> <n+> <n-> V<control> <gain>)", state.line_number);
     }
@@ -5724,7 +5865,9 @@ static void parse_cccs_device(const std::vector<std::string>& tokens, const std:
 
 static void parse_vccs_device(const std::vector<std::string>& tokens, const std::string& dev_name, ParseState& state) {
     // VCCS: G<name> <n+> <n-> <nc+> <nc-> <transconductance>
-    reject_poly_form(tokens, state);
+    if (parse_if_poly_form(tokens, 'G', state)) {
+        return;
+    }
     if (tokens.size() < 6) {
         throw ParseError("Invalid VCCS syntax (G<name> <n+> <n-> <nc+> <nc-> <Gm>)", state.line_number);
     }
@@ -5743,7 +5886,9 @@ static void parse_vccs_device(const std::vector<std::string>& tokens, const std:
 
 static void parse_ccvs_device(const std::vector<std::string>& tokens, const std::string& dev_name, ParseState& state) {
     // CCVS: H<name> <n+> <n-> V<control> <transresistance>
-    reject_poly_form(tokens, state);
+    if (parse_if_poly_form(tokens, 'H', state)) {
+        return;
+    }
     if (tokens.size() < 5) {
         throw ParseError("Invalid CCVS syntax (H<name> <n+> <n-> V<control> <H>)", state.line_number);
     }
@@ -6327,10 +6472,25 @@ static std::vector<std::string> rename_body_line(
                 tokens[k] = map_node_voltages(tokens[k], map_node, prefix);
             }
             break;
-        case 'E': case 'G': case 'T': case 'O':
+        case 'E': case 'G':
+            if (auto form = read_poly_form(tokens, type, line_number)) {
+                tokens = std::move(form->tokens);
+                nodes(1, 2);
+                nodes(4, form->first_coefficient - 1);
+                break;
+            }
+            nodes(1, 4);
+            break;
+        case 'T': case 'O':
             nodes(1, 4);
             break;
         case 'F': case 'H':
+            if (auto form = read_poly_form(tokens, type, line_number)) {
+                tokens = std::move(form->tokens);
+                nodes(1, 2);
+                names(4, form->first_coefficient - 1);
+                break;
+            }
             nodes(1, 2);
             names(3, 3);
             break;

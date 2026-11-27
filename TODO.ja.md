@@ -21,8 +21,8 @@ push したら項目に印を付け、同じコミットで KNOWN_ISSUES から�
   AC 解析ではその微分も取ります（`BehavioralSource::linearize`）。
 - [ ] **`B` の式でほかの素子の `I(<名前>)` を使う**（M）。ngspice-45.2 は `I(R1)` も読みます
   （[ネットリストの入力](KNOWN_ISSUES.ja.md#ネットリストの入力)）。
-- [ ] **`E`、`F`、`G`、`H` の `POLY` 形式**（M）
-  （[ネットリストの入力](KNOWN_ISSUES.ja.md#ネットリストの入力)）。
+- [x] **`E`、`F`、`G`、`H` の `POLY` 形式**（M）。多項式の `B` 電源として読みます
+  （`parse_poly_controlled_source`）。
 - [ ] **`J` 素子**（M）。ライブラリには JFET がありますが、パーサーに `J` 素子がありません。ゲートの容量は、
   過渡解析の積分法のコンパニオン（`device_utils::CapacitorHistory`）にする必要があります
   （[デバイスモデル](KNOWN_ISSUES.ja.md#デバイスモデル)）。

@@ -576,3 +576,55 @@ TEST(NetlistLines, UndefinedScrAndTriacModels) {
     parser::NetlistParser parser;
     EXPECT_NO_THROW(parser.parse_string("t\nVa a 0 10\nRa a k 100\nS1 k 0 g VBF=5\nVg g 0 0\n.op\n.end\n"));
 }
+
+// The POLY form is the polynomial of its controls in SPICE's order of
+// coefficients: 1, then x1 ... xn, then x1 x1, x1 x2, ..., x2 x2, ..., then
+// the products of three (parse_poly_controlled_source). With Va = 2, Vb = 3
+// and Vc = 5 V, ngspice-45.2 gives these V(o) (run 2026-11-28): each
+// coefficient alone picks one product, x1 x1 = 4, x1 x2 = 6, x1 x3 = 10,
+// x2 x2 = 9, x2 x3 = 15, x3 x3 = 25, and in two dimensions the fourth-order
+// x1 x1 x2 = 12. A single coefficient is an error, as in ngspice-45.2.
+TEST(NetlistLines, PolyFormIsItsPolynomial) {
+    const std::string sources = "t\nVa a 0 2\nVb b 0 3\nVc c 0 5\n";
+    auto v_o = [&](const std::string& lines) {
+        parser::NetlistParser parser;
+        auto parsed = parser.parse_string(sources + lines + "R1 o 0 1k\n.op\n.end\n");
+        parsed.circuit->expand_all_subcircuits();
+        solvers::DCSolver solver(*parsed.circuit, parsed.config);
+        DenseVector x;
+        SolverStats stats;
+        EXPECT_EQ(solver.solve(x, stats), ConvergenceStatus::SUCCESS) << lines;
+        return x.empty() ? 0.0 : x[parsed.circuit->get_node_id("o") - 1];
+    };
+    const std::pair<std::string, Real> cases[] = {
+        {"E1 o 0 POLY(1) a 0 1 3 5\n", 27.0},
+        {"E1 o 0 POLY(1) (a,0) 1 3 5\n", 27.0},
+        {"E1 o 0 POLY(1) a 0 {1} {3} 5\n", 27.0},
+        {"E1 o 0 POLY(3) a 0 b 0 c 0 0 0 0 0 1\n", 4.0},
+        {"E1 o 0 POLY(3) a 0 b 0 c 0 0 0 0 0 0 1\n", 6.0},
+        {"E1 o 0 POLY(3) a 0 b 0 c 0 0 0 0 0 0 0 1\n", 10.0},
+        {"E1 o 0 POLY(3) a 0 b 0 c 0 0 0 0 0 0 0 0 1\n", 9.0},
+        {"E1 o 0 POLY(3) a 0 b 0 c 0 0 0 0 0 0 0 0 0 1\n", 15.0},
+        {"E1 o 0 POLY(3) a 0 b 0 c 0 0 0 0 0 0 0 0 0 0 1\n", 25.0},
+        {"E1 o 0 POLY(2) a 0 b 0 0 0 0 0 0 0 0 1\n", 12.0},
+        // I(V1) = -1 mA and I(V2) = -2 mA: 0 + 2 I + 3 I^2 = -1.997 mA from
+        // 0 into o, and 1e6 I(V1)^2 = 1 V
+        {"V1 p 0 1\nR2 p 0 1k\nF1 0 o POLY(1) V1 0 2 3\n", -1.997},
+        {"V1 p 0 1\nR2 p 0 1k\nV2 q 0 1\nR3 q 0 500\nH1 o 0 POLY(2) V1 V2 0 0 0 1e6\n", 1.0},
+        // In a body: the controls are the body's nodes and sources, Vs
+        // carries 2 mA, and 1e6 I(Vs)^2 = 4 V
+        {".subckt s x y\nVs x m 0\nR1 m 0 1k\nH1 y 0 POLY(1) Vs 0 0 1e6\n.ends\nX1 a o s\n", 4.0},
+    };
+    for (const auto& [lines, expected] : cases) {
+        try {
+            EXPECT_NEAR(v_o(lines), expected, 1e-9) << lines;
+        } catch (const std::exception& e) {
+            ADD_FAILURE() << lines << e.what();
+        }
+    }
+    parser::NetlistParser parser;
+    EXPECT_THROW(parser.parse_string(sources + "E1 o 0 POLY(1) a 0 3\nR1 o 0 1k\n.op\n.end\n"),
+                 parser::ParseError);
+    EXPECT_THROW(parser.parse_string(sources + "E1 o 0 POLY(2) a 0 1 2\nR1 o 0 1k\n.op\n.end\n"),
+                 parser::ParseError);
+}
