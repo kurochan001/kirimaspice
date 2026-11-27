@@ -374,9 +374,9 @@ even this fixed-step mode can write irregularly spaced points.
 | `ITL5` | 100000 | Accepted time advances, including those before `TSTART` |
 
 `ITL5` is not a limit on the sum of Newton iterations. A TR-BDF2 step has
-two Newton stages, each bounded by `ITL4`. Options use plain numeric values
-such as `.OPTIONS RELTOL=1e-4 VNTOL=1e-7 ITL4=40`; scale suffixes in option
-values are not supported. Tightening `RELTOL` cannot replace a time-step
+two Newton stages, each bounded by `ITL4`. Options take numeric values
+such as `.OPTIONS RELTOL=1e-4 VNTOL=1e-7 ITL4=40`, with scale factors as
+element values take them (`VNTOL=100n`). Tightening `RELTOL` cannot replace a time-step
 study or activate LTE control in the CLI.
 
 ## Adaptive stepping in the library

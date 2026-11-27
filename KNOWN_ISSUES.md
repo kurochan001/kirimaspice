@@ -88,8 +88,6 @@ document also lists differences not decided there.
 
 - **`B` sources have no `I(<source>)`:** an expression with it is an
   error (`Undefined symbol`).
-- **Scale factors are not accepted in `.OPTIONS` values;** the option is
-  ignored with a warning. Expressions take them, as in ngspice-47.
 - **A `.FUNC` body sees only its arguments, ExprTk's constants and `e`:**
   a body that uses a global parameter or calls another function is an
   error where the function is called (`Failed to compile .FUNC

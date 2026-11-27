@@ -30,9 +30,8 @@ Small items with a direct effect on netlists written for ngspice.
   element, and its gate capacitances need the transient method's
   companion (`device_utils::CapacitorHistory`)
   ([device models](KNOWN_ISSUES.md#device-models)).
-- [ ] **Scale factors in `.OPTIONS` values** (S), as in expressions
-  (`util::expand_scale_factors`)
-  ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+- [x] **Scale factors in `.OPTIONS` values** (S). A numeric option is read
+  as an element value is (`util::parse_value_with_unit`): `itl1=1k` is 1000.
 - [ ] **An empty first line is the title** (S), as in ngspice-47. Many
   tests write their netlists starting with an empty line, so the tests
   change with it (a person's approval)

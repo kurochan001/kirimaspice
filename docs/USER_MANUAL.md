@@ -140,9 +140,8 @@ surprise someone who has used another SPICE simulator; the
   whatever its case**: write `1MEG` for 10⁶. Letters after a number or a
   scale factor are ignored, so `10mA` is 0.01, `1kHz` is 1000, and `10MHz`
   is 0.01 and `1A` is 10⁻¹⁸; anything else after a number is an error
-  (`2*1k`, `1.5.3k`). Scale factors are not accepted in expressions,
-  `{...}` or a `.PARAM` value that is not a number, or in `.OPTIONS`
-  values.
+  (`2*1k`, `1.5.3k`). Expressions (`{2*1k}` is 2000) and `.OPTIONS`
+  values (`ITL1=1k` is 1000) take scale factors too.
 - **A `.MODEL` line may stand anywhere** in the netlist, before or after
   the elements that use it.
 - **A source takes a DC value, an AC input and a waveform** (`PULSE`,
@@ -454,7 +453,7 @@ The [runnable example](../examples/params_subckt.sp) includes `X1`.
 
 When the operating point does not converge, the following `.OPTIONS` turn
 on further methods for finding it. Each takes
-`<name>=<value>`; values are plain numbers without suffixes.
+`<name>=<value>`; a value is a number, with a scale factor if you like.
 
 | Option | Effect |
 | --- | --- |

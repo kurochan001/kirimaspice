@@ -551,6 +551,29 @@ R1 in out 1k
     EXPECT_DOUBLE_EQ(result.config.gmin, 1e-10);
 }
 
+// A numeric .OPTIONS value takes a scale factor, as an element value does
+// (safe_stod, safe_stoi): ngspice-45.2 reads reltol=10m as 0.01, abstol=1n as
+// 1e-9, gmin=1f as 1e-15 and itl1=1k as 1000 (its option command after op,
+// run 2026-11-28). Before, each was ignored with a warning. A value that is
+// not a number, or not a whole number for an integer option, is still ignored.
+TEST(NetlistParser, OptionValuesTakeScaleFactors) {
+    parser::NetlistParser parser;
+    auto result = parser.parse_string(
+        "t\n.options reltol=10m abstol=1n gmin=1f itl1=1k itl4=2K vntol=1U\nV1 a 0 1\nR1 a 0 1k\n.end\n");
+    EXPECT_DOUBLE_EQ(result.config.dc.reltol, 0.01);
+    EXPECT_DOUBLE_EQ(result.config.transient.reltol, 0.01);
+    EXPECT_DOUBLE_EQ(result.config.dc.abstol, 1e-9);
+    EXPECT_DOUBLE_EQ(result.config.gmin, 1e-15);
+    EXPECT_EQ(result.config.dc.max_iterations, 1000);
+    EXPECT_EQ(result.config.transient.max_iterations, 2000);
+    EXPECT_DOUBLE_EQ(result.config.dc.vntol, 1e-6);
+
+    const SimulationConfig defaults;
+    auto ignored = parser.parse_string("t\n.options reltol=abc itl1=1.5\nV1 a 0 1\nR1 a 0 1k\n.end\n");
+    EXPECT_DOUBLE_EQ(ignored.config.dc.reltol, defaults.dc.reltol);
+    EXPECT_EQ(ignored.config.dc.max_iterations, defaults.dc.max_iterations);
+}
+
 TEST(NetlistParser, OptionMaxord) {
     std::string netlist = R"(
 Test maximum BDF order

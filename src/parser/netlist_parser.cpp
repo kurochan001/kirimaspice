@@ -44,23 +44,20 @@ namespace pegtl = tao::pegtl;
 // Helper Functions
 //==============================================================================
 
-// Safe string-to-number conversion with exception handling
-// Returns std::nullopt on parse failure instead of throwing
+// The number of an .OPTIONS value, with its scale factor or unit as an
+// element value takes it (util::parse_value_with_unit), as ngspice-45.2 reads
+// reltol=10m as 0.01 (run 2026-11-28); nothing, with a warning, for a value
+// that is not a number. Every numeric option is read here or in safe_stoi.
 inline std::optional<double> safe_stod(const std::string& str, const std::string& param_name = "") {
     try {
-        size_t pos = 0;
-        double value = std::stod(str, &pos);
-        // Check if entire string was consumed (no trailing garbage)
-        if (pos != str.size()) {
-            spdlog::warn("Invalid numeric value '{}' for {}: trailing characters", str, param_name);
+        const double value = util::parse_value_with_unit(str);
+        if (!std::isfinite(value)) {
+            spdlog::warn("Numeric value '{}' for {} is not finite", str, param_name);
             return std::nullopt;
         }
         return value;
-    } catch (const std::invalid_argument&) {
+    } catch (const std::exception&) {
         spdlog::warn("Invalid numeric value '{}' for {}: not a number", str, param_name);
-        return std::nullopt;
-    } catch (const std::out_of_range&) {
-        spdlog::warn("Numeric value '{}' for {} out of range", str, param_name);
         return std::nullopt;
     }
 }
@@ -84,23 +81,20 @@ static std::uint32_t read_ac_point_count(const std::string& token) {
     return static_cast<std::uint32_t>(value);
 }
 
+// The whole number of an .OPTIONS value, read as safe_stod reads it
+// (itl1=1k is 1000, as in ngspice-45.2); nothing, with a warning, for a value
+// that is not a whole number in the range of int
 inline std::optional<int> safe_stoi(const std::string& str, const std::string& param_name = "") {
-    try {
-        size_t pos = 0;
-        int value = std::stoi(str, &pos);
-        // Check if entire string was consumed (no trailing garbage)
-        if (pos != str.size()) {
-            spdlog::warn("Invalid integer value '{}' for {}: trailing characters", str, param_name);
-            return std::nullopt;
-        }
-        return value;
-    } catch (const std::invalid_argument&) {
-        spdlog::warn("Invalid integer value '{}' for {}: not a number", str, param_name);
-        return std::nullopt;
-    } catch (const std::out_of_range&) {
-        spdlog::warn("Integer value '{}' for {} out of range", str, param_name);
+    const auto value = safe_stod(str, param_name);
+    if (!value) {
         return std::nullopt;
     }
+    if (*value != std::trunc(*value) || *value < std::numeric_limits<int>::min() ||
+        *value > std::numeric_limits<int>::max()) {
+        spdlog::warn("Invalid integer value '{}' for {}: not a whole number", str, param_name);
+        return std::nullopt;
+    }
+    return static_cast<int>(*value);
 }
 
 using kirimaspice::util::parse_value_with_unit;

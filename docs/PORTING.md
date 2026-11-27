@@ -82,8 +82,6 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
 
 ### Names and numbers
 
-- [ ] **No scale factors in `.OPTIONS` values.** Expressions take them
-  (`{2*1k}` is 2000), as in ngspice.
 - [ ] **Nothing but letters after a number.** ngspice-47 reads `1k5` as 1k
   and `1.5.3k` as 1.5; here they are errors.
 
