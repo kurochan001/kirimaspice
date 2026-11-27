@@ -10,6 +10,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <map>
 #include <string>
 #include <unordered_map>
 
@@ -23,6 +24,7 @@ namespace {
 double current(const std::string& netlist, const std::unordered_map<std::string, Real>& initial = {}) {
     parser::NetlistParser parser;
     auto parsed = parser.parse_string(netlist, initial);
+    parsed.circuit->expand_all_subcircuits();
     solvers::DCSolver solver(*parsed.circuit, parsed.config);
     DenseVector x;
     SolverStats stats;
@@ -96,5 +98,41 @@ TEST(GlobalParams, ConditionsOnlySeeGlobalNetlistParameters) {
                                     ".control\n.param flag=1\n.endc\n"}) {
         EXPECT_THROW(parser.parse_string("t\nV1 a 0 1\n" + scope + conditional), parser::ParseError)
             << scope;
+    }
+}
+
+// A .FUNC can be called in every expression in braces, wherever its line is:
+// an element value, an .IF condition, and in a subcircuit the defaults of the
+// .SUBCKT line, the values of the X line, a .PARAM line of the body and an
+// element value of the body (read_global_definitions, util::ExpressionFunctions,
+// SubcircuitDefinition::substitute_parameters). With half(x) = x/2 and 1 V
+// across half(4k) = 2 kOhm, ngspice-45.2 gives these values (run 2026-11-28).
+// Before, an element value calling a function was "Expression parse error"
+// and a body's braces "Undefined symbol".
+TEST(GlobalParams, FunctionsInEveryExpression) {
+    const std::string half = ".func half(x) {x/2}\n";
+    const std::string blk_tail = ".ends\nV1 a 0 1\n";
+    const std::map<std::string, std::string> netlists = {
+        {"element", "t\n" + half + "V1 a 0 1\nR1 a 0 {half(4k)}\n.end\n"},
+        {"element before .func", "t\nV1 a 0 1\nR1 a 0 {half(4k)}\n" + half + ".end\n"},
+        {"two arguments", "t\n.func par(x,y) {x*y/(x+y)}\nV1 a 0 1\nR1 a 0 {par(4k,4k)}\n.end\n"},
+        {"three arguments", "t\n.func f(x,y,z) {x+y-z}\nV1 a 0 1\nR1 a 0 {f(1k,2k,1k)}\n.end\n"},
+        {".if condition", "t\n" + half + ".param p=4\nV1 a 0 1\n.if (half(p) == 2)\n"
+                          "R1 a 0 2k\n.else\nR1 a 0 1k\n.endif\n.end\n"},
+        {"body element", "t\n" + half + ".subckt blk n\nR1 n 0 {half(4k)}\n" + blk_tail +
+                             "X1 a blk\n.end\n"},
+        {"body .param", "t\n" + half + ".subckt blk n\n.param rb={half(4k)}\nR1 n 0 {rb}\n" +
+                            blk_tail + "X1 a blk\n.end\n"},
+        {".subckt default", "t\n" + half + ".subckt blk n r={half(4k)}\nR1 n 0 {r}\n" + blk_tail +
+                                "X1 a blk\n.end\n"},
+        {"x line value", "t\n" + half + ".subckt blk n r=1k\nR1 n 0 {r}\n" + blk_tail +
+                             "X1 a blk r={half(4k)}\n.end\n"},
+    };
+    for (const auto& [where, netlist] : netlists) {
+        try {
+            EXPECT_NEAR(current(netlist), 0.5e-3, 1e-12) << where;
+        } catch (const std::exception& e) {
+            ADD_FAILURE() << where << ": " << e.what();
+        }
     }
 }

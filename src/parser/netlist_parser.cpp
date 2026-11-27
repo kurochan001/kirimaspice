@@ -32,6 +32,7 @@
 
 #include "kirimaspice/util/units.hpp"
 #include "kirimaspice/util/expression_constants.hpp"
+#include "kirimaspice/util/expression_functions.hpp"
 #include "kirimaspice/util/string_utils.hpp"
 #include "kirimaspice/util/source_syntax.hpp"
 
@@ -1953,239 +1954,6 @@ static std::string preprocess_lib_sections(
 }
 
 //==============================================================================
-// User-Defined Functions for ExprTk
-//==============================================================================
-
-// Helper function to split comma-separated argument list
-static std::vector<std::string> split_args(const std::string& args_str) {
-    std::vector<std::string> result;
-    std::string current;
-
-    for (char c : args_str) {
-        if (c == ',') {
-            // Trim whitespace
-            current.erase(0, current.find_first_not_of(" \t"));
-            current.erase(current.find_last_not_of(" \t") + 1);
-            if (!current.empty()) {
-                result.push_back(current);
-            }
-            current.clear();
-        } else {
-            current += c;
-        }
-    }
-
-    // Last argument
-    current.erase(0, current.find_first_not_of(" \t"));
-    current.erase(current.find_last_not_of(" \t") + 1);
-    if (!current.empty()) {
-        result.push_back(current);
-    }
-
-    return result;
-}
-
-// Base template for user-defined functions (1-5 arguments)
-template<std::size_t N>
-class UserDefinedFunction;
-
-// 1-argument function
-template<>
-class UserDefinedFunction<1> : public exprtk::ifunction<Real> {
-public:
-    UserDefinedFunction(const std::string& func_data)
-        : exprtk::ifunction<Real>(1) {
-        // Parse "args|expression" format
-        size_t pipe_pos = func_data.find('|');
-        if (pipe_pos == std::string::npos) {
-            throw std::runtime_error("Invalid .FUNC data format");
-        }
-
-        std::string args_str = func_data.substr(0, pipe_pos);
-        expression_ = func_data.substr(pipe_pos + 1);
-
-        // Trim whitespace from expression
-        expression_.erase(0, expression_.find_first_not_of(" \t"));
-        expression_.erase(expression_.find_last_not_of(" \t") + 1);
-
-        // Parse argument names
-        arg_names_ = split_args(args_str);
-
-        if (arg_names_.size() != 1) {
-            throw std::runtime_error(fmt::format(
-                "Function expects 1 argument, got {}", arg_names_.size()));
-        }
-
-        // Setup symbol table with constants
-        symbol_table_.add_constants();
-        // Check ExprTk return value
-        if (!symbol_table_.add_constant("e", 2.718281828459045)) {
-            spdlog::warn("UserDefinedFunction<1>: Failed to add constant 'e'");
-        }
-    }
-
-    Real operator()(const Real& arg1) override {
-        // Create local symbol table with argument
-        exprtk::symbol_table<Real> local_table = symbol_table_;
-
-        // Store argument values (ExprTk requires persistent storage)
-        arg_values_[0] = arg1;
-        // Check ExprTk return value
-        if (!local_table.add_variable(arg_names_[0], arg_values_[0])) {
-            spdlog::warn("UserDefinedFunction<1>: Failed to add variable '{}'", arg_names_[0]);
-        }
-
-        // Compile and evaluate expression
-        exprtk::expression<Real> expr;
-        expr.register_symbol_table(local_table);
-
-        exprtk::parser<Real> parser;
-        if (!parser.compile(util::expand_scale_factors(expression_), expr)) {
-            throw std::runtime_error(fmt::format(
-                "Failed to compile .FUNC expression: {}", expression_));
-        }
-
-        return expr.value();
-    }
-
-private:
-    std::vector<std::string> arg_names_;
-    std::string expression_;
-    exprtk::symbol_table<Real> symbol_table_;
-    mutable std::array<Real, 1> arg_values_;  // Persistent storage
-};
-
-// 2-argument function
-template<>
-class UserDefinedFunction<2> : public exprtk::ifunction<Real> {
-public:
-    UserDefinedFunction(const std::string& func_data)
-        : exprtk::ifunction<Real>(2) {
-        size_t pipe_pos = func_data.find('|');
-        if (pipe_pos == std::string::npos) {
-            throw std::runtime_error("Invalid .FUNC data format");
-        }
-
-        std::string args_str = func_data.substr(0, pipe_pos);
-        expression_ = func_data.substr(pipe_pos + 1);
-
-        expression_.erase(0, expression_.find_first_not_of(" \t"));
-        expression_.erase(expression_.find_last_not_of(" \t") + 1);
-
-        arg_names_ = split_args(args_str);
-
-        if (arg_names_.size() != 2) {
-            throw std::runtime_error(fmt::format(
-                "Function expects 2 arguments, got {}", arg_names_.size()));
-        }
-
-        symbol_table_.add_constants();
-        // Check ExprTk return value
-        if (!symbol_table_.add_constant("e", 2.718281828459045)) {
-            spdlog::warn("UserDefinedFunction<2>: Failed to add constant 'e'");
-        }
-    }
-
-    Real operator()(const Real& arg1, const Real& arg2) override {
-        exprtk::symbol_table<Real> local_table = symbol_table_;
-
-        arg_values_[0] = arg1;
-        arg_values_[1] = arg2;
-        // Check ExprTk return values
-        if (!local_table.add_variable(arg_names_[0], arg_values_[0])) {
-            spdlog::warn("UserDefinedFunction<2>: Failed to add variable '{}'", arg_names_[0]);
-        }
-        if (!local_table.add_variable(arg_names_[1], arg_values_[1])) {
-            spdlog::warn("UserDefinedFunction<2>: Failed to add variable '{}'", arg_names_[1]);
-        }
-
-        exprtk::expression<Real> expr;
-        expr.register_symbol_table(local_table);
-
-        exprtk::parser<Real> parser;
-        if (!parser.compile(util::expand_scale_factors(expression_), expr)) {
-            throw std::runtime_error(fmt::format(
-                "Failed to compile .FUNC expression: {}", expression_));
-        }
-
-        return expr.value();
-    }
-
-private:
-    std::vector<std::string> arg_names_;
-    std::string expression_;
-    exprtk::symbol_table<Real> symbol_table_;
-    mutable std::array<Real, 2> arg_values_;
-};
-
-// 3-argument function
-template<>
-class UserDefinedFunction<3> : public exprtk::ifunction<Real> {
-public:
-    UserDefinedFunction(const std::string& func_data)
-        : exprtk::ifunction<Real>(3) {
-        size_t pipe_pos = func_data.find('|');
-        if (pipe_pos == std::string::npos) {
-            throw std::runtime_error("Invalid .FUNC data format");
-        }
-
-        std::string args_str = func_data.substr(0, pipe_pos);
-        expression_ = func_data.substr(pipe_pos + 1);
-
-        expression_.erase(0, expression_.find_first_not_of(" \t"));
-        expression_.erase(expression_.find_last_not_of(" \t") + 1);
-
-        arg_names_ = split_args(args_str);
-
-        if (arg_names_.size() != 3) {
-            throw std::runtime_error(fmt::format(
-                "Function expects 3 arguments, got {}", arg_names_.size()));
-        }
-
-        symbol_table_.add_constants();
-        // Check ExprTk return value
-        if (!symbol_table_.add_constant("e", 2.718281828459045)) {
-            spdlog::warn("UserDefinedFunction<3>: Failed to add constant 'e'");
-        }
-    }
-
-    Real operator()(const Real& arg1, const Real& arg2, const Real& arg3) override {
-        exprtk::symbol_table<Real> local_table = symbol_table_;
-
-        arg_values_[0] = arg1;
-        arg_values_[1] = arg2;
-        arg_values_[2] = arg3;
-        // Check ExprTk return values
-        if (!local_table.add_variable(arg_names_[0], arg_values_[0])) {
-            spdlog::warn("UserDefinedFunction<3>: Failed to add variable '{}'", arg_names_[0]);
-        }
-        if (!local_table.add_variable(arg_names_[1], arg_values_[1])) {
-            spdlog::warn("UserDefinedFunction<3>: Failed to add variable '{}'", arg_names_[1]);
-        }
-        if (!local_table.add_variable(arg_names_[2], arg_values_[2])) {
-            spdlog::warn("UserDefinedFunction<3>: Failed to add variable '{}'", arg_names_[2]);
-        }
-
-        exprtk::expression<Real> expr;
-        expr.register_symbol_table(local_table);
-
-        exprtk::parser<Real> parser;
-        if (!parser.compile(util::expand_scale_factors(expression_), expr)) {
-            throw std::runtime_error(fmt::format(
-                "Failed to compile .FUNC expression: {}", expression_));
-        }
-
-        return expr.value();
-    }
-
-private:
-    std::vector<std::string> arg_names_;
-    std::string expression_;
-    exprtk::symbol_table<Real> symbol_table_;
-    mutable std::array<Real, 3> arg_values_;
-};
-
-//==============================================================================
 // PEGTL Grammar Definition (Simplified line-by-line approach)
 //==============================================================================
 namespace grammar {
@@ -2945,51 +2713,8 @@ static Real evaluate_param_value(const std::string& value_str, const std::map<st
         }
     }
 
-    // Register user-defined functions from .FUNC directives
-    // Store function objects (must persist while symbol_table is in use)
-    std::vector<std::unique_ptr<UserDefinedFunction<1>>> funcs_1arg;
-    std::vector<std::unique_ptr<UserDefinedFunction<2>>> funcs_2arg;
-    std::vector<std::unique_ptr<UserDefinedFunction<3>>> funcs_3arg;
-
-    for (const auto& [func_name, func_data] : config.global_funcs) {
-        // Parse function data to determine number of arguments
-        size_t pipe_pos = func_data.find('|');
-        if (pipe_pos == std::string::npos) {
-            spdlog::warn("Skipping invalid .FUNC '{}': missing pipe separator", func_name);
-            continue;
-        }
-
-        std::string args_str = func_data.substr(0, pipe_pos);
-        std::vector<std::string> arg_names = split_args(args_str);
-
-        try {
-            // Check ExprTk return values
-            if (arg_names.size() == 1) {
-                funcs_1arg.push_back(std::make_unique<UserDefinedFunction<1>>(func_data));
-                if (!symbol_table.add_function(func_name, *funcs_1arg.back())) {
-                    spdlog::warn(".PARAM: Failed to add function '{}' to symbol table", func_name);
-                }
-                spdlog::debug("Registered 1-arg .FUNC: {}", func_name);
-            } else if (arg_names.size() == 2) {
-                funcs_2arg.push_back(std::make_unique<UserDefinedFunction<2>>(func_data));
-                if (!symbol_table.add_function(func_name, *funcs_2arg.back())) {
-                    spdlog::warn(".PARAM: Failed to add function '{}' to symbol table", func_name);
-                }
-                spdlog::debug("Registered 2-arg .FUNC: {}", func_name);
-            } else if (arg_names.size() == 3) {
-                funcs_3arg.push_back(std::make_unique<UserDefinedFunction<3>>(func_data));
-                if (!symbol_table.add_function(func_name, *funcs_3arg.back())) {
-                    spdlog::warn(".PARAM: Failed to add function '{}' to symbol table", func_name);
-                }
-                spdlog::debug("Registered 3-arg .FUNC: {}", func_name);
-            } else {
-                spdlog::warn("Skipping .FUNC '{}': unsupported argument count {} (max 3)",
-                            func_name, arg_names.size());
-            }
-        } catch (const std::exception& e) {
-            spdlog::warn("Failed to register .FUNC '{}': {}", func_name, e.what());
-        }
-    }
+    util::ExpressionFunctions functions(config.global_funcs);
+    functions.add_to(symbol_table);
 
     auto evaluate = [&](const std::string& expr) -> Real {
         exprtk::expression<Real> expression;
@@ -6472,6 +6197,10 @@ static void read_global_definitions(const std::string& content, ParseState& stat
         state.config->global_params[name] = value;
         state.evaluator->set_variable(name, value);
     }
+    // The functions as well, before any line is read: an element value, an
+    // .IF condition and a .PARAM expression may call them wherever the
+    // .FUNC line is, as in ngspice-45.2 (run 2026-11-28).
+    state.evaluator->set_functions(state.config->global_funcs);
     state.line_number = 1;
 }
 
@@ -6698,6 +6427,10 @@ public:
         return config_.global_params;
     }
 
+    const std::map<std::string, std::string>& global_functions() const override {
+        return config_.global_funcs;
+    }
+
     void read(circuit::CircuitGraph& circuit, const std::string& line,
               const std::string& subcircuit_name,
               const std::string& instance_name,
@@ -6862,10 +6595,6 @@ public:
         }
         state.inside_subcircuit = was_inside_subcircuit;
 
-        // Register .FUNC definitions in ExpressionEvaluator
-        // This enables function calls in device parameter expressions
-        eval.set_functions(config.global_funcs);
-
         // Resolve control voltage source references for CCCS and CCVS
         circuit->resolve_controlled_source_references();
 
@@ -6925,57 +6654,11 @@ public:
         }
     }
 
-    // Register user-defined functions from .FUNC directives
+    // The .FUNC functions, in place of those set before
     void set_functions(const std::map<std::string, std::string>& global_funcs) {
-        // Clear existing functions
-        funcs_1arg_.clear();
-        funcs_2arg_.clear();
-        funcs_3arg_.clear();
-
-        // Register each function
-        for (const auto& [func_name, func_data] : global_funcs) {
-            // Parse function data to determine number of arguments
-            size_t pipe_pos = func_data.find('|');
-            if (pipe_pos == std::string::npos) {
-                spdlog::warn("Skipping invalid .FUNC '{}': missing pipe separator", func_name);
-                continue;
-            }
-
-            std::string args_str = func_data.substr(0, pipe_pos);
-            std::vector<std::string> arg_names = split_args(args_str);
-
-            try {
-                // Check ExprTk return values for add_function
-                if (arg_names.size() == 1) {
-                    funcs_1arg_.push_back(std::make_unique<UserDefinedFunction<1>>(func_data));
-                    if (!symbol_table_.add_function(func_name, *funcs_1arg_.back())) {
-                        spdlog::warn("ExpressionEvaluator: Failed to add function '{}'", func_name);
-                    } else {
-                        spdlog::debug("ExpressionEvaluator: Registered 1-arg .FUNC: {}", func_name);
-                    }
-                } else if (arg_names.size() == 2) {
-                    funcs_2arg_.push_back(std::make_unique<UserDefinedFunction<2>>(func_data));
-                    if (!symbol_table_.add_function(func_name, *funcs_2arg_.back())) {
-                        spdlog::warn("ExpressionEvaluator: Failed to add function '{}'", func_name);
-                    } else {
-                        spdlog::debug("ExpressionEvaluator: Registered 2-arg .FUNC: {}", func_name);
-                    }
-                } else if (arg_names.size() == 3) {
-                    funcs_3arg_.push_back(std::make_unique<UserDefinedFunction<3>>(func_data));
-                    if (!symbol_table_.add_function(func_name, *funcs_3arg_.back())) {
-                        spdlog::warn("ExpressionEvaluator: Failed to add function '{}'", func_name);
-                    } else {
-                        spdlog::debug("ExpressionEvaluator: Registered 3-arg .FUNC: {}", func_name);
-                    }
-                } else {
-                    spdlog::warn("Skipping .FUNC '{}': unsupported argument count {} (max 3)",
-                                func_name, arg_names.size());
-                }
-            } catch (const std::exception& e) {
-                spdlog::warn("Failed to register .FUNC '{}' in ExpressionEvaluator: {}",
-                            func_name, e.what());
-            }
-        }
+        functions_.remove_from(symbol_table_);
+        functions_ = util::ExpressionFunctions(global_funcs);
+        functions_.add_to(symbol_table_);
     }
 
     Real evaluate(const std::string& expression) {
@@ -6998,9 +6681,7 @@ private:
     std::map<std::string, Real> variables_;  // Persistent storage for variables
 
     // User-defined functions (must persist while symbol_table is in use)
-    std::vector<std::unique_ptr<UserDefinedFunction<1>>> funcs_1arg_;
-    std::vector<std::unique_ptr<UserDefinedFunction<2>>> funcs_2arg_;
-    std::vector<std::unique_ptr<UserDefinedFunction<3>>> funcs_3arg_;
+    util::ExpressionFunctions functions_;
 };
 
 //==============================================================================

@@ -66,12 +66,16 @@ struct SubcircuitDefinition {
     /// defaults of the .SUBCKT line and the instance values; a .PARAM line
     /// in the body adds values for the lines after it, in this instance only,
     /// and is not returned.
+    /// Braces may call the .FUNC functions of the netlist.
     /// @param instance_params Parameters from instance (e.g., X1 ... GAIN=20)
     /// @param global_params The global .PARAM values
+    /// @param functions The .FUNC functions, "args|expression" by name
+    ///        (SimulationConfig::global_funcs)
     /// @return Netlist lines with parameter expressions replaced by values
     std::vector<std::string> substitute_parameters(
         const std::map<std::string, Real>& instance_params,
-        const std::map<std::string, Real>& global_params = {}) const;
+        const std::map<std::string, Real>& global_params = {},
+        const std::map<std::string, std::string>& functions = {}) const;
 };
 
 /// Subcircuit instance (X device)
@@ -136,6 +140,10 @@ public:
 
     /// The global .PARAM values that the bodies see
     virtual const std::map<std::string, Real>& global_params() const = 0;
+
+    /// The .FUNC functions that the braces of the bodies may call,
+    /// "args|expression" by name
+    virtual const std::map<std::string, std::string>& global_functions() const = 0;
 
     /// Read one body line of the instance `instance_name` of the subcircuit
     /// `subcircuit_name`: rename the element and the elements it names into

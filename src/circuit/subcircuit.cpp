@@ -5,6 +5,7 @@
 #include "kirimaspice/circuit/subcircuit.hpp"
 #include "kirimaspice/core/constants.hpp"
 #include "kirimaspice/util/expression_constants.hpp"
+#include "kirimaspice/util/expression_functions.hpp"
 #include "kirimaspice/util/string_utils.hpp"
 #include "kirimaspice/util/units.hpp"
 #include <algorithm>
@@ -224,7 +225,8 @@ void SubcircuitRegistry::dfs_topological_sort(
 
 std::vector<std::string> SubcircuitDefinition::substitute_parameters(
     const std::map<std::string, Real>& instance_params,
-    const std::map<std::string, Real>& global_params) const {
+    const std::map<std::string, Real>& global_params,
+    const std::map<std::string, std::string>& functions) const {
 
     // Scope, from the lowest priority: the global .PARAM values, the defaults
     // on the .SUBCKT line, the values on the X line. A .PARAM line inside the
@@ -247,12 +249,15 @@ std::vector<std::string> SubcircuitDefinition::substitute_parameters(
         set(key, value);
     }
 
-    // The same constants as at the top level, added first as there
+    // The same constants and .FUNC functions as at the top level, added
+    // first as there
+    util::ExpressionFunctions netlist_functions(functions);
     auto evaluate = [&](const std::string& expression) -> Real {
         exprtk::symbol_table<Real> symbol_table;
         for (const auto& constant : util::kExpressionConstants) {
             symbol_table.add_constant(constant.name, constant.value);
         }
+        netlist_functions.add_to(symbol_table);
         for (const auto& [param_name, value] : scope) {
             symbol_table.add_constant(param_name, value);
         }

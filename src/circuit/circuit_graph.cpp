@@ -2122,7 +2122,8 @@ void CircuitGraph::expand_subcircuit_instance(const std::string& instance_name) 
     // Perform parameter substitution
     // Merges instance parameters with default parameters and evaluates {expression} patterns
     std::vector<std::string> expanded_lines = definition.substitute_parameters(
-        instance.instance_params, subcircuit_line_reader_->global_params());
+        instance.instance_params, subcircuit_line_reader_->global_params(),
+        subcircuit_line_reader_->global_functions());
 
     // The circuit's node for a node of the body: a pin's external node, a
     // global node, ground, or the node of this instance, X1.n1
