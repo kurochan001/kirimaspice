@@ -169,9 +169,10 @@ class CliAnalyses(unittest.TestCase):
         self.assertNotIn("No analysis specified", result.stdout)
 
     def test_directive_the_program_does_not_run_is_named(self):
-        result, plots = self.run_deck("t\nV1 in 0 1\nR1 in 0 1k\n.tf v(in) V1\n.op\n.end\n")
+        result, plots = self.run_deck("t\nV1 in 0 1\nR1 in 0 1k\n.OPTIMIZE COBYLA OBJECTIVE=v(in) MAX PARAM=R1.resistance:1k:100:10k\n"
+                                      ".op\n.end\n")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn(".TF is read, but this program does not run it", result.stdout + result.stderr)
+        self.assertIn(".OPTIMIZE is read, but this program does not run it", result.stdout + result.stderr)
 
     def test_transient_prints_the_signals_of_print_tran(self):
         # One row per time point of the fixed step (0, 1, 2 and 3 ns), with
