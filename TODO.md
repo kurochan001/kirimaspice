@@ -154,5 +154,6 @@ commit.
   ([source code](KNOWN_ISSUES.md#source-code)).
 - [ ] **Split the large files** (M), `netlist_parser.cpp` first
   ([source code](KNOWN_ISSUES.md#source-code)).
-- [ ] **The Monte Carlo "GPU" path** (S): remove the name or write the
-  code ([source code](KNOWN_ISSUES.md#source-code)).
+- [x] **The Monte Carlo "GPU" path** (S): removed. `MonteCarloBatchExecutor`
+  had no GPU code and no caller; `MonteCarloExecutor::execute_dc_monte_carlo_fast`
+  is the path it ran.

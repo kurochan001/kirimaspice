@@ -410,6 +410,3 @@ Counted on 2026-11-21 at commit `9aa304c`, the warnings at `81bfb2a`.
   which the diode, the BJT, BSIM3, BSIM4 and the IGBT use; they give the
   same numbers, but the equations are not written once (read in the code
   at `63ce9a6`).
-- **`MonteCarloBatchExecutor::execute_dc_monte_carlo_gpu` has no GPU
-  code.** `src/analysis/monte_carlo_gpu.cpp` logs "Using fast CPU path
-  (CUDA off)" and runs the CPU path.

@@ -294,5 +294,3 @@ ngspice について書いていることは、それぞれのマニュアルに
 - **キャパシタ、インダクタ、相互インダクタンスは、コンパニオンモデルの式を自分で書いています。** ダイオード、
   BJT、BSIM3、BSIM4、IGBT が使う `device_utils::capacitor_companion` を使いません。数値は同じですが、式が
   1 か所に書かれていません（`63ce9a6` でコードを読みました）。
-- **`MonteCarloBatchExecutor::execute_dc_monte_carlo_gpu` に GPU のコードはありません。**
-  `src/analysis/monte_carlo_gpu.cpp` は「Using fast CPU path (CUDA off)」と記録し、CPU の経路を実行します。

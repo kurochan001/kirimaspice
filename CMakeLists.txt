@@ -349,7 +349,6 @@ add_library(kirimaspice_lib STATIC
     # Analysis
     src/analysis/random_distribution.cpp  # Monte Carlo distributions
     src/analysis/monte_carlo_executor.cpp  # Monte Carlo executor
-    src/analysis/monte_carlo_gpu.cpp  # Monte Carlo GPU/Batch (PoC)
     src/analysis/wcase_analyzer.cpp  # Worst-case analyzer
     src/analysis/circuit_optimizer.cpp  # Circuit optimizer
     src/analysis/bsim4_parameter_extractor.cpp  # BSIM4 parameter extraction

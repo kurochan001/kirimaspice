@@ -117,5 +117,5 @@ push したら項目に印を付け、同じコミットで KNOWN_ISSUES から�
 - [ ] **補助のディレクトリを 1 つにする**（S）。`util/` と `utils/` です
   （[ソースコード](KNOWN_ISSUES.ja.md#ソースコード)）。
 - [ ] **大きなファイルを分ける**（M）。まず `netlist_parser.cpp` です（[ソースコード](KNOWN_ISSUES.ja.md#ソースコード)）。
-- [ ] **モンテカルロの「GPU」の経路**（S）。名前を消すか、コードを書きます
-  （[ソースコード](KNOWN_ISSUES.ja.md#ソースコード)）。
+- [x] **モンテカルロの「GPU」の経路**（S）。削除しました。`MonteCarloBatchExecutor` には GPU のコードも
+  呼び出し元もなく、実行していたのは `MonteCarloExecutor::execute_dc_monte_carlo_fast` です。

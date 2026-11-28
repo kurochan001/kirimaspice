@@ -71,7 +71,7 @@ public:
 
     /// Execute DC Monte Carlo (optimized path)
     /// - Parses netlist once, then applies sampled parameters directly to the circuit
-    /// - Avoids per-run re-parsing to reduce overhead and enable GPU batching later
+    /// - Avoids per-run re-parsing to reduce overhead
     /// @param netlist_path Path to netlist file
     /// @param output_node Output node to analyze
     /// @param spec_min Minimum specification limit
