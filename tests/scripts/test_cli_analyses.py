@@ -63,6 +63,37 @@ class CliAnalyses(unittest.TestCase):
                 self.assertEqual(plots, ["DC Sweep", "DC Operating Point"])
                 self.assertIn("V(b) = 0.5 V", result.stdout)
 
+    def table(self, stdout, heading):
+        lines = stdout.split("=== " + heading + " ===\n", 1)[1].split("\n\n", 1)[0].splitlines()
+        return lines[0].split("\t"), [[float(v) for v in line.split("\t")] for line in lines[1:] if line]
+
+    def test_print_dc_and_ac_tables(self):
+        # ngspice-45.2 prints these values for the same .PRINT lines (run on
+        # 2026-11-28): v(b) and i(v1) at each value of V1, and in AC v(b) as
+        # its real and imaginary parts, vm, vp in radians, vdb, vr and vi
+        result, _ = self.run_deck(
+            "t\nV1 a 0 DC 1 AC 1\nR1 a b 1k\nR2 b 0 1k\nC1 b 0 1u\n.dc V1 0 2 1\n.print dc v(b) i(v1)\n"
+            ".ac dec 1 10 1k\n.print ac v(b) vm(b) vp(b) vdb(b) vr(b) vi(b)\n.end\n")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("is read, but this program does not run it", result.stderr)
+        titles, rows = self.table(result.stdout, "DC Sweep Table")
+        self.assertEqual(titles, ["V1", "v(b)", "i(v1)"])
+        for row, expected in zip(rows, [[0, 0, 0], [1, 0.5, -5e-4], [2, 1, -1e-3]]):
+            for value, reference in zip(row, expected):
+                self.assertAlmostEqual(value, reference, places=9)
+        titles, rows = self.table(result.stdout, "AC Analysis Table")
+        self.assertEqual(titles, ["Frequency (Hz)", "v(b)_real", "v(b)_imag", "vm(b)", "vp(b)", "vdb(b)",
+                                  "vr(b)", "vi(b)"])
+        reference = [[10, 4.995070e-01, -1.56925e-02, 4.997534e-01, -3.14056e-02],
+                     [100, 4.550849e-01, -1.42969e-01, 4.770141e-01, -3.04396e-01],
+                     [1000, 4.599983e-02, -1.44513e-01, 1.516572e-01, -1.26263e+00]]
+        for row, expected in zip(rows, reference):
+            for value, ref in zip(row, expected):
+                self.assertAlmostEqual(value / ref, 1.0, places=5)
+            self.assertAlmostEqual(row[5], 20 * __import__("math").log10(expected[3]), places=4)
+            self.assertAlmostEqual(row[6], expected[1], places=5)
+            self.assertAlmostEqual(row[7], expected[2], places=5)
+
     def test_ac_from_zero_hertz_is_run_and_fails(self):
         # A decade sweep from 0 Hz has no points (log 0); the .AC line is
         # still an analysis line, so the program reports the failure

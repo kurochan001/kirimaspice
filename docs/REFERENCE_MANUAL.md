@@ -485,7 +485,7 @@ parser stores it, but the program does not use it (the library can).
 | `.LIB` / `.ENDL` | `.LIB <file> [<section>]` | used; without a section, the whole file |
 | `.IF` / `.ELIF` / `.ELSE` / `.ENDIF` | `.IF (<expr>)` or `.IF(<expr>)`; `.ELSEIF` for `.ELIF` | conditions use the final global `.PARAM` values. A condition that cannot be evaluated is a parse error. Use `.ELSEIF` for ngspice-47 compatibility |
 | `.END` | `.END` | ignored; lines after it are read, as in ngspice-47 |
-| `.PRINT`, `.SAVE` | `.PRINT DC\|TRAN\|AC <signals>`, `.SAVE <signals>` | `.PRINT TRAN` used: its signals are the transient's table on standard output; `.PRINT DC`, `.PRINT AC` and `.SAVE` read only, named in a warning |
+| `.PRINT`, `.SAVE` | `.PRINT DC\|TRAN\|AC <signals>`, `.SAVE <signals>` | `.PRINT DC`, `.PRINT TRAN` and `.PRINT AC` used: their signals are the table of their analysis on standard output (below); `.SAVE` read only, named in a warning |
 | `.FOUR` | `.FOUR <frequency> <signal> ...`, each `v(<node>)` or `i(<source>)` | used with `.TRAN`: prints the harmonics and the THD of the last period of each signal after the transient; the phase of each harmonic is that of a sine from the start of that period, as ngspice-47 prints it |
 | `.STEP`, `.SENS`, `.MC`, `.TF`, `.PZ`, `.DISTO`, `.PORT`, `.WCASE`, `.OPTIMIZE` | | read only; named in a warning |
 | `.CONTROL` / `.ENDC` | | taken out and run by the parser; of its analysis commands the program runs `dc` and `ac`, not `tran`, and `op` is named in a warning as an unknown command (see [KNOWN_ISSUES.md](../KNOWN_ISSUES.md)) |
@@ -527,10 +527,10 @@ each run prints and writes:
 
 | Run | Standard output | `-o` (SSF) | `--raw-out`, `--raw-binary-out` | `--wav-out` | AC CSV |
 | --- | --- | --- | --- | --- | --- |
-| DC sweep | a summary | — | yes | — | — |
+| DC sweep | a summary, then the table of `.PRINT DC` | — | yes | — | — |
 | operating point | voltages and currents | yes, replaced by a later transient | yes | — | — |
 | transient | the results of `.FOUR`, then the table of `.PRINT TRAN` | yes | yes | yes | — |
-| AC | nothing | — | — | — | always, named after `-o` or the netlist |
+| AC | the table of `.PRINT AC` | — | — | — | always, named after `-o` or the netlist |
 
 ## Options
 
@@ -588,14 +588,20 @@ results are:
 - operating point: `=== DC Operating Point ===`, then `V(0) = 0 V`, one
   `V(<node>) = <value> V` per node and one `I(<source>) = <value> A` per
   voltage, `E`, `H` and voltage-form `B` source;
-- DC sweep: a summary only;
+- DC sweep: a summary, then, with `.PRINT DC <signals>`, `=== DC Sweep
+  Table ===` and a table with a column of the swept source (two for a
+  nested sweep) and one per signal, as for the transient;
 - transient: the results of `.FOUR`, if the netlist has it, then, with
   `.PRINT TRAN <signals>`, `=== Transient Analysis
   Results ===` and a tab-separated table with a `Time (s)` column and one
   column per signal, `v(<node>)` or `i(<voltage source>)` as written on
   the `.PRINT` line, one row per time point; a signal that names no node
   or source is left out with a warning. Without either, nothing;
-- AC: nothing.
+- AC: with `.PRINT AC <signals>`, `=== AC Analysis Table ===` and a table
+  with a `Frequency (Hz)` column; `v(<node>)` and `i(<source>)` give two
+  columns, `_real` and `_imag`, as the AC CSV file names them, and `vr`,
+  `vi`, `vm`, `vp` (radians), `vdb` and `ir`, `ii`, `im`, `ip`, `idb` one
+  each, as ngspice-45.2 takes them. Without it, nothing.
 
 Under a `.TEMP` list of several values, each run's results follow a line
 `=== Temperature <t> °C ===`.

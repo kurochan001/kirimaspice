@@ -857,6 +857,8 @@ struct SimulationConfig {
     struct Output {
         std::vector<std::string> print_signals;  ///< .print specified signals (e.g., "v(out)", "i(v1)")
         std::vector<std::string> print_tran_signals;  ///< the signals of .PRINT TRAN, in order
+        std::vector<std::string> print_dc_signals;    ///< the signals of .PRINT DC, in order
+        std::vector<std::string> print_ac_signals;    ///< the signals of .PRINT AC, in order
         std::vector<std::string> save_signals;   ///< .save specified signals (subset of print_signals for SSF)
         bool save_all = true;                    ///< Default: save all signals (no .save directive)
     } output;

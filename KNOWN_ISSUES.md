@@ -127,8 +127,8 @@ document also lists differences not decided there.
 - **`.MODEL` has no SCR or TRIAC type:** `S` and `Y` take `NAME=value`
   parameters on their lines only, and a model name there is an error.
 - **`.SAVE`, `.STEP`, `.SENS`, `.MC`, `.TF`, `.PZ`, `.DISTO`, `.PORT`,
-  `.WCASE`, `.OPTIMIZE`, `.PRINT DC` and `.PRINT AC` are read but not run,
-  each named in a warning; `.PRINT TRAN` is printed.** `.NOISE`,
+  `.WCASE` and `.OPTIMIZE` are read but not run, each named in a warning;
+  `.PRINT DC`, `.PRINT TRAN` and `.PRINT AC` are printed.** `.NOISE`,
   `.MEASURE`, `.TITLE` and unknown directives are ignored with a warning.
 - **Empty lines before the title are skipped: the first line that is not
   empty is the title.** ngspice-47 takes the first line as the title even

@@ -20,6 +20,10 @@
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/base_sink.h>
 #include <iostream>
+#include <cmath>
+#include <complex>
+#include <type_traits>
+#include <functional>
 #include <fstream>
 #include <sstream>
 #include <optional>
@@ -72,74 +76,166 @@ static std::optional<std::string> with_suffix(const std::optional<std::string>& 
     return stem + suffix + path->substr(stem.size());
 }
 
-// The table of .PRINT TRAN after a transient: a column of time and one for
-// each signal, v(<node>) or i(<source>), at every time point, as SPICE
-// prints .PRINT; nothing without .PRINT TRAN (the raw, SSF and WAV files
-// hold the whole result). A signal that names no node or source is left
+// The tables of .PRINT DC, .PRINT TRAN and .PRINT AC after their analysis:
+// a column of the swept value (the source of .DC, time, frequency) and one
+// for each signal at every point, as SPICE prints .PRINT; nothing without a
+// .PRINT of that analysis (the raw, SSF, WAV and AC CSV files hold the whole
+// result). A signal is v(<node>) or i(<source>); in AC also vr, vi, vm, vp
+// (radians) and vdb, and ir, ii, im, ip and idb, as ngspice-45.2 takes them,
+// and v(<node>) and i(<source>) give two columns there, _real and _imag, as
+// the AC CSV file has them. A signal that names no node or source is left
 // out with a warning.
-static void print_transient_table(const std::vector<std::string>& signals,
-                                  const std::vector<std::string>& node_names,
-                                  const std::vector<std::string>& branch_names,
-                                  const solvers::TransientResult& result) {
-    if (signals.empty()) {
-        return;
-    }
-    struct Column {
-        std::string title;
-        bool voltage;
-        std::size_t index;  // node id, or branch index
-    };
-    std::vector<Column> columns;
+struct PrintColumn {
+    std::string title;
+    bool voltage;
+    std::size_t index;  // node id, or branch index
+    std::string part;   // AC: "", "r", "i", "m", "p" or "db"
+};
+
+static std::vector<PrintColumn> print_columns(const std::string& analysis, const std::vector<std::string>& signals,
+                                              const std::vector<std::string>& node_names,
+                                              const std::vector<std::string>& branch_names) {
+    std::vector<PrintColumn> columns;
     for (const auto& signal : signals) {
         std::string kind = signal.substr(0, signal.find('('));
         util::to_upper_inplace(kind);
         const auto open = signal.find('(');
         const auto close = signal.rfind(')');
-        std::optional<Column> column;
-        if (open != std::string::npos && close != std::string::npos && close > open + 1) {
+        std::optional<PrintColumn> column;
+        std::string part;
+        if (kind.size() > 1 && analysis == "AC") {
+            part = kind.substr(1);
+            std::transform(part.begin(), part.end(), part.begin(),
+                           [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+            kind = kind.substr(0, 1);
+        }
+        const bool known_part = part.empty() || part == "r" || part == "i" || part == "m" || part == "p" ||
+                                part == "db";
+        if (known_part && open != std::string::npos && close != std::string::npos && close > open + 1) {
             const std::string name = signal.substr(open + 1, close - open - 1);
             if (kind == "V") {
                 for (std::size_t id = 0; id < node_names.size(); ++id) {
                     if (util::equals_icase(node_names[id], name)) {
-                        column = Column{signal, true, id};
+                        column = PrintColumn{signal, true, id, part};
                     }
                 }
             } else if (kind == "I") {
                 for (std::size_t k = 0; k < branch_names.size(); ++k) {
                     if (util::equals_icase(branch_names[k], name)) {
-                        column = Column{signal, false, k};
+                        column = PrintColumn{signal, false, k, part};
                     }
                 }
             }
         }
         if (!column) {
-            spdlog::warn(".PRINT TRAN {}: no such node or voltage source; left out", signal);
+            spdlog::warn(".PRINT {} {}: no such node or voltage source; left out", analysis, signal);
             continue;
         }
         columns.push_back(*column);
     }
+    return columns;
+}
+
+// One table: `rows` gives, for each point, its value in the first column
+// and the value of a column (by reference to the node or branch) there
+template <typename Value>
+static void print_table(const std::string& analysis, const std::string& heading, const std::string& x_title,
+                        const std::vector<std::string>& signals, const std::vector<std::string>& node_names,
+                        const std::vector<std::string>& branch_names, std::size_t rows,
+                        const std::function<std::vector<Real>(std::size_t)>& x_of,
+                        const std::function<Value(std::size_t, const PrintColumn&)>& value_of) {
+    if (signals.empty()) {
+        return;
+    }
+    const auto columns = print_columns(analysis, signals, node_names, branch_names);
     if (columns.empty()) {
         return;
     }
-    std::cout << "\n=== Transient Analysis Results ===\n";
-    std::cout << "Time (s)";
+    std::cout << "\n=== " << heading << " ===\n" << x_title;
     for (const auto& c : columns) {
+        if constexpr (std::is_same_v<Value, Complex>) {
+            if (c.part.empty()) {
+                std::cout << "\t" << c.title << "_real\t" << c.title << "_imag";
+                continue;
+            }
+        }
         std::cout << "\t" << c.title;
     }
     std::cout << "\n";
-    for (const auto& tp : result.timepoints) {
-        std::cout << tp.time;
+    for (std::size_t row = 0; row < rows; ++row) {
+        const auto x = x_of(row);
+        for (std::size_t k = 0; k < x.size(); ++k) {
+            std::cout << (k ? "\t" : "") << x[k];
+        }
         for (const auto& c : columns) {
-            Real value = 0.0;  // ground
-            if (c.voltage && c.index > 0 && c.index - 1 < tp.node_voltages.size()) {
-                value = tp.node_voltages[c.index - 1];
-            } else if (!c.voltage && c.index < tp.branch_currents.size()) {
-                value = tp.branch_currents[c.index];
+            const Value value = value_of(row, c);
+            if constexpr (std::is_same_v<Value, Complex>) {
+                if (c.part.empty()) std::cout << "\t" << value.real() << "\t" << value.imag();
+                else if (c.part == "r") std::cout << "\t" << value.real();
+                else if (c.part == "i") std::cout << "\t" << value.imag();
+                else if (c.part == "m") std::cout << "\t" << std::abs(value);
+                else if (c.part == "p") std::cout << "\t" << std::arg(value);
+                else std::cout << "\t" << 20.0 * std::log10(std::abs(value));
+            } else {
+                std::cout << "\t" << value;
             }
-            std::cout << "\t" << value;
         }
         std::cout << "\n";
     }
+}
+
+// The value of a column in a real solution: node voltages from node 1 at
+// element 0 (ground is 0), branch currents by branch
+static Real real_value(const PrintColumn& c, const DenseVector& node_voltages, const DenseVector& branch_currents) {
+    if (c.voltage) {
+        return (c.index > 0 && c.index - 1 < node_voltages.size()) ? node_voltages[c.index - 1] : 0.0;
+    }
+    return c.index < branch_currents.size() ? branch_currents[c.index] : 0.0;
+}
+
+static void print_transient_table(const std::vector<std::string>& signals,
+                                  const std::vector<std::string>& node_names,
+                                  const std::vector<std::string>& branch_names,
+                                  const solvers::TransientResult& result) {
+    print_table<Real>(
+        "TRAN", "Transient Analysis Results", "Time (s)", signals, node_names, branch_names,
+        result.timepoints.size(), [&](std::size_t row) { return std::vector<Real>{result.timepoints[row].time}; },
+        [&](std::size_t row, const PrintColumn& c) {
+            return real_value(c, result.timepoints[row].node_voltages, result.timepoints[row].branch_currents);
+        });
+}
+
+static void print_dc_sweep_table(const std::vector<std::string>& signals, const std::vector<std::string>& node_names,
+                                 const std::vector<std::string>& branch_names, const SimulationConfig& config,
+                                 const DCSweepResult& result) {
+    std::string x_title = config.dc_sweep.source_name;
+    if (config.dc_sweep.nested_sweep) {
+        x_title += "\t" + config.dc_sweep.nested_sweep->source_name;
+    }
+    print_table<Real>(
+        "DC", "DC Sweep Table", x_title, signals, node_names, branch_names, result.points.size(),
+        [&](std::size_t row) {
+            std::vector<Real> x{result.points[row].sweep_value};
+            if (result.points[row].nested_sweep_value) x.push_back(*result.points[row].nested_sweep_value);
+            return x;
+        },
+        [&](std::size_t row, const PrintColumn& c) {
+            return real_value(c, result.points[row].node_voltages, result.points[row].branch_currents);
+        });
+}
+
+static void print_ac_table(const std::vector<std::string>& signals, const std::vector<std::string>& node_names,
+                           const std::vector<std::string>& branch_names, std::size_t num_nodes,
+                           const solvers::ACResult& result) {
+    print_table<Complex>(
+        "AC", "AC Analysis Table", "Frequency (Hz)", signals, node_names, branch_names,
+        result.frequency_points.size(),
+        [&](std::size_t row) { return std::vector<Real>{result.frequency_points[row].frequency}; },
+        [&](std::size_t row, const PrintColumn& c) {
+            const auto& x = result.frequency_points[row].solution;
+            const std::size_t k = c.voltage ? c.index - 1 : num_nodes + c.index;
+            return (c.voltage && c.index == 0) || k >= x.size() ? Complex(0.0, 0.0) : x[k];
+        });
 }
 
 // Run the analyses of the netlist once, at the temperature of config: the DC
@@ -213,6 +309,7 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
                       << ", last sweep value: " << last.sweep_value << "\n";
         }
         std::cout << "The swept values are in the raw files (--raw-out, --raw-binary-out).\n";
+        print_dc_sweep_table(config.output.print_dc_signals, node_names, branch_names, config, sweep_result);
 
         if (raw_output_file) {
             output::RawWriter raw_writer(*raw_output_file, raw_append_mode);
@@ -408,6 +505,8 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
             if (ac_result.status == ConvergenceStatus::SUCCESS) {
                 spdlog::info("AC analysis completed: {} frequency points",
                             ac_result.frequency_points.size());
+                print_ac_table(config.output.print_ac_signals, node_names, branch_names,
+                               circuit->num_nodes() - 1, ac_result);
 
                 const std::string& ac_output_file = files.ac_csv;
 
@@ -624,7 +723,7 @@ int main(int argc, char* argv[]) {
         // one of them
         for (const char* directive : {".SENS", ".SENSITIVITY", ".TF", ".PZ", ".DISTO", ".STEP",
                                       ".MC", ".MONTECARLO", ".WCASE", ".OPTIMIZE", ".PORT",
-                                      ".PRINT DC", ".PRINT AC", ".SAVE"}) {
+                                      ".SAVE"}) {
             if (config.directives_read.count(directive)) {
                 spdlog::warn("{} is read, but this program does not run it", directive);
             }

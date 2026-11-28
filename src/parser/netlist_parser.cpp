@@ -2625,6 +2625,10 @@ static void parse_print_directive(const std::vector<std::string>& tokens, ParseS
         state.config->output.print_signals.push_back(signal);
         if (analysis_type == "tran") {
             state.config->output.print_tran_signals.push_back(signal);
+        } else if (analysis_type == "dc") {
+            state.config->output.print_dc_signals.push_back(signal);
+        } else {
+            state.config->output.print_ac_signals.push_back(signal);
         }
         spdlog::debug("Added .PRINT signal: {}", signal);
     }

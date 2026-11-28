@@ -66,7 +66,7 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
   | Status | Directives |
   | --- | --- |
   | run | `.OP`, `.DC`, `.TRAN`, `.AC`, `.FOUR`, `.PRINT TRAN` |
-  | read, not used | `.SENS`, `.TF`, `.PZ`, `.DISTO`, `.STEP`, `.MC`, `.WCASE`, `.OPTIMIZE`, `.PORT`, `.PRINT DC`, `.PRINT AC`, `.SAVE` |
+  | read, not used | `.SENS`, `.TF`, `.PZ`, `.DISTO`, `.STEP`, `.MC`, `.WCASE`, `.OPTIMIZE`, `.PORT`, `.SAVE` |
   | ignored | `.NOISE`, `.MEASURE`, `.TITLE`, `.END` (lines after it are read) |
 
   Each of the second and third rows, except `.END`, is named in a warning.
