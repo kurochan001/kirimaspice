@@ -44,6 +44,16 @@ TLineLossy::TLineLossy(DeviceId id, const std::string& name,
 }
 
 TLineLossy::TwoPort TLineLossy::two_port(Real omega) const {
+    if (omega == 0.0 && !(r_per_m_ > 0.0)) {
+        // Without R the DC line is a wire, V_A = V_B, with its shunt
+        // conductance G length: Z is 0, and x coth(x) / Z and -x csch(x) / Z
+        // are 1/Z + Y/3 and -1/Z + Y/6 there. 1/Z is the wire, as the
+        // lossless line's coupling (TLineLossless::kDcCoupling); the rest is
+        // Y in all, here half of G length on each port
+        const Real k = TLineLossless::kDcCoupling;
+        const Real half_g = 0.5 * g_per_m_ * length_;
+        return {Complex(k + half_g, 0.0), Complex(-k, 0.0)};
+    }
     const Complex z = Complex(r_per_m_, omega * l_per_m_) * length_;
     const Complex y = Complex(g_per_m_, omega * c_per_m_) * length_;
     const Complex x = std::sqrt(z * y);
@@ -89,17 +99,9 @@ void TLineLossy::stamp_dc_linear(MNASystem& mna, const DenseVector& node_voltage
             }
         }
     };
-    if (r_per_m_ > 0.0) {
-        const TwoPort tp = two_port(0.0);
-        stamp(tp.y11.real(), tp.y12.real());
-    } else {
-        // Without R the DC line is a wire, V_A = V_B, with its shunt
-        // conductance G length: the wire as the lossless line's coupling
-        // (TLineLossless::kDcCoupling), and half of G length on each port
-        const Real k = TLineLossless::kDcCoupling;
-        const Real half_g = 0.5 * g_per_m_ * length_;
-        stamp(k + half_g, -k);
-    }
+    // The two-port at omega = 0, which AC stamps there too (stamp_ac)
+    const TwoPort tp = two_port(0.0);
+    stamp(tp.y11.real(), tp.y12.real());
 }
 
 void TLineLossy::stamp_ac(ComplexMNASystem& sys,

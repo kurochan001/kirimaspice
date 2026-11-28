@@ -80,7 +80,10 @@ public:
     /// impedance Z = (R + j omega L) length, the shunt admittance
     /// Y = (G + j omega C) length and x = sqrt(Z Y), Y11 = x coth(x) / Z and
     /// Y12 = -x csch(x) / Z (the telegrapher's equations). Z is 0 only at DC
-    /// without R, where the line is a wire.
+    /// without R, where the line is a wire: there the result is the wire as
+    /// the lossless line's DC coupling (TLineLossless::kDcCoupling), with
+    /// half of G length on each port. DC and AC at omega = 0 stamp the same
+    /// two-port.
     struct TwoPort {
         Complex y11, y12;
     };

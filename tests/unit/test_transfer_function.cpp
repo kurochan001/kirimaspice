@@ -315,6 +315,42 @@ TEST(TransferFunctionSolver, CoupledInductorsMatchNgspice) {
     }
 }
 
+// A lossy line (O) in the small-signal circuit at DC is the two-port the DC
+// analysis has (TLineLossy::two_port at omega = 0): without R a wire with
+// its shunt conductance G length, and with R its series resistance R length.
+// The lines are 1 m long (TD / sqrt(L C)), between R1 = 1 kOhm and
+// R2 = 3 kOhm. Without G the values are those of the dividers, 3/4 and
+// 3000/4010, as ngspice-45.2 gives them for its LTRA with the same L, C and
+// LEN = 1 (0.75, 4000 and 750 Ohm; 0.7481297, 4010 and 755.6110 Ohm; run
+// 2026-11-28). ngspice-45.2 does not take a line with L, C and G ("Nonzero G
+// (except RG) line not supported yet"): there the values are those of the
+// wire with 1 kOhm to ground. The line with R is the path that was right
+// before.
+TEST(TransferFunctionSolver, LossyLineIsItsDcTwoPort) {
+    const struct {
+        std::string what, line;
+        Real gain, rin, rout;
+    } cases[] = {
+        {"without loss", "O1 a 0 b 0 R=0 L=250n C=100p G=0 TD=5n", 0.75, 4000.0, 750.0},
+        {"shunt conductance", "O1 a 0 b 0 R=0 L=250n C=100p G=1m TD=5n", 3.0 / 7.0, 1750.0,
+         3000.0 / 7.0},
+        {"series resistance", "O1 a 0 b 0 R=10 L=250n C=100p G=0 TD=5n", 3000.0 / 4010.0, 4010.0,
+         3000.0 * 1010.0 / 4010.0},
+    };
+    for (const auto& c : cases) {
+        parser::NetlistParser parser;
+        auto parsed = parser.parse_string("t\nV1 in 0 1\nR1 in a 1k\n" + c.line +
+                                          "\nR2 b 0 3k\n.tf v(b) V1\n.end\n");
+        TransferFunctionSolver solver(*parsed.circuit, parsed.config);
+        const auto result = solver.analyze();
+        ASSERT_TRUE(result.success) << c.what;
+        // The wire is 1e6 S: 1 uOhm in series with the divider
+        EXPECT_NEAR(result.transfer_gain, c.gain, 1e-6 * std::abs(c.gain)) << c.what;
+        EXPECT_NEAR(result.input_resistance, c.rin, 1e-6 * c.rin) << c.what;
+        EXPECT_NEAR(result.output_resistance, c.rout, 1e-6 * c.rout) << c.what;
+    }
+}
+
 // The current of an element that is not a voltage source, i(R1), is not an
 // output: the analysis fails with a message instead of a value
 TEST(TransferFunctionSolver, CurrentOfAResistorIsNotAnOutput) {

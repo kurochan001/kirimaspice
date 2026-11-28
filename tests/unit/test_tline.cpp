@@ -482,6 +482,24 @@ TEST(TLineDevice, LossyLineInDcWithShuntConductance) {
     EXPECT_NEAR(x[parsed.circuit->get_node_id("b") - 1], -y12 / (y11 + 1.0 / 50.0), 1e-9);
 }
 
+// Without R the DC line is a wire with its shunt conductance, G length =
+// 1 mS here: between R1 = 1 kOhm and R2 = 3 kOhm both ends are at 3/7 V, the
+// divider of 1 kOhm over 1 kOhm || 3 kOhm. The wire is a conductance of
+// 1e6 S (TLineLossless::kDcCoupling) added to the 2.3 mS of the node, which
+// keeps about 7 digits of the divider: the values are within 2e-8 V
+TEST(TLineDevice, LossyLineInDcWithoutSeriesResistanceIsAWire) {
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(
+        "t\nV1 in 0 1\nR1 in a 1k\nO1 a 0 b 0 R=0 L=250n C=100p G=1m TD=5n\nR2 b 0 "
+        "3k\n.op\n.end\n");
+    solvers::DCSolver solver(*parsed.circuit, parsed.config);
+    DenseVector x;
+    SolverStats stats;
+    ASSERT_EQ(solver.solve(x, stats), ConvergenceStatus::SUCCESS);
+    EXPECT_NEAR(x[parsed.circuit->get_node_id("a") - 1], 3.0 / 7.0, 1e-6);
+    EXPECT_NEAR(x[parsed.circuit->get_node_id("b") - 1], 3.0 / 7.0, 1e-6);
+}
+
 // In AC the line between 50 Ohm ends: V(b) / V(a) from its ABCD matrix,
 // A = D = cosh(gamma l), B = Zc sinh(gamma l), C = sinh(gamma l) / Zc
 TEST(TLineDevice, LossyLineInAcIsTheTelegrapherTwoPort) {
