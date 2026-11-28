@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="660" height="318" viewBox="0 0 660 318" role="img" aria-labelledby="title desc">
+  <title id="title">Where R1, C1 and V1 write in the matrix and the right-hand side</title>
+  <desc id="desc">Rows in, out and V1; columns v_in, v_out and i_V. R1 writes plus and minus g in the four positions of rows in and out and columns v_in and v_out. C1 writes G_C on the diagonal of out and G_C times v_n on the right-hand side of out. V1 writes 1 at row in, column i_V, 1 at row V1, column v_in, and V_s on the right-hand side of row V1.</desc>
+  <rect width="660" height="318" rx="8" fill="#fff"/>
+  <g font-family="sans-serif" font-size="13" fill="#192d3b">
+    <text x="172" y="54" text-anchor="middle" font-style="italic">v<tspan dy="4" font-size="9">in</tspan><tspan dy="-4" font-size="13">​</tspan></text>
+    <text x="260" y="54" text-anchor="middle" font-style="italic">v<tspan dy="4" font-size="9">out</tspan><tspan dy="-4" font-size="13">​</tspan></text>
+    <text x="348" y="54" text-anchor="middle" font-style="italic">i<tspan dy="4" font-size="9">V</tspan><tspan dy="-4" font-size="13">​</tspan></text>
+    <text x="260" y="30" font-size="12" text-anchor="middle" fill="#52616c">Matrix G: one column per unknown</text>
+    <text x="452" y="54" text-anchor="middle" font-style="italic">x</text>
+    <text x="574" y="54" text-anchor="middle" font-style="italic">b</text>
+    <text x="574" y="30" font-size="12" text-anchor="middle" fill="#52616c">Right-hand side</text>
+    <text x="110" y="98" text-anchor="end" font-weight="bold">in</text>
+    <text x="110" y="114" font-size="11" text-anchor="end" fill="#52616c">KCL, in A</text>
+    <text x="110" y="158" text-anchor="end" font-weight="bold">out</text>
+    <text x="110" y="174" font-size="11" text-anchor="end" fill="#52616c">KCL, in A</text>
+    <text x="110" y="218" text-anchor="end" font-weight="bold">V1</text>
+    <text x="110" y="234" font-size="11" text-anchor="end" fill="#52616c">constraint, in V</text>
+    <line x1="134" y1="130" x2="386" y2="130" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="134" y1="190" x2="386" y2="190" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="216" y1="74" x2="216" y2="246" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="304" y1="74" x2="304" y2="246" stroke="#dde4e8" stroke-width="1"/>
+    <rect x="134" y="89.5" width="76" height="21" rx="4" fill="#dce8f8" stroke="#1b64be" stroke-width="1.2"/>
+    <text x="141" y="104.5" font-size="11" fill="#52616c">R1</text>
+    <text x="203" y="104.5" font-size="12.5" text-anchor="end">+g</text>
+    <rect x="222" y="89.5" width="76" height="21" rx="4" fill="#dce8f8" stroke="#1b64be" stroke-width="1.2"/>
+    <text x="229" y="104.5" font-size="11" fill="#52616c">R1</text>
+    <text x="291" y="104.5" font-size="12.5" text-anchor="end">−g</text>
+    <rect x="310" y="89.5" width="76" height="21" rx="4" fill="#d8efe9" stroke="#00856f" stroke-width="1.2"/>
+    <text x="317" y="104.5" font-size="11" fill="#52616c">V1</text>
+    <text x="379" y="104.5" font-size="12.5" text-anchor="end">+1</text>
+    <rect x="134" y="149.5" width="76" height="21" rx="4" fill="#dce8f8" stroke="#1b64be" stroke-width="1.2"/>
+    <text x="141" y="164.5" font-size="11" fill="#52616c">R1</text>
+    <text x="203" y="164.5" font-size="12.5" text-anchor="end">−g</text>
+    <rect x="222" y="136.5" width="76" height="21" rx="4" fill="#dce8f8" stroke="#1b64be" stroke-width="1.2"/>
+    <text x="229" y="151.5" font-size="11" fill="#52616c">R1</text>
+    <text x="291" y="151.5" font-size="12.5" text-anchor="end">+g</text>
+    <rect x="222" y="162.5" width="76" height="21" rx="4" fill="#f7e4d8" stroke="#a44919" stroke-width="1.2"/>
+    <text x="229" y="177.5" font-size="11" fill="#52616c">C1</text>
+    <text x="291" y="177.5" font-size="12.5" text-anchor="end">+G<tspan dy="4" font-size="9">C</tspan><tspan dy="-4" font-size="13">​</tspan></text>
+    <text x="348" y="165" text-anchor="middle" fill="#8c969d">0</text>
+    <rect x="134" y="209.5" width="76" height="21" rx="4" fill="#d8efe9" stroke="#00856f" stroke-width="1.2"/>
+    <text x="141" y="224.5" font-size="11" fill="#52616c">V1</text>
+    <text x="203" y="224.5" font-size="12.5" text-anchor="end">+1</text>
+    <text x="260" y="225" text-anchor="middle" fill="#8c969d">0</text>
+    <text x="348" y="225" text-anchor="middle" fill="#8c969d">0</text>
+    <path d="M130 66H122V254H130 M390 66H398V254H390" fill="none" stroke="#233848" stroke-width="1.8" stroke-linejoin="round"/>
+    <text x="452" y="105" text-anchor="middle" font-style="italic">v<tspan dy="4" font-size="9">in</tspan><tspan dy="-4" font-size="13">​</tspan></text>
+    <text x="452" y="165" text-anchor="middle" font-style="italic">v<tspan dy="4" font-size="9">out</tspan><tspan dy="-4" font-size="13">​</tspan></text>
+    <text x="452" y="225" text-anchor="middle" font-style="italic">i<tspan dy="4" font-size="9">V</tspan><tspan dy="-4" font-size="13">​</tspan></text>
+    <path d="M430 66H422V254H430 M474 66H482V254H474" fill="none" stroke="#233848" stroke-width="1.8" stroke-linejoin="round"/>
+    <text x="500" y="165" font-size="16" text-anchor="middle">=</text>
+    <text x="574" y="105" text-anchor="middle" fill="#8c969d">0</text>
+    <rect x="522" y="149" width="104" height="21" rx="4" fill="#f7e4d8" stroke="#a44919" stroke-width="1.2"/>
+    <text x="529" y="164" font-size="11" fill="#52616c">C1</text>
+    <text x="619" y="164" font-size="12.5" text-anchor="end">+G<tspan dy="4" font-size="9">C</tspan><tspan dy="-4" font-size="13">​</tspan> v<tspan dy="4" font-size="9">n</tspan><tspan dy="-4" font-size="13">​</tspan></text>
+    <rect x="522" y="209" width="104" height="21" rx="4" fill="#d8efe9" stroke="#00856f" stroke-width="1.2"/>
+    <text x="529" y="224" font-size="11" fill="#52616c">V1</text>
+    <text x="619" y="224" font-size="12.5" text-anchor="end">+V<tspan dy="4" font-size="9">s</tspan><tspan dy="-4" font-size="13">​</tspan></text>
+    <path d="M522 66H514V254H522 M626 66H634V254H626" fill="none" stroke="#233848" stroke-width="1.8" stroke-linejoin="round"/>
+    <rect x="40" y="274" width="18" height="14" rx="3" fill="#dce8f8" stroke="#1b64be" stroke-width="1.2"/>
+    <text x="65" y="286" font-size="12">R1: g = 1/R</text>
+    <rect x="158.5" y="274" width="18" height="14" rx="3" fill="#f7e4d8" stroke="#a44919" stroke-width="1.2"/>
+    <text x="183.5" y="286" font-size="12">C1: backward-Euler companion</text>
+    <rect x="387.5" y="274" width="18" height="14" rx="3" fill="#d8efe9" stroke="#00856f" stroke-width="1.2"/>
+    <text x="412.5" y="286" font-size="12">V1: branch current and constraint</text>
+  </g>
+</svg>

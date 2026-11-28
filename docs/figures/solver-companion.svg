@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="226" viewBox="0 0 640 226" role="img" aria-labelledby="title desc">
+  <title id="title">Companion model of a capacitor for one time step</title>
+  <desc id="desc">Left: a capacitor between nodes p and q with current i = C dv/dt. Right: for one step of length h it is replaced by a conductance G_eq in parallel with a current source I_eq, so that i = G_eq v + I_eq.</desc>
+  <rect width="640" height="226" rx="8" fill="#fff"/>
+  <g font-family="sans-serif" font-size="13" fill="#192d3b">
+    <defs><marker id="arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 8 4 0 8Z" fill="#126757"/></marker><marker id="arrowk" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 8 4 0 8Z" fill="#233848"/></marker></defs>
+    <g fill="none" stroke="#233848" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"><path d="M120 48V101 M120 114V168 M95 101h50 M95 114h50"/></g>
+    <g fill="#233848"><circle cx="120" cy="48" r="4"/><circle cx="120" cy="168" r="4"/></g>
+    <text x="120" y="36" font-size="15" text-anchor="middle" font-weight="bold">p</text>
+    <text x="120" y="192" font-size="15" text-anchor="middle" font-weight="bold">q</text>
+    <text x="156" y="112" font-size="15">C</text>
+    <path d="M96 56v26" fill="none" stroke="#126757" stroke-width="2" marker-end="url(#arrow)"/>
+    <text x="78" y="76" font-size="15" text-anchor="middle" fill="#126757" font-style="italic">i</text>
+    <text x="120" y="214" font-size="14" text-anchor="middle">i = C dv/dt</text>
+    <path d="M222 108h112" fill="none" stroke="#233848" stroke-width="2" marker-end="url(#arrowk)"/>
+    <text x="278" y="96" font-size="12.5" text-anchor="middle">one step of length h</text>
+    <text x="278" y="128" font-size="12" text-anchor="middle" fill="#52616c">integration formula</text>
+    <g fill="none" stroke="#233848" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"><path d="M420 48h130 M420 168h130 M420 48V82 M420 134V168 M550 48V80 M550 136V168"/><rect x="408" y="82" width="24" height="52"/><circle cx="550" cy="108" r="28"/></g>
+    <path d="M550 94v24" fill="none" stroke="#233848" stroke-width="2" marker-end="url(#arrowk)"/>
+    <g fill="none" stroke="#233848" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"><path d="M485 30V48 M485 168V178"/></g>
+    <g fill="#233848"><circle cx="485" cy="48" r="4"/><circle cx="485" cy="168" r="4"/></g>
+    <text x="485" y="22" font-size="15" text-anchor="middle" font-weight="bold">p</text>
+    <text x="485" y="196" font-size="15" text-anchor="middle" font-weight="bold">q</text>
+    <text x="396" y="113" font-size="15" text-anchor="end">G<tspan dy="4" font-size="11">eq</tspan><tspan dy="-4" font-size="15">​</tspan></text>
+    <text x="590" y="113" font-size="15">I<tspan dy="4" font-size="11">eq</tspan><tspan dy="-4" font-size="15">​</tspan></text>
+    <path d="M466 20v20" fill="none" stroke="#126757" stroke-width="2" marker-end="url(#arrow)"/>
+    <text x="452" y="36" font-size="15" text-anchor="middle" fill="#126757" font-style="italic">i</text>
+    <text x="485" y="216" font-size="14" text-anchor="middle">i = G<tspan dy="4" font-size="10">eq</tspan><tspan dy="-4" font-size="14">​</tspan> v + I<tspan dy="4" font-size="10">eq</tspan><tspan dy="-4" font-size="14">​</tspan></text>
+  </g>
+</svg>

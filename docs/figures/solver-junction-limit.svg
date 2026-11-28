@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="320" viewBox="0 0 640 320" role="img" aria-labelledby="title desc">
+  <title id="title">Junction voltage limiting between Newton iterations</title>
+  <desc id="desc">Voltage at which the diode is evaluated against the voltage Newton proposes. Without limiting the two are equal. From a previous voltage of 0.65 V a proposal of 2 V is evaluated at 0.753 V. From 0 V a proposal above the critical voltage of 0.614 V is evaluated near 0.1 V.</desc>
+  <rect width="640" height="320" rx="8" fill="#fff"/>
+  <g font-family="sans-serif" font-size="13" fill="#192d3b">
+    <line x1="70" y1="254" x2="606" y2="254" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="70" y1="212" x2="606" y2="212" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="70" y1="170" x2="606" y2="170" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="70" y1="128" x2="606" y2="128" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="70" y1="86" x2="606" y2="86" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="70" y1="44" x2="606" y2="44" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="70" y1="44" x2="70" y2="254" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="204" y1="44" x2="204" y2="254" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="338" y1="44" x2="338" y2="254" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="472" y1="44" x2="472" y2="254" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="606" y1="44" x2="606" y2="254" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="70" y1="44" x2="70" y2="254" stroke="#233848" stroke-width="1"/>
+    <line x1="70" y1="254" x2="606" y2="254" stroke="#233848" stroke-width="1"/>
+    <line x1="70" y1="254" x2="70" y2="258" stroke="#233848" stroke-width="1"/>
+    <text x="70" y="272" font-size="12" text-anchor="middle" fill="#52616c">0.0</text>
+    <line x1="204" y1="254" x2="204" y2="258" stroke="#233848" stroke-width="1"/>
+    <text x="204" y="272" font-size="12" text-anchor="middle" fill="#52616c">0.5</text>
+    <line x1="338" y1="254" x2="338" y2="258" stroke="#233848" stroke-width="1"/>
+    <text x="338" y="272" font-size="12" text-anchor="middle" fill="#52616c">1.0</text>
+    <line x1="472" y1="254" x2="472" y2="258" stroke="#233848" stroke-width="1"/>
+    <text x="472" y="272" font-size="12" text-anchor="middle" fill="#52616c">1.5</text>
+    <line x1="606" y1="254" x2="606" y2="258" stroke="#233848" stroke-width="1"/>
+    <text x="606" y="272" font-size="12" text-anchor="middle" fill="#52616c">2.0</text>
+    <line x1="66" y1="254" x2="70" y2="254" stroke="#233848" stroke-width="1"/>
+    <text x="62" y="258" font-size="12" text-anchor="end" fill="#52616c">0.0</text>
+    <line x1="66" y1="212" x2="70" y2="212" stroke="#233848" stroke-width="1"/>
+    <text x="62" y="216" font-size="12" text-anchor="end" fill="#52616c">0.2</text>
+    <line x1="66" y1="170" x2="70" y2="170" stroke="#233848" stroke-width="1"/>
+    <text x="62" y="174" font-size="12" text-anchor="end" fill="#52616c">0.4</text>
+    <line x1="66" y1="128" x2="70" y2="128" stroke="#233848" stroke-width="1"/>
+    <text x="62" y="132" font-size="12" text-anchor="end" fill="#52616c">0.6</text>
+    <line x1="66" y1="86" x2="70" y2="86" stroke="#233848" stroke-width="1"/>
+    <text x="62" y="90" font-size="12" text-anchor="end" fill="#52616c">0.8</text>
+    <line x1="66" y1="44" x2="70" y2="44" stroke="#233848" stroke-width="1"/>
+    <text x="62" y="48" font-size="12" text-anchor="end" fill="#52616c">1.0</text>
+    <text x="338" y="292" text-anchor="middle">Junction voltage proposed by the Newton step [V]</text>
+    <text x="20" y="149" text-anchor="middle" transform="rotate(-90 20 149)">Voltage used [V]</text>
+    <path d="M70 254 L338 44" fill="none" stroke="#6b7780" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="2 5"/>
+    <path d="M70 254 L258.14 106.58" fill="none" stroke="#1b64be" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M258.14 111.5 L262 110.58 L265.87 109.78 L269.73 109.09 L273.6 108.48 L277.46 107.93 L281.33 107.43 L285.19 106.97 L289.06 106.54 L292.92 106.15 L296.79 105.79 L300.65 105.44 L304.52 105.12 L308.38 104.81 L312.25 104.52 L316.11 104.25 L319.98 103.99 L323.84 103.74 L327.71 103.5 L331.57 103.27 L335.44 103.05 L339.3 102.84 L343.17 102.64 L347.03 102.44 L350.9 102.26 L354.76 102.07 L358.63 101.9 L362.5 101.73 L366.36 101.56 L370.23 101.4 L374.09 101.24 L377.96 101.09 L381.82 100.94 L385.69 100.8 L389.55 100.66 L393.42 100.52 L397.28 100.39 L401.15 100.26 L405.01 100.13 L408.88 100.01 L412.74 99.88 L416.61 99.77 L420.47 99.65 L424.34 99.53 L428.2 99.42 L432.07 99.31 L435.93 99.21 L439.8 99.1 L443.66 99 L447.53 98.9 L451.39 98.8 L455.26 98.7 L459.12 98.6 L462.99 98.51 L466.85 98.42 L470.72 98.33 L474.58 98.24 L478.45 98.15 L482.32 98.06 L486.18 97.98 L490.05 97.89 L493.91 97.81 L497.78 97.73 L501.64 97.65 L505.51 97.57 L509.37 97.49 L513.24 97.41 L517.1 97.34 L520.97 97.26 L524.83 97.19 L528.7 97.11 L532.56 97.04 L536.43 96.97 L540.29 96.9 L544.16 96.83 L548.02 96.76 L551.89 96.7 L555.75 96.63 L559.62 96.56 L563.48 96.5 L567.35 96.43 L571.21 96.37 L575.08 96.31 L578.94 96.25 L582.81 96.18 L586.67 96.12 L590.54 96.06 L594.4 96 L598.27 95.95 L602.13 95.89 L606 95.83" fill="none" stroke="#1b64be" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M70 254 L234.69 124.95" fill="none" stroke="#a44919" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="7 4"/>
+    <path d="M234.69 236.73 L238.81 236.6 L242.94 236.46 L247.06 236.34 L251.19 236.21 L255.32 236.09 L259.44 235.97 L263.57 235.85 L267.69 235.73 L271.82 235.62 L275.94 235.51 L280.07 235.4 L284.2 235.3 L288.32 235.19 L292.45 235.09 L296.57 234.99 L300.7 234.89 L304.82 234.79 L308.95 234.7 L313.08 234.61 L317.2 234.51 L321.33 234.42 L325.45 234.33 L329.58 234.25 L333.7 234.16 L337.83 234.08 L341.96 233.99 L346.08 233.91 L350.21 233.83 L354.33 233.75 L358.46 233.67 L362.58 233.59 L366.71 233.52 L370.84 233.44 L374.96 233.37 L379.09 233.29 L383.21 233.22 L387.34 233.15 L391.46 233.08 L395.59 233.01 L399.72 232.94 L403.84 232.87 L407.97 232.81 L412.09 232.74 L416.22 232.67 L420.34 232.61 L424.47 232.55 L428.59 232.48 L432.72 232.42 L436.85 232.36 L440.97 232.3 L445.1 232.24 L449.22 232.18 L453.35 232.12 L457.47 232.06 L461.6 232 L465.73 231.94 L469.85 231.89 L473.98 231.83 L478.1 231.78 L482.23 231.72 L486.35 231.67 L490.48 231.61 L494.61 231.56 L498.73 231.51 L502.86 231.46 L506.98 231.4 L511.11 231.35 L515.23 231.3 L519.36 231.25 L523.49 231.2 L527.61 231.15 L531.74 231.1 L535.86 231.05 L539.99 231.01 L544.11 230.96 L548.24 230.91 L552.37 230.86 L556.49 230.82 L560.62 230.77 L564.74 230.73 L568.87 230.68 L572.99 230.64 L577.12 230.59 L581.25 230.55 L585.37 230.5 L589.5 230.46 L593.62 230.42 L597.75 230.37 L601.87 230.33 L606 230.29" fill="none" stroke="#a44919" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="7 4"/>
+    <circle cx="234.69" cy="124.95" r="4" fill="#fff" stroke="#a44919" stroke-width="2"/>
+    <line x1="234.69" y1="254" x2="234.69" y2="124.95" stroke="#8c969d" stroke-width="1" stroke-dasharray="2 3"/>
+    <text x="240.69" y="149" font-size="12" fill="#52616c">V<tspan dy="4" font-size="9">crit</tspan><tspan dy="-4" font-size="13">​</tspan> = 0.614 V</text>
+    <line x1="70" y1="22" x2="96" y2="22" stroke="#6b7780" stroke-width="2" stroke-dasharray="2 5" stroke-linecap="round"/>
+    <text x="102" y="26" font-size="12">no limiting</text>
+    <line x1="196.6" y1="22" x2="222.6" y2="22" stroke="#1b64be" stroke-width="2" stroke-linecap="round"/>
+    <text x="228.6" y="26" font-size="12">previous voltage 0.65 V</text>
+    <line x1="402.4" y1="22" x2="428.4" y2="22" stroke="#a44919" stroke-width="2" stroke-dasharray="7 4" stroke-linecap="round"/>
+    <text x="434.4" y="26" font-size="12">previous voltage 0 V</text>
+    <text x="450.56" y="88.82" font-size="12" fill="#192d3b">0.65 V + nV<tspan dy="4" font-size="9">T</tspan><tspan dy="-4" font-size="13">​</tspan> ln(1 + Δv / nV<tspan dy="4" font-size="9">T</tspan><tspan dy="-4" font-size="13">​</tspan>)</text>
+    <text x="450.56" y="222.16" font-size="12">nV<tspan dy="4" font-size="9">T</tspan><tspan dy="-4" font-size="13">​</tspan> ln(v / nV<tspan dy="4" font-size="9">T</tspan><tspan dy="-4" font-size="13">​</tspan>)</text>
+  </g>
+</svg>

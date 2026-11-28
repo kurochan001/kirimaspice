@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="340" viewBox="0 0 640 340" role="img" aria-labelledby="title desc">
+  <title id="title">Error at 1 ms against the step length</title>
+  <desc id="desc">Log-log plot for the RC example. Halving the step halves the error of backward Euler and quarters the error of the trapezoidal rule and of BDF2.</desc>
+  <rect width="640" height="340" rx="8" fill="#fff"/>
+  <g font-family="sans-serif" font-size="13" fill="#192d3b">
+    <line x1="78" y1="260.94" x2="548" y2="260.94" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="78" y1="217.55" x2="548" y2="217.55" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="78" y1="174.16" x2="548" y2="174.16" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="78" y1="130.78" x2="548" y2="130.78" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="78" y1="87.39" x2="548" y2="87.39" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="78" y1="44" x2="548" y2="44" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="100.77" y1="44" x2="100.77" y2="274" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="171.52" y1="44" x2="171.52" y2="274" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="242.26" y1="44" x2="242.26" y2="274" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="313" y1="44" x2="313" y2="274" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="383.74" y1="44" x2="383.74" y2="274" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="454.48" y1="44" x2="454.48" y2="274" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="525.23" y1="44" x2="525.23" y2="274" stroke="#dde4e8" stroke-width="1"/>
+    <line x1="78" y1="44" x2="78" y2="274" stroke="#233848" stroke-width="1"/>
+    <line x1="78" y1="274" x2="548" y2="274" stroke="#233848" stroke-width="1"/>
+    <line x1="100.77" y1="274" x2="100.77" y2="278" stroke="#233848" stroke-width="1"/>
+    <text x="100.77" y="292" font-size="12" text-anchor="middle" fill="#52616c">3.125</text>
+    <line x1="171.52" y1="274" x2="171.52" y2="278" stroke="#233848" stroke-width="1"/>
+    <text x="171.52" y="292" font-size="12" text-anchor="middle" fill="#52616c">6.25</text>
+    <line x1="242.26" y1="274" x2="242.26" y2="278" stroke="#233848" stroke-width="1"/>
+    <text x="242.26" y="292" font-size="12" text-anchor="middle" fill="#52616c">12.5</text>
+    <line x1="313" y1="274" x2="313" y2="278" stroke="#233848" stroke-width="1"/>
+    <text x="313" y="292" font-size="12" text-anchor="middle" fill="#52616c">25</text>
+    <line x1="383.74" y1="274" x2="383.74" y2="278" stroke="#233848" stroke-width="1"/>
+    <text x="383.74" y="292" font-size="12" text-anchor="middle" fill="#52616c">50</text>
+    <line x1="454.48" y1="274" x2="454.48" y2="278" stroke="#233848" stroke-width="1"/>
+    <text x="454.48" y="292" font-size="12" text-anchor="middle" fill="#52616c">100</text>
+    <line x1="525.23" y1="274" x2="525.23" y2="278" stroke="#233848" stroke-width="1"/>
+    <text x="525.23" y="292" font-size="12" text-anchor="middle" fill="#52616c">200</text>
+    <line x1="74" y1="260.94" x2="78" y2="260.94" stroke="#233848" stroke-width="1"/>
+    <text x="70" y="264.94" font-size="12" text-anchor="end" fill="#52616c">1 µV</text>
+    <line x1="74" y1="217.55" x2="78" y2="217.55" stroke="#233848" stroke-width="1"/>
+    <text x="70" y="221.55" font-size="12" text-anchor="end" fill="#52616c">10 µV</text>
+    <line x1="74" y1="174.16" x2="78" y2="174.16" stroke="#233848" stroke-width="1"/>
+    <text x="70" y="178.16" font-size="12" text-anchor="end" fill="#52616c">100 µV</text>
+    <line x1="74" y1="130.78" x2="78" y2="130.78" stroke="#233848" stroke-width="1"/>
+    <text x="70" y="134.78" font-size="12" text-anchor="end" fill="#52616c">1 mV</text>
+    <line x1="74" y1="87.39" x2="78" y2="87.39" stroke="#233848" stroke-width="1"/>
+    <text x="70" y="91.39" font-size="12" text-anchor="end" fill="#52616c">10 mV</text>
+    <line x1="74" y1="44" x2="78" y2="44" stroke="#233848" stroke-width="1"/>
+    <text x="70" y="48" font-size="12" text-anchor="end" fill="#52616c">100 mV</text>
+    <text x="313" y="312" text-anchor="middle">Step length h [µs]</text>
+    <text x="20" y="159" text-anchor="middle" transform="rotate(-90 20 159)">Error of v(out) at 1 ms</text>
+    <path d="M525.23 64.33 L454.48 76.67 L383.74 89.35 L313 102.22 L242.26 115.18 L171.52 128.2 L100.77 141.23" fill="none" stroke="#1b64be" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="525.23" cy="64.33" r="3.5" fill="#1b64be" stroke="#fff" stroke-width="2"/>
+    <circle cx="454.48" cy="76.67" r="3.5" fill="#1b64be" stroke="#fff" stroke-width="2"/>
+    <circle cx="383.74" cy="89.35" r="3.5" fill="#1b64be" stroke="#fff" stroke-width="2"/>
+    <circle cx="313" cy="102.22" r="3.5" fill="#1b64be" stroke="#fff" stroke-width="2"/>
+    <circle cx="242.26" cy="115.18" r="3.5" fill="#1b64be" stroke="#fff" stroke-width="2"/>
+    <circle cx="171.52" cy="128.2" r="3.5" fill="#1b64be" stroke="#fff" stroke-width="2"/>
+    <circle cx="100.77" cy="141.23" r="3.5" fill="#1b64be" stroke="#fff" stroke-width="2"/>
+    <text x="535.23" y="68.33" font-size="12">BE</text>
+    <path d="M525.23 98.45 L454.48 123.75 L383.74 149.39 L313 175.25 L242.26 201.23 L171.52 227.29 L100.77 253.37" fill="none" stroke="#a44919" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="7 4"/>
+    <circle cx="525.23" cy="98.45" r="3.5" fill="#a44919" stroke="#fff" stroke-width="2"/>
+    <circle cx="454.48" cy="123.75" r="3.5" fill="#a44919" stroke="#fff" stroke-width="2"/>
+    <circle cx="383.74" cy="149.39" r="3.5" fill="#a44919" stroke="#fff" stroke-width="2"/>
+    <circle cx="313" cy="175.25" r="3.5" fill="#a44919" stroke="#fff" stroke-width="2"/>
+    <circle cx="242.26" cy="201.23" r="3.5" fill="#a44919" stroke="#fff" stroke-width="2"/>
+    <circle cx="171.52" cy="227.29" r="3.5" fill="#a44919" stroke="#fff" stroke-width="2"/>
+    <circle cx="100.77" cy="253.37" r="3.5" fill="#a44919" stroke="#fff" stroke-width="2"/>
+    <text x="535.23" y="102.45" font-size="12">TRAP</text>
+    <path d="M525.23 79.53 L454.48 106.95 L383.74 133.64 L313 159.96 L242.26 186.17 L171.52 212.33 L100.77 238.46" fill="none" stroke="#7a4fd0" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="2 4"/>
+    <circle cx="525.23" cy="79.53" r="3.5" fill="#7a4fd0" stroke="#fff" stroke-width="2"/>
+    <circle cx="454.48" cy="106.95" r="3.5" fill="#7a4fd0" stroke="#fff" stroke-width="2"/>
+    <circle cx="383.74" cy="133.64" r="3.5" fill="#7a4fd0" stroke="#fff" stroke-width="2"/>
+    <circle cx="313" cy="159.96" r="3.5" fill="#7a4fd0" stroke="#fff" stroke-width="2"/>
+    <circle cx="242.26" cy="186.17" r="3.5" fill="#7a4fd0" stroke="#fff" stroke-width="2"/>
+    <circle cx="171.52" cy="212.33" r="3.5" fill="#7a4fd0" stroke="#fff" stroke-width="2"/>
+    <circle cx="100.77" cy="238.46" r="3.5" fill="#7a4fd0" stroke="#fff" stroke-width="2"/>
+    <text x="535.23" y="83.53" font-size="12">GEAR2 (BDF2)</text>
+    <line x1="78" y1="22" x2="104" y2="22" stroke="#1b64be" stroke-width="2" stroke-linecap="round"/>
+    <text x="110" y="26" font-size="12">BE</text>
+    <line x1="145.2" y1="22" x2="171.2" y2="22" stroke="#a44919" stroke-width="2" stroke-dasharray="7 4" stroke-linecap="round"/>
+    <text x="177.2" y="26" font-size="12">TRAP</text>
+    <line x1="225.6" y1="22" x2="251.6" y2="22" stroke="#7a4fd0" stroke-width="2" stroke-dasharray="2 4" stroke-linecap="round"/>
+    <text x="257.6" y="26" font-size="12">GEAR2 (BDF2)</text>
+    <path d="M148.74 97.01 L290.23 97.01 L290.23 70.89 L148.74 97.01 Z" fill="none" stroke="#8c969d" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+    <text x="296.23" y="87.95" font-size="12" fill="#52616c">slope 1</text>
+    <path d="M331.61 211.21 L473.09 211.21 L473.09 158.97 L331.61 211.21 Z" fill="none" stroke="#8c969d" stroke-width="1" stroke-linejoin="round" stroke-linecap="round"/>
+    <text x="479.09" y="189.09" font-size="12" fill="#52616c">slope 2</text>
+  </g>
+</svg>
