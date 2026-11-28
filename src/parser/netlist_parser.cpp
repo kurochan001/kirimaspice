@@ -3038,11 +3038,14 @@ static void parse_tf_directive(const std::vector<std::string>& tokens, ParseStat
     std::string output_signal = tokens[1];
     std::string input_source = tokens[2];
 
-    // Validate output signal format (should be v(node) or i(source))
+    // Validate output signal format (should be v(node) or i(source)), the
+    // letter in either case, as TransferFunctionSolver reads it and as
+    // .NOISE takes its V(
     bool valid_output = false;
     if (output_signal.size() >= 4) {
-        if ((output_signal[0] == 'v' || output_signal[0] == 'i') &&
-            output_signal[1] == '(' &&
+        const char kind =
+            static_cast<char>(std::tolower(static_cast<unsigned char>(output_signal[0])));
+        if ((kind == 'v' || kind == 'i') && output_signal[1] == '(' &&
             output_signal.find(')') != std::string::npos) {
             valid_output = true;
         }

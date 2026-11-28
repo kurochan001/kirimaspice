@@ -64,6 +64,22 @@ Vin in 0 DC 5
     EXPECT_TRUE(result.config.tf.enabled);
 }
 
+// The letter of the output is read in either case, as the rest of a netlist
+// is: V(out) and I(Vload) are the outputs of BasicVoltageSyntax and
+// CurrentOutputSyntax with the letter in upper case, kept as written
+TEST(TransferFunctionParser, UpperCaseOutput) {
+    for (const std::string output : {"V(out)", "I(Vload)"}) {
+        const std::string netlist =
+            "Upper case\nR1 in out 1k\nVload out 0 DC 0\nVin in 0 DC 5\n.TF " + output +
+            " Vin\n.END\n";
+        NetlistParser parser;
+        auto result = parser.parse_string(netlist);
+        EXPECT_TRUE(result.config.tf.enabled) << output;
+        EXPECT_EQ(result.config.tf.output_signal, output) << output;
+        EXPECT_EQ(result.config.tf.input_source, "Vin") << output;
+    }
+}
+
 TEST(TransferFunctionParser, InvalidSyntax_TooFewArgs) {
     std::string netlist = R"(Invalid Syntax
 R1 in out 1k
@@ -240,6 +256,30 @@ TEST(TransferFunctionSolver, MatchesNgspice) {
         EXPECT_NEAR(result.input_resistance, c.rin, 1e-5 * c.rin) << c.what;
         // The inductor's DC short is 1e6 S, so its output resistance is 1 uOhm
         EXPECT_NEAR(result.output_resistance, c.rout, 1e-5 * c.rout + 2e-6) << c.what;
+    }
+}
+
+// V( and I( in upper case are the outputs that v( and i( are: ngspice-45.2
+// gives these values for these lines (run 2026-11-28), which are R2/(R1 + R2),
+// R1 + R2 and R1 R2/(R1 + R2) of the divider, and 1/(R1 + R2) for the current
+TEST(TransferFunctionSolver, UpperCaseOutputMatchesNgspice) {
+    const struct {
+        std::string what, lines;
+        Real gain, rin, rout;
+    } cases[] = {
+        {"voltage", "V1 in 0 1\nR1 in a 1k\nR2 a 0 3k\n.TF V(a) V1\n", 0.75, 4000.0, 750.0},
+        {"current", "V1 in 0 1\nR1 in a 1k\nVm a b 0\nR2 b 0 3k\n.TF I(Vm) V1\n", 2.5e-4, 4000.0,
+         1e20},
+    };
+    for (const auto& c : cases) {
+        parser::NetlistParser parser;
+        auto parsed = parser.parse_string("t\n" + c.lines + ".end\n");
+        TransferFunctionSolver solver(*parsed.circuit, parsed.config);
+        const auto result = solver.analyze();
+        ASSERT_TRUE(result.success) << c.what;
+        EXPECT_NEAR(result.transfer_gain, c.gain, 1e-6 * std::abs(c.gain)) << c.what;
+        EXPECT_NEAR(result.input_resistance, c.rin, 1e-6 * c.rin) << c.what;
+        EXPECT_NEAR(result.output_resistance, c.rout, 1e-6 * c.rout) << c.what;
     }
 }
 
