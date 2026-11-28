@@ -2,7 +2,7 @@
 
 [日本語](README.ja.md)
 
-[Documentation guide](docs/README.md) · [User manual](docs/USER_MANUAL.md) · [Reference manual](docs/REFERENCE_MANUAL.md) · [Examples](examples/README.md) · [Glossary](docs/GLOSSARY.md) · [FAQ](docs/FAQ.md) · [Known issues](KNOWN_ISSUES.md) · [Contributing](CONTRIBUTING.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
+[Documentation guide](docs/README.md) · [User manual](docs/USER_MANUAL.md) · [Reference manual](docs/REFERENCE_MANUAL.md) · [How the circuit solver works](docs/SOLVER_ALGORITHMS.md) · [Examples](examples/README.md) · [Glossary](docs/GLOSSARY.md) · [FAQ](docs/FAQ.md) · [Known issues](KNOWN_ISSUES.md) · [Contributing](CONTRIBUTING.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
 
 [![CI](https://github.com/kurochan001/kirimaspice/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/kurochan001/kirimaspice/actions/workflows/ci.yml?query=branch%3Amain)
 [![Nightly](https://github.com/kurochan001/kirimaspice/actions/workflows/nightly.yml/badge.svg?branch=main)](https://github.com/kurochan001/kirimaspice/actions/workflows/nightly.yml?query=branch%3Amain)
