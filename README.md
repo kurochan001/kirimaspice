@@ -122,6 +122,12 @@ Two 1 kΩ resistors divide 3.3 V in half, so the program prints
 | RC charging curve (`.TRAN`) | `examples/rc_step.sp --raw-out step.raw` | Read `time` and `v(out)` in `step.raw`. |
 | RC frequency response (`.AC`) | `examples/rc_lowpass_ac.sp -o lowpass` | Read magnitude in dB and phase in degrees in `lowpass_ac.csv` in the working directory. |
 
+To see how a netlist becomes these results, read
+[How the circuit solver works](docs/SOLVER_ALGORITHMS.md). It follows an RC
+circuit with the `R1` and `C1` of the charging example (1 kΩ, 1 µF) from its
+netlist to a matrix and then to one point on a waveform, and adds a diode to
+show where Newton's method comes in.
+
 For binary raw, SSF and WAV output, see [Save the results](docs/USER_MANUAL.md#save-the-results).
 Run `build/kirimaspice --help` for all options.
 
@@ -132,7 +138,7 @@ you want to do.
 
 - [User Manual](docs/USER_MANUAL.md): building, writing a netlist, running and reading the results, the Python tools
 - [Reference Manual](docs/REFERENCE_MANUAL.md): options, elements, directives and output formats
-- [How the circuit solver works](docs/SOLVER_ALGORITHMS.md) follows MNA, device stamps, Newton iteration, integration and error estimation in an RC circuit.
+- [How the circuit solver works](docs/SOLVER_ALGORITHMS.md): MNA, device stamps, Newton iteration, integration and error estimation, followed in an RC circuit
 - [Examples](examples/README.md): small netlists with analytic solutions, checked by CTest
 - [Moving from ngspice](docs/PORTING.md): what is the same, and a checklist for a netlist
 - [Glossary](docs/GLOSSARY.md): the terms the documents use

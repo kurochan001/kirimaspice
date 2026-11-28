@@ -114,6 +114,10 @@ build/kirimaspice examples/test_simple_divider.sp
 | RC の充電波形 `.TRAN` | `examples/rc_step.sp --raw-out step.raw` | `step.raw` の `time` と `v(out)` が時刻と出力電圧です。 |
 | RC の周波数応答 `.AC` | `examples/rc_lowpass_ac.sp -o lowpass` | カレントディレクトリの `lowpass_ac.csv` に振幅（dB）と位相（度）が出ます。 |
 
+ネットリストがこうした結果になるまでの計算は、[回路方程式の解き方](docs/SOLVER_ALGORITHMS.ja.md)で追えます。
+充電波形の例題と同じ `R1`（1 kΩ）と `C1`（1 µF）の RC 回路で、ネットリストが行列になり、波形の 1 点になるまでを
+たどり、ダイオードを加えてニュートン法が必要になるところも示します。
+
 バイナリ raw、SSF、WAV の保存方法は[ユーザーマニュアル](docs/USER_MANUAL.ja.md#結果を保存する)にあります。
 すべてのオプションは `build/kirimaspice --help` で確認できます。
 
@@ -123,7 +127,7 @@ build/kirimaspice examples/test_simple_divider.sp
 
 - [ユーザーマニュアル](docs/USER_MANUAL.ja.md)：ビルド、ネットリストの書き方、実行、結果の読み方、Python のツール
 - [リファレンスマニュアル](docs/REFERENCE_MANUAL.ja.md)：オプション、素子、ディレクティブ、出力形式
-- [回路方程式の解き方](docs/SOLVER_ALGORITHMS.ja.md)（MNA、スタンプ、ニュートン法、時間積分、誤差推定をRC回路で追う）
+- [回路方程式の解き方](docs/SOLVER_ALGORITHMS.ja.md)：MNA、スタンプ、ニュートン法、時間積分、誤差推定を RC 回路で追う
 - [例題](examples/README.ja.md)：解析解のある小さなネットリスト。CTest が確かめる
 - [ngspice からの移行](docs/PORTING.ja.md)：同じ点と、ネットリストの確認項目
 - [用語集](docs/GLOSSARY.ja.md)：文書で使う用語
