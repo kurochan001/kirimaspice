@@ -258,7 +258,20 @@ std::vector<Real> ac_frequency_points(const SimulationConfig::AC& ac_config, Rea
     return frequencies;
 }
 
-ComplexDenseVector ACSolver::solve_at_frequency(Real omega) {
+ComplexDenseVector ACSolver::solve_excited(Real omega,
+                                           const std::function<void(ComplexMNASystem&)>& excite) {
+    if (dc_solution_.empty()) {
+        dc_solution_ = compute_dc_operating_point();
+        if (dc_solution_.empty()) {
+            return ComplexDenseVector();
+        }
+        linearize_devices();
+    }
+    return solve_at_frequency(omega, &excite);
+}
+
+ComplexDenseVector ACSolver::solve_at_frequency(Real omega,
+                                                const std::function<void(ComplexMNASystem&)>* excite) {
     // Build complex admittance matrix Y and current source vector I
     std::uint32_t num_nodes = circuit_.num_nodes() - 1; // Exclude GND
     std::uint32_t num_branches = 0;
@@ -289,6 +302,11 @@ ComplexDenseVector ACSolver::solve_at_frequency(Real omega) {
     // Stamp all devices with AC admittance
     for (const auto& device : circuit_.get_devices()) {
         device->stamp_ac(*complex_system, omega, dc_solution_);
+    }
+    // An excitation of the caller's in place of the sources' AC values
+    if (excite) {
+        std::fill(complex_system->I.begin(), complex_system->I.end(), Complex(0.0, 0.0));
+        (*excite)(*complex_system);
     }
 
     // No conductance is added from the nodes to ground: as in SPICE and in

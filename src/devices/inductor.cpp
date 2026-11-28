@@ -561,8 +561,12 @@ void Inductor::stamp_ac(ComplexMNASystem& sys,
 
     // Complex admittance: Y_L = 1/(jωL) = -j/(ωL)
     // = 0 - j/(ωL)
-    Complex j_omega_L(0.0, omega * inductance_);
-    Complex Y_L = Complex(1.0, 0.0) / j_omega_L;
+    // At omega = 0 the inductor is its DC model, the short of
+    // kDcConductance, as the operating point has it, not 1/0: the small-
+    // signal circuit at DC (.TF, an AC point at 0 Hz) is that of the DC
+    // analysis
+    const Complex Y_L = (omega == 0.0) ? Complex(kDcConductance, 0.0)
+                                       : Complex(1.0, 0.0) / Complex(0.0, omega * inductance_);
 
     // Convert node IDs to MNA indices
     auto np_idx = (np == NODE_GND) ? -1 : static_cast<int>(np - 1);

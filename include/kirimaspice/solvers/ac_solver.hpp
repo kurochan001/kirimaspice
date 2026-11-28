@@ -9,6 +9,7 @@
 #include "kirimaspice/core/types.hpp"
 #include "kirimaspice/solvers/isparse_solver.hpp"
 #include "kirimaspice/utils/memory_pool.hpp"
+#include <functional>
 #include <vector>
 #include <memory>
 
@@ -68,6 +69,15 @@ public:
     /// @return AC analysis result with frequency response
     ACResult solve();
 
+    /// The small-signal solution at angular frequency `omega` for an
+    /// excitation of one's own: the operating point is computed (once),
+    /// every device is stamped at it as solve() stamps it, and the
+    /// right-hand side is then what `excite` puts into the system, the AC
+    /// values of the sources left out. The solution holds the node voltages,
+    /// then the branch currents; it is empty if the operating point or the
+    /// linear solve fails. The transfer function uses it at omega = 0.
+    ComplexDenseVector solve_excited(Real omega, const std::function<void(ComplexMNASystem&)>& excite);
+
 private:
     // ========================================================================
     // Internal methods
@@ -88,7 +98,8 @@ private:
     /// Solve AC system at a single frequency
     /// @param omega Angular frequency [rad/s]
     /// @return Complex solution vector (phasors)
-    ComplexDenseVector solve_at_frequency(Real omega);
+    ComplexDenseVector solve_at_frequency(Real omega,
+                                          const std::function<void(ComplexMNASystem&)>* excite = nullptr);
 
     /// Convert complex MNA system to real system (real/imag separation)
     /// Y_complex * V_complex = I_complex

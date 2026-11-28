@@ -463,7 +463,7 @@ its own solver. The inputs are the sources written with `AC`
 | Temperature sweep (`.TEMP`) | `solve_temp_sweep` of the DC and transient solvers | `.TEMP` is, but not through these functions: the program runs the analyses once per `.TEMP` value itself (`run_analyses` in `main.cpp`) |
 | Noise | `NoiseSolver`, adjoint method over `get_noise_sources`, at the frequencies of the AC sweep (`solvers::ac_frequency_points`) | no; there is no `.NOISE` |
 | Sensitivity | `SensitivityAnalyzer`, finite differences through `set_parameter` | no; `.SENS` is parsed |
-| Transfer function | `TransferFunctionSolver`, finite differences on the input source | no; `.TF` is parsed |
+| Transfer function | `TransferFunctionSolver`, the small-signal circuit at omega = 0 (`ACSolver::solve_excited`) with 1 at the input, then 1 A into the output | yes, voltage outputs |
 | Pole-zero | `PoleZeroSolver`, a placeholder | no; `.PZ` is parsed |
 | Distortion | `DistortionSolver`, ratios of small-signal magnitudes | no; `.DISTO` is parsed |
 | S-parameters | `SParameterSolver`, with `TouchstoneWriter` | no; `.PORT` is parsed |

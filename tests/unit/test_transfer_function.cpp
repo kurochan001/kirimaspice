@@ -208,3 +208,46 @@ Vin in 0 DC 5
     // Therefore, R_in = 5V / 2.5mA = 2000Ω
     EXPECT_NEAR(result.input_resistance, 2000.0, 1.0);  // 2kΩ ± 1Ω tolerance
 }
+
+// The transfer function of the circuit linearized at its operating point,
+// as SPICE's .TF gives it (TransferFunctionSolver::analyze through
+// ACSolver::solve_excited at omega = 0): ngspice-45.2 gives these gains and
+// input and output resistances (run 2026-11-28). They need the small-signal
+// models of the devices: the VCVS's output is 0 Ohm, the diode's
+// conductance at its operating point sets all three, a current source as
+// input gives a transresistance and the voltage across it, v(b,c) is a
+// difference of two nodes, and an inductor is the short of its DC model.
+TEST(TransferFunctionSolver, MatchesNgspice) {
+    const struct {
+        std::string what, lines;
+        Real gain, rin, rout;
+    } cases[] = {
+        {"vcvs", "V1 in 0 1\nR1 in b 1k\nR2 b 0 1k\nE1 out 0 b 0 10\nRo out 0 1k\n.tf v(out) V1\n", 5.0, 2000.0, 0.0},
+        {"diode", "V1 in 0 1\nR1 in b 1k\nD1 b 0 dm\n.model dm D IS=1e-14\n.tf v(b) V1\n", 6.524539e-02,
+         1.069799e+03, 6.524539e+01},
+        {"current source", "I1 0 x 1m\nR3 x 0 2k\nR4 x y 1k\nR5 y 0 1k\n.tf v(y) I1\n", 500.0, 1000.0, 750.0},
+        {"two nodes", "V1 in 0 1\nR1 in b 1k\nR2 b c 1k\nR3 c 0 1k\n.tf v(b,c) V1\n", 1.0 / 3.0, 3000.0,
+         2000.0 / 3.0},
+        {"inductor", "V1 in 0 1\nL1 in b 1m\nC1 b 0 1u\nR2 b 0 1k\n.tf v(b) V1\n", 1.0, 1000.0, 0.0},
+    };
+    for (const auto& c : cases) {
+        parser::NetlistParser parser;
+        auto parsed = parser.parse_string("t\n" + c.lines + ".end\n");
+        TransferFunctionSolver solver(*parsed.circuit, parsed.config);
+        const auto result = solver.analyze();
+        ASSERT_TRUE(result.success) << c.what;
+        EXPECT_NEAR(result.transfer_gain, c.gain, 1e-5 * std::abs(c.gain)) << c.what;
+        EXPECT_NEAR(result.input_resistance, c.rin, 1e-5 * c.rin) << c.what;
+        // The inductor's DC short is 1e6 S, so its output resistance is 1 uOhm
+        EXPECT_NEAR(result.output_resistance, c.rout, 1e-5 * c.rout + 2e-6) << c.what;
+    }
+}
+
+// A current output, i(<source>), is not taken: the analysis fails with a
+// message instead of a value
+TEST(TransferFunctionSolver, CurrentOutputIsNotTaken) {
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string("t\nV1 in 0 1\nR1 in 0 1k\n.tf i(V1) V1\n.end\n");
+    TransferFunctionSolver solver(*parsed.circuit, parsed.config);
+    EXPECT_FALSE(solver.analyze().success);
+}

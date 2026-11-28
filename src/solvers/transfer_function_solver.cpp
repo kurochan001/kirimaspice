@@ -2,66 +2,159 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 // src/solvers/transfer_function_solver.cpp
-#include "kirimaspice/util/string_utils.hpp"
 #include "kirimaspice/solvers/transfer_function_solver.hpp"
-#include "kirimaspice/solvers/dc_solver.hpp"
-#include "kirimaspice/devices/device.hpp"
+#include "kirimaspice/devices/current_source.hpp"
 #include "kirimaspice/devices/voltage_source.hpp"
-#include "kirimaspice/devices/resistor.hpp"
+#include "kirimaspice/solvers/ac_solver.hpp"
+#include "kirimaspice/util/string_utils.hpp"
 
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
-#include <algorithm>
-#include <cmath>
+#include <optional>
 
 namespace kirimaspice {
+
+namespace {
+
+/// The resistance printed for an input that draws no current, as ngspice
+/// prints 1e20 for an infinite impedance
+constexpr Real kInfiniteResistance = 1e20;
+
+/// The two nodes of an output v(<node>) or v(<n1>,<n2>), or nothing for any
+/// other output (a current, i(<source>), is not taken) or a node the circuit
+/// does not have. A single node must not be ground.
+std::optional<std::pair<NodeId, NodeId>> output_nodes(const circuit::CircuitGraph& circuit,
+                                                      const std::string& signal) {
+    const auto open = signal.find('(');
+    if (open == std::string::npos || signal.back() != ')' || !util::equals_icase(signal.substr(0, open), "v")) {
+        return std::nullopt;
+    }
+    const std::string inside = signal.substr(open + 1, signal.size() - open - 2);
+    const auto comma = inside.find(',');
+    auto node = [&](std::string name) -> std::optional<NodeId> {
+        util::trim_inplace(name);
+        if (name.empty() || !circuit.has_node(name)) {
+            return std::nullopt;
+        }
+        return circuit.get_node_id(name);
+    };
+    const auto first = node(inside.substr(0, comma));
+    if (!first) {
+        return std::nullopt;
+    }
+    if (comma == std::string::npos) {
+        if (*first == NODE_GND) {
+            return std::nullopt;
+        }
+        return std::make_pair(*first, NODE_GND);
+    }
+    const auto second = node(inside.substr(comma + 1));
+    if (!second) {
+        return std::nullopt;
+    }
+    return std::make_pair(*first, *second);
+}
+
+/// The input of .TF: an independent voltage source, by its branch, or an
+/// independent current source, by its nodes
+struct Input {
+    bool voltage = true;
+    BranchId branch = 0;
+    NodeId np = NODE_GND, nn = NODE_GND;
+};
+
+std::optional<Input> input_source(const circuit::CircuitGraph& circuit, const std::string& name) {
+    std::shared_ptr<devices::Device> device;
+    try {
+        device = circuit.get_device(name);
+    } catch (const std::exception&) {
+        return std::nullopt;
+    }
+    if (auto v = std::dynamic_pointer_cast<devices::VoltageSource>(device)) {
+        return Input{true, v->branch_id(), NODE_GND, NODE_GND};
+    }
+    if (auto i = std::dynamic_pointer_cast<devices::CurrentSource>(device)) {
+        return Input{false, 0, i->nodes()[0], i->nodes()[1]};
+    }
+    return std::nullopt;
+}
+
+}  // namespace
 
 TransferFunctionSolver::TransferFunctionSolver(const circuit::CircuitGraph& circuit,
                                                const SimulationConfig& config)
     : circuit_(circuit), config_(config) {}
 
+// The small-signal DC transfer function, as SPICE's .TF gives it: the
+// circuit linearized at its operating point (every device's AC stamp at
+// omega = 0, ACSolver::solve_excited), the sources' own values left out.
+// With 1 at the input (1 V across a voltage source, 1 A through a current
+// source, from n+ to n-), the output is the gain, and the input draws the
+// current, or has the voltage, of the input resistance. With 1 A into the
+// output (out of its second node), the input set to 0, the output's voltage
+// is the output resistance. ngspice-45.2 gives these three values for the
+// circuits of tests/unit/test_transfer_function.cpp (run 2026-11-28).
 TransferFunctionResult TransferFunctionSolver::analyze() {
     TransferFunctionResult result;
     result.output_signal = config_.tf.output_signal;
     result.input_source = config_.tf.input_source;
 
-    spdlog::info("Starting transfer function analysis");
-    spdlog::info("  Output: {}", config_.tf.output_signal);
-    spdlog::info("  Input: {}", config_.tf.input_source);
-
-    // 1. Extract node and device IDs from signal specifications
-    NodeId output_node;
-    DeviceId input_device;
-
-    if (!extract_node_from_signal(config_.tf.output_signal, output_node) || output_node == NODE_GND) {
-        spdlog::error("Failed to extract output node from signal: {}", config_.tf.output_signal);
+    const auto output = output_nodes(circuit_, config_.tf.output_signal);
+    if (!output) {
+        spdlog::error(".TF: the output must be v(<node>) or v(<node>,<node>) of the circuit, not {}",
+                      config_.tf.output_signal);
+        return result;
+    }
+    const auto input = input_source(circuit_, config_.tf.input_source);
+    if (!input) {
+        spdlog::error(".TF: the input must be an independent voltage or current source, not {}",
+                      config_.tf.input_source);
         return result;
     }
 
-    if (!extract_source_device_id(config_.tf.input_source, input_device)) {
-        spdlog::error("Failed to find input source: {}", config_.tf.input_source);
+    const std::size_t nodes = circuit_.num_nodes() - 1;
+    auto voltage = [](const ComplexDenseVector& x, NodeId node) {
+        return (node == NODE_GND || node - 1 >= x.size()) ? 0.0 : x[node - 1].real();
+    };
+    auto inject = [](ComplexMNASystem& sys, NodeId node, Real current) {
+        if (node != NODE_GND) {
+            sys.I[node - 1] += Complex(current, 0.0);
+        }
+    };
+
+    solvers::ACSolver small_signal(circuit_, config_);
+    const ComplexDenseVector x = small_signal.solve_excited(0.0, [&](ComplexMNASystem& sys) {
+        if (input->voltage) {
+            sys.I[sys.num_nodes + input->branch] = Complex(1.0, 0.0);
+        } else {
+            inject(sys, input->np, -1.0);
+            inject(sys, input->nn, 1.0);
+        }
+    });
+    if (x.empty()) {
+        spdlog::error(".TF: the operating point or the small-signal solution failed");
         return result;
     }
-
-    // 2. Compute DC operating point
-    // Create DC solver (needed for branch current extraction)
-    solvers::DCSolver dc_solver(circuit_, config_);
-
-    std::vector<Real> solution;
-    if (!compute_dc_operating_point(dc_solver, solution)) {
-        spdlog::error("Failed to compute DC operating point");
-        return result;
+    result.transfer_gain = voltage(x, output->first) - voltage(x, output->second);
+    if (input->voltage) {
+        // The branch current flows into the + terminal: the source delivers -I
+        const std::size_t k = nodes + input->branch;
+        const Real current = k < x.size() ? -x[k].real() : 0.0;
+        result.input_resistance = current != 0.0 ? 1.0 / current : kInfiniteResistance;
+    } else {
+        result.input_resistance = voltage(x, input->nn) - voltage(x, input->np);
     }
 
-    spdlog::info("DC operating point computed successfully");
-    spdlog::info("  Output node voltage: {} V", solution[output_node - 1]);
-
-    // 3. Compute transfer characteristics
-    result.transfer_gain = compute_transfer_gain(solution, output_node, input_device);
-    result.input_resistance = compute_input_resistance(solution, input_device, dc_solver);
-    result.output_resistance = compute_output_resistance(solution, output_node);
-
+    const ComplexDenseVector y = small_signal.solve_excited(0.0, [&](ComplexMNASystem& sys) {
+        inject(sys, output->first, 1.0);
+        inject(sys, output->second, -1.0);
+    });
+    if (y.empty()) {
+        spdlog::error(".TF: the small-signal solution for the output resistance failed");
+        return result;
+    }
+    result.output_resistance = voltage(y, output->first) - voltage(y, output->second);
     result.success = true;
     return result;
 }
@@ -71,233 +164,13 @@ void TransferFunctionSolver::print_result(const TransferFunctionResult& result) 
         fmt::print("\nTransfer function analysis FAILED\n");
         return;
     }
-
-    fmt::print("\n");
-    fmt::print("Transfer Function Analysis Results\n");
+    fmt::print("\nTransfer Function Analysis Results\n");
     fmt::print("===================================\n");
     fmt::print("Output: {}\n", result.output_signal);
-    fmt::print("Input:  {}\n", result.input_source);
-    fmt::print("\n");
+    fmt::print("Input:  {}\n\n", result.input_source);
     fmt::print("Transfer Gain:     {:.6e}\n", result.transfer_gain);
     fmt::print("Input Resistance:  {:.6e} Ω\n", result.input_resistance);
-    fmt::print("Output Resistance: {:.6e} Ω\n", result.output_resistance);
-    fmt::print("\n");
-}
-
-bool TransferFunctionSolver::compute_dc_operating_point(solvers::DCSolver& dc_solver,
-                                                         std::vector<Real>& solution) {
-    // Prepare solution vector
-    solution.resize(circuit_.num_nodes());
-    std::fill(solution.begin(), solution.end(), 0.0);
-
-    // Solve DC operating point
-    SolverStats stats;
-    ConvergenceStatus status = dc_solver.solve(solution, stats);
-
-    if (status != ConvergenceStatus::SUCCESS) {
-        spdlog::error("DC solver failed with status: {}", static_cast<int>(status));
-        return false;
-    }
-
-    spdlog::info("DC convergence: {} iterations", stats.total_iterations);
-    return true;
-}
-
-bool TransferFunctionSolver::extract_node_from_signal(const std::string& signal,
-                                                       NodeId& node_id) const {
-    // Parse signal format: v(node_name)
-    if (signal.size() < 4 || signal[0] != 'v' || signal[1] != '(') {
-        return false;
-    }
-
-    size_t close_paren = signal.find(')');
-    if (close_paren == std::string::npos) {
-        return false;
-    }
-
-    std::string node_name = signal.substr(2, close_paren - 2);
-
-    // Convert node name to NodeId
-    if (!circuit_.has_node(node_name)) return false;
-    node_id = circuit_.get_node_id(node_name);
-    if (node_id == NODE_INVALID) {
-        spdlog::error("Node not found: {}", node_name);
-        return false;
-    }
-
-    return true;
-}
-
-bool TransferFunctionSolver::extract_source_device_id(const std::string& source_name,
-                                                       DeviceId& device_id) const {
-    // Find device by name
-    const auto& devices = circuit_.get_devices();
-    for (size_t i = 0; i < devices.size(); ++i) {
-        const auto& device = devices[i];
-        if (util::equals_icase(device->name(), source_name)) {
-            // Check if it's a voltage source
-            if (device->type() != DeviceType::VSOURCE) {
-                spdlog::error("Input source must be a voltage source: {}", source_name);
-                return false;
-            }
-            device_id = static_cast<DeviceId>(i);
-            return true;
-        }
-    }
-
-    spdlog::error("Source device not found: {}", source_name);
-    return false;
-}
-
-Real TransferFunctionSolver::compute_transfer_gain(const std::vector<Real>& solution,
-                                                    NodeId output_node,
-                                                    DeviceId input_device) {
-    // Small-signal transfer gain using finite difference on the input source.
-    // This handles the common case where the source DC bias is 0 V (pure AC excitation).
-
-    if (output_node == 0) {
-        spdlog::error("Output node cannot be GND");
-        return 0.0;
-    }
-
-    // Nominal output voltage
-    Real v_out_nominal = solution[output_node - 1];
-
-    // Input device (must be voltage source)
-    const auto& input_device_ptr = circuit_.get_devices()[input_device];
-    auto vsrc = std::dynamic_pointer_cast<devices::VoltageSource>(input_device_ptr);
-    if (!vsrc) {
-        spdlog::error("Input device is not a voltage source");
-        return 0.0;
-    }
-
-    // Nominal input voltage and perturbation
-    Real v_in_nominal = vsrc->present_value();
-    Real delta_v = std::max(std::abs(v_in_nominal) * 0.01, 1e-3); // ≥1 mV
-
-    // Temporarily perturb source
-    const auto original_dc = vsrc->dc_setting();
-    vsrc->set_dc_value(v_in_nominal + delta_v);
-
-    // Re-run DC operating point with perturbed source
-    solvers::DCSolver dc_solver(circuit_, config_);
-    std::vector<Real> pert_solution;
-    SolverStats pert_stats;
-    ConvergenceStatus status = dc_solver.solve(pert_solution, pert_stats);
-
-    // Restore source immediately
-    vsrc->restore_dc_setting(original_dc);
-
-    if (status != ConvergenceStatus::SUCCESS || pert_solution.size() <= output_node - 1) {
-        spdlog::warn("Perturbed DC solve failed (status={}), fallback to nominal ratio",
-                     static_cast<int>(status));
-        if (std::abs(v_in_nominal) < 1e-12) {
-            return 0.0;
-        }
-        return v_out_nominal / v_in_nominal;
-    }
-
-    Real v_out_pert = pert_solution[output_node - 1];
-    Real gain = (v_out_pert - v_out_nominal) / delta_v;
-
-    spdlog::debug("Transfer gain (finite diff): Vout0={:.6e}, Vout+Δ={:.6e}, ΔV={:.6e}, gain={:.6e}",
-                  v_out_nominal, v_out_pert, delta_v, gain);
-
-    return gain;
-}
-
-Real TransferFunctionSolver::compute_input_resistance(const std::vector<Real>& solution,
-                                                       DeviceId input_device,
-                                                       const solvers::DCSolver& dc_solver) {
-    // Input resistance calculation
-    // R_in = V_in / I_in, where I_in is the current the source delivers to the
-    // circuit: minus its branch current, which is positive into n+ through the
-    // source (NETLIST_CONVENTIONS rule 3)
-
-    // Get input device
-    const auto& input_device_ptr = circuit_.get_devices()[input_device];
-
-    // Get device name
-    std::string device_name = input_device_ptr->name();
-
-    // Get input voltage (DC value)
-    Real v_in = 0.0;
-    if (auto vsrc = std::dynamic_pointer_cast<devices::VoltageSource>(input_device_ptr)) {
-        v_in = vsrc->present_value();
-    } else {
-        spdlog::error("Input device is not a voltage source");
-        return 0.0;
-    }
-
-    // Get branch current through input voltage source
-    auto i_in_opt = dc_solver.get_branch_current(device_name);
-    if (!i_in_opt.has_value()) {
-        spdlog::warn("Failed to get branch current for input source: {}", device_name);
-        return 0.0; // Fall back to ideal voltage source assumption
-    }
-
-    Real i_in = -i_in_opt.value();
-
-    // Avoid division by zero
-    if (std::abs(i_in) < 1e-12) {
-        spdlog::debug("Input resistance: infinite (no current flowing, I_in={:.6e} A)", i_in);
-        return 1e12; // Return large resistance (effectively open circuit)
-    }
-
-    // Compute input resistance: R_in = V_in / I_in
-    Real r_in = v_in / i_in;
-
-    spdlog::debug("Input resistance: {:.6e} Ω (V_in={:.6e} V, I_in={:.6e} A)",
-                  r_in, v_in, i_in);
-
-    return r_in;
-}
-
-Real TransferFunctionSolver::compute_output_resistance(const std::vector<Real>& solution,
-                                                        NodeId output_node) {
-    // Output resistance calculation using Thevenin equivalent
-    // R_out = V_th / I_sc where:
-    //   V_th = open-circuit voltage (already computed in solution)
-    //   I_sc = short-circuit current (requires additional DC analysis)
-
-    // For resistor networks, we can estimate R_out by looking at
-    // adjacent resistances. For a simple voltage divider:
-    // R_out = R1 || R2 (parallel combination)
-
-    // Get all devices connected to the output node
-    Real total_conductance = 0.0;
-    const auto& devices = circuit_.get_devices();
-
-    for (const auto& device : devices) {
-        // Check if device is connected to output node
-        const auto& nodes = device->nodes();
-        bool connected_to_output = false;
-        for (NodeId node : nodes) {
-            if (node == output_node) {
-                connected_to_output = true;
-                break;
-            }
-        }
-
-        if (connected_to_output && device->type() == DeviceType::RESISTOR) {
-            // Get resistance value
-            auto resistor = std::dynamic_pointer_cast<devices::Resistor>(device);
-            if (resistor) {
-                Real resistance = resistor->resistance();
-                if (resistance > 0.0) {
-                    total_conductance += 1.0 / resistance;
-                }
-            }
-        }
-    }
-
-    // R_out = 1 / G_total (parallel combination)
-    Real r_out = total_conductance > 0.0 ? 1.0 / total_conductance : 1e12;
-
-    spdlog::debug("Output resistance: {:.6e} Ω (parallel resistor approximation, G_total={:.6e} S)",
-                  r_out, total_conductance);
-
-    return r_out;
+    fmt::print("Output Resistance: {:.6e} Ω\n\n", result.output_resistance);
 }
 
 } // namespace kirimaspice

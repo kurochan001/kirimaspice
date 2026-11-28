@@ -7,6 +7,7 @@
 #include "kirimaspice/solvers/dc_solver.hpp"
 #include "kirimaspice/solvers/transient_solver.hpp"
 #include "kirimaspice/solvers/ac_solver.hpp"
+#include "kirimaspice/solvers/transfer_function_solver.hpp"
 #include "kirimaspice/output/ssf_writer.hpp"
 #include "kirimaspice/output/output_error.hpp"
 #include "kirimaspice/output/ac_csv_writer.hpp"
@@ -271,7 +272,7 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
 
     const bool run_dc_sweep = config.dc_sweep_enabled;
     const bool asks_for_none = !config.op_requested && !config.dc_sweep_enabled &&
-                               !config.tran_requested && !config.ac_requested;
+                               !config.tran_requested && !config.ac_requested && !config.tf.enabled;
     // A netlist without an analysis line runs the operating point as if it had
     // .OP; .OP with .DC runs both, as ngspice-45.2 does (run 2026-11-28)
     const bool run_dc_point = config.op_requested || asks_for_none;
@@ -436,6 +437,26 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
                 return kExitAnalysisFailed;
             }
         }
+    }
+
+    // .TF <output> <source>: the small-signal DC gain from the source to
+    // the output, and the input and output resistances, at the operating
+    // point (TransferFunctionSolver), as ngspice-45.2 prints them
+    if (config.tf.enabled) {
+        spdlog::info("Running transfer function analysis...");
+        TransferFunctionSolver tf_solver(*circuit, config);
+        const TransferFunctionResult tf = tf_solver.analyze();
+        if (!tf.success) {
+            spdlog::error("Transfer function analysis failed");
+            return kExitAnalysisFailed;
+        }
+        std::cout << "\n=== Transfer Function ===\n";
+        std::cout << "Transfer function " << config.tf.output_signal << "/" << config.tf.input_source << " = "
+                  << tf.transfer_gain << "\n";
+        std::cout << "Input resistance at " << config.tf.input_source << " = " << tf.input_resistance
+                  << " Ohm\n";
+        std::cout << "Output resistance at " << config.tf.output_signal << " = " << tf.output_resistance
+                  << " Ohm\n";
     }
 
         // Run transient analysis if requested
@@ -760,7 +781,7 @@ int main(int argc, char* argv[]) {
             // The directives the parser reads for the library that this program
             // does not run: each is named once, so that no result is taken for
             // one of them
-            for (const char* directive : {".SENS", ".SENSITIVITY", ".TF", ".PZ", ".DISTO",
+            for (const char* directive : {".SENS", ".SENSITIVITY", ".PZ", ".DISTO",
                                           ".MC", ".MONTECARLO", ".WCASE", ".OPTIMIZE", ".PORT"}) {
                 if (first_step && config.directives_read.count(directive)) {
                     spdlog::warn("{} is read, but this program does not run it", directive);

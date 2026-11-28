@@ -168,6 +168,17 @@ class CliAnalyses(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertNotIn("No analysis specified", result.stdout)
 
+    def test_tf_prints_the_transfer_function(self):
+        # ngspice-45.2 gives transfer_function = 0.75, input impedance 4000
+        # and output impedance 750 for this divider (run on 2026-11-28); a
+        # netlist with .TF alone runs no operating point of its own
+        result, plots = self.run_deck("t\nV1 in 0 1\nR1 in out 1k\nR2 out 0 3k\n.tf v(out) V1\n.end\n")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("=== Transfer Function ===\nTransfer function v(out)/V1 = 0.75\n"
+                      "Input resistance at V1 = 4000 Ohm\nOutput resistance at v(out) = 750 Ohm\n", result.stdout)
+        self.assertNotIn("No analysis specified", result.stdout)
+        self.assertEqual(plots, [])
+
     def test_directive_the_program_does_not_run_is_named(self):
         result, plots = self.run_deck("t\nV1 in 0 1\nR1 in 0 1k\n.OPTIMIZE COBYLA OBJECTIVE=v(in) MAX PARAM=R1.resistance:1k:100:10k\n"
                                       ".op\n.end\n")
