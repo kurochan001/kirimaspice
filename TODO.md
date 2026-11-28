@@ -61,7 +61,8 @@ Small items with a direct effect on netlists written for ngspice.
   ([analyses](KNOWN_ISSUES.md#analyses)).
 - [ ] **The adaptive time step** (L): make the library's adaptive path
   correct (BDF2 and BDF3 of fixed order on a circuit at rest, the first
-  step of the trapezoidal rule), then decide with a person whether the
+  step of the trapezoidal rule, the capacitor's charge estimate, which
+  starts one point early), then decide with a person whether the
   program uses it, which would also give `TRTOL`, `CHGTOL` and the `LTE_*`
   options an effect ([analyses](KNOWN_ISSUES.md#analyses)).
 - [ ] **Convergence aids by default** (M): measure what ngspice-47 does

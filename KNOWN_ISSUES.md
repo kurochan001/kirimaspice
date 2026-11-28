@@ -152,6 +152,15 @@ says otherwise.
   10<sup>-12</sup> s; BDF1 and the order control finish.
   `BDFOrderComparisonTest.FinalValueConvergence` passes over these two
   runs (measured on 2026-11-20).
+- **The capacitor's charge estimate for the adaptive path starts one point
+  early.** `Capacitor::get_physical_lte` predicts the charge as
+  `charge_prev_ + h × current_prev_`, and `charge_prev_` holds the charge
+  of the accepted point before the start of the step, not the charge at
+  its start (`Capacitor::accept_solution`). On a voltage ramp, where a
+  prediction from the start of the step is exact, the function returned
+  1/n for the step to point n, where 0 is expected (measured at `3854fbd`
+  on 2026-11-28 on Linux x86-64 with GCC 15.2.0, by calling the device).
+  The program does not use this path.
 - **No convergence aid is on by default.** Source stepping, Gmin
   stepping, dynamic Gmin, the continuation method and the
   pseudo-transient fallback run only when `.OPTIONS` asks for them, so a
