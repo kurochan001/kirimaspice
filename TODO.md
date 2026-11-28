@@ -116,8 +116,9 @@ commit.
   10 µV ([device models](KNOWN_ISSUES.md#device-models)).
 - [ ] **BSIM3v3** (L), in place of the simplified BSIM3
   ([device models](KNOWN_ISSUES.md#device-models)).
-- [ ] **BSIM1** (L): port ngspice's BSIM1 (its `LEVEL` 4) or remove the
-  library's class ([device models](KNOWN_ISSUES.md#device-models)).
+- [x] **BSIM1** (L): the library's class is removed. It was a simplified
+  model that no netlist could select; ngspice's BSIM1 (its `LEVEL` 4) is
+  not ported.
 - [ ] **The FinFET** (M): the jump at the threshold, W<sub>eff</sub>, the
   reverse mode, `TFIN` and `VSAT`
   ([device models](KNOWN_ISSUES.md#device-models)).

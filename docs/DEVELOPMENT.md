@@ -266,9 +266,7 @@ them, CI does not build them, and no results are published.
 - `KIRIMASPICE_DEBUG_DUMP`, set to any value, writes the MNA system of
   the second Newton iteration of each DC solve to `debug_coo.txt`,
   `debug_csc.txt`, `debug_b.txt` and `debug_x.txt` in the current
-  directory. `KIRIMASPICE_BSIM1_DEBUG` turns on BSIM1 debug logs, for the
-  device of that name only when its value is not empty
-  ([Reference Manual](REFERENCE_MANUAL.md#environment-variables)).
+  directory ([Reference Manual](REFERENCE_MANUAL.md#environment-variables)).
 - `--raw-out` writes every node voltage and branch current of the
   operating point, a DC sweep or a transient;
   [Python tools](USER_MANUAL.md#use-the-python-tools) read it.

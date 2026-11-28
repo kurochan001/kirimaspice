@@ -153,13 +153,6 @@ ngspice について書いていることは、それぞれのマニュアルに
   GMIN の電流（10<sup>−12</sup> S と接合の電圧の積）も含むので、しきい値より下で差が見えます。
   `tests/unit/test_bsim4_reference.cpp` のカードで V<sub>GS</sub> = 0.2 V のとき、チャネルの電流は
   一致し、`i(vd)` は GMIN·V<sub>DB</sub> だけ大きくなります。
-- **BSIM1 はネットリストからは使えません。`LEVEL=9` はエラーです。** ngspice の `LEVEL` 9 は MOS9 で、その
-  BSIM1 は `LEVEL` 4 です。また、ライブラリの BSIM1（`MOSFET_BSIM1`）は簡略化したモデルで、P のデバイスが N の
-  デバイスの鏡像になっていません。VFB = −0.8 V（N）または +0.8 V（P）、PHI = 0.7、K1 = 0.5、TOX = 0.02 µm、MUZ = 600、
-  W/L = 10 µm / 1 µm、|VD| = |VG| = 1 V で、N のデバイスは 1.033e-4 A、ngspice-47 の BSIM1（その
-  LEVEL 4）は 2.087e-4 A、P のデバイスは 0 A です（2026-11-15 に実行）。P のデバイスのスタンプは電流を
-  線形化しておらず、しきい値は |VFB| と PHI + V<sub>SB</sub> を使い、接合の容量は N のデバイスの負の
-  V<sub>BD</sub> を順バイアスとして扱います（コードで読みました）。
 - **BSIM3（`LEVEL` 8 と 49）は簡略化したモデルで、BSIM3v3 ではありません**（`src/devices/bsim3_core.cpp`、
   約 450 行）。TOX = 3 nm、VTH0 = 0.5 V、U0 = 670 cm²/Vs、VSAT = 8e4 m/s、W/L = 10 µm / 1 µm、
   VD = VG = 1 V で 6.230e-4 A になりますが、ngspice-47 の BSIM3 は 3.151e-4 A です（2026-11-15 に実行）。
@@ -209,8 +202,7 @@ ngspice について書いていることは、それぞれのマニュアルに
   使い、ngspice-47 より 0.08 % 大きくなります（ngspice-47 の結果は n<sub>i</sub> ≈
   1.466·10<sup>10</sup> cm<sup>−3</sup> に当たります。原因は未確認です）。レベル 3 には DC の接合
   ダイオードがなく（ngspice-47 の電流は、接合が順バイアスのときそれを含みます）、温度依存もなく
-  （TNOM は読みます）、過渡解析の容量もありません。BSIM1 も TNOM を読みますが、温度依存は
-  ありません。VMAX と KAPPA を一緒に使うと、レベル 3 は V<sub>DS</sub> = 10 V で ngspice-47 と最大
+  （TNOM は読みます）、過渡解析の容量もありません。VMAX と KAPPA を一緒に使うと、レベル 3 は V<sub>DS</sub> = 10 V で ngspice-47 と最大
   12 % 違います。原因は未確認です。
 - **バックゲートが順バイアスのとき、ngspice-47 のレベル 1 の g<sub>mbs</sub> は自身の電流の微分では
   ありません。ここでの g<sub>mb</sub> は微分です。** `vto=0.7 kp=1e-4 gamma=0.5 phi=0.6`、W/L = 10 µm / 1 µm、
@@ -218,7 +210,7 @@ ngspice について書いていることは、それぞれのマニュアルに
   ngspice-47 は g<sub>mbs</sub> = 3.348e-4 S を出します。これは g<sub>m</sub>·GAMMA/(2·sarg) で、sarg は
   順バイアスで平方根の代わりになる式です（2026-11-21 に `21bb991` で実行）。
 - **ノイズ源のいくつかが SPICE と違います**（コードで読みました）。BSIM3、BSIM4、GaN HEMT のチャネルの熱雑音は 4kT·(8/3)·g<sub>m</sub> で、レベル 1、
-  レベル 3、BSIM1、MESFET、FinFET、IGBT は SPICE の 4kT·(2/3)·g<sub>m</sub> です（レベル 3 と BSIM1 は
+  レベル 3、MESFET、FinFET、IGBT は SPICE の 4kT·(2/3)·g<sub>m</sub> です（レベル 3 は
   2026-11-21 から）。レベル 1 のフリッカーノイズには C<sub>ox</sub> がなく、`EF` を面積に掛けています。
   ngspice-47 では KF·I<sub>d</sub><sup>AF</sup>/(f<sup>EF</sup>·C<sub>ox</sub>·W·L) です（実行して比べては
   いません）。温度のモデルのないレベル 3 はノイズの温度に 300.15 K を、MESFET と SCR は TNOM を使います。

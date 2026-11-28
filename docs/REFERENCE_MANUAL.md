@@ -65,7 +65,6 @@ the SuperLU_DIST backend of the library is a placeholder.
 | Variable | Effect |
 | --- | --- |
 | `KIRIMASPICE_DEBUG_DUMP` | for development: when set, to any value, writes the MNA system of the second Newton iteration of each DC solve to `debug_coo.txt`, `debug_csc.txt`, `debug_b.txt` and `debug_x.txt` in the current directory, each solve overwriting the last |
-| `KIRIMASPICE_BSIM1_DEBUG` | for development: debug logs for BSIM1 devices (optionally only those whose name is the value) |
 
 ## Exit codes
 
@@ -401,8 +400,8 @@ For `NMOS` and `PMOS`, `LEVEL` selects the device:
 | 21 | IGBT (`M` terminals are collector, gate, emitter; in the transient the collector carries the larger of the channel current and the stored-carrier current, which follows the channel current with the lifetime `TAU`, so it decays as exp(−t/`TAU`) after a turn-off) | warning | all, by name |
 
 Any other `LEVEL` is an error at the `.MODEL` line, as in ngspice-47,
-and so is `LEVEL=9`, ngspice's MOS9: the library's BSIM1 is not offered
-([known issues](../KNOWN_ISSUES.md#device-models)).
+and so are `LEVEL=9`, ngspice's MOS9, and `LEVEL=4`, its BSIM1, which
+this program does not have.
 At levels 3, 8/49 and 12, other names on the element line, `AD`, `AS`,
 `PD`, `PS`, `NRD`, `NRS` and `M` among them, are named in a warning and
 not used.

@@ -88,8 +88,8 @@ push したら項目に印を付け、同じコミットで KNOWN_ISSUES から�
 - [ ] **バックゲート電圧のある BSIM4 のしきい値**（S）。10 µV の差の原因を突き止めます
   （[デバイスモデル](KNOWN_ISSUES.ja.md#デバイスモデル)）。
 - [ ] **BSIM3v3**（L）。簡略化した BSIM3 の代わりにします（[デバイスモデル](KNOWN_ISSUES.ja.md#デバイスモデル)）。
-- [ ] **BSIM1**（L）。ngspice の BSIM1（その `LEVEL` 4）を移植するか、ライブラリのクラスを消します
-  （[デバイスモデル](KNOWN_ISSUES.ja.md#デバイスモデル)）。
+- [x] **BSIM1**（L）。ライブラリのクラスを削除しました。ネットリストから選べない簡略化したモデルでした。
+  ngspice の BSIM1（その `LEVEL` 4）は移植していません。
 - [ ] **FinFET**（M）。しきい値での跳び、W<sub>eff</sub>、逆方向のモード、`TFIN` と `VSAT` です
   （[デバイスモデル](KNOWN_ISSUES.ja.md#デバイスモデル)）。
 - [ ] **MESFET のゲートの接合と電荷**（M）（[デバイスモデル](KNOWN_ISSUES.ja.md#デバイスモデル)）。

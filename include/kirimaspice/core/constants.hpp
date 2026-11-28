@@ -112,11 +112,6 @@ constexpr Real DEFAULT_MOSFET_CGD = 1e-12;
 //   Files created: debug_coo.txt, debug_csc.txt, debug_b.txt and
 //                  debug_x.txt in the current directory
 //
-// KIRIMASPICE_BSIM1_DEBUG
-//   Values: Any; a non-empty value is the name of the one device to log
-//   Default: Not set
-//   Description: Enable verbose BSIM1 model debugging output
-//
 //=============================================================================
 
 //=============================================================================

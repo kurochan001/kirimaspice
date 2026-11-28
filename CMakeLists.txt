@@ -302,7 +302,6 @@ add_library(kirimaspice_lib STATIC
     src/devices/bjt_params.cpp  # BJT parameters from a card
     src/devices/mosfet_level1.cpp    # Unified Level 1 template (MOSFET_N/P)
     src/devices/mosfet_level3.cpp    # Unified Level 3 template (MOSFET_Level3_N/P)
-    src/devices/mosfet_bsim1.cpp    # Unified BSIM1 template (MOSFET_BSIM1_N/P)
     src/devices/bsim3_core.cpp      # Shared BSIM3 DC core (Ids/Vth/Vdsat)
     src/devices/mosfet_bsim3.cpp    # Unified BSIM3 template (MOSFET_BSIM3_N/P)
     src/devices/mosfet_bsim4.cpp    # Unified BSIM4 template (MOSFET_BSIM4_N/P)

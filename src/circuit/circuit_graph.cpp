@@ -20,7 +20,6 @@
 #include "kirimaspice/devices/mosfet_level1.hpp"  // Unified MOSFET Level 1
 #include "kirimaspice/devices/mosfet_level3.hpp"  // Unified MOSFET Level 3
 #include "kirimaspice/devices/mosfet_bsim3.hpp"  // Unified BSIM3 template
-#include "kirimaspice/devices/mosfet_bsim1.hpp"    // Unified BSIM1 (Level 9)
 #include "kirimaspice/devices/mosfet_bsim4.hpp"  // Unified BSIM4 template
 #include "kirimaspice/devices/mosfet_sic.hpp"    // Unified SiC MOSFET
 #include "kirimaspice/devices/gan_hemt.hpp"      // Unified GaN HEMT
@@ -947,68 +946,6 @@ void CircuitGraph::add_mosfet_bsim3_p(const std::string& name,
 
     spdlog::debug("Added MOSFET_BSIM3_P: {} D={} G={} S={} B={} W={:.3e}m L={:.3e}m VTH0={:.3f}V",
                   name, drain, gate, source, bulk, params.w, params.l, params.vth0);
-}
-
-void CircuitGraph::add_mosfet_bsim1_n(const std::string& name,
-                                       const std::string& drain,
-                                       const std::string& gate,
-                                       const std::string& source,
-                                       const std::string& bulk,
-                                       const devices::MOSFETBsim1Params& params) {
-    NodeId drain_id = add_node(drain);
-    NodeId gate_id = add_node(gate);
-    NodeId source_id = add_node(source);
-    NodeId bulk_id = add_node(bulk);
-
-    DeviceId id = next_device_id_++;
-    auto mosfet = std::make_shared<devices::MOSFET_BSIM1_N>(id, name, drain_id, gate_id, source_id, bulk_id, params);
-
-    register_device(name, mosfet);
-
-    // Add edges: D-G and G-S
-    auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
-    if (success_dg) {
-        graph_[edge_dg].device_id = id;
-    }
-
-    auto [edge_gs, success_gs] = boost::add_edge(gate_id, source_id, graph_);
-    if (success_gs) {
-        graph_[edge_gs].device_id = id;
-    }
-
-    spdlog::debug("Added MOSFET_BSIM1_N: {} D={} G={} S={} B={} W={:.3e}m L={:.3e}m",
-                  name, drain, gate, source, bulk, params.w, params.l);
-}
-
-void CircuitGraph::add_mosfet_bsim1_p(const std::string& name,
-                                       const std::string& drain,
-                                       const std::string& gate,
-                                       const std::string& source,
-                                       const std::string& bulk,
-                                       const devices::MOSFETBsim1Params& params) {
-    NodeId drain_id = add_node(drain);
-    NodeId gate_id = add_node(gate);
-    NodeId source_id = add_node(source);
-    NodeId bulk_id = add_node(bulk);
-
-    DeviceId id = next_device_id_++;
-    auto mosfet = std::make_shared<devices::MOSFET_BSIM1_P>(id, name, drain_id, gate_id, source_id, bulk_id, params);
-
-    register_device(name, mosfet);
-
-    // Add edges: D-G and G-S
-    auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
-    if (success_dg) {
-        graph_[edge_dg].device_id = id;
-    }
-
-    auto [edge_gs, success_gs] = boost::add_edge(gate_id, source_id, graph_);
-    if (success_gs) {
-        graph_[edge_gs].device_id = id;
-    }
-
-    spdlog::debug("Added MOSFET_BSIM1_P: {} D={} G={} S={} B={} W={:.3e}m L={:.3e}m",
-                  name, drain, gate, source, bulk, params.w, params.l);
 }
 
 void CircuitGraph::add_mosfet_bsim4_n(const std::string& name,

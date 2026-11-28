@@ -4,7 +4,6 @@
 
 """Generate Id-Vds comparison tables for BSIM3 NMOS using KirimaSpice and ngspice.
 
-This script mirrors scripts/bench/compare_bsim1_ids.py but targets the BSIM3 model.
 It expects:
   - build/kirimaspice   : KirimaSpice binary
   - ngspice             : ngspice in PATH

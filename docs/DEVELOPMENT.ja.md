@@ -225,8 +225,7 @@ cmake --build build-bench --target bench_device_stamping
   出す最低のレベルを選べます（`src/main.cpp`）。コードの中の `trace` のメッセージを出すには、`main.cpp` を
   変える必要があります。
 - `KIRIMASPICE_DEBUG_DUMP` は、どんな値でも設定すると、DC の解を求めるたびに、Newton 法の 2 回目の反復の
-  MNA の系を、今のディレクトリの `debug_coo.txt`、`debug_csc.txt`、`debug_b.txt`、`debug_x.txt` に書きます。
-  `KIRIMASPICE_BSIM1_DEBUG` は BSIM1 のデバッグログを出します。値が空でないときは、その名前のデバイスに
-  ついてだけ出します（[リファレンスマニュアル](REFERENCE_MANUAL.ja.md#環境変数)）。
+  MNA の系を、今のディレクトリの `debug_coo.txt`、`debug_csc.txt`、`debug_b.txt`、`debug_x.txt` に書きます
+  （[リファレンスマニュアル](REFERENCE_MANUAL.ja.md#環境変数)）。
 - `--raw-out` は、動作点、DC スイープ、過渡解析の、すべてのノードの電圧と枝の電流を書きます。
   [Python のツール](USER_MANUAL.ja.md#python-のツールを使う)で読めます。

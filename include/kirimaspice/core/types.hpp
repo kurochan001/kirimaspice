@@ -92,8 +92,6 @@ enum class DeviceType {
     IGBT_P,     ///< P-channel IGBT (Insulated Gate Bipolar Transistor)
     SCR_N,      ///< N-type SCR (Silicon Controlled Rectifier / Thyristor)
     SCR_P,      ///< P-type SCR (Silicon Controlled Rectifier / Thyristor)
-    MOSFET_BSIM1_N, ///< N-channel MOSFET BSIM1 (Level 9)
-    MOSFET_BSIM1_P, ///< P-channel MOSFET BSIM1 (Level 9)
     MESFET_N,   ///< N-channel MESFET (Metal-Semiconductor FET)
     MESFET_P,   ///< P-channel MESFET (Metal-Semiconductor FET)
     TRIAC,      ///< TRIAC (Triode for Alternating Current) - bidirectional thyristor

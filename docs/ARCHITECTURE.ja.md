@@ -220,12 +220,12 @@ flowchart TD
 | 受動素子、結合、線路 | resistor、capacitor、inductor、mutual_inductance、tline_lossless、tline_lossy |
 | 電源 | voltage_source、current_source（どちらも `waveform.hpp` の波形と一緒に）、behavioral_source、vcvs、vccs、cccs、ccvs |
 | ダイオードとバイポーラ | diode、bjt（bjt_npn と bjt_pnp は別名） |
-| MOSFET | mosfet_base、mosfet_level1、mosfet_level3、mosfet_bsim1、mosfet_bsim3（bsim3_core と一緒に）、mosfet_bsim4（bsim4_core とそのパラメータと一緒に）、mosfet_sic、finfet |
+| MOSFET | mosfet_base、mosfet_level1、mosfet_level3、mosfet_bsim3（bsim3_core と一緒に）、mosfet_bsim4（bsim4_core とそのパラメータと一緒に）、mosfet_sic、finfet |
 | パワー素子とそのほか | gan_hemt、vdmos、igbt、jfet、mesfet、scr、triac |
 
 MOSFET のモデルは、`Polarity`（`polarity.hpp`）についてのクラステンプレートです。GaN HEMT、IGBT、JFET、
 MESFET、SCR、VDMOS は、それぞれ自分の極性の列挙型（`GaNPolarity` など）についてのテンプレートで、ヘッダーに
-だけあります。レベル 1、レベル 3、BSIM1、BSIM3、BSIM4、SiC、FinFET は、それぞれの `.cpp` で明示的に
+だけあります。レベル 1、レベル 3、BSIM3、BSIM4、SiC、FinFET は、それぞれの `.cpp` で明示的に
 実体化します。バイポーラトランジスタは `BJT<BJTPolarity>` で、`bjt.cpp` で NPN と PNP を実体化します。
 `BJT_NPN` と `BJT_PNP` はその別名です。DC、AC、過渡、ノイズ解析の電流と解析的な微分は
 `BJT::evaluate` から取り、容量は接合の電荷から求めます。JFET（`J`、`NJF` と `PJF` のカード）は、ダイオードと

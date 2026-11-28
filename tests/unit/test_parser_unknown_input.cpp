@@ -265,8 +265,8 @@ TEST(ParserUnknownInput, InitialConditionsTakeVInEitherCase) {
 }
 
 TEST(ParserUnknownInput, MosfetLevel9IsAnError) {
-    // ngspice's LEVEL 9 is MOS9, and the library's BSIM1 does not follow
-    // ngspice's BSIM1 (its LEVEL 4): a LEVEL=9 card is an error at its line
+    // ngspice's LEVEL 9 is MOS9, which the library does not have: a LEVEL=9
+    // card is an error at its line
     for (const char* type : {"NMOS", "PMOS"}) {
         parser::NetlistParser parser;
         try {

@@ -10,7 +10,6 @@
 #include "kirimaspice/devices/bjt_pnp.hpp"
 #include "kirimaspice/devices/jfet.hpp"  // Unified JFET
 #include "kirimaspice/devices/mosfet_level1.hpp"  // Unified MOSFET Level 1
-#include "kirimaspice/devices/mosfet_bsim1.hpp"    // Unified BSIM1 (Level 9)
 #include "kirimaspice/devices/mosfet_bsim3.hpp"  // Unified BSIM3 template
 #include "kirimaspice/devices/mosfet_bsim4.hpp"  // Unified BSIM4 template
 #include "kirimaspice/devices/mosfet_sic.hpp"    // Unified SiC MOSFET
@@ -47,12 +46,6 @@ void apply_temperature_to_devices(const circuit::CircuitGraph& circuit, Real tem
                 break;
             case DeviceType::MOSFET_P:
                 if (auto* m = dynamic_cast<devices::MOSFET_P*>(device.get())) m->set_temperature(temp_K);
-                break;
-            case DeviceType::MOSFET_BSIM1_N:
-                if (auto* m = dynamic_cast<devices::MOSFET_BSIM1_N*>(device.get())) m->set_temperature(temp_K);
-                break;
-            case DeviceType::MOSFET_BSIM1_P:
-                if (auto* m = dynamic_cast<devices::MOSFET_BSIM1_P*>(device.get())) m->set_temperature(temp_K);
                 break;
             case DeviceType::MOSFET_BSIM3_N:
                 if (auto* m = dynamic_cast<devices::MOSFET_BSIM3_N*>(device.get())) m->set_temperature(temp_K);

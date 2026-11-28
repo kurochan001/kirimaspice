@@ -214,16 +214,6 @@ says otherwise.
   junction voltage), which shows below the threshold: for the card of
   `tests/unit/test_bsim4_reference.cpp` at V<sub>GS</sub> = 0.2 V the
   channel currents agree and `i(vd)` is larger by GMIN·V<sub>DB</sub>.
-- **BSIM1 is not offered from a netlist; `LEVEL=9` is an error.**
-  ngspice's `LEVEL` 9 is MOS9 and its BSIM1 is `LEVEL` 4, and the
-  library's BSIM1 (`MOSFET_BSIM1`) is a simplified model whose P device is
-  not the mirror of its N device: with VFB = −0.8 V (N) or +0.8 V (P), PHI = 0.7,
-  K1 = 0.5, TOX = 0.02 µm, MUZ = 600 and W/L = 10 µm / 1 µm at
-  |VD| = |VG| = 1 V, the N device carries 1.033e-4 A, ngspice-47's BSIM1 (its
-  LEVEL 4) 2.087e-4 A, and the P device 0 A (run on 2026-11-15). The P
-  device's stamp does not linearize its current, its threshold takes |VFB|
-  and PHI + V<sub>SB</sub>, and the junction capacitances take a negative
-  V<sub>BD</sub> of the N device for forward bias (read in the code).
 - **BSIM3 (`LEVEL` 8 and 49) is a simplified model, not BSIM3v3**
   (`src/devices/bsim3_core.cpp`, about 450 lines). For TOX = 3 nm,
   VTH0 = 0.5 V, U0 = 670 cm²/Vs, VSAT = 8e4 m/s and W/L = 10 µm / 1 µm at
@@ -293,7 +283,7 @@ says otherwise.
   cause is not confirmed). Level 3 has no DC junction diodes (ngspice-47's
   current includes them when a junction is forward biased), no
   temperature dependence (it reads TNOM), and no capacitances in the
-  transient. BSIM1 reads TNOM without a temperature dependence too.
+  transient.
   With VMAX and KAPPA together, level 3 differs from ngspice-47 by up to
   12 % at V<sub>DS</sub> = 10 V; the cause is not confirmed.
 - **With a forward-biased body, ngspice-47's level-1 g<sub>mbs</sub> is
@@ -305,8 +295,8 @@ says otherwise.
   root for a forward bias (run on 2026-11-21 at `21bb991`).
 - **Some noise sources differ from SPICE's** (read in the code). The channel thermal noise of
   BSIM3, BSIM4 and the GaN HEMT is 4kT·(8/3)·g<sub>m</sub>, where level 1,
-  level 3, BSIM1, the MESFET, the FinFET and the IGBT take SPICE's
-  4kT·(2/3)·g<sub>m</sub> (level 3 and BSIM1 since 2026-11-21). The
+  level 3, the MESFET, the FinFET and the IGBT take SPICE's
+  4kT·(2/3)·g<sub>m</sub> (level 3 since 2026-11-21). The
   level-1 flicker noise lacks C<sub>ox</sub> and takes `EF` on the area,
   where ngspice-47 has
   KF·I<sub>d</sub><sup>AF</sup>/(f<sup>EF</sup>·C<sub>ox</sub>·W·L) (not

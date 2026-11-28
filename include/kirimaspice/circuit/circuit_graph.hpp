@@ -6,7 +6,6 @@
 #include "kirimaspice/core/types.hpp"
 #include "kirimaspice/devices/mosfet_level1.hpp"         // Unified MOSFET Level 1 (MOSFET_N/P)
 #include "kirimaspice/devices/mosfet_level3_params.hpp"
-#include "kirimaspice/devices/mosfet_bsim1_params.hpp"
 #include "kirimaspice/devices/mosfet_bsim3_params.hpp"
 #include "kirimaspice/devices/mosfet_bsim4_params.hpp"
 #include "kirimaspice/devices/bjt_npn.hpp"
@@ -437,34 +436,6 @@ public:
                             const std::string& source,
                             const std::string& bulk,
                             const devices::BSIM3Params& params);
-
-    /// Add MOSFET BSIM1 (Level 9) N-channel transistor
-    /// @param name Device name (e.g., "M1")
-    /// @param drain Drain node name
-    /// @param gate Gate node name
-    /// @param source Source node name
-    /// @param bulk Bulk/substrate node name
-    /// @param params BSIM1 model parameters
-    void add_mosfet_bsim1_n(const std::string& name,
-                            const std::string& drain,
-                            const std::string& gate,
-                            const std::string& source,
-                            const std::string& bulk,
-                            const devices::MOSFETBsim1Params& params);
-
-    /// Add MOSFET BSIM1 (Level 9) P-channel transistor
-    /// @param name Device name (e.g., "M2")
-    /// @param drain Drain node name
-    /// @param gate Gate node name
-    /// @param source Source node name
-    /// @param bulk Bulk/substrate node name
-    /// @param params BSIM1 model parameters
-    void add_mosfet_bsim1_p(const std::string& name,
-                            const std::string& drain,
-                            const std::string& gate,
-                            const std::string& source,
-                            const std::string& bulk,
-                            const devices::MOSFETBsim1Params& params);
 
     /// Add MOSFET BSIM4.8 N-channel transistor
     /// @param name Device name (e.g., "M1")

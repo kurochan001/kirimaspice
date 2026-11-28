@@ -10,7 +10,6 @@
 #include "kirimaspice/devices/mesfet.hpp"
 #include "kirimaspice/devices/resistor.hpp"
 #include "kirimaspice/devices/mosfet_level3_params.hpp"
-#include "kirimaspice/devices/mosfet_bsim1_params.hpp"  // BSIM1 (Level 9)
 #include "kirimaspice/devices/mosfet_bsim3_params.hpp"
 #include "kirimaspice/devices/mosfet_bsim4_params.hpp"
 #include "kirimaspice/devices/tline_lossless.hpp"
@@ -3743,9 +3742,8 @@ static void parse_model_directive(const std::vector<std::string>& tokens, ParseS
         auto level_it = params.find("level");
         if (level_it != params.end()) {
             int level = static_cast<int>(level_it->second);
-            // LEVEL 9 is not offered: ngspice's LEVEL 9 is MOS9, and the
-            // library's BSIM1 (MOSFET_BSIM1) is a simplified model that does
-            // not follow ngspice's BSIM1, its LEVEL 4 (KNOWN_ISSUES)
+            // LEVEL 9, ngspice's MOS9, and LEVEL 4, its BSIM1, are among the
+            // levels no device has
             static constexpr int known_levels[] = {1, 3, 8, 10, 11, 12, 14, 20, 21, 49, 54};
             if (level_it->second != static_cast<Real>(level) ||
                 std::find(std::begin(known_levels), std::end(known_levels), level) ==
@@ -3765,17 +3763,6 @@ static void parse_model_directive(const std::vector<std::string>& tokens, ParseS
                 } else {
                     device_type = DeviceType::MOSFET_LEVEL3_P;
                     spdlog::info("Detected Level 3 P-channel MOSFET model: {} (LEVEL={})",
-                                model_name, level);
-                }
-            } else if (level == 9) {
-                // BSIM1 model (Berkeley Short-channel IGFET Model v1)
-                if (device_type == DeviceType::MOSFET_N) {
-                    device_type = DeviceType::MOSFET_BSIM1_N;
-                    spdlog::info("Detected BSIM1 N-channel MOSFET model: {} (LEVEL={})",
-                                model_name, level);
-                } else {
-                    device_type = DeviceType::MOSFET_BSIM1_P;
-                    spdlog::info("Detected BSIM1 P-channel MOSFET model: {} (LEVEL={})",
                                 model_name, level);
                 }
             } else if (level == 8 || level == 49) {
@@ -5179,10 +5166,6 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
             mosfet_type = (model.device_type == DeviceType::MOSFET_LEVEL3_N) ? "LEVEL3_N" : "LEVEL3_P";
             w = 100e-6;
             l = 100e-6;
-        } else if (model.device_type == DeviceType::MOSFET_BSIM1_N) {
-            mosfet_type = "BSIM1_N";
-        } else if (model.device_type == DeviceType::MOSFET_BSIM1_P) {
-            mosfet_type = "BSIM1_P";
         } else if (model.device_type == DeviceType::MOSFET_BSIM3_N ||
                    model.device_type == DeviceType::MOSFET_BSIM3_P ||
                    model.device_type == DeviceType::MOSFET_BSIM4_N ||
@@ -5397,104 +5380,6 @@ static void parse_mosfet_device(const std::vector<std::string>& tokens, const st
             state.circuit->add_mosfet_level3_p(dev_name, drain, gate, source, bulk, level3_params);
             spdlog::debug("Added MOSFET_Level3_P: {} D={} G={} S={} B={} W={:.3e}m L={:.3e}m Vto={:.3f}V",
                          dev_name, drain, gate, source, bulk, level3_params.w, level3_params.l, level3_params.vto);
-        }
-    } else if (mosfet_type == "BSIM1_N" || mosfet_type == "BSIM1_P") {
-        warn_unread_tokens({"w", "l"});
-        // BSIM1 model (Level 9): create MOSFETBsim1Params from model parameters
-        const ModelDefinition* found_model = state.config->find_model(type_or_model);
-        const ModelDefinition& model = *found_model;
-
-        devices::MOSFETBsim1Params bsim1_params;
-
-        auto normalize_tox_value = [](Real raw) {
-            if (raw > 1e-5) {
-                // Legacy BSIM1 decks often specify tox in µm (e.g., 0.02 = 20nm).
-                return raw * 1e-6;
-            }
-            return raw;
-        };
-
-        // Copy all model parameters to MOSFETBsim1Params
-        for (const auto& [key, value] : model.params) {
-            // Basic process parameters
-            if (key == "vfb") bsim1_params.vfb = value;
-            else if (key == "phi") bsim1_params.phi = value;
-            else if (key == "k1") bsim1_params.k1 = value;
-            else if (key == "k2") bsim1_params.k2 = value;
-            // Mobility parameters
-            else if (key == "muz") bsim1_params.muz = value;
-            else if (key == "u0") bsim1_params.u0 = value;
-            else if (key == "u1") bsim1_params.u1 = value;
-            // Short-channel effects
-            else if (key == "x2mz") bsim1_params.x2mz = value;
-            else if (key == "x2ms") bsim1_params.x2ms = value;
-            else if (key == "x2m") bsim1_params.x2m = value;
-            else if (key == "x2u0") bsim1_params.x2u0 = value;
-            else if (key == "x2u1") bsim1_params.x2u1 = value;
-            // DIBL
-            else if (key == "eta") bsim1_params.eta = value;
-            else if (key == "x2e") bsim1_params.x2e = value;
-            else if (key == "x3e") bsim1_params.x3e = value;
-            else if (key == "x3ms") bsim1_params.x3ms = value;
-            // Subthreshold
-            else if (key == "n0") bsim1_params.n0 = value;
-            else if (key == "nb") bsim1_params.nb = value;
-            else if (key == "nd") bsim1_params.nd = value;
-            // Saturation velocity
-            else if (key == "vsat") bsim1_params.vsat = value;
-            // Channel length/width corrections
-            else if (key == "dl") bsim1_params.dl = value;
-            else if (key == "dw") bsim1_params.dw = value;
-            // Junction parameters
-            else if (key == "cbd") bsim1_params.cbd = value;
-            else if (key == "cbs") bsim1_params.cbs = value;
-            else if (key == "is") bsim1_params.is = value;
-            else if (key == "pb") bsim1_params.pb = value;
-            else if (key == "cj") bsim1_params.cj = value;
-            else if (key == "mj") bsim1_params.mj = value;
-            else if (key == "cjsw") bsim1_params.cjsw = value;
-            else if (key == "mjsw") bsim1_params.mjsw = value;
-            // Gate capacitances
-            else if (key == "cgso") bsim1_params.cgso = value;
-            else if (key == "cgdo") bsim1_params.cgdo = value;
-            else if (key == "cgbo") bsim1_params.cgbo = value;
-            // Oxide parameters
-            else if (key == "tox") bsim1_params.tox = normalize_tox_value(value);
-            // Temperature
-            else if (key == "tnom") bsim1_params.tnom = core::celsius_to_kelvin(value);
-            // Noise
-            else if (key == "kf") bsim1_params.kf = value;
-            else if (key == "af") bsim1_params.af = value;
-            // Geometry (instance parameters, may be overridden)
-            else if (key == "w") bsim1_params.w = value;
-            else if (key == "l") bsim1_params.l = value;
-            else if (key == "ad") bsim1_params.ad = value;
-            else if (key == "as") bsim1_params.as = value;
-            else if (key == "pd") bsim1_params.pd = value;
-            else if (key == "ps") bsim1_params.ps = value;
-            // Level parameter (already processed)
-            else if (key == "level") {
-                // Already handled, skip
-            }
-            // Warn about unrecognized parameters
-            else {
-                spdlog::warn("Unrecognized BSIM1 parameter '{}' in model {}", key, type_or_model);
-            }
-        }
-
-        // Override with instance parameters (W, L from tokens)
-        bsim1_params.w = w;
-        bsim1_params.l = l;
-
-        // BSIM1: use bulk node determined earlier (4-terminal or 3-terminal)
-        if (mosfet_type == "BSIM1_N") {
-            state.circuit->add_mosfet_bsim1_n(dev_name, drain, gate, source, bulk, bsim1_params);
-            spdlog::debug("Added MOSFET_BSIM1_N: {} D={} G={} S={} B={} W={:.3e}m L={:.3e}m",
-                         dev_name, drain, gate, source, bulk, bsim1_params.w, bsim1_params.l);
-        } else {
-            state.circuit->add_mosfet_bsim1_p(dev_name, drain, gate, source, bulk, bsim1_params);
-            spdlog::debug("Added MOSFET_BSIM1_P: {} D={} G={} S={} B={} W={:.3e}m L={:.3e}m",
-                         dev_name, drain, gate, source, bulk, bsim1_params.w, bsim1_params.l);
         }
     } else if (mosfet_type == "BSIM3_N" || mosfet_type == "BSIM3_P") {
         warn_unread_tokens({"w", "l"});
