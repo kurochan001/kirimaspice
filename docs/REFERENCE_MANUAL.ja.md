@@ -110,7 +110,7 @@ kirimaspice --version | --help
   決まります。
 - `.END` の後の行も、ngspice-47 と同じく、同じように読みます。インクルードしたファイルの中の `.END` も
   同じです（2026-11-21 に実行）。パーサーが読まないディレクティブは無視し、名前ごとに 1 回警告します
-  （`unknown directive`。`.NOISE`、`.MEASURE`、`.TITLE` は `is not supported`）。プログラムは、読んでも
+  （`unknown directive`。`.MEASURE`、`.TITLE` は `is not supported`）。プログラムは、読んでも
   実行しないディレクティブを 1 回ずつ名指しします（`is read, but this program does not run it`）。下の表にない
   文字の素子（`W` など）は、サブ回路の本体の中でも、解釈のエラー `Unknown element letter` になります。
 - メッセージの行番号は、これらの手順の後に残った行を数えたもので、ファイルの行ではありません。
@@ -421,7 +421,8 @@ V<sub>SG</sub> と V<sub>SD</sub> で使い、電流はソースからドレイ�
 | `.TF` | `.TF v(<ノード>[,<ノード>])\|i(<電圧源>) <電源>` | 使う：ngspice-45.2 と同じく、動作点での、電源（独立の電圧源か電流源）から出力への小信号の直流の利得、電源から見た入力の抵抗、出力の抵抗。動作点の後に `=== Transfer Function ===` の下に表示する。電流の出力では、利得はその電源の分岐電流（+ 端子へ流れ込む向き）で、出力の抵抗は ngspice-45.2 と同じく 1e20 |
 | `.SENS`、`.MC`、`.PZ`、`.DISTO`、`.PORT`、`.WCASE`、`.OPTIMIZE` | | 読むだけ。警告で名指しする |
 | `.CONTROL` / `.ENDC` | | パーサーが取り出して実行する。その解析のコマンドのうち、プログラムは `dc` と `ac` を実行し、`tran` は実行しない。`op` は知らないコマンドとして警告する（[KNOWN_ISSUES.md](../KNOWN_ISSUES.ja.md) を参照） |
-| `.TITLE`、`.MEASURE`、`.NOISE`、そのほか | | 無視。名前ごとに 1 回警告する |
+| `.NOISE` | `.NOISE V(<出力>[,<基準>]) <電源> DEC\|OCT\|LIN <点数> <開始> <終了> [<要約の点数>]` | 使う：ngspice-45.2 の `onoise_spectrum`、`inoise_spectrum` と同じく、周波数ごとの V(出力, 基準) の出力の雑音と、それを電源（独立の電圧源か電流源）からの利得で割った入力換算の雑音。続いて `onoise_total` と `inoise_total`。掃引全体の雑音の電力を、点の間で周波数のべきとして積分した値の平方根。AC の後に `=== Noise Analysis ===` の下に表示する。要約の点数は使わない |
+| `.TITLE`、`.MEASURE`、そのほか | | 無視。名前ごとに 1 回警告する |
 
 ### プログラムが解析を選ぶ仕組み
 

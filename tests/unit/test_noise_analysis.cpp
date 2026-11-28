@@ -864,3 +864,54 @@ Q1 4 3 5 NPN
     EXPECT_TRUE(noise_result.contributions.find("Rc_thermal") != noise_result.contributions.end());
     EXPECT_GT(noise_result.output_noise[0], 0.0);
 }
+
+// .NOISE as SPICE runs it (NoiseSolver::solve from an input source,
+// solvers::integrated_noise): ngspice-45.2 gives these totals over the
+// sweep (run 2026-11-28), and the spectra point by point within 2e-5. The
+// input-referred noise is the output noise over the gain from the input
+// source: for the RC low-pass it is sqrt(4kTR) at every frequency, whose
+// integral over 10 Hz to 100 kHz is 1.28742e-6 V; ngspice-45.2 prints
+// 1.619906e-6 there (KNOWN_ISSUES), so that case checks the analytic value.
+TEST(NoiseAnalysis, MatchesNgspice) {
+    const struct {
+        std::string what, lines, out, ref, source;
+        SimulationConfig::AC::SweepType type;
+        std::uint32_t points;
+        Real fstart, fstop, onoise, inoise;
+    } cases[] = {
+        {"divider", "V1 in 0 DC 0 AC 1\nR1 in out 1k\nR2 out 0 1k\n", "out", "0", "V1",
+         SimulationConfig::AC::SweepType::DEC, 1, 1e3, 1e4, 2.731159e-07, 5.462318e-07},
+        {"rc", "V1 in 0 DC 0 AC 1\nR1 in out 1k\nC1 out 0 1u\n", "out", "0", "V1",
+         SimulationConfig::AC::SweepType::DEC, 5, 10, 1e5, 6.275417e-08, 1.28742e-06},
+        {"diode", "V1 in 0 DC 1 AC 1\nR1 in b 1k\nD1 b 0 dm\n.model dm D IS=1e-14\n", "b", "0", "V1",
+         SimulationConfig::AC::SweepType::DEC, 2, 10, 1e4, 7.585919e-08, 1.162675e-06},
+        {"bjt", "Vcc vcc 0 12\nV1 in 0 DC 0 AC 1\nCin in b 10u\nRb1 vcc b 100k\nRb2 b 0 20k\nRc vcc c 5k\n"
+                "Re e 0 1k\nQ1 c b e qn\n.model qn NPN(BF=100 IS=1e-15)\n",
+         "c", "0", "V1", SimulationConfig::AC::SweepType::DEC, 2, 10, 1e5, 7.494734e-06, 1.549491e-06},
+        {"mosfet", "Vdd vdd 0 5\nV1 in 0 DC 2 AC 1\nRd vdd d 10k\nM1 d in 0 0 nm W=10u L=1u\n"
+                   ".model nm NMOS(LEVEL=1 KP=50u VTO=1)\n",
+         "d", "0", "V1", SimulationConfig::AC::SweepType::DEC, 2, 10, 1e5, 8.474812e-06, 1.694962e-06},
+        {"current source", "I1 0 b DC 0 AC 1\nR1 b 0 1k\nR2 b c 1k\nR3 c 0 1k\n", "c", "0", "I1",
+         SimulationConfig::AC::SweepType::DEC, 1, 1e3, 1e4, 3.153671e-07, 9.461012e-10},
+        {"two nodes", "V1 in 0 DC 0 AC 1\nR1 in b 1k\nR2 b c 1k\nR3 c 0 1k\n", "b", "c", "V1",
+         SimulationConfig::AC::SweepType::DEC, 1, 1e3, 1e4, 3.153671e-07, 9.461012e-07},
+    };
+    for (const auto& c : cases) {
+        parser::NetlistParser parser;
+        auto parsed = parser.parse_string("t\n" + c.lines + ".end\n");
+        SimulationConfig config = parsed.config;
+        config.ac.sweep_type = c.type;
+        config.ac.num_points = c.points;
+        config.ac.start_freq = c.fstart;
+        config.ac.stop_freq = c.fstop;
+        NoiseSolver solver(*parsed.circuit, config);
+        const auto result = solver.solve(c.source, parsed.circuit->get_node_id(c.out),
+                                         parsed.circuit->get_node_id(c.ref));
+        ASSERT_EQ(result.status, ConvergenceStatus::SUCCESS) << c.what;
+        EXPECT_NEAR(integrated_noise(result.frequency_points, result.output_noise), c.onoise, 1e-4 * c.onoise)
+            << c.what;
+        EXPECT_NEAR(integrated_noise(result.frequency_points, result.input_referred_noise), c.inoise,
+                    1e-4 * c.inoise)
+            << c.what;
+    }
+}

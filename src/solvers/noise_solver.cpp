@@ -4,11 +4,14 @@
 // src/solvers/noise_solver.cpp
 // Noise Analysis with Adjoint Transfer Function Method
 #include "kirimaspice/solvers/noise_solver.hpp"
+#include "kirimaspice/devices/current_source.hpp"
+#include "kirimaspice/devices/voltage_source.hpp"
 #include "kirimaspice/solvers/factorization_failure.hpp"
 #include "kirimaspice/devices/device.hpp"
 #include "kirimaspice/solvers/solver_factory.hpp"
 #include <spdlog/spdlog.h>
 #include <cmath>
+#include <functional>
 #include <algorithm>
 
 namespace kirimaspice::solvers {
@@ -21,8 +24,52 @@ NoiseSolver::NoiseSolver(circuit::CircuitGraph& circuit, const SimulationConfig&
 }
 
 NoiseResult NoiseSolver::solve(NodeId input_node, NodeId output_node) {
-    spdlog::info("NoiseSolver: Starting noise analysis (input={}, output={})",
-                 input_node, output_node);
+    return run(output_node, NODE_GND, [&](const ComplexDenseVector& lambda) {
+        return calculate_voltage_gain(input_node, output_node, lambda);
+    });
+}
+
+// The input-referred noise of SPICE's .NOISE: the output noise divided by
+// the gain from the input source to the output, |V(out, ref) / V_in| for a
+// voltage source and |V(out, ref) / I_in| for a current source (from n+
+// through it to n-), as ngspice-45.2 gives inoise_spectrum (run
+// 2026-11-28). The adjoint solution gives that gain at once: its element
+// at the voltage source's branch row, or at the nodes a current source
+// drives.
+NoiseResult NoiseSolver::solve(const std::string& input_source, NodeId output_node, NodeId reference_node) {
+    std::shared_ptr<devices::Device> device;
+    try {
+        device = circuit_.get_device(input_source);
+    } catch (const std::exception&) {
+    }
+    const std::uint32_t num_nodes = circuit_.num_nodes() - 1;
+    auto at = [](const ComplexDenseVector& lambda, std::size_t k) {
+        return k < lambda.size() ? lambda[k] : Complex(0.0, 0.0);
+    };
+    std::function<Real(const ComplexDenseVector&)> gain_of;
+    if (auto v = std::dynamic_pointer_cast<devices::VoltageSource>(device)) {
+        const std::size_t row = num_nodes + v->branch_id();
+        gain_of = [=](const ComplexDenseVector& lambda) { return std::abs(at(lambda, row)); };
+    } else if (auto i = std::dynamic_pointer_cast<devices::CurrentSource>(device)) {
+        const NodeId np = i->nodes()[0], nn = i->nodes()[1];
+        gain_of = [=](const ComplexDenseVector& lambda) {
+            Complex h(0.0, 0.0);
+            if (nn != NODE_GND) h += at(lambda, nn - 1);
+            if (np != NODE_GND) h -= at(lambda, np - 1);
+            return std::abs(h);
+        };
+    } else {
+        spdlog::error("NoiseSolver: the input {} is not an independent voltage or current source", input_source);
+        NoiseResult result;
+        result.status = ConvergenceStatus::NUMERICAL_ERROR;
+        return result;
+    }
+    return run(output_node, reference_node, gain_of);
+}
+
+NoiseResult NoiseSolver::run(NodeId output_node, NodeId reference_node,
+                             const std::function<Real(const ComplexDenseVector&)>& gain_of) {
+    spdlog::info("NoiseSolver: Starting noise analysis (output={}, reference={})", output_node, reference_node);
 
     NoiseResult result;
     result.status = ConvergenceStatus::SUCCESS;
@@ -93,6 +140,9 @@ NoiseResult NoiseSolver::solve(NodeId input_node, NodeId output_node) {
         if (output_node > 0 && output_node <= num_nodes) {
             e_out[output_node - 1] = Complex(1.0, 0.0);
         }
+        if (reference_node > 0 && reference_node <= num_nodes) {
+            e_out[reference_node - 1] = Complex(-1.0, 0.0);
+        }
 
         // Solve Y^H × Λ = e_out
         // Y^H (Hermitian transpose) = conj(Y)^T
@@ -149,7 +199,7 @@ NoiseResult NoiseSolver::solve(NodeId input_node, NodeId output_node) {
         }
 
         // Input-referred noise: output_noise / voltage_gain
-        Real gain = calculate_voltage_gain(input_node, output_node, lambda);
+        const Real gain = gain_of(lambda);
         if (gain > 1e-20) {
             result.input_referred_noise[freq_idx] = result.output_noise[freq_idx] / gain;
         } else {
@@ -322,6 +372,38 @@ ComplexDenseVector NoiseSolver::solve_adjoint_system(const ComplexSparseMatrix& 
     }
 
     return lambda;
+}
+
+}  // namespace kirimaspice::solvers
+
+namespace kirimaspice::solvers {
+
+// The noise of the whole sweep, as ngspice-45.2's onoise_total and
+// inoise_total give it: the square root of the integral of the noise power
+// spectral density over the frequencies of the result, the density taken
+// as a power of the frequency between two points (exact for white noise
+// and for 1/f^n), as SPICE integrates it. A density of 0 at either end of
+// an interval is integrated linearly.
+Real integrated_noise(const std::vector<Real>& frequencies, const std::vector<Real>& density) {
+    Real total = 0.0;
+    for (std::size_t k = 1; k < frequencies.size() && k < density.size(); ++k) {
+        const Real f1 = frequencies[k - 1], f2 = frequencies[k];
+        const Real n1 = density[k - 1] * density[k - 1], n2 = density[k] * density[k];
+        if (!(f2 > f1)) {
+            continue;
+        }
+        if (n1 <= 0.0 || n2 <= 0.0 || f1 <= 0.0) {
+            total += 0.5 * (n1 + n2) * (f2 - f1);
+            continue;
+        }
+        const Real exponent = std::log(n2 / n1) / std::log(f2 / f1);
+        if (std::abs(exponent + 1.0) < 1e-10) {
+            total += n1 * f1 * std::log(f2 / f1);
+        } else {
+            total += n1 * f1 / (exponent + 1.0) * (std::pow(f2 / f1, exponent + 1.0) - 1.0);
+        }
+    }
+    return std::sqrt(total);
 }
 
 }  // namespace kirimaspice::solvers

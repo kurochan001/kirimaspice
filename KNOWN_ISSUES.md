@@ -128,8 +128,8 @@ document also lists differences not decided there.
   are read but not run, each named in a warning;
   `.PRINT DC`, `.PRINT TRAN` and `.PRINT AC` are printed, `.SAVE` limits
   the output files, and `.STEP` runs the first `.STEP` line only (a
-  second is named in a warning).** `.NOISE`,
-  `.MEASURE`, `.TITLE` and unknown directives are ignored with a warning.
+  second is named in a warning).** `.MEASURE`, `.TITLE` and unknown
+  directives are ignored with a warning.
 - **A `.control` block runs `op`, `dc`, `tran` and `ac` in the program's
   order, each kind once,** not in the order of the block as ngspice does,
   and the block's other commands (`noise`, `pz`, `sens`, `plot`, `set` and
@@ -173,9 +173,17 @@ says otherwise.
   linear step is 0 for fewer than three points (run on 2026-11-21). The
   two points `<n>` asks for are kept. `DEC` and `OCT` take ngspice-47's
   grid.
-- **The library's input-referred noise (`NoiseSolver`) divides by the
-  transimpedance from the input node,** not by the voltage gain from the
-  input source (read in the code at `63ce9a6`; no test checks it).
+- **`NoiseSolver::solve(input_node, output_node)`, the library's call by
+  an input node, divides the output noise by the transimpedance from that
+  node,** not by a gain from a source; the call by a source's name, which
+  `.NOISE` uses, divides by the gain from the source, as SPICE does.
+- **`inoise_total` differs from ngspice-45.2 where the gain changes with
+  frequency.** It is the integral of the input-referred noise spectrum;
+  for an RC low-pass of 1 kOhm and 1 uF from 10 Hz to 100 kHz (5 points per
+  decade) the spectrum is sqrt(4kTR) at every point in both, and this
+  program gives 1.28742e-6 V, the analytic value, where ngspice-45.2
+  prints 1.619906e-6 V (run 2026-11-28). `onoise_total` and the spectra
+  agree.
 - **The optimizer's `LD_SLSQP` gets no gradient:**
   `nlopt_objective_wrapper` ignores `grad` (read in the code at
   `63ce9a6`; not confirmed by a run).
@@ -282,8 +290,7 @@ says otherwise.
   with VBS, but ngspice-47 reports g<sub>mbs</sub> = 3.348e-4 S, which is
   g<sub>m</sub>·GAMMA/(2·sarg) with sarg the expression that replaces the
   root for a forward bias (run on 2026-11-21 at `21bb991`).
-- **Some noise sources differ from SPICE's** (library only: the program
-  does not run `.NOISE`; read in the code). The channel thermal noise of
+- **Some noise sources differ from SPICE's** (read in the code). The channel thermal noise of
   BSIM3, BSIM4 and the GaN HEMT is 4kT·(8/3)·g<sub>m</sub>, where level 1,
   level 3, BSIM1, the MESFET, the FinFET and the IGBT take SPICE's
   4kT·(2/3)·g<sub>m</sub> (level 3 and BSIM1 since 2026-11-21). The

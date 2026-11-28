@@ -67,7 +67,7 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
   | --- | --- |
   | run | `.OP`, `.DC`, `.TRAN`, `.AC`, `.FOUR`, `.PRINT TRAN` |
   | read, not used | `.SENS`, `.PZ`, `.DISTO`, `.MC`, `.WCASE`, `.OPTIMIZE`, `.PORT` |
-  | ignored | `.NOISE`, `.MEASURE`, `.TITLE`, `.END` (lines after it are read) |
+  | ignored | `.MEASURE`, `.TITLE`, `.END` (lines after it are read) |
 
   Each of the second and third rows, except `.END`, is named in a warning.
 

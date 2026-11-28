@@ -8,6 +8,7 @@
 #include "kirimaspice/solvers/transient_solver.hpp"
 #include "kirimaspice/solvers/ac_solver.hpp"
 #include "kirimaspice/solvers/transfer_function_solver.hpp"
+#include "kirimaspice/solvers/noise_solver.hpp"
 #include "kirimaspice/output/ssf_writer.hpp"
 #include "kirimaspice/output/output_error.hpp"
 #include "kirimaspice/output/ac_csv_writer.hpp"
@@ -272,7 +273,8 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
 
     const bool run_dc_sweep = config.dc_sweep_enabled;
     const bool asks_for_none = !config.op_requested && !config.dc_sweep_enabled &&
-                               !config.tran_requested && !config.ac_requested && !config.tf.enabled;
+                               !config.tran_requested && !config.ac_requested && !config.tf.enabled &&
+                               !config.noise.enabled;
     // A netlist without an analysis line runs the operating point as if it had
     // .OP; .OP with .DC runs both, as ngspice-45.2 does (run 2026-11-28)
     const bool run_dc_point = config.op_requested || asks_for_none;
@@ -547,6 +549,47 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
                 spdlog::error("AC analysis failed");
                 return kExitAnalysisFailed;
             }
+        }
+
+        // .NOISE V(<out>[,<ref>]) <source> <sweep>: the output noise and the
+        // input-referred noise at each frequency (NoiseSolver), then their
+        // totals over the sweep (solvers::integrated_noise), as ngspice-45.2
+        // gives onoise_spectrum, inoise_spectrum, onoise_total and inoise_total
+        if (config.noise.enabled) {
+            spdlog::info("Running noise analysis...");
+            auto node_of = [&](const std::string& name) -> std::optional<NodeId> {
+                if (!circuit->has_node(name)) return std::nullopt;
+                return circuit->get_node_id(name);
+            };
+            const auto output = node_of(config.noise.output_node);
+            const auto reference = node_of(config.noise.reference_node);
+            if (!output || !reference || *output == NODE_GND) {
+                spdlog::error(".NOISE: V({},{}) names no node of the circuit", config.noise.output_node,
+                              config.noise.reference_node);
+                return kExitAnalysisFailed;
+            }
+            SimulationConfig noise_config = config;
+            noise_config.ac = config.noise.sweep;
+            solvers::NoiseSolver noise_solver(*circuit, noise_config);
+            const auto noise = noise_solver.solve(config.noise.input_source, *output, *reference);
+            if (noise.status != ConvergenceStatus::SUCCESS) {
+                spdlog::error("Noise analysis failed");
+                return kExitAnalysisFailed;
+            }
+            const auto source = circuit->get_device(config.noise.input_source);
+            const std::string input_unit =
+                std::dynamic_pointer_cast<devices::VoltageSource>(source) ? "V" : "A";
+            std::cout << "\n=== Noise Analysis ===\n";
+            std::cout << "Frequency (Hz)\tonoise (V/sqrt(Hz))\tinoise (" << input_unit << "/sqrt(Hz))\n";
+            for (std::size_t k = 0; k < noise.frequency_points.size(); ++k) {
+                std::cout << noise.frequency_points[k] << "\t" << noise.output_noise[k] << "\t"
+                          << noise.input_referred_noise[k] << "\n";
+            }
+            std::cout << "onoise_total = " << solvers::integrated_noise(noise.frequency_points, noise.output_noise)
+                      << " V\n";
+            std::cout << "inoise_total = "
+                      << solvers::integrated_noise(noise.frequency_points, noise.input_referred_noise) << " "
+                      << input_unit << "\n";
         }
 
     return 0;

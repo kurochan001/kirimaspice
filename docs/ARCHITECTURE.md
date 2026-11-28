@@ -155,7 +155,7 @@ body and is local to each instance. Inside a `.SUBCKT`,
 element lines are stored as text and parsed at expansion, by the same
 element parsers (see [Circuit](#circuit)). Nested
 `.SUBCKT` definitions are an error. A directive the parser does not read
-is ignored with one warning (`.NOISE`, `.MEASURE` and `.TITLE` as not
+is ignored with one warning (`.MEASURE` and `.TITLE` as not
 supported); every directive read is recorded in
 `SimulationConfig::directives_read`, from which the program names those
 it does not run. An element of a letter outside `BCDEFGHIKLMOQRSTVXYZ` is
@@ -461,7 +461,7 @@ its own solver. The inputs are the sources written with `AC`
 | --- | --- | --- |
 | Fourier (`.FOUR`) | `FourierAnalyzer`, called by the transient solver | yes, with `.TRAN` |
 | Temperature sweep (`.TEMP`) | `solve_temp_sweep` of the DC and transient solvers | `.TEMP` is, but not through these functions: the program runs the analyses once per `.TEMP` value itself (`run_analyses` in `main.cpp`) |
-| Noise | `NoiseSolver`, adjoint method over `get_noise_sources`, at the frequencies of the AC sweep (`solvers::ac_frequency_points`) | no; there is no `.NOISE` |
+| Noise | `NoiseSolver`, adjoint method over `get_noise_sources`, at the frequencies of the AC sweep (`solvers::ac_frequency_points`) | yes, `.NOISE`: the input-referred noise over the gain from the input source (`NoiseSolver::solve` with the source's name), the totals by `solvers::integrated_noise` |
 | Sensitivity | `SensitivityAnalyzer`, finite differences through `set_parameter` | no; `.SENS` is parsed |
 | Transfer function | `TransferFunctionSolver`, the small-signal circuit at omega = 0 (`ACSolver::solve_excited`) with 1 at the input, then 1 A into the output | yes |
 | Pole-zero | `PoleZeroSolver`, a placeholder | no; `.PZ` is parsed |

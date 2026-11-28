@@ -72,8 +72,8 @@ harmonics after a transient, and a `.TEMP` list repeats the analyses at each tem
 
 Directives such as `.MODEL`, `.PARAM` and `.SUBCKT` define the circuit.
 The parser also accepts directives such as `.SENS` and `.MC` for which
-the CLI issues a warning and skips that analysis. Noise analysis is available
-through the C++ library. See the [directive reference](docs/REFERENCE_MANUAL.md#directives)
+the CLI issues a warning and skips that analysis; `.TF` and `.NOISE` are
+run. See the [directive reference](docs/REFERENCE_MANUAL.md#directives)
 and the [list of library analyses](docs/ARCHITECTURE.md#other-analyses-in-the-library).
 
 Voltage and current sources accept DC and AC inputs and the `PULSE`, `SIN`, `EXP`,

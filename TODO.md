@@ -45,8 +45,9 @@ Small items with a direct effect on netlists written for ngspice.
 - [x] **`.TF`**, through the small-signal circuit at omega = 0, with voltage
   outputs and currents of voltage sources.
 - [ ] **Directives read but not run** (M each): `.SENS`, `.MC`, `.PZ`,
-  `.DISTO`, `.PORT`, `.WCASE`, `.OPTIMIZE`, `.NOISE` and `.MEASURE`
+  `.DISTO`, `.PORT`, `.WCASE`, `.OPTIMIZE` and `.MEASURE`
   ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+- [x] **`.NOISE`**, with the spectra and totals of ngspice.
 - [x] **`.OP` with `.DC` runs both** (S), the sweep first, as in
   ngspice-45.2's raw file.
 - [x] **Analyses in `.control` blocks** (M): `op`, `dc` (also nested),
@@ -68,8 +69,8 @@ Small items with a direct effect on netlists written for ngspice.
   ([analyses](KNOWN_ISSUES.md#analyses)).
 - [ ] **GMIN in the other devices' junctions** (M): only the diode and
   the bipolar transistor have it ([analyses](KNOWN_ISSUES.md#analyses)).
-- [ ] **Input-referred noise** (S): divide by the gain from the input
-  source ([analyses](KNOWN_ISSUES.md#analyses)).
+- [x] **Input-referred noise** (S): divided by the gain from the input
+  source in the call by a source's name, which `.NOISE` uses.
 - [ ] **A gradient for `LD_SLSQP`** (S)
   ([analyses](KNOWN_ISSUES.md#analyses)).
 

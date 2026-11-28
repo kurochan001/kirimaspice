@@ -125,7 +125,7 @@ alike.
 - Lines after `.END` are read like any other, as ngspice-47 reads them,
   and so is an `.END` in an included file (run on 2026-11-21). A directive the parser does
   not read is ignored and named in one warning (`unknown directive`, or
-  `is not supported` for `.NOISE`, `.MEASURE` and `.TITLE`), and the
+  `is not supported` for `.MEASURE` and `.TITLE`), and the
   program names once each directive it reads but does not run
   (`is read, but this program does not run it`). An element of a letter not in the table
   below (such as `W`) is a parse error, `Unknown element letter`, also in
@@ -504,7 +504,8 @@ parser stores it, but the program does not use it (the library can).
 | `.TF` | `.TF v(<node>[,<node>])\|i(<voltage source>) <source>` | used: at the operating point, the small-signal DC gain from the source (an independent voltage or current source) to the output, the input resistance seen by the source and the output resistance at the output, as ngspice-45.2 gives them; printed under `=== Transfer Function ===` after the operating point; for a current output, the gain is the source's branch current (into its + terminal) and the output resistance 1e20, as ngspice-45.2 prints it |
 | `.SENS`, `.MC`, `.PZ`, `.DISTO`, `.PORT`, `.WCASE`, `.OPTIMIZE` | | read only; named in a warning |
 | `.CONTROL` / `.ENDC` | | taken out and run by the parser; of its analysis commands the program runs `dc` and `ac`, not `tran`, and `op` is named in a warning as an unknown command (see [KNOWN_ISSUES.md](../KNOWN_ISSUES.md)) |
-| `.TITLE`, `.MEASURE`, `.NOISE`, others | | ignored; each name in one warning |
+| `.NOISE` | `.NOISE V(<out>[,<ref>]) <source> DEC\|OCT\|LIN <points> <fstart> <fstop> [<points per summary>]` | used: at each frequency the output noise at V(out, ref) and the input-referred noise, the output noise over the gain from the source (an independent voltage or current source), as ngspice-45.2 gives `onoise_spectrum` and `inoise_spectrum`; then `onoise_total` and `inoise_total`, the square root of the integral of the noise power over the sweep, taken as a power of the frequency between points; printed under `=== Noise Analysis ===` after AC; the points per summary are not used |
+| `.TITLE`, `.MEASURE`, others | | ignored; each name in one warning |
 
 ### How the program chooses analyses
 

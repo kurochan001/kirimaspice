@@ -1987,6 +1987,33 @@ template<typename Rule>
 struct action {};
 
 
+// The frequency sweep <DEC|LIN|OCT> <points> <fstart> <fstop> at
+// tokens[first] onwards, as .AC and .NOISE give it
+static SimulationConfig::AC read_ac_sweep(const std::vector<std::string>& tokens, std::size_t first,
+                                          SimulationConfig::AC sweep, ParseState& state) {
+    std::string sweep_type_str = tokens[first];
+    std::transform(sweep_type_str.begin(), sweep_type_str.end(), sweep_type_str.begin(), ::toupper);
+
+    if (sweep_type_str == "DEC") {
+        sweep.sweep_type = SimulationConfig::AC::SweepType::DEC;
+    } else if (sweep_type_str == "LIN") {
+        sweep.sweep_type = SimulationConfig::AC::SweepType::LIN;
+    } else if (sweep_type_str == "OCT") {
+        sweep.sweep_type = SimulationConfig::AC::SweepType::OCT;
+    } else {
+        throw ParseError(fmt::format("Unknown AC sweep type: {}", sweep_type_str), state.line_number);
+    }
+
+    try {
+        sweep.num_points = read_ac_point_count(tokens[first + 1]);
+    } catch (const std::runtime_error& e) {
+        throw ParseError(e.what(), state.line_number);
+    }
+    sweep.start_freq = parse_value_with_unit(tokens[first + 2]);
+    sweep.stop_freq = parse_value_with_unit(tokens[first + 3]);
+    return sweep;
+}
+
 static void parse_ac_directive(const std::vector<std::string>& tokens, ParseState& state) {
     // Parse .AC directive
     // Syntax: .AC DEC|LIN|OCT num_points start_freq stop_freq
@@ -1994,32 +2021,39 @@ static void parse_ac_directive(const std::vector<std::string>& tokens, ParseStat
         throw ParseError("Invalid .AC syntax: .AC <DEC|LIN|OCT> <num_points> <start_freq> <stop_freq>",
                         state.line_number);
     }
-
-    std::string sweep_type_str = tokens[1];
-    std::transform(sweep_type_str.begin(), sweep_type_str.end(), sweep_type_str.begin(), ::toupper);
-
-    if (sweep_type_str == "DEC") {
-        state.config->ac.sweep_type = SimulationConfig::AC::SweepType::DEC;
-    } else if (sweep_type_str == "LIN") {
-        state.config->ac.sweep_type = SimulationConfig::AC::SweepType::LIN;
-    } else if (sweep_type_str == "OCT") {
-        state.config->ac.sweep_type = SimulationConfig::AC::SweepType::OCT;
-    } else {
-        throw ParseError(fmt::format("Unknown AC sweep type: {}", sweep_type_str), state.line_number);
-    }
-
-    try {
-        state.config->ac.num_points = read_ac_point_count(tokens[2]);
-    } catch (const std::runtime_error& e) {
-        throw ParseError(e.what(), state.line_number);
-    }
-    state.config->ac.start_freq = parse_value_with_unit(tokens[3]);
-    state.config->ac.stop_freq = parse_value_with_unit(tokens[4]);
+    state.config->ac = read_ac_sweep(tokens, 1, state.config->ac, state);
     state.config->ac_requested = true;
 
-    spdlog::debug("Parsed .AC: sweep={}, num_points={}, start={} Hz, stop={} Hz",
-                 sweep_type_str, state.config->ac.num_points,
-                 state.config->ac.start_freq, state.config->ac.stop_freq);
+    spdlog::debug("Parsed .AC: num_points={}, start={} Hz, stop={} Hz", state.config->ac.num_points,
+                  state.config->ac.start_freq, state.config->ac.stop_freq);
+}
+
+// .NOISE V(<out>[,<ref>]) <source> <DEC|LIN|OCT> <points> <fstart> <fstop>
+// [<points per summary>], as ngspice's: the output noise at V(out, ref) and
+// the input-referred noise at the source over the sweep (NoiseSolver).
+// The points per summary, which ngspice uses for its per-device summary,
+// are not used.
+static void parse_noise_directive(const std::vector<std::string>& tokens, ParseState& state) {
+    if (tokens.size() < 7) {
+        throw ParseError("Invalid .NOISE syntax: .NOISE V(<out>[,<ref>]) <source> <DEC|LIN|OCT> <points> "
+                         "<fstart> <fstop>",
+                         state.line_number);
+    }
+    const std::string& output = tokens[1];
+    const auto open = output.find('(');
+    if (open == std::string::npos || output.back() != ')' || !util::equals_icase(output.substr(0, open), "V")) {
+        throw ParseError(fmt::format("Invalid .NOISE output: {} (expected V(<node>) or V(<node>,<node>))", output),
+                         state.line_number);
+    }
+    std::string inside = output.substr(open + 1, output.size() - open - 2);
+    const auto comma = inside.find(',');
+    state.config->noise.output_node = inside.substr(0, comma);
+    state.config->noise.reference_node = comma == std::string::npos ? "0" : inside.substr(comma + 1);
+    util::trim_inplace(state.config->noise.output_node);
+    util::trim_inplace(state.config->noise.reference_node);
+    state.config->noise.input_source = tokens[2];
+    state.config->noise.sweep = read_ac_sweep(tokens, 3, state.config->noise.sweep, state);
+    state.config->noise.enabled = true;
 }
 
 static void parse_dc_directive(const std::vector<std::string>& tokens, ParseState& state) {
@@ -6405,6 +6439,7 @@ void process_line(const std::string& raw_line, ParseState& state) {
         if (directive == ".TEMP") { parse_temp_directive(tokens, state); return; }
         if (directive == ".MC" || directive == ".MONTECARLO") { parse_mc_directive(tokens, state); return; }
         if (directive == ".TF") { parse_tf_directive(tokens, state); return; }
+        if (directive == ".NOISE") { parse_noise_directive(tokens, state); return; }
         if (directive == ".FOUR" || directive == ".FOURIER") { parse_four_directive(tokens, state); return; }
         if (directive == ".PZ") { parse_pz_directive(tokens, state); return; }
         if (directive == ".DISTO") { parse_disto_directive(tokens, state); return; }
@@ -6422,7 +6457,7 @@ void process_line(const std::string& raw_line, ParseState& state) {
             return;
         }
         if (state.warned_directives.insert(directive).second) {
-            static const std::set<std::string> kNotSupported = {".NOISE", ".MEASURE", ".MEAS",
+            static const std::set<std::string> kNotSupported = {".MEASURE", ".MEAS",
                                                                 ".TITLE"};
             if (kNotSupported.count(directive)) {
                 spdlog::warn("Line {}: {} is not supported and is ignored", state.line_number,

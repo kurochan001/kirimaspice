@@ -179,6 +179,27 @@ class CliAnalyses(unittest.TestCase):
         self.assertNotIn("No analysis specified", result.stdout)
         self.assertEqual(plots, [])
 
+    def test_noise_prints_the_spectra_and_totals(self):
+        # ngspice-45.2 gives onoise_spectrum = 2.878894e-09 and
+        # inoise_spectrum = 5.757789e-09 V/sqrt(Hz) at 1 and 10 kHz for this
+        # divider, onoise_total = 2.731159e-07 and inoise_total =
+        # 5.462318e-07 V (run on 2026-11-28); a netlist with .NOISE alone runs
+        # no operating point of its own
+        result, plots = self.run_deck("t\nV1 in 0 DC 0 AC 1\nR1 in out 1k\nR2 out 0 1k\n"
+                                      ".noise v(out) V1 dec 1 1k 10k\n.end\n")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn("No analysis specified", result.stdout)
+        lines = result.stdout.split("=== Noise Analysis ===\n", 1)[1].splitlines()
+        self.assertEqual(lines[0].split("\t"), ["Frequency (Hz)", "onoise (V/sqrt(Hz))", "inoise (V/sqrt(Hz))"])
+        rows = [[float(v) for v in line.split("\t")] for line in lines[1:] if line[:1].isdigit()]
+        self.assertEqual(len(rows), 2)
+        for row in rows:
+            self.assertAlmostEqual(row[1] / 2.878894e-09, 1.0, places=5)
+            self.assertAlmostEqual(row[2] / 5.757789e-09, 1.0, places=5)
+        totals = dict(line.split(" = ") for line in result.stdout.splitlines() if "_total = " in line)
+        self.assertAlmostEqual(float(totals["onoise_total"].split()[0]) / 2.731159e-07, 1.0, places=5)
+        self.assertAlmostEqual(float(totals["inoise_total"].split()[0]) / 5.462318e-07, 1.0, places=5)
+
     def test_directive_the_program_does_not_run_is_named(self):
         result, plots = self.run_deck("t\nV1 in 0 1\nR1 in 0 1k\n.OPTIMIZE COBYLA OBJECTIVE=v(in) MAX PARAM=R1.resistance:1k:100:10k\n"
                                       ".op\n.end\n")

@@ -878,6 +878,15 @@ struct SimulationConfig {
         bool enabled = false;       ///< Whether TF analysis is requested
     } tf;
 
+    /// .NOISE V(<out>[,<ref>]) <source> DEC|OCT|LIN <points> <fstart> <fstop>
+    struct Noise {
+        bool enabled = false;
+        std::string output_node;     ///< <out>
+        std::string reference_node;  ///< <ref>, ground when not given
+        std::string input_source;    ///< the independent source the noise is referred to
+        AC sweep;                    ///< the frequencies, read as .AC reads them
+    } noise;
+
     // Fourier analysis
     struct Fourier {
         Real fundamental_freq = 1000.0;  ///< Fundamental frequency [Hz]

@@ -128,8 +128,8 @@ flowchart TD
 
 ディレクティブは `.SUBCKT` の本体かどうかを調べる前に処理するので、サブ回路の中の `.MODEL` はグローバルに
 なります（モデル名の 2 つ目の定義は警告で名指しします）。そこにある `.PARAM` は本体と一緒に保存し、インスタンスごとにその中だけで効きます。`.SUBCKT` の中の素子の行はテキストのまま保存し、展開のときに同じ素子のパーサーで解析します（[回路](#回路)）。入れ子の
-`.SUBCKT` の定義はエラーです。パーサーが読まないディレクティブは、1 回警告して無視します（`.NOISE`、
-`.MEASURE`、`.TITLE` は未対応として）。読んだディレクティブは `SimulationConfig::directives_read` に
+`.SUBCKT` の定義はエラーです。パーサーが読まないディレクティブは、1 回警告して無視します（`.MEASURE`、`.TITLE` は
+未対応として）。読んだディレクティブは `SimulationConfig::directives_read` に
 記録し、プログラムはそこから、実行しないものを名指しします。`BCDEFGHIKLMOQRSTVXYZ` 以外の文字の素子は
 `ParseError` です（`is_element_letter`）。
 
@@ -368,7 +368,7 @@ flowchart TD
 | --- | --- | --- |
 | フーリエ（`.FOUR`） | 過渡解析のソルバーが呼ぶ `FourierAnalyzer` | 使える。`.TRAN` と一緒に |
 | 温度スイープ（`.TEMP`） | DC と過渡解析のソルバーの `solve_temp_sweep` | `.TEMP` は使えるが、これらの関数は通らない。プログラムが `.TEMP` の値ごとに自分で解析を実行する（`main.cpp` の `run_analyses`） |
-| ノイズ | `NoiseSolver`。`get_noise_sources` についての随伴法を、AC 解析の掃引の周波数（`solvers::ac_frequency_points`）で解く | 使えない。`.NOISE` がない |
+| ノイズ | `NoiseSolver`。`get_noise_sources` についての随伴法を、AC 解析の掃引の周波数（`solvers::ac_frequency_points`）で解く | 使える。`.NOISE`：入力換算の雑音は入力の電源からの利得で割る（電源の名前を取る `NoiseSolver::solve`）。全体は `solvers::integrated_noise` |
 | 感度 | `SensitivityAnalyzer`。`set_parameter` による差分 | 使えない。`.SENS` は解析する |
 | 伝達関数 | `TransferFunctionSolver`。ω = 0 の小信号の回路（`ACSolver::solve_excited`）に、入力に 1、次に出力に 1 A を与える | 使える |
 | 極と零点 | `PoleZeroSolver`。仮の実装 | 使えない。`.PZ` は解析する |

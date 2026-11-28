@@ -212,8 +212,12 @@ under `=== Transfer Function ===`. The other analyses in the library
 (noise, pole-zero, distortion, sensitivity, S-parameters, Monte Carlo,
 worst case, optimization) are not run by the program. `.PZ`, `.DISTO`,
 `.SENS`, `.PORT`, `.MC`, `.WCASE` and `.OPTIMIZE` are read and not run,
-each named once in a warning; noise has
-no directive here, and `.NOISE` and `.MEASURE` are ignored with a warning.
+each named once in a warning, and `.MEASURE` is ignored with a warning.
+`.NOISE V(<out>[,<ref>]) <source> <DEC|OCT|LIN> <points> <fstart> <fstop>`
+prints, under `=== Noise Analysis ===`, the output noise and the
+input-referred noise at each frequency in V/sqrt(Hz) (A/sqrt(Hz) for a
+current source), then `onoise_total` and `inoise_total`, the noise over
+the whole sweep, as ngspice names them.
 
 ### Operating point
 

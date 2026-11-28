@@ -9,6 +9,7 @@
 #include "kirimaspice/core/types.hpp"
 #include "kirimaspice/solvers/ac_solver.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
+#include <functional>
 #include <map>
 #include <string>
 #include <vector>
@@ -73,12 +74,27 @@ public:
     NoiseResult solve(NodeId input_node, NodeId output_node);
 
     /**
+     * @brief Run noise analysis as SPICE's .NOISE does
+     * @param input_source The input, an independent voltage or current source
+     * @param output_node The output, V(output_node, reference_node)
+     * @param reference_node Its reference node (ground by default)
+     * @return The output noise, and the input-referred noise: the output
+     *         noise divided by the gain from the input source to the output
+     */
+    NoiseResult solve(const std::string& input_source, NodeId output_node, NodeId reference_node = NODE_GND);
+
+    /**
      * @brief Get DC solution (for debugging)
      * @return DC node voltages
      */
     const DenseVector& get_dc_solution() const { return dc_solution_; }
 
 private:
+    /// The analysis for an output V(output_node, reference_node), with the
+    /// gain that divides the output noise into the input-referred noise
+    NoiseResult run(NodeId output_node, NodeId reference_node,
+                    const std::function<Real(const ComplexDenseVector&)>& gain_of);
+
     /**
      * @brief Collect noise sources from all devices
      * @param frequency Current frequency point (Hz)
@@ -150,5 +166,12 @@ private:
     static constexpr Real T_nominal = 300.15;   ///< Nominal temperature (K, 27°C)
 };
 
+/// The noise of the whole sweep from a noise spectral density in V/sqrt(Hz)
+/// (or A/sqrt(Hz)) at the frequencies: the square root of the integral of
+/// its square, taken as a power of the frequency between two points, as
+/// ngspice-45.2 gives onoise_total and inoise_total
+Real integrated_noise(const std::vector<Real>& frequencies, const std::vector<Real>& density);
+
 }  // namespace solvers
+
 }  // namespace kirimaspice

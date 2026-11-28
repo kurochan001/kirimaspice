@@ -59,7 +59,7 @@ ngspice-47 は、kirimaspice が書く ASCII とバイナリの raw ファイル
   | --- | --- |
   | 実行する | `.OP`、`.DC`、`.TRAN`、`.AC`、`.FOUR`、`.PRINT TRAN` |
   | 読むが使わない | `.SENS`、`.PZ`、`.DISTO`、`.MC`、`.WCASE`、`.OPTIMIZE`、`.PORT` |
-  | 無視する | `.NOISE`、`.MEASURE`、`.TITLE`、`.END`（その後の行も読む） |
+  | 無視する | `.MEASURE`、`.TITLE`、`.END`（その後の行も読む） |
 
   2 行目と 3 行目のものは、`.END` を除いて、警告で名指しします。
 
