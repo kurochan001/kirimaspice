@@ -3,15 +3,17 @@
 
 // src/solvers/transfer_function_solver.cpp
 #include "kirimaspice/solvers/transfer_function_solver.hpp"
-#include "kirimaspice/devices/current_source.hpp"
-#include "kirimaspice/devices/voltage_source.hpp"
-#include "kirimaspice/solvers/ac_solver.hpp"
-#include "kirimaspice/util/string_utils.hpp"
 
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
+#include <cmath>
 #include <optional>
+
+#include "kirimaspice/devices/current_source.hpp"
+#include "kirimaspice/devices/voltage_source.hpp"
+#include "kirimaspice/solvers/ac_solver.hpp"
+#include "kirimaspice/util/string_utils.hpp"
 
 namespace kirimaspice {
 
@@ -108,6 +110,27 @@ std::optional<Input> input_source(const circuit::CircuitGraph& circuit, const st
     return std::nullopt;
 }
 
+/// Sets `success` when the three results are finite. A value that is not
+/// finite is no result: a gain beyond the range of a double is inf, and the
+/// difference of two such nodes is nan. The analysis then fails with a
+/// message, as .AC and .NOISE fail on such a value; ngspice-45.2 prints inf
+/// and nan there (run 2026-11-28).
+void finish(TransferFunctionResult& result) {
+    const struct {
+        const char* what;
+        Real value;
+    } values[] = {{"transfer function", result.transfer_gain},
+                  {"input resistance", result.input_resistance},
+                  {"output resistance", result.output_resistance}};
+    for (const auto& v : values) {
+        if (!std::isfinite(v.value)) {
+            spdlog::error(".TF: the {} is not finite ({})", v.what, v.value);
+            return;
+        }
+    }
+    result.success = true;
+}
+
 }  // namespace
 
 TransferFunctionSolver::TransferFunctionSolver(const circuit::CircuitGraph& circuit,
@@ -186,7 +209,7 @@ TransferFunctionResult TransferFunctionSolver::analyze() {
 
     if (output->current) {
         result.output_resistance = kInfiniteResistance;
-        result.success = true;
+        finish(result);
         return result;
     }
     const ComplexDenseVector y = small_signal.solve_excited(0.0, [&](ComplexMNASystem& sys) {
@@ -198,7 +221,7 @@ TransferFunctionResult TransferFunctionSolver::analyze() {
         return result;
     }
     result.output_resistance = voltage(y, output->first) - voltage(y, output->second);
-    result.success = true;
+    finish(result);
     return result;
 }
 

@@ -179,6 +179,17 @@ class CliAnalyses(unittest.TestCase):
         self.assertNotIn("No analysis specified", result.stdout)
         self.assertEqual(plots, [])
 
+    def test_tf_fails_when_its_gain_is_not_finite(self):
+        # Two VCVS of gain 1e200 in a row: the gain to v(b) is beyond the
+        # range of a double. The analysis fails with exit code 1 and prints
+        # no result; ngspice-45.2 prints transfer_function = inf (run on
+        # 2026-11-28)
+        result, plots = self.run_deck("t\nV1 in 0 0\nRin in 0 1k\nE1 a 0 in 0 1e200\nRa a 0 1k\n"
+                                      "E2 b 0 a 0 1e200\nRb b 0 1k\n.tf v(b) V1\n.end\n")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertNotIn("=== Transfer Function ===", result.stdout)
+        self.assertIn("is not finite", result.stderr)
+
     def test_noise_prints_the_spectra_and_totals(self):
         # ngspice-45.2 gives onoise_spectrum = 2.878894e-09 and
         # inoise_spectrum = 5.757789e-09 V/sqrt(Hz) at 1 and 10 kHz for this

@@ -351,6 +351,33 @@ TEST(TransferFunctionSolver, LossyLineIsItsDcTwoPort) {
     }
 }
 
+// A result that is not finite is no result: the analysis fails
+// (TransferFunctionSolver::analyze), as .AC and .NOISE fail on such a value.
+// Two VCVS of gain 1e200 in a row give a gain of 1e400, beyond the range of a
+// double: v(b) is inf, and v(b,c), the difference of two such nodes, is nan.
+// ngspice-45.2 prints inf and -nan for these two outputs (run 2026-11-28);
+// this program's rule is its own. v(a), after the first VCVS, is 1e200 beside
+// the infinite v(b): a finite result, which ngspice-45.2 gives too.
+TEST(TransferFunctionSolver, ResultThatIsNotFiniteFails) {
+    const std::string circuit =
+        "t\nV1 in 0 0\nRin in 0 1k\nE1 a 0 in 0 1e200\nRa a 0 1k\n"
+        "E2 b 0 a 0 1e200\nRb b 0 1k\nE3 c 0 a 0 1e200\nRc c 0 1k\n";
+    for (const std::string output : {"v(b)", "v(b,c)"}) {
+        parser::NetlistParser parser;
+        auto parsed = parser.parse_string(circuit + ".tf " + output + " V1\n.end\n");
+        TransferFunctionSolver solver(*parsed.circuit, parsed.config);
+        EXPECT_FALSE(solver.analyze().success) << output;
+    }
+    parser::NetlistParser parser;
+    auto parsed = parser.parse_string(circuit + ".tf v(a) V1\n.end\n");
+    TransferFunctionSolver solver(*parsed.circuit, parsed.config);
+    const auto result = solver.analyze();
+    ASSERT_TRUE(result.success);
+    EXPECT_NEAR(result.transfer_gain, 1e200, 1e194);
+    EXPECT_NEAR(result.input_resistance, 1000.0, 1e-3);
+    EXPECT_NEAR(result.output_resistance, 0.0, 1e-9);
+}
+
 // The current of an element that is not a voltage source, i(R1), is not an
 // output: the analysis fails with a message instead of a value
 TEST(TransferFunctionSolver, CurrentOfAResistorIsNotAnOutput) {
