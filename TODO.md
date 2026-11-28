@@ -68,8 +68,8 @@ Small items with a direct effect on netlists written for ngspice.
 - [ ] **Convergence aids by default** (M): measure what ngspice-47 does
   when Newton's method alone fails, then decide with a person
   ([analyses](KNOWN_ISSUES.md#analyses)).
-- [ ] **GMIN in the other devices' junctions** (M): only the diode and
-  the bipolar transistor have it ([analyses](KNOWN_ISSUES.md#analyses)).
+- [ ] **GMIN in the other devices' junctions** (M): only the diode, the
+  bipolar transistor and the JFET have it ([analyses](KNOWN_ISSUES.md#analyses)).
 - [x] **Input-referred noise** (S): divided by the gain from the input
   source in the call by a source's name, which `.NOISE` uses.
 - [ ] **A gradient for `LD_SLSQP`** (S)
