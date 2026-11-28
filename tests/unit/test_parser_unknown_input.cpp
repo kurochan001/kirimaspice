@@ -92,8 +92,8 @@ TEST(ParserUnknownInput, UnknownDirectiveIsNamedOnce) {
 
 TEST(ParserUnknownInput, UnsupportedDirectivesAreNamed) {
     const std::string warnings = parse_warnings(
-        "t\nV1 in 0 1\nR1 in 0 1k\n.noise v(in) V1 dec 10 1 1k\n.measure tran x max v(in)\n.end\n");
-    EXPECT_EQ(count(warnings, ".noise is not supported and is ignored"), 1u) << warnings;
+        "t\nV1 in 0 1\nR1 in 0 1k\n.title another title\n.measure tran x max v(in)\n.end\n");
+    EXPECT_EQ(count(warnings, ".title is not supported and is ignored"), 1u) << warnings;
     EXPECT_EQ(count(warnings, ".measure is not supported and is ignored"), 1u) << warnings;
 }
 
