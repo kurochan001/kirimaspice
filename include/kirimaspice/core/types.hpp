@@ -861,6 +861,10 @@ struct SimulationConfig {
         std::vector<std::string> print_ac_signals;    ///< the signals of .PRINT AC, in order
         std::vector<std::string> save_signals;   ///< .save specified signals (subset of print_signals for SSF)
         bool save_all = true;                    ///< Default: save all signals (no .save directive)
+        /// The signals of the .SAVE lines, in order, which the output files
+        /// keep alone when there is one (output::SavedSignals); the print
+        /// command of a .control block does not add to them, as in ngspice
+        std::vector<std::string> saved_signals;
     } output;
 
     // Sensitivity analysis

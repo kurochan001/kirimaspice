@@ -2657,6 +2657,8 @@ static void parse_save_directive(const std::vector<std::string>& tokens, ParseSt
         state.config->output.save_signals.push_back(signal);
         // Also add to print_signals (save implies print)
         state.config->output.print_signals.push_back(signal);
+        // and among the signals the output files keep (output::SavedSignals)
+        state.config->output.saved_signals.push_back(signal);
         spdlog::debug("Added .SAVE signal: {}", signal);
     }
 

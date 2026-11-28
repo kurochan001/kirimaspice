@@ -94,6 +94,50 @@ class CliAnalyses(unittest.TestCase):
             self.assertAlmostEqual(row[6], expected[1], places=5)
             self.assertAlmostEqual(row[7], expected[2], places=5)
 
+    def raw_variables(self, raw):
+        plots, current, inside = [], [], False
+        for line in raw.read_text(errors="replace").splitlines():
+            if line.startswith("Variables:"):
+                inside, current = True, []
+            elif line.startswith("Values:") or line.startswith("Binary:"):
+                inside = False
+                plots.append(current)
+            elif inside and line.strip():
+                current.append(line.split()[1])
+        return plots
+
+    def test_save_keeps_its_signals_in_every_file(self):
+        # ngspice-45.2 keeps the scale and the .save vectors of each analysis
+        # in its raw file, the lines of several .save together, a node's name
+        # as its voltage, and everything for .save all (run on 2026-11-28);
+        # a name that is nothing is left out with a warning
+        circuit = ("t\nV1 a 0 PULSE(0 1 0 1u 1u 1m 2m)\nR1 a b 1k\nC1 b 0 1n\nR2 b c 1k\nR3 c 0 1k\n"
+                   ".op\n.dc V1 0 1 1\n.tran 1u 5u\n")
+        cases = [(".save v(b) i(v1)\n", ["v(b)", "i(v1)"]), (".save v(b)\n.save C\n", ["v(b)", "v(c)"]),
+                 (".save v(zz) b\n", ["v(b)"]), (".save all\n", ["v(a)", "v(b)", "v(c)", "i(v1)"]),
+                 ("", ["v(a)", "v(b)", "v(c)", "i(v1)"])]
+        for lines, kept in cases:
+            with self.subTest(lines=lines):
+                result, _ = self.run_deck(circuit + lines + ".end\n")
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertNotIn(".SAVE is read", result.stderr)
+                plots = self.raw_variables(self.directory / "out.raw")
+                self.assertEqual(plots, [["V1"] + kept, kept, ["time"] + kept])
+                self.assertEqual("no such node" in result.stderr, "zz" in lines)
+        # The print command of a .control block keeps every signal, as in
+        # ngspice-45.2
+        result, _ = self.run_deck(circuit + ".control\nprint v(b)\n.endc\n.end\n")
+        self.assertEqual(self.raw_variables(self.directory / "out.raw")[2],
+                         ["time", "v(a)", "v(b)", "v(c)", "i(v1)"])
+        deck = self.directory / "circuit.cir"
+        deck.write_text(circuit + ".save v(b) i(v1)\n.end\n")
+        binary = self.directory / "out_binary.raw"
+        result = subprocess.run([str(BINARY), str(deck), "--raw-binary-out", str(binary)],
+                                cwd=self.directory, capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.raw_variables(binary), [["V1", "v(b)", "i(v1)"], ["v(b)", "i(v1)"],
+                                                     ["time", "v(b)", "i(v1)"]])
+
     def test_ac_from_zero_hertz_is_run_and_fails(self):
         # A decade sweep from 0 Hz has no points (log 0); the .AC line is
         # still an analysis line, so the program reports the failure

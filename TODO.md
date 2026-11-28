@@ -41,9 +41,9 @@ Small items with a direct effect on netlists written for ngspice.
 - [x] **`S` and `Y` with a model not defined before them** (S): an error,
   as for the other elements; `.MODEL` has no SCR or TRIAC type.
 - [x] **`.PRINT DC` and `.PRINT AC`**, as tables on standard output.
-- [ ] **Directives read but not run** (M each): `.STEP` (ngspice has no
-  `.STEP`, so its output is to be decided with a person) and `.SAVE`
-  first; then `.SENS`, `.TF`, `.MC`, `.PZ`,
+- [x] **`.SAVE`**, for the raw and SSF files (`output::SavedSignals`).
+- [ ] **Directives read but not run** (M each): `.STEP` first (ngspice has
+  no `.STEP`, so its output is to be decided with a person); then `.SENS`, `.TF`, `.MC`, `.PZ`,
   `.DISTO`, `.PORT`, `.WCASE`, `.OPTIMIZE`, `.NOISE` and `.MEASURE`
   ([netlist input](KNOWN_ISSUES.md#netlist-input)).
 - [x] **`.OP` with `.DC` runs both** (S), the sweep first, as in

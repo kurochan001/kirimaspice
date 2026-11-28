@@ -34,8 +34,9 @@ push したら項目に印を付け、同じコミットで KNOWN_ISSUES から�
 - [x] **前に定義していないモデルを使う `S` と `Y`**（S）。ほかの素子と同じくエラーにしました。`.MODEL` には
   SCR と TRIAC の型がありません。
 - [x] **`.PRINT DC` と `.PRINT AC`**。標準出力の表にしました。
+- [x] **`.SAVE`**。raw と SSF のファイルを絞ります（`output::SavedSignals`）。
 - [ ] **読むだけで実行しないディレクティブ**（それぞれ M）。まず `.STEP`（ngspice に `.STEP` はないので、出力は人と
-  決める）と `.SAVE`、次に `.SENS`、`.TF`、`.MC`、`.PZ`、`.DISTO`、`.PORT`、`.WCASE`、`.OPTIMIZE`、`.NOISE`、
+  決める）、次に `.SENS`、`.TF`、`.MC`、`.PZ`、`.DISTO`、`.PORT`、`.WCASE`、`.OPTIMIZE`、`.NOISE`、
   `.MEASURE` です（[ネットリストの入力](KNOWN_ISSUES.ja.md#ネットリストの入力)）。
 - [x] **`.OP` と `.DC` があれば両方を実行する**（S）。ngspice-45.2 の raw ファイルと同じく、スイープが先です。
 - [ ] **`.control` ブロックの中の解析**（M）。実行するか、実行しないものはエラーにします

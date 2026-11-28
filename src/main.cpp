@@ -12,6 +12,7 @@
 #include "kirimaspice/output/ac_csv_writer.hpp"
 #include "kirimaspice/output/raw_writer.hpp"  // (Nutmeg ASCII)
 #include "kirimaspice/output/raw_binary_writer.hpp"  // (Raw Binary)
+#include "kirimaspice/output/saved_signals.hpp"
 #include "kirimaspice/output/wav_writer.hpp"  // (WAV)
 #include "kirimaspice/devices/voltage_source.hpp"
 #include "kirimaspice/core/types.hpp"
@@ -265,6 +266,8 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
     for (const auto& vsrc : voltage_sources) {
         branch_names.push_back(vsrc->name());
     }
+    // The signals the output files hold: all, or those of .SAVE
+    const output::SavedSignals saved(config.output, node_names, branch_names);
 
     const bool run_dc_sweep = config.dc_sweep_enabled;
     const bool asks_for_none = !config.op_requested && !config.dc_sweep_enabled &&
@@ -319,9 +322,9 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
             }
             raw_writer.write_dc_sweep(config.dc_sweep.source_name,
                                       nested_name,
-                                      node_names,
-                                      branch_names,
-                                      sweep_result);
+                                      saved.node_names(),
+                                      saved.branch_names(),
+                                      saved.apply(sweep_result));
             raw_append_mode = true;
         }
 
@@ -333,9 +336,9 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
             }
             raw_binary_writer.write_dc_sweep(config.dc_sweep.source_name,
                                               nested_name,
-                                              node_names,
-                                              branch_names,
-                                              sweep_result);
+                                              saved.node_names(),
+                                              saved.branch_names(),
+                                              saved.apply(sweep_result));
             raw_binary_append_mode = true;
         }
     }
@@ -410,19 +413,22 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
                 if (output_file) {
                     spdlog::info("Writing DC results to SSF: {}", *output_file);
                     output::SSFWriter writer(*output_file);
-                    writer.write_dc_analysis(node_voltages, node_names, branch_currents, branch_names);
+                    writer.write_dc_analysis(saved.nodes(node_voltages), saved.node_names(), saved.branches(branch_currents),
+                                             saved.branch_names());
                     spdlog::info("SSF file written successfully");
                 }
 
                 if (raw_output_file) {
                     output::RawWriter raw_writer(*raw_output_file, raw_append_mode);
-                    raw_writer.write_dc(node_names, node_voltages, branch_names, branch_currents);
+                    raw_writer.write_dc(saved.node_names(), saved.nodes(node_voltages), saved.branch_names(),
+                                        saved.branches(branch_currents));
                     raw_append_mode = true;
                 }
 
                 if (raw_binary_output_file) {
                     output::RawBinaryWriter raw_binary_writer(*raw_binary_output_file, raw_binary_append_mode);
-                    raw_binary_writer.write_dc(node_names, node_voltages, branch_names, branch_currents);
+                    raw_binary_writer.write_dc(saved.node_names(), saved.nodes(node_voltages), saved.branch_names(),
+                                               saved.branches(branch_currents));
                     raw_binary_append_mode = true;
                 }
             } else {
@@ -469,19 +475,19 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
                     if (output_file) {
                         spdlog::info("Writing transient results to SSF: {}", *output_file);
                         output::SSFWriter writer(*output_file);
-                        writer.write_transient_analysis(result, node_names, branch_names);
+                        writer.write_transient_analysis(saved.apply(result), saved.node_names(), saved.branch_names());
                         spdlog::info("SSF file written successfully");
                     }
 
                     if (raw_output_file) {
                         output::RawWriter raw_writer(*raw_output_file, raw_append_mode);
-                        raw_writer.write_transient(node_names, branch_names, result);
+                        raw_writer.write_transient(saved.node_names(), saved.branch_names(), saved.apply(result));
                         raw_append_mode = true;
                     }
 
                     if (raw_binary_output_file) {
                         output::RawBinaryWriter raw_binary_writer(*raw_binary_output_file, raw_binary_append_mode);
-                        raw_binary_writer.write_transient(node_names, branch_names, result);
+                        raw_binary_writer.write_transient(saved.node_names(), saved.branch_names(), saved.apply(result));
                         raw_binary_append_mode = true;
                     }
 
@@ -722,8 +728,7 @@ int main(int argc, char* argv[]) {
         // does not run: each is named once, so that no result is taken for
         // one of them
         for (const char* directive : {".SENS", ".SENSITIVITY", ".TF", ".PZ", ".DISTO", ".STEP",
-                                      ".MC", ".MONTECARLO", ".WCASE", ".OPTIMIZE", ".PORT",
-                                      ".SAVE"}) {
+                                      ".MC", ".MONTECARLO", ".WCASE", ".OPTIMIZE", ".PORT"}) {
             if (config.directives_read.count(directive)) {
                 spdlog::warn("{} is read, but this program does not run it", directive);
             }

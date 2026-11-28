@@ -627,8 +627,8 @@ a time axis. A reader must also preserve the recorded times rather than
 reconstructing a uniform grid from `TSTEP`.
 
 The CLI prints the signals of `.PRINT TRAN` after a transient, and
-nothing without it; `.SAVE` does not filter the raw, SSF or WAV files,
-and the CLI does not run `.MEASURE`. Compute measurements from the desired
+nothing without it; `.SAVE` limits the raw and SSF files to its signals
+(not the WAV file), and the CLI does not run `.MEASURE`. Compute measurements from the desired
 raw plot or use the library explicitly. `.FOUR` operates on the retained
 transient points and needs sufficient data for its last-period analysis;
 currents are supported there for independent voltage sources, not every
