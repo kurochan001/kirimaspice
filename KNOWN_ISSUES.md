@@ -152,9 +152,6 @@ says otherwise.
   10<sup>-12</sup> s; BDF1 and the order control finish.
   `BDFOrderComparisonTest.FinalValueConvergence` passes over these two
   runs (measured on 2026-11-20).
-- **`.TF` takes voltage outputs only:** `i(<source>)` is an error, where
-  ngspice-45.2 prints a current gain and an output impedance (1e20 for
-  the current of a source in a simple divider; run 2026-11-28).
 - **No convergence aid is on by default.** Source stepping, Gmin
   stepping, dynamic Gmin, the continuation method and the
   pseudo-transient fallback run only when `.OPTIONS` asks for them, so a

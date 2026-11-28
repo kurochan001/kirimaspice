@@ -370,7 +370,7 @@ flowchart TD
 | 温度スイープ（`.TEMP`） | DC と過渡解析のソルバーの `solve_temp_sweep` | `.TEMP` は使えるが、これらの関数は通らない。プログラムが `.TEMP` の値ごとに自分で解析を実行する（`main.cpp` の `run_analyses`） |
 | ノイズ | `NoiseSolver`。`get_noise_sources` についての随伴法を、AC 解析の掃引の周波数（`solvers::ac_frequency_points`）で解く | 使えない。`.NOISE` がない |
 | 感度 | `SensitivityAnalyzer`。`set_parameter` による差分 | 使えない。`.SENS` は解析する |
-| 伝達関数 | `TransferFunctionSolver`。ω = 0 の小信号の回路（`ACSolver::solve_excited`）に、入力に 1、次に出力に 1 A を与える | 使える。電圧の出力 |
+| 伝達関数 | `TransferFunctionSolver`。ω = 0 の小信号の回路（`ACSolver::solve_excited`）に、入力に 1、次に出力に 1 A を与える | 使える |
 | 極と零点 | `PoleZeroSolver`。仮の実装 | 使えない。`.PZ` は解析する |
 | ひずみ | `DistortionSolver`。小信号の大きさの比 | 使えない。`.DISTO` は解析する |
 | S パラメータ | `SParameterSolver`。`TouchstoneWriter` と一緒に | 使えない。`.PORT` は解析する |

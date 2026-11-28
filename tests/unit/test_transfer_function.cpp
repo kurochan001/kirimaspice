@@ -251,3 +251,30 @@ TEST(TransferFunctionSolver, CurrentOfAResistorIsNotAnOutput) {
     TransferFunctionSolver solver(*parsed.circuit, parsed.config);
     EXPECT_FALSE(solver.analyze().success);
 }
+
+// A current output, i(<source>) of a voltage source: the gain is that
+// source's branch current per unit of the input, positive into its +
+// terminal, and the output resistance 1e20, as ngspice-45.2 prints for every
+// current output tried (run 2026-11-28)
+TEST(TransferFunctionSolver, CurrentOutputMatchesNgspice) {
+    const struct {
+        std::string what, lines;
+        Real gain, rin;
+    } cases[] = {
+        {"series", "V1 in 0 1\nR1 in b 1k\nVm b c 0\nR2 c 0 1k\n.tf i(Vm) V1\n", 5e-4, 2000.0},
+        {"divided", "V1 in 0 1\nR1 in b 1k\nVm b c 0\nR2 c 0 3k\nR3 b 0 2k\n.tf i(Vm) V1\n", 1.818182e-04, 2200.0},
+        {"current source", "I1 0 b 1m\nR1 b 0 1k\nVm b c 0\nR2 c 0 1k\n.tf i(Vm) I1\n", 0.5, 500.0},
+        {"vcvs", "V1 in 0 1\nR1 in b 1k\nR2 b 0 1k\nE1 x 0 b 0 2\nVm x y 0\nR3 y 0 1k\n.tf i(Vm) V1\n", 1e-3,
+         2000.0},
+    };
+    for (const auto& c : cases) {
+        parser::NetlistParser parser;
+        auto parsed = parser.parse_string("t\n" + c.lines + ".end\n");
+        TransferFunctionSolver solver(*parsed.circuit, parsed.config);
+        const auto result = solver.analyze();
+        ASSERT_TRUE(result.success) << c.what;
+        EXPECT_NEAR(result.transfer_gain, c.gain, 1e-6 * std::abs(c.gain)) << c.what;
+        EXPECT_NEAR(result.input_resistance, c.rin, 1e-6 * c.rin) << c.what;
+        EXPECT_EQ(result.output_resistance, 1e20) << c.what;
+    }
+}

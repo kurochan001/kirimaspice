@@ -21,16 +21,41 @@ namespace {
 /// prints 1e20 for an infinite impedance
 constexpr Real kInfiniteResistance = 1e20;
 
-/// The two nodes of an output v(<node>) or v(<n1>,<n2>), or nothing for any
-/// other output (a current, i(<source>), is not taken) or a node the circuit
-/// does not have. A single node must not be ground.
-std::optional<std::pair<NodeId, NodeId>> output_nodes(const circuit::CircuitGraph& circuit,
-                                                      const std::string& signal) {
+/// The output of .TF: the voltage v(<node>) or v(<n1>,<n2>), by its two
+/// nodes, or the current i(<source>) of a voltage source, by its branch
+struct Output {
+    bool current = false;
+    NodeId first = NODE_GND, second = NODE_GND;
+    BranchId branch = 0;
+};
+
+/// The output, or nothing for a node or source the circuit does not have,
+/// a single node that is ground, or a current of anything but a voltage
+/// source
+std::optional<Output> output_of(const circuit::CircuitGraph& circuit, const std::string& signal) {
     const auto open = signal.find('(');
-    if (open == std::string::npos || signal.back() != ')' || !util::equals_icase(signal.substr(0, open), "v")) {
+    if (open == std::string::npos || signal.back() != ')') {
         return std::nullopt;
     }
+    const std::string kind = signal.substr(0, open);
     const std::string inside = signal.substr(open + 1, signal.size() - open - 2);
+    if (util::equals_icase(kind, "i")) {
+        std::string name = inside;
+        util::trim_inplace(name);
+        try {
+            if (auto v = std::dynamic_pointer_cast<devices::VoltageSource>(circuit.get_device(name))) {
+                Output output;
+                output.current = true;
+                output.branch = v->branch_id();
+                return output;
+            }
+        } catch (const std::exception&) {
+        }
+        return std::nullopt;
+    }
+    if (!util::equals_icase(kind, "v")) {
+        return std::nullopt;
+    }
     const auto comma = inside.find(',');
     auto node = [&](std::string name) -> std::optional<NodeId> {
         util::trim_inplace(name);
@@ -43,17 +68,20 @@ std::optional<std::pair<NodeId, NodeId>> output_nodes(const circuit::CircuitGrap
     if (!first) {
         return std::nullopt;
     }
+    Output output;
+    output.first = *first;
     if (comma == std::string::npos) {
         if (*first == NODE_GND) {
             return std::nullopt;
         }
-        return std::make_pair(*first, NODE_GND);
+        return output;
     }
     const auto second = node(inside.substr(comma + 1));
     if (!second) {
         return std::nullopt;
     }
-    return std::make_pair(*first, *second);
+    output.second = *second;
+    return output;
 }
 
 /// The input of .TF: an independent voltage source, by its branch, or an
@@ -93,16 +121,21 @@ TransferFunctionSolver::TransferFunctionSolver(const circuit::CircuitGraph& circ
 // source, from n+ to n-), the output is the gain, and the input draws the
 // current, or has the voltage, of the input resistance. With 1 A into the
 // output (out of its second node), the input set to 0, the output's voltage
-// is the output resistance. ngspice-45.2 gives these three values for the
-// circuits of tests/unit/test_transfer_function.cpp (run 2026-11-28).
+// is the output resistance. For a current output, i(<source>) of a voltage
+// source, the gain is that source's branch current (into its + terminal)
+// and the output resistance 1e20, as ngspice-45.2 prints it for every
+// current output tried (five circuits; why is not confirmed). ngspice-45.2
+// gives these values for the circuits of tests/unit/test_transfer_function.cpp
+// (run 2026-11-28).
 TransferFunctionResult TransferFunctionSolver::analyze() {
     TransferFunctionResult result;
     result.output_signal = config_.tf.output_signal;
     result.input_source = config_.tf.input_source;
 
-    const auto output = output_nodes(circuit_, config_.tf.output_signal);
+    const auto output = output_of(circuit_, config_.tf.output_signal);
     if (!output) {
-        spdlog::error(".TF: the output must be v(<node>) or v(<node>,<node>) of the circuit, not {}",
+        spdlog::error(".TF: the output must be v(<node>), v(<node>,<node>) or i(<voltage source>) of the "
+                      "circuit, not {}",
                       config_.tf.output_signal);
         return result;
     }
@@ -136,7 +169,12 @@ TransferFunctionResult TransferFunctionSolver::analyze() {
         spdlog::error(".TF: the operating point or the small-signal solution failed");
         return result;
     }
-    result.transfer_gain = voltage(x, output->first) - voltage(x, output->second);
+    if (output->current) {
+        const std::size_t k = nodes + output->branch;
+        result.transfer_gain = k < x.size() ? x[k].real() : 0.0;
+    } else {
+        result.transfer_gain = voltage(x, output->first) - voltage(x, output->second);
+    }
     if (input->voltage) {
         // The branch current flows into the + terminal: the source delivers -I
         const std::size_t k = nodes + input->branch;
@@ -146,6 +184,11 @@ TransferFunctionResult TransferFunctionSolver::analyze() {
         result.input_resistance = voltage(x, input->nn) - voltage(x, input->np);
     }
 
+    if (output->current) {
+        result.output_resistance = kInfiniteResistance;
+        result.success = true;
+        return result;
+    }
     const ComplexDenseVector y = small_signal.solve_excited(0.0, [&](ComplexMNASystem& sys) {
         inject(sys, output->first, 1.0);
         inject(sys, output->second, -1.0);

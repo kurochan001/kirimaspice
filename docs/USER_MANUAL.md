@@ -206,7 +206,8 @@ values, every analysis runs at each of them, each run after a line
 temperature in their names (see [Save the results](#save-the-results)).
 
 `.TF <output> <source>` prints the small-signal DC gain from the source to
-`v(<node>)` or `v(<node>,<node>)` and the input and output resistances,
+`v(<node>)`, `v(<node>,<node>)` or `i(<voltage source>)` and the input and
+output resistances,
 under `=== Transfer Function ===`. The other analyses in the library
 (noise, pole-zero, distortion, sensitivity, S-parameters, Monte Carlo,
 worst case, optimization) are not run by the program. `.PZ`, `.DISTO`,

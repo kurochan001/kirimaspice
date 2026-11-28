@@ -42,10 +42,8 @@ Small items with a direct effect on netlists written for ngspice.
 - [x] **`.SAVE`**, for the raw and SSF files (`output::SavedSignals`).
 - [x] **`.STEP`**, one run of every analysis per value, as the `.TEMP` runs
   are; the first `.STEP` line only.
-- [x] **`.TF`**, for voltage outputs, through the small-signal circuit at
-  omega = 0.
-- [ ] **`.TF` with a current output** (S), `i(<source>)`
-  ([analyses](KNOWN_ISSUES.md#analyses)).
+- [x] **`.TF`**, through the small-signal circuit at omega = 0, with voltage
+  outputs and currents of voltage sources.
 - [ ] **Directives read but not run** (M each): `.SENS`, `.MC`, `.PZ`,
   `.DISTO`, `.PORT`, `.WCASE`, `.OPTIMIZE`, `.NOISE` and `.MEASURE`
   ([netlist input](KNOWN_ISSUES.md#netlist-input)).
