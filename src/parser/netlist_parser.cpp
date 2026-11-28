@@ -6739,10 +6739,10 @@ static std::vector<std::string> rename_body_line(
             break;
         case 'B':
             nodes(1, 2);
-            for (std::size_t k = 3; k < tokens.size(); ++k) {
-                tokens[k] = map_node_voltages(
-                    tokens[k], map_node, [&](const std::string& name) { return prefix + name; });
-            }
+            rewrite_behavioral_expression(tokens, [&](const std::string& expression) {
+                return map_node_voltages(expression, map_node,
+                                         [&](const std::string& name) { return prefix + name; });
+            });
             break;
         case 'E': case 'G':
             if (auto form = read_poly_form(tokens, type, line_number)) {

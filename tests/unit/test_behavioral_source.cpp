@@ -276,6 +276,25 @@ TEST(BehavioralSource, VoltageBetweenTwoNodesInsideASubcircuit) {
     EXPECT_NEAR(solution[result.circuit->get_node_id("c") - 1], 3.0, 1e-9);
 }
 
+// ... and written with blanks, V( p ), after V= without braces, where the
+// expression runs to the end of the line: the nodes of a body are renamed in
+// the whole expression (rewrite_behavioral_expression), as the top level
+// reads it. ngspice-45.2 gives V(out) = 2 V for both (run 2026-11-28).
+TEST(BehavioralSource, VoltageWrittenWithBlanksInsideASubcircuit) {
+    for (const std::string body : {"B1 q 0 V=V( p ) * 2", "B1 q 0 V=V( p , 0 ) * 2"}) {
+        kirimaspice::parser::NetlistParser parser;
+        auto result =
+            parser.parse_string("t\nV1 in 0 1\nX1 in out dbl\nRo out 0 1k\n.subckt dbl p q\n" +
+                                body + "\n.ends\n.end\n");
+        result.circuit->expand_all_subcircuits();
+        kirimaspice::solvers::DCSolver solver(*result.circuit, result.config);
+        DenseVector x;
+        kirimaspice::SolverStats stats;
+        ASSERT_EQ(solver.solve(x, stats), kirimaspice::ConvergenceStatus::SUCCESS) << body;
+        EXPECT_NEAR(x[result.circuit->get_node_id("out") - 1], 2.0, 1e-9) << body;
+    }
+}
+
 // A B source reads the global .PARAM names, in any case, as ngspice-47
 // does; the argument of V( is a node, also one with a parameter's name.
 // With .param g=2 a=0.5 k=1m and V(a) = 1 V, V={g*V(a)+a*sin(0)+k*1000}
