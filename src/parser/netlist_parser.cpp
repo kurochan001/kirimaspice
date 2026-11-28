@@ -679,6 +679,8 @@ static ControlCommand parse_control_command(const std::string& line) {
         cmd.type = ControlCommandType::AC;
         // ac <type> <npoints> <fstart> <fstop>
         cmd.args = std::vector<std::string>(tokens.begin() + 1, tokens.end());
+    } else if (keyword == "OP") {
+        cmd.type = ControlCommandType::OP;
     } else if (keyword == "TRAN") {
         cmd.type = ControlCommandType::TRAN;
         // tran <tstep> <tstop> [<tstart>] [<tmax>]
@@ -887,6 +889,12 @@ static void execute_commands_range(
     std::map<std::string, Real>& variables,
     circuit::CircuitGraph& circuit);  // Forward declaration
 
+// An analysis command of a .control block, read by the parser of its
+// directive (defined with the directive parsers below)
+static void run_control_analysis(const std::string& directive, const std::vector<std::string>& args,
+                                 parser::ExpressionEvaluator& evaluator, SimulationConfig& config,
+                                 circuit::CircuitGraph& circuit);
+
 /// Execute control block commands and update SimulationConfig
 /// Supports echo, let, dc, ac, tran, print, if/else/end, foreach, alter commands
 static void execute_control_commands(
@@ -1025,84 +1033,23 @@ static void execute_control_commands(
                 }
                 break;
 
-            case ControlCommandType::DC: {
-                // DC command: dc <source> <start> <stop> <step>
-                if (cmd.args.size() >= 4) {
-                    try {
-                        config.dc_sweep.source_name = cmd.args[0];
-                        config.dc_sweep.start_value = parse_value_with_unit(cmd.args[1]);
-                        config.dc_sweep.stop_value = parse_value_with_unit(cmd.args[2]);
-                        config.dc_sweep.step_value = parse_value_with_unit(cmd.args[3]);
-                        config.dc_sweep_enabled = true;
-
-                        spdlog::info("DC: source={}, start={}, stop={}, step={}",
-                                   config.dc_sweep.source_name,
-                                   config.dc_sweep.start_value,
-                                   config.dc_sweep.stop_value,
-                                   config.dc_sweep.step_value);
-                    } catch (const std::exception& e) {
-                        spdlog::error("DC command parsing failed: {}", e.what());
-                    }
-                } else {
-                    spdlog::warn("Invalid DC command syntax: {}", cmd.raw_command);
-                }
+            // The analysis commands mean what their directives mean: dc, ac
+            // and tran are read by the parsers of .DC, .AC and .TRAN
+            // (run_control_analysis), op asks for the operating point as .OP
+            // does. The program runs each kind once, in its order (DC sweep,
+            // operating point, transient, AC), not in the order of the block.
+            case ControlCommandType::DC:
+                run_control_analysis(".DC", cmd.args, evaluator, config, circuit);
                 break;
-            }
-
-            case ControlCommandType::AC: {
-                // AC command: ac <type> <npoints> <fstart> <fstop>
-                if (cmd.args.size() >= 4) {
-                    try {
-                        std::string type_str = cmd.args[0];
-                        std::transform(type_str.begin(), type_str.end(), type_str.begin(), ::tolower);
-
-                        if (type_str == "dec") {
-                            config.ac.sweep_type = SimulationConfig::AC::SweepType::DEC;
-                        } else if (type_str == "oct") {
-                            config.ac.sweep_type = SimulationConfig::AC::SweepType::OCT;
-                        } else if (type_str == "lin") {
-                            config.ac.sweep_type = SimulationConfig::AC::SweepType::LIN;
-                        } else {
-                            throw std::runtime_error("Invalid AC sweep type: " + type_str);
-                        }
-
-                        config.ac.num_points = read_ac_point_count(cmd.args[1]);
-                        config.ac.start_freq = parse_value_with_unit(cmd.args[2]);
-                        config.ac.stop_freq = parse_value_with_unit(cmd.args[3]);
-                        config.ac_requested = true;
-
-                        spdlog::info("AC: type={}, npoints={}, fstart={}, fstop={}",
-                                   type_str, config.ac.num_points,
-                                   config.ac.start_freq, config.ac.stop_freq);
-                    } catch (const std::exception& e) {
-                        spdlog::error("AC command parsing failed: {}", e.what());
-                    }
-                } else {
-                    spdlog::warn("Invalid AC command syntax: {}", cmd.raw_command);
-                }
+            case ControlCommandType::AC:
+                run_control_analysis(".AC", cmd.args, evaluator, config, circuit);
                 break;
-            }
-
-            case ControlCommandType::TRAN: {
-                // TRAN command: tran <tstep> <tstop> [<tstart>] [<tmax>]
-                // Note: tstep is used to set initial_step and max_step
-                if (cmd.args.size() >= 2) {
-                    try {
-                        // The times as on a .TRAN line (read_transient_times)
-                        read_transient_times(cmd.args, config.transient);
-
-                        spdlog::info("TRAN: tstep={}, tstop={}, tstart={}, tmax={}",
-                                   config.transient.initial_step, config.transient.end_time,
-                                   config.transient.start_time,
-                                   config.transient.max_step);
-                    } catch (const std::exception& e) {
-                        spdlog::error("TRAN command parsing failed: {}", e.what());
-                    }
-                } else {
-                    spdlog::warn("Invalid TRAN command syntax: {}", cmd.raw_command);
-                }
+            case ControlCommandType::TRAN:
+                run_control_analysis(".TRAN", cmd.args, evaluator, config, circuit);
                 break;
-            }
+            case ControlCommandType::OP:
+                config.op_requested = true;
+                break;
 
             case ControlCommandType::MEAS:
                 spdlog::info("MEAS command recognized (not executed in this phase)");
@@ -2201,6 +2148,25 @@ static void parse_tran_directive(const std::vector<std::string>& tokens, ParseSt
                 state.config->transient.max_step,
                 has_uic);
 
+}
+
+static void run_control_analysis(const std::string& directive, const std::vector<std::string>& args,
+                                 parser::ExpressionEvaluator& evaluator, SimulationConfig& config,
+                                 circuit::CircuitGraph& circuit) {
+    std::vector<std::string> tokens{directive};
+    tokens.insert(tokens.end(), args.begin(), args.end());
+    ParseState state;
+    state.circuit = &circuit;
+    state.evaluator = &evaluator;
+    state.config = &config;
+    state.line_number = 0;
+    if (directive == ".DC") {
+        parse_dc_directive(tokens, state);
+    } else if (directive == ".AC") {
+        parse_ac_directive(tokens, state);
+    } else {
+        parse_tran_directive(tokens, state);
+    }
 }
 
 static void parse_options_directive(const std::vector<std::string>& tokens, ParseState& state) {

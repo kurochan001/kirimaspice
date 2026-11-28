@@ -42,7 +42,7 @@ ngspice-47 loads the ASCII and binary raw files that kirimaspice writes
 | --- | --- |
 | `ngspice -b circuit.cir` | `build/kirimaspice circuit.cir` |
 | `ngspice -b -r out.raw circuit.cir` | `build/kirimaspice circuit.cir --raw-out out.raw`, or `python3 tools/ngspice_shim.py -b -r out.raw circuit.cir` |
-| analyses in a `.control` block (`op`, `tran`, `run`; `dc` and `ac` are run) | dot directives outside `.control`: `.op`, `.dc`, `.tran`, `.ac` |
+| analyses in a `.control` block in their order, and `noise`, `pz` or `sens` there | `op`, `dc`, `tran` and `ac` run in the program's order, each kind once; for the others, the [library](ARCHITECTURE.md#other-analyses-in-the-library) |
 | `print`, `plot`, `meas`, `wrdata` | the raw file, read with the [Python tools](USER_MANUAL.md#use-the-python-tools); the AC result is always in `<base>_ac.csv` |
 
 The program runs in batch only. It prints the operating point, the
@@ -56,8 +56,8 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
 ### Analyses and directives
 
 - [ ] **Analyses as dot directives.** The program runs `.OP`, `.DC`,
-  `.TRAN` and `.AC`, and `.FOUR` after a transient. Of the analysis
-  commands of a `.control` block, only `dc` and `ac` are run.
+  `.TRAN` and `.AC`, and `.FOUR` after a transient, and the `op`, `dc`,
+  `tran` and `ac` commands of a `.control` block, in its own order.
 - [ ] **`.DC` with the values of one or two sources only.** A `.DC` line
   with another count of values (an incomplete second sweep, or values
   after the second) is an error, where ngspice-47 ignores the extra ones.

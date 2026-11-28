@@ -79,3 +79,24 @@ TEST(AnalysisRequests, IncludedTranIsRead) {
     EXPECT_TRUE(c.tran_requested);
     EXPECT_DOUBLE_EQ(c.transient.end_time, 10e-6);
 }
+
+// The analysis commands of a .control block ask for their analyses as their
+// directives do (run_control_analysis): op for the operating point, tran for
+// the transient, dc with a second source for a nested sweep, as ngspice-45.2
+// runs them (an operating point, a transient, and six points for
+// dc V1 0 1 1 V2 0 2 1; run 2026-11-28). Before, op and tran asked for
+// nothing and dc took its first source only.
+TEST(AnalysisRequests, ControlBlockAnalyses) {
+    const std::string circuit = "t\nV1 a 0 1\nV2 c 0 0\nR1 a b 1k\nR2 b c 1k\nC1 b 0 1n\n";
+    const SimulationConfig op = config_of(circuit + ".control\nop\n.endc\n.end\n");
+    EXPECT_TRUE(op.op_requested);
+    EXPECT_FALSE(op.tran_requested);
+    const SimulationConfig tran = config_of(circuit + ".control\ntran 1u 5u\n.endc\n.end\n");
+    EXPECT_TRUE(tran.tran_requested);
+    EXPECT_DOUBLE_EQ(tran.transient.end_time, 5e-6);
+    const SimulationConfig dc = config_of(circuit + ".control\ndc V1 0 1 1 V2 0 2 1\n.endc\n.end\n");
+    ASSERT_TRUE(dc.dc_sweep_enabled);
+    ASSERT_NE(dc.dc_sweep.nested_sweep, nullptr);
+    EXPECT_EQ(dc.dc_sweep.nested_sweep->source_name, "V2");
+    EXPECT_DOUBLE_EQ(dc.dc_sweep.nested_sweep->stop_value, 2.0);
+}

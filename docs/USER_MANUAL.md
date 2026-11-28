@@ -195,8 +195,9 @@ it prints the voltages and currents and writes the output files.
 The program runs the analyses the parser read. An analysis line counts
 after its `+` continuation lines are joined, in the text of `.INCLUDE` and
 `.LIB` files, and in the branch of `.IF` that is taken, never in a
-comment; `.OPTIONS` is no analysis line. Of the analysis commands of a
-`.control` block, `dc` and `ac` are run. The [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-analyses)
+comment; `.OPTIONS` is no analysis line. The analysis commands `op`,
+`dc`, `tran` and `ac` of a `.control` block ask for their analyses as the
+directives do; the program runs them in its own order, each kind once. The [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-analyses)
 draws these rules as a chart.
 
 `.TEMP` with one value means `.OPTIONS TEMP` with that value. With several
@@ -380,7 +381,8 @@ python3 tools/ngspice_shim.py -b -r out.raw circuit.cir
   ignored with a message.
 - `KIRIMASPICE_BIN` names the program, as `--binary` does.
 - The netlists are read by kirimaspice, with its limits: for example,
-  analyses inside `.control` are not run as ngspice runs them.
+  the analyses inside `.control` run in the program's order, and its
+  other commands are not run.
 - The script's help says it is meant for KiCad and Qucs-S. Use with them
   is not confirmed.
 

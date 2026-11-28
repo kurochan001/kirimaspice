@@ -138,14 +138,10 @@ document also lists differences not decided there.
   netlist: with `V1 a 0 1` on the second line, ngspice-47 printed
   `i(v1) = -1.00000e-03` and this program had no `V1`. Many tests write
   their netlists starting with an empty line.
-- **Analyses in a `.control` block are not run as in ngspice.** In runs at
-  commit `7434904`, `op` inside `.control` did not select the operating
-  point (the program ran the operating point it runs for a netlist
-  without analysis lines), and `dc V1 0 1 0.5 V2 0 1 1` swept only `V1`.
-  At `2826a81`, `tran` inside `.control` is not run either; `dc` and `ac`
-  are, and at `21bb991` `dc` still sweeps its first source only, without
-  a message. Write analyses as dot
-  directives (`.op`, `.dc`, `.tran`, `.ac`).
+- **A `.control` block runs `op`, `dc`, `tran` and `ac` in the program's
+  order, each kind once,** not in the order of the block as ngspice does,
+  and the block's other commands (`noise`, `pz`, `sens`, `plot`, `set` and
+  others) are named in a warning and not run.
 
 ## Analyses
 

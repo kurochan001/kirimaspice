@@ -48,8 +48,9 @@ Small items with a direct effect on netlists written for ngspice.
   ([netlist input](KNOWN_ISSUES.md#netlist-input)).
 - [x] **`.OP` with `.DC` runs both** (S), the sweep first, as in
   ngspice-45.2's raw file.
-- [ ] **Analyses in `.control` blocks** (M), or an error for those not
-  run ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+- [x] **Analyses in `.control` blocks** (M): `op`, `dc` (also nested),
+  `tran` and `ac`, read by their directives' parsers; the others are
+  named in a warning.
 
 ## 2. Analyses
 

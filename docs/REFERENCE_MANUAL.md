@@ -494,10 +494,13 @@ parser stores it, but the program does not use it (the library can).
 ### How the program chooses analyses
 
 - The program runs the analyses that the parser has read: the operating
-  point for `.OP`, the DC sweep for a complete `.DC` line (or the `dc`
-  command of a `.control` block), the transient
-  for a complete `.TRAN` line, and AC for `.AC` (or the `ac` command of a
-  `.control` block). An analysis line counts as every other directive
+  point for `.OP`, the DC sweep for a complete `.DC` line, the transient
+  for a complete `.TRAN` line, and AC for `.AC`, and the same for the `op`,
+  `dc`, `tran` and `ac` commands of a `.control` block, which the parsers
+  of those directives read (`run_control_analysis`). They run in the
+  program's order below, each kind once, not in the order of the block;
+  the block's other commands, such as `noise`, `pz` and `plot`, are named
+  in a warning and not run. An analysis line counts as every other directive
   does: joined to its `+` continuation lines, in the text of `.INCLUDE`
   and `.LIB` files, in the branch of `.IF` that is taken; a comment never
   counts, and `.OPTIONS` is no analysis line. With both `.OP` and `.DC`,

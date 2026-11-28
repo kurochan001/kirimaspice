@@ -411,6 +411,7 @@ enum class ControlCommandType {
     DC,         ///< dc <source> <start> <stop> <step>
     AC,         ///< ac <type> <npoints> <fstart> <fstop>
     TRAN,       ///< tran <tstep> <tstop> [<tstart>] [<tmax>]
+    OP,         ///< op, the operating point
     MEAS,       ///< meas <analysis> <name> <type> <signal> ...
     ALTER,      ///< alter <device> <param>=<value>
     UNKNOWN     ///< Unknown command (for future extension)
