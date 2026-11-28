@@ -298,42 +298,28 @@ TEST(JFET_P, Construction) {
 //==============================================================================
 // JFET_P - I-V Characteristic Tests
 //==============================================================================
+// The P-channel device works on vgs and vds of its polarity, as SPICE's
+// JFET does: v = -(Vg - Vs) = Vs - Vg and -(Vd - Vs) = Vs - Vd, with the same
+// VTO = -2 V as the N-channel device, so it conducts at Vg = Vs and is cut
+// off when the gate is 2 V or more above the source. ngspice-45.2 gives
+// I(Vd) = 1.05 mA for a PJF of BETA = 1m, VTO = -2, LAMBDA = 0.01 with the
+// gate 1 V above the source and the drain 5 V below it, BETA (1 V)^2 (1 +
+// 0.01 * 5) (run 2026-11-28).
 TEST(JFET_P, DrainCurrentCutoffRegion) {
-    // P-channel JFET: BETA=1e-4, Vto=-2.0V (internal model convention)
     JFET_P jfet(1, "J1", 1, 2, 0, 1e-4, -2.0, 0.01);
 
-    // Cutoff region: Vsg < |Vto| (2.0V)
-    // Vsg = Vs - Vg, for cutoff Vsg < 2.0V
-    Real vsg = 1.5;   // < 2.0V
-    Real vsd = 1.0;
-
-    Real id = jfet.get_drain_current(vsg, vsd);
-
-    // Id should be zero in cutoff (P-channel: Id < 0 when on)
-    EXPECT_NEAR(id, 0.0, 1e-20);
+    // The gate 2.5 V above the source: Vs - Vg = -2.5 V <= VTO
+    EXPECT_NEAR(jfet.get_drain_current(-2.5, 1.0), 0.0, 1e-20);
 }
 
 TEST(JFET_P, DrainCurrentSaturationRegion) {
     JFET_P jfet(1, "J1", 1, 2, 0, 1e-4, -2.0, 0.01);
 
-    // Saturation region: Vsg > |Vto|, Vsd >= Vsg - |Vto|
-    Real vsg = 3.0;   // > 2.0V
-    Real vsd = 2.0;   // >= Vsg - |Vto| = 1.0V
-
-    Real id = jfet.get_drain_current(vsg, vsd);
-
-    // Id should be positive for P-channel (same convention as MOSFET_P)
-    EXPECT_GT(id, 0.0);
-
-    // Expected value calculation
-    Real vto_abs = std::abs(-2.0);  // 2.0V
-    Real vsg_eff = vsg - vto_abs;   // 3.0 - 2.0 = 1.0V
-    Real beta = 1e-4;
-    Real lambda = 0.01;
-    Real expected = beta * vsg_eff * vsg_eff * (1.0 + lambda * vsd);
-    // expected = 1e-4 × 1.0² × (1 + 0.01 × 2.0) = 1e-4 × 1.02 = 1.02e-4
-
-    EXPECT_NEAR(id, expected, expected * 0.01);
+    // The gate 1 V above the source, Vs - Vg = -1 V: vgst = -1 - (-2) = 1 V,
+    // and Vs - Vd = 2 V >= vgst
+    const Real id = jfet.get_drain_current(-1.0, 2.0);
+    const Real expected = 1e-4 * 1.0 * 1.0 * (1.0 + 0.01 * 2.0);  // 1.02e-4 A
+    EXPECT_NEAR(id, expected, expected * 1e-12);
 }
 
 //==============================================================================
@@ -342,8 +328,8 @@ TEST(JFET_P, DrainCurrentSaturationRegion) {
 TEST(JFET_P, RegionDetectionSaturation) {
     JFET_P jfet(1, "J1", 1, 2, 0, 1e-4, -2.0, 0.01);
 
-    Real vsg = 3.0;   // > |Vto|
-    Real vsd = 2.0;   // >= Vsg - |Vto|
+    Real vsg = -1.0;  // vgst = vsg - VTO = 1 V
+    Real vsd = 2.0;   // >= vgst
 
     auto region = jfet.get_region(vsg, vsd);
 
@@ -353,7 +339,7 @@ TEST(JFET_P, RegionDetectionSaturation) {
 TEST(JFET_P, RegionDetectionCutoff) {
     JFET_P jfet(1, "J1", 1, 2, 0, 1e-4, -2.0, 0.01);
 
-    Real vsg = 1.5;   // < |Vto|
+    Real vsg = -2.5;  // <= VTO: the gate 2.5 V above the source
     Real vsd = 1.0;
 
     auto region = jfet.get_region(vsg, vsd);
