@@ -22,8 +22,7 @@ protected:
 
 // Test 1: Basic .GLOBAL directive parsing
 TEST_F(GlobalDirectiveTest, BasicGlobalDirective) {
-    std::string netlist = R"(
-Basic Global Directive Test
+    std::string netlist = R"(Basic Global Directive Test
 .GLOBAL VDD GND
 
 R1 VDD out 1k
@@ -42,8 +41,7 @@ R2 out GND 1k
 
 // Test 2: Multiple .GLOBAL directives
 TEST_F(GlobalDirectiveTest, MultipleGlobalDirectives) {
-    std::string netlist = R"(
-Multiple Global Directives Test
+    std::string netlist = R"(Multiple Global Directives Test
 .GLOBAL VDD
 .GLOBAL GND CLK
 
@@ -64,8 +62,7 @@ R2 out GND 1k
 
 // Test 3: Global nodes in subcircuit (basic)
 TEST_F(GlobalDirectiveTest, GlobalNodesInSubcircuit) {
-    std::string netlist = R"(
-Global Nodes in Subcircuit Test
+    std::string netlist = R"(Global Nodes in Subcircuit Test
 .GLOBAL VDD GND
 
 * Amplifier subcircuit (no VDD/GND in pin list)
@@ -100,8 +97,7 @@ R_load out GND 10k
 
 // Test 4: Nested subcircuits with global nodes
 TEST_F(GlobalDirectiveTest, NestedSubcircuitsWithGlobalNodes) {
-    std::string netlist = R"(
-Nested Subcircuits with Global Nodes Test
+    std::string netlist = R"(Nested Subcircuits with Global Nodes Test
 .GLOBAL VDD GND
 
 * Inner subcircuit (resistor divider)
@@ -139,8 +135,7 @@ R_main out_main GND 10k
 
 // Test 5: Global nodes combined with pins
 TEST_F(GlobalDirectiveTest, GlobalNodesCombinedWithPins) {
-    std::string netlist = R"(
-Global Nodes Combined with Pins Test
+    std::string netlist = R"(Global Nodes Combined with Pins Test
 .GLOBAL VDD
 
 * Subcircuit with explicit GND pin but VDD is global
@@ -172,8 +167,7 @@ R_load out_sig 0 10k
 
 // Test 6: Error case - .GLOBAL without arguments
 TEST_F(GlobalDirectiveTest, ErrorNoArguments) {
-    std::string netlist = R"(
-Error Test - No Arguments
+    std::string netlist = R"(Error Test - No Arguments
 .GLOBAL
 
 R1 1 0 1k
@@ -189,8 +183,7 @@ R1 1 0 1k
 
 // Test 7: Case sensitivity of global nodes
 TEST_F(GlobalDirectiveTest, CaseSensitivity) {
-    std::string netlist = R"(
-Case Sensitivity Test
+    std::string netlist = R"(Case Sensitivity Test
 .GLOBAL VDD vdd Vdd
 
 R1 VDD out 1k
@@ -211,8 +204,7 @@ R3 vdd Vdd 1k
 
 // Test 8: Global node preserves name across hierarchies
 TEST_F(GlobalDirectiveTest, GlobalNodePreservesName) {
-    std::string netlist = R"(
-Global Node Name Preservation Test
+    std::string netlist = R"(Global Node Name Preservation Test
 .GLOBAL CLK
 
 .SUBCKT stage1 in out

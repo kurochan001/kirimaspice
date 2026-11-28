@@ -13,8 +13,7 @@ using namespace kirimaspice;
 
 TEST(NoiseAcRegression, RcLowpass) {
     // Netlist: V1 -> R -> C -> GND, observe node out
-    const char* netlist = R"(
-* RC lowpass for AC/noise regression
+    const char* netlist = R"(* RC lowpass for AC/noise regression
 V1 in 0 DC 0 AC 1
 R1 in out 1k
 C1 out 0 1n

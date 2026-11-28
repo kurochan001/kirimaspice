@@ -23,8 +23,7 @@ TEST(SensitivityAnalyzer, ResistorDivider_ForwardDifference) {
     // Sensitivity ∂Vout/∂R1 = -Vout²/R1² = -0.25 mV/Ω
     // Sensitivity ∂Vout/∂R2 = +Vout²/R2² = +0.25 mV/Ω
 
-    std::string netlist = R"(
-Resistor Divider Sensitivity Analysis
+    std::string netlist = R"(Resistor Divider Sensitivity Analysis
 V1 in 0 DC 1.0
 R1 in out 1000
 R2 out 0 1000
@@ -100,8 +99,7 @@ R2 out 0 1000
 
 TEST(SensitivityAnalyzer, ResistorDivider_CentralDifference) {
     // Same circuit, but using central difference (more accurate)
-    std::string netlist = R"(
-Resistor Divider Sensitivity Analysis (Central Difference)
+    std::string netlist = R"(Resistor Divider Sensitivity Analysis (Central Difference)
 V1 in 0 DC 1.0
 R1 in out 1000
 R2 out 0 1000
@@ -150,8 +148,7 @@ TEST(SensitivityAnalyzer, UnbalancedDivider_HigherSensitivityOnSmallerResistor) 
     // Expected: Vout = 0.1V
     // R2 has higher relative importance (smaller denominator)
 
-    std::string netlist = R"(
-Unbalanced Divider
+    std::string netlist = R"(Unbalanced Divider
 V1 in 0 DC 1.0
 R1 in out 900
 R2 out 0 100
@@ -194,8 +191,7 @@ R2 out 0 100
 // ========== Sensitivity Analysis: Get/Set Parameter ==========
 
 TEST(SensitivityAnalyzer, GetSetParameter_Resistor) {
-    std::string netlist = R"(
-Simple Resistor Circuit
+    std::string netlist = R"(Simple Resistor Circuit
 V1 in 0 DC 1.0
 R1 in out 1000
 .DC
@@ -238,8 +234,7 @@ R1 in out 1000
 }
 
 TEST(SensitivityAnalyzer, GetPerturbableParameters) {
-    std::string netlist = R"(
-Multiple Devices
+    std::string netlist = R"(Multiple Devices
 V1 in 0 DC 1.0
 R1 in n1 1000
 R2 n1 n2 2000
@@ -272,8 +267,7 @@ R3 n2 0 3000
 // ========== Sensitivity Analysis: Edge Cases ==========
 
 TEST(SensitivityAnalyzer, EmptyCircuit_NoParameters) {
-    std::string netlist = R"(
-Empty Circuit
+    std::string netlist = R"(Empty Circuit
 .DC
 .SENS v(out)
 .END
@@ -293,8 +287,7 @@ Empty Circuit
 }
 
 TEST(SensitivityAnalyzer, OutputNodeNotFound_GracefulFailure) {
-    std::string netlist = R"(
-Simple Circuit
+    std::string netlist = R"(Simple Circuit
 V1 in 0 DC 1.0
 R1 in out 1000
 R2 out 0 1000
@@ -331,8 +324,7 @@ TEST(SensitivityAnalyzer, RCCircuit_CapacitanceSensitivity) {
     // Sensitivity ∂Vout/∂R1 = 0 (no current flow in DC)
     // Sensitivity ∂Vout/∂C1 = 0 (capacitor doesn't affect DC)
 
-    std::string netlist = R"(
-RC Circuit Sensitivity Analysis
+    std::string netlist = R"(RC Circuit Sensitivity Analysis
 V1 in 0 DC 1.0
 R1 in out 1000
 C1 out 0 1u
@@ -387,8 +379,7 @@ TEST(SensitivityAnalyzer, RLCircuit_InductanceSensitivity) {
     // Sensitivity ∂Vout/∂R1 should be very small
     // Sensitivity ∂Vout/∂L1 = 0 (inductor doesn't affect DC steady state)
 
-    std::string netlist = R"(
-RL Circuit Sensitivity Analysis
+    std::string netlist = R"(RL Circuit Sensitivity Analysis
 V1 in 0 DC 1.0
 R1 in out 1000
 L1 out 0 1m
@@ -447,8 +438,7 @@ TEST(SensitivityAnalyzer, RLCCircuit_MultiParameterSensitivity) {
     // In DC: Capacitor is open, so Vout = 0.5V (pure resistive divider)
     // We add an inductor L1 in series with R1 (short in DC, no effect)
 
-    std::string netlist = R"(
-RLC Circuit Sensitivity Analysis
+    std::string netlist = R"(RLC Circuit Sensitivity Analysis
 V1 in 0 DC 1.0
 R1 in mid 500
 L1 mid out 1m
@@ -532,8 +522,7 @@ TEST(SensitivityAnalyzer, DiodeRectifier_SaturationCurrentSensitivity) {
     // Diode equation: I = IS × (exp(V/(N×Vt)) - 1)
     // Higher IS → more current → lower voltage drop across diode
 
-    std::string netlist = R"(
-Diode Rectifier Sensitivity Analysis
+    std::string netlist = R"(Diode Rectifier Sensitivity Analysis
 V1 in 0 DC 0.7
 R1 in out 1000
 .MODEL SIMPLE_DIODE D(IS=1e-14 N=1.0)
@@ -589,8 +578,7 @@ D1 out 0 SIMPLE_DIODE
 
 TEST(SensitivityAnalyzer, DiodeRectifier_EmissionCoefficientSensitivity) {
     // Same circuit, test N parameter sensitivity
-    std::string netlist = R"(
-Diode Rectifier N Parameter Sensitivity
+    std::string netlist = R"(Diode Rectifier N Parameter Sensitivity
 V1 in 0 DC 0.7
 R1 in out 1000
 .MODEL SIMPLE_DIODE D(IS=1e-14 N=1.0)
@@ -650,8 +638,7 @@ TEST(SensitivityAnalyzer, BJTAmplifier_BetaSensitivity) {
     //
     // Test sensitivity of collector voltage to beta (BF parameter)
 
-    std::string netlist = R"(
-BJT Amplifier Beta Sensitivity
+    std::string netlist = R"(BJT Amplifier Beta Sensitivity
 VCC vcc 0 DC 5.0
 VB vb 0 DC 0.7
 RB vb b 10000
@@ -709,8 +696,7 @@ Q1 c b e SIMPLE_NPN
 
 TEST(SensitivityAnalyzer, BJTAmplifier_SaturationCurrentSensitivity) {
     // Same BJT amplifier, test IS parameter sensitivity
-    std::string netlist = R"(
-BJT Amplifier IS Sensitivity
+    std::string netlist = R"(BJT Amplifier IS Sensitivity
 VCC vcc 0 DC 5.0
 VB vb 0 DC 0.7
 RB vb b 10000
@@ -774,8 +760,7 @@ TEST(SensitivityAnalyzer, MOSFETAmplifier_TransconductanceSensitivity) {
     //
     // Test sensitivity of drain voltage to KP parameter
 
-    std::string netlist = R"(
-MOSFET Amplifier KP Sensitivity
+    std::string netlist = R"(MOSFET Amplifier KP Sensitivity
 VDD vdd 0 DC 5.0
 VG vg 0 DC 2.0
 RG vg g 10000
@@ -833,8 +818,7 @@ M1 d g s SIMPLE_NMOS
 
 TEST(SensitivityAnalyzer, MOSFETAmplifier_ThresholdVoltageSensitivity) {
     // Same MOSFET amplifier, test VTO (threshold voltage) sensitivity
-    std::string netlist = R"(
-MOSFET Amplifier VTO Sensitivity
+    std::string netlist = R"(MOSFET Amplifier VTO Sensitivity
 VDD vdd 0 DC 5.0
 VG vg 0 DC 2.0
 RG vg g 10000

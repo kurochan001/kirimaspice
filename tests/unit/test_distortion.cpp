@@ -19,8 +19,7 @@ using namespace kirimaspice::circuit;
 // ========================================
 
 TEST(DistortionParser, BasicSyntax_HarmonicOnly) {
-    std::string netlist = R"(
-RC Circuit
+    std::string netlist = R"(RC Circuit
 R1 in out 1k
 C1 out 0 1u
 Vin in 0 DC 1
@@ -38,8 +37,7 @@ Vin in 0 DC 1
 }
 
 TEST(DistortionParser, IntermodulationOnly) {
-    std::string netlist = R"(
-RC Circuit
+    std::string netlist = R"(RC Circuit
 R1 in out 1k
 C1 out 0 1u
 Vin in 0 DC 1
@@ -57,8 +55,7 @@ Vin in 0 DC 1
 }
 
 TEST(DistortionParser, BothWithSkew) {
-    std::string netlist = R"(
-RC Circuit
+    std::string netlist = R"(RC Circuit
 R1 in out 1k
 C1 out 0 1u
 Vin in 0 DC 1
@@ -77,8 +74,7 @@ Vin in 0 DC 1
 }
 
 TEST(DistortionParser, InvalidSyntax_TooFewArgs) {
-    std::string netlist = R"(
-RC Circuit
+    std::string netlist = R"(RC Circuit
 R1 in out 1k
 C1 out 0 1u
 Vin in 0 AC 1
@@ -92,8 +88,7 @@ Vin in 0 AC 1
 }
 
 TEST(DistortionParser, InvalidInterValue) {
-    std::string netlist = R"(
-RC Circuit
+    std::string netlist = R"(RC Circuit
 R1 in out 1k
 C1 out 0 1u
 Vin in 0 AC 1
@@ -112,8 +107,7 @@ Vin in 0 AC 1
 
 TEST(DistortionSolver, Analyze_NoData) {
     // Test with empty AC data
-    std::string netlist = R"(
-RC Circuit
+    std::string netlist = R"(RC Circuit
 R1 in out 1k
 C1 out 0 1u
 Vin in 0 DC 1

@@ -19,8 +19,7 @@ using namespace kirimaspice::devices;
 //==============================================================================
 
 TEST(MOSFETLevel3Parser, BasicNChannelModel) {
-    std::string netlist = R"(
-Test MOSFET Level 3 N-Channel Parser
+    std::string netlist = R"(Test MOSFET Level 3 N-Channel Parser
 .MODEL NMOS3 NMOS LEVEL=3 VTO=0.7 TOX=20n NSUB=1e17 UO=600
 M1 2 1 0 0 NMOS3 W=10u L=1u
 V1 1 0 DC 2.0
@@ -53,8 +52,7 @@ V2 2 0 DC 3.0
 }
 
 TEST(MOSFETLevel3Parser, BasicPChannelModel) {
-    std::string netlist = R"(
-Test MOSFET Level 3 P-Channel Parser
+    std::string netlist = R"(Test MOSFET Level 3 P-Channel Parser
 .MODEL PMOS3 PMOS LEVEL=3 VTO=-0.7 TOX=20n NSUB=1e17 UO=250
 M1 2 1 3 3 PMOS3 W=10u L=1u
 V1 1 0 DC 1.0
@@ -88,8 +86,7 @@ V3 3 0 DC 3.0
 }
 
 TEST(MOSFETLevel3Parser, AllParameters) {
-    std::string netlist = R"(
-Test MOSFET Level 3 All Parameters
+    std::string netlist = R"(Test MOSFET Level 3 All Parameters
 .MODEL NMOS_FULL NMOS LEVEL=3
 + VTO=0.7 TOX=20n NSUB=1e17 UO=600
 + THETA=0.1 VMAX=1e5
@@ -118,8 +115,7 @@ V2 2 0 DC 3.0
 }
 
 TEST(MOSFETLevel3Parser, InstanceParameterOverride) {
-    std::string netlist = R"(
-Test MOSFET Level 3 Instance Override
+    std::string netlist = R"(Test MOSFET Level 3 Instance Override
 .MODEL NMOS3 NMOS LEVEL=3 VTO=0.7 W=5u L=2u
 M1 2 1 0 0 NMOS3 W=10u L=1u
 V1 1 0 DC 2.0
@@ -149,8 +145,7 @@ V2 2 0 DC 3.0
 }
 
 TEST(MOSFETLevel3Parser, FourTerminalDevice) {
-    std::string netlist = R"(
-Test MOSFET Level 3 4-Terminal
+    std::string netlist = R"(Test MOSFET Level 3 4-Terminal
 .MODEL NMOS3 NMOS LEVEL=3 VTO=0.7
 M1 2 1 0 3 NMOS3 W=10u L=1u
 V1 1 0 DC 2.0
@@ -181,8 +176,7 @@ V3 3 0 DC -1.0
 // DCAnalysisIntegration test removed - DC analysis is tested in test_mosfet_level3.cpp
 
 TEST(MOSFETLevel3Parser, CaseInsensitiveParameters) {
-    std::string netlist = R"(
-Test MOSFET Level 3 Case Insensitive
+    std::string netlist = R"(Test MOSFET Level 3 Case Insensitive
 .MODEL NMOS3 NMOS level=3 vto=0.7 tox=20n uo=600
 M1 2 1 0 0 NMOS3 w=10u l=1u
 V1 1 0 DC 2.0
@@ -199,8 +193,7 @@ V2 2 0 DC 3.0
 }
 
 TEST(MOSFETLevel3Parser, MultipleDevicesSameModel) {
-    std::string netlist = R"(
-Test MOSFET Level 3 Multiple Devices
+    std::string netlist = R"(Test MOSFET Level 3 Multiple Devices
 .MODEL NMOS3 NMOS LEVEL=3 VTO=0.7
 M1 2 1 0 0 NMOS3 W=10u L=1u
 M2 3 1 0 0 NMOS3 W=20u L=2u

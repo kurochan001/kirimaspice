@@ -11,8 +11,7 @@ using namespace kirimaspice::solvers;
 
 // Simple smoke test: RC low-pass, check noise solver runs and outputs finite values.
 TEST(NoiseSolver, RCLowpassRuns) {
-    std::string netlist = R"(
-* RC low-pass for noise smoke test
+    std::string netlist = R"(* RC low-pass for noise smoke test
 Vin in 0 DC 0
 R1 in out 1k
 C1 out 0 1u

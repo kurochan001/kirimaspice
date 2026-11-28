@@ -22,8 +22,7 @@ using namespace kirimaspice::solvers;
 // ========================================
 
 TEST(FourierParser, BasicSyntax) {
-    std::string netlist = R"(
-Simple RC Circuit
+    std::string netlist = R"(Simple RC Circuit
 R1 in out 1k
 C1 out 0 1u
 Vin in 0 DC 1
@@ -41,8 +40,7 @@ Vin in 0 DC 1
 }
 
 TEST(FourierParser, FrequencyUnitSuffix) {
-    std::string netlist = R"(
-Unit Suffix Test
+    std::string netlist = R"(Unit Suffix Test
 R1 in out 1k
 Vin in 0 DC 1
 .TRAN 0 5ms
@@ -58,8 +56,7 @@ Vin in 0 DC 1
 }
 
 TEST(FourierParser, FourierAlias) {
-    std::string netlist = R"(
-Alias Test
+    std::string netlist = R"(Alias Test
 R1 in out 1k
 Vin in 0 DC 1
 .TRAN 0 100ms
@@ -75,8 +72,7 @@ Vin in 0 DC 1
 }
 
 TEST(FourierParser, CurrentSignal) {
-    std::string netlist = R"(
-Current Signal Test
+    std::string netlist = R"(Current Signal Test
 R1 in out 1k
 Vload out 0 DC 0
 Vin in 0 DC 1
@@ -108,8 +104,7 @@ TEST(FourierParser, UpperCaseSignal) {
 }
 
 TEST(FourierParser, InvalidSyntax_TooFewArgs) {
-    std::string netlist = R"(
-Invalid Syntax
+    std::string netlist = R"(Invalid Syntax
 R1 in out 1k
 Vin in 0 DC 1
 .TRAN 0 5ms
@@ -122,8 +117,7 @@ Vin in 0 DC 1
 }
 
 TEST(FourierParser, InvalidFrequency_Negative) {
-    std::string netlist = R"(
-Invalid Frequency
+    std::string netlist = R"(Invalid Frequency
 R1 in out 1k
 Vin in 0 DC 1
 .TRAN 0 5ms
@@ -136,8 +130,7 @@ Vin in 0 DC 1
 }
 
 TEST(FourierParser, InvalidSignalFormat) {
-    std::string netlist = R"(
-Invalid Signal Format
+    std::string netlist = R"(Invalid Signal Format
 R1 in out 1k
 Vin in 0 DC 1
 .TRAN 0 5ms
@@ -367,8 +360,7 @@ TEST(FourierAnalyzer, EmptyData) {
 // ========================================
 
 TEST(FourierIntegration, RCLowpassFilter) {
-    std::string netlist = R"(
-RC Lowpass Filter
+    std::string netlist = R"(RC Lowpass Filter
 R1 in out 159
 C1 out 0 1u
 Vin in 0 DC 1

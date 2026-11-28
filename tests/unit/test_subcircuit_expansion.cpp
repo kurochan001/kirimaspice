@@ -308,8 +308,7 @@ V2 c 0 1
 ///   - X_AMP.X1.R2
 ///   - X_AMP.X1.C1
 TEST_F(SubcircuitExpansionTest, NestedSubcircuitExpansion) {
-    const char* netlist = R"(
-* Nested Subcircuit Test
+    const char* netlist = R"(* Nested Subcircuit Test
 .SUBCKT STAGE in out vdd vss
 R2 in out 2k
 C1 out vss 10u
@@ -357,8 +356,7 @@ V1 signal 0 DC 1
 /// CELL -> BLOCK -> SYSTEM hierarchy
 /// Verifies hierarchical device naming: X1.X2.X3.R1
 TEST_F(SubcircuitExpansionTest, ThreeLevelNesting) {
-    const char* netlist = R"(
-* Three-Level Nesting Test
+    const char* netlist = R"(* Three-Level Nesting Test
 .SUBCKT CELL in out
 R1 in out 100
 .ENDS CELL
@@ -409,8 +407,7 @@ V1 vin 0 DC 1
 /// Test parameter propagation through nested subcircuits
 /// Parent subcircuit passes parameters to child subcircuit
 TEST_F(SubcircuitExpansionTest, NestedParameterPropagation) {
-    const char* netlist = R"(
-* Nested Parameter Propagation Test
+    const char* netlist = R"(* Nested Parameter Propagation Test
 .SUBCKT BUFFER in out GAIN=1
 R1 in out {GAIN}k
 .ENDS BUFFER
@@ -441,8 +438,7 @@ V1 sig 0 DC 1
 /// Test complex nested circuit with multiple instances
 /// Verifies that multiple nested instances are correctly expanded
 TEST_F(SubcircuitExpansionTest, ComplexNestedCircuit) {
-    const char* netlist = R"(
-* Complex Nested Circuit Test
+    const char* netlist = R"(* Complex Nested Circuit Test
 .SUBCKT RC_FILTER in out
 R1 in out 1k
 C1 out 0 1u
@@ -495,8 +491,7 @@ V2 sig2 0 DC 2
 
 // Test 13: Circular reference detection
 TEST_F(SubcircuitExpansionTest, CircularReferenceDetection) {
-    const char* netlist = R"(
-* Circular reference test
+    const char* netlist = R"(* Circular reference test
 .SUBCKT AMP in out
 R1 in mid 1k
 X1 mid out FILTER
@@ -532,8 +527,7 @@ V1 a 0 DC 1
 
 // Test 14: Undefined subcircuit reference
 TEST_F(SubcircuitExpansionTest, UndefinedSubcircuitReference) {
-    const char* netlist = R"(
-* Undefined subcircuit
+    const char* netlist = R"(* Undefined subcircuit
 X1 a b OPAMP
 V1 a 0 DC 5
 .END
@@ -554,8 +548,7 @@ V1 a 0 DC 5
 
 // Test 15: Parameter expression error
 TEST_F(SubcircuitExpansionTest, ParameterExpressionError) {
-    const char* netlist = R"(
-* Invalid parameter expression
+    const char* netlist = R"(* Invalid parameter expression
 .SUBCKT BUFFER in out GAIN=10
 R1 in out {UNKNOWN}
 .ENDS BUFFER
@@ -587,8 +580,7 @@ V1 a 0 DC 1
 
 // Test 16: Complex nested circuit - DC analysis with ngspice comparison
 TEST_F(SubcircuitExpansionTest, ComplexNestedCircuitDC) {
-    const char* netlist = R"(
-* Complex nested circuit - DC analysis
+    const char* netlist = R"(* Complex nested circuit - DC analysis
 .SUBCKT RESISTOR_DIV in out ref RATIO=0.5
 R1 in out {RATIO*1000}
 R2 out ref {(1-RATIO)*1000}
@@ -647,8 +639,7 @@ V1 sig_in 0 DC 1
 
 // Test 17: Nested circuit - Transient analysis with RC filter
 TEST_F(SubcircuitExpansionTest, NestedTransientAnalysisWithNgspice) {
-    const char* netlist = R"(
-* Nested RC filter with step input
+    const char* netlist = R"(* Nested RC filter with step input
 .SUBCKT RC_STAGE in out
 R1 in out 1k
 C1 out 0 10u

@@ -10,8 +10,7 @@ using namespace kirimaspice;
 class DCConvergenceHelpersTest : public ::testing::Test {
 protected:
     std::unique_ptr<circuit::CircuitGraph> make_simple_bjt_circuit() {
-        std::string netlist = R"(
-* simple diode/resistor circuit
+        std::string netlist = R"(* simple diode/resistor circuit
 V1 in 0 DC 5
 R1 in out 1k
 D1 out 0 default
@@ -40,8 +39,7 @@ TEST_F(DCConvergenceHelpersTest, PseudoTransientRecoversFromIterationLimit) {
 
 TEST_F(DCConvergenceHelpersTest, ContinuationMethodBehavesLikeSourceStepping) {
     parser::NetlistParser parser;
-    auto parsed = parser.parse_string(R"(
-* voltage divider
+    auto parsed = parser.parse_string(R"(* voltage divider
 V1 in 0 DC 10
 R1 in mid 1k
 R2 mid 0 1k

@@ -157,8 +157,7 @@ TEST(MOSFET_BSIM3_P, ConstructionWithInvalidParameters) {
 //==============================================================================
 
 TEST(ParserTest, RecognizeBSIM3_NWithLEVEL8) {
-    std::string netlist = R"(
-* BSIM3 N-channel test
+    std::string netlist = R"(* BSIM3 N-channel test
 .MODEL BSIM3N NMOS LEVEL=8 VTH0=0.7 TOX=1.5e-8
 V1 vdd 0 DC 5
 M1 vdd gate 0 BSIM3N W=10u L=1u
@@ -189,8 +188,7 @@ M1 vdd gate 0 BSIM3N W=10u L=1u
 }
 
 TEST(ParserTest, RecognizeBSIM3_PWithLEVEL49) {
-    std::string netlist = R"(
-* BSIM3 P-channel test
+    std::string netlist = R"(* BSIM3 P-channel test
 .MODEL BSIM3P PMOS LEVEL=49 VTH0=-0.7 TOX=1.5e-8
 V1 vdd 0 DC 5
 M1 0 gate vdd BSIM3P W=10u L=1u
@@ -225,8 +223,7 @@ M1 0 gate vdd BSIM3P W=10u L=1u
 
 TEST(ParserTest, LEVEL8AndLEVEL49AreEquivalent) {
     // LEVEL=8 (ngspice default)
-    std::string netlist_level8 = R"(
-* BSIM3 with LEVEL=8
+    std::string netlist_level8 = R"(* BSIM3 with LEVEL=8
 .MODEL BSIM3N NMOS LEVEL=8 VTH0=0.7
 V1 vdd 0 DC 5
 M1 vdd gate 0 BSIM3N W=10u L=1u
@@ -234,8 +231,7 @@ M1 vdd gate 0 BSIM3N W=10u L=1u
 )";
 
     // LEVEL=49, another number in use for BSIM3
-    std::string netlist_level49 = R"(
-* BSIM3 with LEVEL=49
+    std::string netlist_level49 = R"(* BSIM3 with LEVEL=49
 .MODEL BSIM3N_49 NMOS LEVEL=49 VTH0=0.7
 V1 vdd 0 DC 5
 M1 vdd gate 0 BSIM3N_49 W=10u L=1u

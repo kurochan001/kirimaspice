@@ -31,8 +31,7 @@ protected:
 // Test 1: .PRINT directive parsing
 //==============================================================================
 TEST_F(PrintSaveTest, PrintDirectiveParsing) {
-    std::string netlist = R"(
-.title Test Print Directive Parsing
+    std::string netlist = R"(.title Test Print Directive Parsing
 V1 1 0 DC 5.0
 R1 1 0 1k
 .dc
@@ -54,8 +53,7 @@ R1 1 0 1k
 // Test 2: .SAVE directive parsing
 //==============================================================================
 TEST_F(PrintSaveTest, SaveDirectiveParsing) {
-    std::string netlist = R"(
-.title Test Save Directive Parsing
+    std::string netlist = R"(.title Test Save Directive Parsing
 V1 1 0 DC 5.0
 R1 1 2 1k
 R2 2 0 2k
@@ -81,8 +79,7 @@ R2 2 0 2k
 // Test 3: Multiple signals in .PRINT
 //==============================================================================
 TEST_F(PrintSaveTest, PrintMultipleSignals) {
-    std::string netlist = R"(
-.title Multiple Signals in PRINT
+    std::string netlist = R"(.title Multiple Signals in PRINT
 V1 1 0 DC 5.0
 R1 1 2 1k
 R2 2 3 2k
@@ -107,8 +104,7 @@ R3 3 0 1k
 // Test 4: .SAVE overrides default save_all
 //==============================================================================
 TEST_F(PrintSaveTest, SaveOverridesDefault) {
-    std::string netlist = R"(
-.title Save Overrides Default Behavior
+    std::string netlist = R"(.title Save Overrides Default Behavior
 V1 1 0 DC 10.0
 R1 1 2 1k
 R2 2 3 1k
@@ -131,8 +127,7 @@ R3 3 0 1k
 // Test 5: No .PRINT/.SAVE (default behavior)
 //==============================================================================
 TEST_F(PrintSaveTest, DefaultBehaviorNoDirectives) {
-    std::string netlist = R"(
-.title No Print/Save Directives
+    std::string netlist = R"(.title No Print/Save Directives
 V1 1 0 DC 5.0
 R1 1 0 1k
 .dc
@@ -153,8 +148,7 @@ R1 1 0 1k
 // Test 6: .PRINT and .SAVE combined
 //==============================================================================
 TEST_F(PrintSaveTest, PrintAndSaveCombined) {
-    std::string netlist = R"(
-.title Print and Save Combined
+    std::string netlist = R"(.title Print and Save Combined
 V1 1 0 DC 10.0
 R1 1 2 1k
 R2 2 3 1k
@@ -186,8 +180,7 @@ R3 3 0 1k
 // Test 7: Invalid .PRINT syntax (missing analysis type)
 //==============================================================================
 TEST_F(PrintSaveTest, InvalidPrintSyntaxMissingAnalysisType) {
-    std::string netlist = R"(
-.title Invalid Print Syntax
+    std::string netlist = R"(.title Invalid Print Syntax
 V1 1 0 DC 5.0
 R1 1 0 1k
 .dc
@@ -208,8 +201,7 @@ R1 1 0 1k
 // Test 8: Case insensitive .PRINT/.SAVE
 //==============================================================================
 TEST_F(PrintSaveTest, CaseInsensitiveDirectives) {
-    std::string netlist = R"(
-.title Case Insensitive Directives
+    std::string netlist = R"(.title Case Insensitive Directives
 V1 1 0 DC 5.0
 R1 1 2 1k
 R2 2 0 1k
@@ -232,8 +224,7 @@ R2 2 0 1k
 // Test 9: .PRINT for transient analysis
 //==============================================================================
 TEST_F(PrintSaveTest, PrintTransientAnalysis) {
-    std::string netlist = R"(
-.title Transient Print Directive
+    std::string netlist = R"(.title Transient Print Directive
 V1 1 0 DC 0 PULSE(0 5 0 1n 1n 10u 20u)
 R1 1 2 1k
 C1 2 0 1u

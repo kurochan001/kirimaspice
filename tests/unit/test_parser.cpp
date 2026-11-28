@@ -150,8 +150,7 @@ L2 8 0 100u
 
 TEST(NetlistParser, UnitSuffixesWithTrailingUnits) {
     // Ensure prefixes are applied even when physical units follow (e.g., "10mA", "1kHz").
-    std::string netlist = R"(
-.title Trailing units should not break prefixes
+    std::string netlist = R"(.title Trailing units should not break prefixes
 .AC DEC 1 1kHz 10kHz
 .STEP param I list 10mA 500uA
 R1 1 0 1k
@@ -347,8 +346,7 @@ R1 in 0 1k
 // .OPTION Directive Tests
 //==============================================================================
 TEST(NetlistParser, OptionIntegrationMethod) {
-    std::string netlist = R"(
-Test .OPTION method
+    std::string netlist = R"(Test .OPTION method
 .option method=gear2
 V1 in 0 DC 10
 R1 in out 1k
@@ -367,8 +365,7 @@ C1 out 0 1u
 }
 
 TEST(NetlistParser, OptionErrorEstimation) {
-    std::string netlist = R"(
-Test .OPTION error_est
+    std::string netlist = R"(Test .OPTION error_est
 .option error_est=predictor_corrector
 V1 in 0 DC 10
 R1 in out 1k
@@ -387,8 +384,7 @@ C1 out 0 1u
 }
 
 TEST(NetlistParser, OptionTolerances) {
-    std::string netlist = R"(
-Test .OPTION tolerances
+    std::string netlist = R"(Test .OPTION tolerances
 .option trtol=5.0 chgtol=1e-15 abstol=1e-13 reltol=1e-4 vntol=1e-7
 V1 in 0 DC 10
 R1 in out 1k
@@ -414,8 +410,7 @@ C1 out 0 1u
 }
 
 TEST(NetlistParser, OptionMultipleParameters) {
-    std::string netlist = R"(
-Test .OPTION multiple parameters
+    std::string netlist = R"(Test .OPTION multiple parameters
 .option method=trap error_est=combined trtol=3.0
 V1 in 0 DC 10
 R1 in out 1k
@@ -437,8 +432,7 @@ C1 out 0 1u
 
 TEST(NetlistParser, OptionSynonyms) {
     // Test that various synonyms work correctly
-    std::string netlist1 = R"(
-Test method synonyms
+    std::string netlist1 = R"(Test method synonyms
 .option method=trap
 V1 in 0 1
 R1 in 0 1k
@@ -449,8 +443,7 @@ R1 in 0 1k
     auto result1 = parser1.parse_string(netlist1);
     EXPECT_EQ(result1.config.transient.method, IntegrationMethod::TRAPEZOIDAL);
 
-    std::string netlist2 = R"(
-Test error_est synonyms
+    std::string netlist2 = R"(Test error_est synonyms
 .option error_est=pc
 V1 in 0 1
 R1 in 0 1k
@@ -461,8 +454,7 @@ R1 in 0 1k
     auto result2 = parser2.parse_string(netlist2);
     EXPECT_EQ(result2.config.transient.error_est, ErrorEstimation::PREDICTOR_CORRECTOR);
 
-    std::string netlist3 = R"(
-Test .OPTIONS plural
+    std::string netlist3 = R"(Test .OPTIONS plural
 .options method=bdf2
 V1 in 0 1
 R1 in 0 1k
@@ -475,8 +467,7 @@ R1 in 0 1k
 }
 
 TEST(NetlistParser, OptionCaseInsensitive) {
-    std::string netlist = R"(
-Test case insensitivity
+    std::string netlist = R"(Test case insensitivity
 .OPTION METHOD=GEAR2 ERROR_EST=PHYSICAL
 V1 in 0 DC 10
 R1 in out 1k
@@ -496,8 +487,7 @@ R1 in out 1k
 // New SPICE-compatible options tests
 
 TEST(NetlistParser, OptionIterationLimits) {
-    std::string netlist = R"(
-Test iteration limits (ITL1, ITL4)
+    std::string netlist = R"(Test iteration limits (ITL1, ITL4)
 .OPTION ITL1=200 ITL4=50
 V1 in 0 DC 10
 R1 in out 1k
@@ -516,8 +506,7 @@ R1 in out 1k
 }
 
 TEST(NetlistParser, OptionTemperature) {
-    std::string netlist = R"(
-Test temperature setting
+    std::string netlist = R"(Test temperature setting
 .OPTION TEMP=50
 V1 in 0 DC 10
 R1 in out 1k
@@ -534,8 +523,7 @@ R1 in out 1k
 }
 
 TEST(NetlistParser, OptionGmin) {
-    std::string netlist = R"(
-Test minimum conductance
+    std::string netlist = R"(Test minimum conductance
 .OPTION GMIN=1e-10
 V1 in 0 DC 10
 R1 in out 1k
@@ -575,8 +563,7 @@ TEST(NetlistParser, OptionValuesTakeScaleFactors) {
 }
 
 TEST(NetlistParser, OptionMaxord) {
-    std::string netlist = R"(
-Test maximum BDF order
+    std::string netlist = R"(Test maximum BDF order
 .OPTION MAXORD=5
 V1 in 0 DC 10
 R1 in out 1k
@@ -594,8 +581,7 @@ R1 in out 1k
 }
 
 TEST(NetlistParser, OptionAllNew) {
-    std::string netlist = R"(
-Test all new options together
+    std::string netlist = R"(Test all new options together
 .OPTION ITL1=150 ITL4=30 TEMP=25 GMIN=1e-11 MAXORD=4
 V1 in 0 DC 10
 R1 in out 1k
@@ -636,8 +622,7 @@ std::filesystem::path create_temp_file(const std::string& filename, const std::s
 // Test 1: Simple include (1 test)
 TEST(NetlistParser, IncludeSimple) {
     // Create included file
-    auto lib_file = create_temp_file("simple.lib", R"(
-* Library file
+    auto lib_file = create_temp_file("simple.lib", R"(* Library file
 .SUBCKT RESISTOR_DIV in out
 R1 in out 1k
 R2 out 0 1k
@@ -646,8 +631,7 @@ R2 out 0 1k
 
     // Create main netlist that includes the library
     auto main_file = create_temp_file("main_simple.cir",
-        fmt::format(R"(
-Simple include test
+        fmt::format(R"(Simple include test
 .INCLUDE {}
 V1 in 0 DC 10
 X1 in out RESISTOR_DIV
@@ -690,8 +674,7 @@ TEST(NetlistParser, IncludeShortForm) {
 // Test 2: Nested include (2 tests)
 TEST(NetlistParser, IncludeNested2Levels) {
     // Create level 2 file (innermost)
-    auto level2 = create_temp_file("level2.lib", R"(
-* Level 2 library
+    auto level2 = create_temp_file("level2.lib", R"(* Level 2 library
 .SUBCKT INNERMOST n1 n2
 R_inner n1 n2 100
 .ENDS
@@ -699,8 +682,7 @@ R_inner n1 n2 100
 
     // Create level 1 file (includes level 2)
     auto level1 = create_temp_file("level1.lib",
-        fmt::format(R"(
-* Level 1 library
+        fmt::format(R"(* Level 1 library
 .INCLUDE {}
 .SUBCKT MIDDLE n1 n2
 X1 n1 n2 INNERMOST
@@ -709,8 +691,7 @@ X1 n1 n2 INNERMOST
 
     // Create main file (includes level 1)
     auto main_file = create_temp_file("main_nested.cir",
-        fmt::format(R"(
-Nested include test
+        fmt::format(R"(Nested include test
 .INCLUDE {}
 V1 in 0 DC 5
 X1 in out MIDDLE
@@ -735,16 +716,14 @@ X1 in out MIDDLE
 
 TEST(NetlistParser, IncludeNested3Levels) {
     // Create level 3 file
-    auto level3 = create_temp_file("level3.lib", R"(
-.SUBCKT LEAF n1 n2
+    auto level3 = create_temp_file("level3.lib", R"(.SUBCKT LEAF n1 n2
 C1 n1 n2 1u
 .ENDS
 )");
 
     // Create level 2 file
     auto level2 = create_temp_file("level2b.lib",
-        fmt::format(R"(
-.INCLUDE {}
+        fmt::format(R"(.INCLUDE {}
 .SUBCKT BRANCH n1 n2
 X1 n1 n2 LEAF
 .ENDS
@@ -752,8 +731,7 @@ X1 n1 n2 LEAF
 
     // Create level 1 file
     auto level1 = create_temp_file("level1b.lib",
-        fmt::format(R"(
-.INCLUDE {}
+        fmt::format(R"(.INCLUDE {}
 .SUBCKT TRUNK n1 n2
 X1 n1 n2 BRANCH
 .ENDS
@@ -761,8 +739,7 @@ X1 n1 n2 BRANCH
 
     // Create main file
     auto main_file = create_temp_file("main_nested3.cir",
-        fmt::format(R"(
-3-level nested include test
+        fmt::format(R"(3-level nested include test
 .INCLUDE {}
 V1 in 0 DC 1
 X1 in out TRUNK
@@ -796,8 +773,7 @@ TEST(NetlistParser, IncludeRelativePath) {
     // Create library in subdirectory
     auto lib_file = models_dir / "passive.lib";
     std::ofstream lib(lib_file);
-    lib << R"(
-.SUBCKT RC_FILTER in out
+    lib << R"(.SUBCKT RC_FILTER in out
 R1 in out 1k
 C1 out 0 1n
 .ENDS
@@ -837,8 +813,7 @@ TEST(NetlistParser, IncludeAbsolutePath) {
     // Create library with absolute path
     auto lib_file = temp_dir / "absolute.lib";
     std::ofstream lib(lib_file);
-    lib << R"(
-.SUBCKT AMP in out
+    lib << R"(.SUBCKT AMP in out
 V1 in 0 DC 1
 R1 out 0 10k
 .ENDS
@@ -870,8 +845,7 @@ R1 out 0 10k
 
 // Test 5: Error - File not found (1 test)
 TEST(NetlistParser, IncludeFileNotFound) {
-    auto main_file = create_temp_file("main_notfound.cir", R"(
-File not found test
+    auto main_file = create_temp_file("main_notfound.cir", R"(File not found test
 .INCLUDE /nonexistent/path/to/file.lib
 V1 in 0 DC 1
 .dc
@@ -987,8 +961,7 @@ TEST(NetlistParser, IncludeDepthLimit) {
 
 // Test 1: .IC parsing
 TEST(NetlistParser, InitialConditionIC) {
-    std::string netlist = R"(
-Test .IC directive
+    std::string netlist = R"(Test .IC directive
 .IC V(out)=2.5 V(n1)=1.2 V(n2)=0.8
 V1 in 0 DC 5
 R1 in out 1k
@@ -1011,8 +984,7 @@ C1 out 0 1u
 
 // Test 2: .NODESET parsing
 TEST(NetlistParser, InitialConditionNODESET) {
-    std::string netlist = R"(
-Test .NODESET directive
+    std::string netlist = R"(Test .NODESET directive
 .NODESET V(out)=3.3 V(n1)=1.65
 V1 in 0 DC 10
 R1 in out 10k
@@ -1034,8 +1006,7 @@ R2 out 0 10k
 
 // Test 3: Both .IC and .NODESET
 TEST(NetlistParser, InitialConditionBoth) {
-    std::string netlist = R"(
-Test both .IC and .NODESET
+    std::string netlist = R"(Test both .IC and .NODESET
 .NODESET V(n1)=1.0
 .IC V(out)=2.0
 V1 in 0 DC 5
@@ -1061,8 +1032,7 @@ R2 out 0 1k
 
 // Test 4: .IC with unit suffixes
 TEST(NetlistParser, InitialConditionWithUnits) {
-    std::string netlist = R"(
-Test .IC with units
+    std::string netlist = R"(Test .IC with units
 .IC V(out)=2.5k V(n1)=1.2MEG V(n2)=800m
 V1 in 0 DC 5
 R1 in out 1k
@@ -1088,8 +1058,7 @@ R1 in out 1k
 
 // Test 1: .PARAM with literal values
 TEST(NetlistParser, ParamLiteralValues) {
-    std::string netlist = R"(
-* .PARAM literal values
+    std::string netlist = R"(* .PARAM literal values
 .PARAM Vcc=5 R_load=1k C_filter=10u
 V1 in 0 DC 5
 R1 in out 1k
@@ -1110,8 +1079,7 @@ R1 in out 1k
 
 // Test 2: .PARAM with expressions
 TEST(NetlistParser, ParamExpressions) {
-    std::string netlist = R"(
-* .PARAM expressions
+    std::string netlist = R"(* .PARAM expressions
 .PARAM Vcc=5
 .PARAM Vbias={Vcc/2}
 .PARAM tau={0.01}
@@ -1134,8 +1102,7 @@ R1 in out 1k
 
 // Test 3: .PARAM multiple parameters in one line
 TEST(NetlistParser, ParamMultipleInLine) {
-    std::string netlist = R"(
-* .PARAM multiple in line
+    std::string netlist = R"(* .PARAM multiple in line
 .PARAM Vdd=3.3 Vss=0 Vref=1.2
 V1 in 0 DC 3.3
 R1 in out 1k
@@ -1156,8 +1123,7 @@ R1 in out 1k
 
 // Test 4: .FUNC function definition
 TEST(NetlistParser, FuncDefinition) {
-    std::string netlist = R"(
-* .FUNC definition
+    std::string netlist = R"(* .FUNC definition
 .FUNC RC(r, c) {r*c}
 .FUNC parallel(r1, r2) {(r1*r2)/(r1+r2)}
 V1 in 0 DC 5
@@ -1183,8 +1149,7 @@ R1 in out 1k
 
 // Test 4b: .FUNC with .PARAM - Function calls in parameter expressions
 TEST(NetlistParser, FuncWithParamCalls) {
-    std::string netlist = R"(
-* .FUNC with .PARAM integration
+    std::string netlist = R"(* .FUNC with .PARAM integration
 .FUNC RC(r, c) {r*c}
 .FUNC parallel(r1, r2) {(r1*r2)/(r1+r2)}
 .PARAM R1=1000
@@ -1218,8 +1183,7 @@ R1 in out 1k
 
 // Test 4c: .FUNC with single argument
 TEST(NetlistParser, FuncSingleArg) {
-    std::string netlist = R"(
-* .FUNC with single argument
+    std::string netlist = R"(* .FUNC with single argument
 .FUNC square(x) {x*x}
 .PARAM val=5
 .PARAM result={square(val)}
@@ -1244,8 +1208,7 @@ R1 in out 1k
 
 // Test 4d: .FUNC with math functions
 TEST(NetlistParser, FuncWithMathFunctions) {
-    std::string netlist = R"(
-* .FUNC with built-in math functions
+    std::string netlist = R"(* .FUNC with built-in math functions
 .FUNC hypotenuse(a, b) {sqrt(a*a + b*b)}
 .PARAM x=3
 .PARAM y=4
@@ -1269,8 +1232,7 @@ R1 in out 1k
 
 // Test 5: .PARAM with dependent parameters
 TEST(NetlistParser, ParamDependent) {
-    std::string netlist = R"(
-* .PARAM dependent
+    std::string netlist = R"(* .PARAM dependent
 .PARAM Ra=1k
 .PARAM Rb=2k
 .PARAM Rtotal={Ra+Rb}
@@ -1295,8 +1257,7 @@ R1 in out 1k
 
 // Test 6: .PARAM with scientific notation
 TEST(NetlistParser, ParamScientific) {
-    std::string netlist = R"(
-* .PARAM scientific
+    std::string netlist = R"(* .PARAM scientific
 .PARAM freq=1e6
 .PARAM cap=1e-12
 .PARAM omega={2*3.14159265359*freq}
@@ -1318,8 +1279,7 @@ R1 in out 1k
 
 // Test 7: .PARAM expansion in device values (resistor)
 TEST(NetlistParser, ParamExpansionResistor) {
-    std::string netlist = R"(
-* .PARAM expansion in resistor value
+    std::string netlist = R"(* .PARAM expansion in resistor value
 .PARAM R_value=1k
 .PARAM R_double={R_value*2}
 V1 in 0 DC 5
@@ -1367,8 +1327,7 @@ R2 out 0 {R_double}
 
 // Test 8: .PARAM expansion in device values (voltage source)
 TEST(NetlistParser, ParamExpansionVoltageSource) {
-    std::string netlist = R"(
-* .PARAM expansion in voltage source
+    std::string netlist = R"(* .PARAM expansion in voltage source
 .PARAM Vcc=5.0
 .PARAM Vbias={Vcc/2}
 V1 vcc 0 DC {Vcc}
@@ -1410,8 +1369,7 @@ R1 vcc 0 1k
 
 // Test 9: .PARAM expansion with expressions
 TEST(NetlistParser, ParamExpansionExpressions) {
-    std::string netlist = R"(
-* .PARAM expansion with complex expressions
+    std::string netlist = R"(* .PARAM expansion with complex expressions
 .PARAM freq=1e6
 .PARAM C_base=1e-12
 .PARAM L_base=1e-6
@@ -1459,8 +1417,7 @@ R2 n2 0 {R_base}
 
 // Test 1: .MODEL BJT NPN model definition
 TEST(NetlistParser, ModelBJT_NPN) {
-    std::string netlist = R"(
-* .MODEL BJT NPN test
+    std::string netlist = R"(* .MODEL BJT NPN test
 .MODEL 2N3904 NPN(IS=1e-14 BF=200 N=1.0)
 V1 in 0 DC 5
 R1 in out 1k
@@ -1487,8 +1444,7 @@ R1 in out 1k
 
 // Test 2: .MODEL with BJT device reference
 TEST(NetlistParser, ModelBJT_DeviceReference) {
-    std::string netlist = R"(
-* .MODEL with BJT reference
+    std::string netlist = R"(* .MODEL with BJT reference
 .MODEL Q2N2222 NPN(IS=1e-14 BF=100 N=1.0)
 Vcc vcc 0 DC 12
 Q1 vcc base 0 Q2N2222
@@ -1511,8 +1467,7 @@ R1 vcc base 10k
 
 // Test 3: .MODEL PNP model
 TEST(NetlistParser, ModelBJT_PNP) {
-    std::string netlist = R"(
-* .MODEL BJT PNP test
+    std::string netlist = R"(* .MODEL BJT PNP test
 .MODEL 2N3906 PNP(IS=1e-14 BF=180 N=1.0)
 V1 in 0 DC 5
 .end
@@ -1530,8 +1485,7 @@ V1 in 0 DC 5
 
 // Test 4: .MODEL with parameters using expressions
 TEST(NetlistParser, ModelWithExpressions) {
-    std::string netlist = R"(
-* .MODEL with parameter expressions
+    std::string netlist = R"(* .MODEL with parameter expressions
 .PARAM Is_base=1e-14
 .PARAM beta_gain=200
 .MODEL MyBJT NPN(IS={Is_base} BF={beta_gain})
@@ -1551,8 +1505,7 @@ V1 in 0 DC 5
 
 // Test 5: Multiple models
 TEST(NetlistParser, MultipleModels) {
-    std::string netlist = R"(
-* Multiple .MODEL definitions
+    std::string netlist = R"(* Multiple .MODEL definitions
 .MODEL 2N3904 NPN(IS=1e-14 BF=200)
 .MODEL 2N3906 PNP(IS=1e-14 BF=180)
 .MODEL 1N4148 D(IS=2.52e-9 N=1.752)
@@ -1573,8 +1526,7 @@ V1 in 0 DC 5
 
 // Test 6: .MODEL Diode model definition and reference
 TEST(NetlistParser, ModelDiode_Definition) {
-    std::string netlist = R"(
-* .MODEL Diode test
+    std::string netlist = R"(* .MODEL Diode test
 .MODEL 1N4148 D(IS=2.52e-9 N=1.752 BV=100 IBV=100e-6)
 V1 in 0 DC 5
 R1 in out 1k
@@ -1599,8 +1551,7 @@ R1 in out 1k
 
 // Test 7: .MODEL Diode device reference
 TEST(NetlistParser, ModelDiode_DeviceReference) {
-    std::string netlist = R"(
-* .MODEL Diode reference
+    std::string netlist = R"(* .MODEL Diode reference
 .MODEL 1N4148 D(IS=2.52e-9 N=1.752)
 V1 vcc 0 DC 5
 D1 vcc out 1N4148
@@ -1622,8 +1573,7 @@ R1 out 0 1k
 
 // Test 8: .MODEL MOSFET NMOS model definition and reference
 TEST(NetlistParser, ModelMOSFET_NMOS) {
-    std::string netlist = R"(
-* .MODEL MOSFET NMOS test
+    std::string netlist = R"(* .MODEL MOSFET NMOS test
 .MODEL 2N7000 NMOS(VTO=2.0 KP=0.3 LAMBDA=0.05)
 V1 vdd 0 DC 12
 M1 vdd gate 0 2N7000
@@ -1652,8 +1602,7 @@ R1 vdd gate 100k
 
 // Test 9: .MODEL MOSFET PMOS model
 TEST(NetlistParser, ModelMOSFET_PMOS) {
-    std::string netlist = R"(
-* .MODEL MOSFET PMOS test
+    std::string netlist = R"(* .MODEL MOSFET PMOS test
 .MODEL BS250 PMOS(VTO=-2.0 KP=0.15)
 V1 vdd 0 DC 12
 .end
@@ -1675,8 +1624,7 @@ V1 vdd 0 DC 12
 
 // Test 1: .model BSIM3 NMOS level=8
 TEST(NetlistParser, ModelBSIM3_NMOS_Level8) {
-    std::string netlist = R"(
-.title BSIM3 NMOS Test
+    std::string netlist = R"(.title BSIM3 NMOS Test
 .model NMOS_BSIM3 NMOS level=8 tox=1.5e-8 vth0=0.7 u0=670 vsat=8e4
 + k1=0.5 pclm=1.3 kf=0 tnom=27
 M1 2 1 0 0 NMOS_BSIM3 W=10u L=1u
@@ -1705,8 +1653,7 @@ M1 2 1 0 0 NMOS_BSIM3 W=10u L=1u
 
 // Test 2: .model BSIM3 PMOS level=49
 TEST(NetlistParser, ModelBSIM3_PMOS_Level49) {
-    std::string netlist = R"(
-.title BSIM3 PMOS Test
+    std::string netlist = R"(.title BSIM3 PMOS Test
 .model PMOS_BSIM3 PMOS level=49 tox=1.5e-8 vth0=-0.7 u0=250 vsat=7e4
 + k1=0.6 pclm=1.0 kf=1e-28 tnom=27
 M1 2 1 3 3 PMOS_BSIM3 W=20u L=0.5u
@@ -1731,8 +1678,7 @@ M1 2 1 3 3 PMOS_BSIM3 W=20u L=0.5u
 
 // Test 3: BSIM3 with comprehensive parameters
 TEST(NetlistParser, ModelBSIM3_ComprehensiveParameters) {
-    std::string netlist = R"(
-.title BSIM3 Comprehensive Test
+    std::string netlist = R"(.title BSIM3 Comprehensive Test
 .model N1 NMOS level=8
 + tox=1.5e-8 toxm=1.5e-8 vth0=0.7 u0=670 vsat=8e4
 + k1=0.5 k2=0.0 k3=80 pclm=1.3
@@ -1767,8 +1713,7 @@ M1 2 1 0 0 N1 W=10u L=1u
 
 // Test 4: Multiple BSIM3 models (NMOS and PMOS)
 TEST(NetlistParser, ModelBSIM3_MultipleModels) {
-    std::string netlist = R"(
-.title BSIM3 Multiple Models Test
+    std::string netlist = R"(.title BSIM3 Multiple Models Test
 .model NMOS_MODEL NMOS level=8 tox=1.5e-8 vth0=0.7 u0=670
 .model PMOS_MODEL PMOS level=8 tox=1.5e-8 vth0=-0.7 u0=250
 M1 2 1 0 0 NMOS_MODEL W=10u L=1u
@@ -1796,8 +1741,7 @@ M2 3 1 2 2 PMOS_MODEL W=20u L=1u
 
 // Test 5: BSIM3 with VTO alias for VTH0
 TEST(NetlistParser, ModelBSIM3_VtoAlias) {
-    std::string netlist = R"(
-.title BSIM3 VTO Alias Test
+    std::string netlist = R"(.title BSIM3 VTO Alias Test
 .model N1 NMOS level=8 tox=1.5e-8 vto=0.65 u0=670
 M1 2 1 0 0 N1 W=10u L=1u
 .end
@@ -1815,8 +1759,7 @@ M1 2 1 0 0 N1 W=10u L=1u
 
 // Test 6: BSIM3 temperature parameter conversion (TNOM in Celsius)
 TEST(NetlistParser, ModelBSIM3_TemperatureConversion) {
-    std::string netlist = R"(
-.title BSIM3 Temperature Conversion Test
+    std::string netlist = R"(.title BSIM3 Temperature Conversion Test
 .model N1 NMOS level=8 tox=1.5e-8 vth0=0.7 tnom=25
 M1 2 1 0 0 N1 W=10u L=1u
 .end
@@ -1834,8 +1777,7 @@ M1 2 1 0 0 N1 W=10u L=1u
 
 // Test 7: BSIM3 with geometry parameters
 TEST(NetlistParser, ModelBSIM3_GeometryParameters) {
-    std::string netlist = R"(
-.title BSIM3 Geometry Test
+    std::string netlist = R"(.title BSIM3 Geometry Test
 .model N1 NMOS level=8 tox=1.5e-8 vth0=0.7
 + lint=10n wint=5n
 + ll=1e-15 lw=2e-15 lwl=3e-21
@@ -1858,8 +1800,7 @@ M1 2 1 0 0 N1 W=10u L=1u
 
 // Test 8: BSIM3 model reference in M element
 TEST(NetlistParser, BSIM3_MElementReference) {
-    std::string netlist = R"(
-.title BSIM3 M Element Reference
+    std::string netlist = R"(.title BSIM3 M Element Reference
 .model MYMODEL NMOS level=8 tox=1.5e-8 vth0=0.7 u0=670
 M1 2 1 0 0 MYMODEL W=10u L=1u
 .end
@@ -1879,8 +1820,7 @@ M1 2 1 0 0 MYMODEL W=10u L=1u
 
 // Test 9: Unrecognized BSIM3 parameter warning
 TEST(NetlistParser, ModelBSIM3_UnrecognizedParameter) {
-    std::string netlist = R"(
-.title BSIM3 Unrecognized Parameter Test
+    std::string netlist = R"(.title BSIM3 Unrecognized Parameter Test
 .model N1 NMOS level=8 tox=1.5e-8 vth0=0.7 unknown_param=123
 M1 2 1 0 0 N1 W=10u L=1u
 .end
@@ -1900,8 +1840,7 @@ M1 2 1 0 0 N1 W=10u L=1u
 
 // Test 10: BSIM3 with instance parameters on M line
 TEST(NetlistParser, ModelBSIM3_InstanceParameters) {
-    std::string netlist = R"(
-.title BSIM3 Instance Parameters Test
+    std::string netlist = R"(.title BSIM3 Instance Parameters Test
 .model N1 NMOS level=8 tox=1.5e-8 vth0=0.7 u0=670
 M1 2 1 0 0 N1 W=5u L=0.5u
 M2 3 1 0 0 N1 W=20u L=2u
@@ -1923,8 +1862,7 @@ M2 3 1 0 0 N1 W=20u L=2u
 
 // Test 1: .STEP LIN (Linear sweep)
 TEST(NetlistParser, StepLinearSweep) {
-    std::string netlist = R"(
-.title Linear Parameter Sweep Test
+    std::string netlist = R"(.title Linear Parameter Sweep Test
 * Linear sweep: R from 1k to 10k with 1k steps
 .STEP param R 1k 10k 1k
 R1 1 0 1k
@@ -1953,8 +1891,7 @@ R1 1 0 1k
 
 // Test 2: .STEP DEC (Decade logarithmic sweep)
 TEST(NetlistParser, StepDecadeSweep) {
-    std::string netlist = R"(
-.title Decade Logarithmic Sweep Test
+    std::string netlist = R"(.title Decade Logarithmic Sweep Test
 * Decade sweep: C from 1pF to 1uF with 10 points per decade
 .STEP dec param C 1p 1u 10
 C1 1 0 1p
@@ -1983,8 +1920,7 @@ C1 1 0 1p
 
 // Test 3: .STEP OCT (Octave logarithmic sweep)
 TEST(NetlistParser, StepOctaveSweep) {
-    std::string netlist = R"(
-.title Octave Logarithmic Sweep Test
+    std::string netlist = R"(.title Octave Logarithmic Sweep Test
 * Octave sweep: L from 1nH to 1mH with 5 points per octave
 .STEP oct param L 1n 1m 5
 L1 1 2 1n
@@ -2013,8 +1949,7 @@ L1 1 2 1n
 
 // Test 4: .STEP with case-insensitive keywords
 TEST(NetlistParser, StepCaseInsensitive) {
-    std::string netlist = R"(
-.title Case Insensitive STEP Test
+    std::string netlist = R"(.title Case Insensitive STEP Test
 .STEP DEC PARAM R 1k 10k 10
 .STEP OCT ParaM C 1p 1u 5
 R1 1 0 1k
@@ -2033,8 +1968,7 @@ R1 1 0 1k
 
 // Test 5: .STEP LIST
 TEST(NetlistParser, StepList) {
-    std::string netlist = R"(
-.title LIST Sweep Test
+    std::string netlist = R"(.title LIST Sweep Test
 .STEP param R list 1k 2k 5k 10k
 R1 1 0 1k
 .end
@@ -2066,8 +2000,7 @@ R1 1 0 1k
 
 // Test 6: .STEP error - zero step size (LIN)
 TEST(NetlistParser, StepErrorZeroStep) {
-    std::string netlist = R"(
-.title Zero Step Error Test
+    std::string netlist = R"(.title Zero Step Error Test
 .STEP param R 1k 10k 0
 R1 1 0 1k
 .end
@@ -2081,8 +2014,7 @@ R1 1 0 1k
 
 // Test 7: .STEP error - wrong step direction
 TEST(NetlistParser, StepErrorWrongDirection) {
-    std::string netlist = R"(
-.title Wrong Direction Error Test
+    std::string netlist = R"(.title Wrong Direction Error Test
 * start < stop but negative step
 .STEP param R 1k 10k -1k
 R1 1 0 1k
@@ -2097,8 +2029,7 @@ R1 1 0 1k
 
 // Test 8: .STEP error - negative values for DEC
 TEST(NetlistParser, StepErrorNegativeDEC) {
-    std::string netlist = R"(
-.title Negative DEC Error Test
+    std::string netlist = R"(.title Negative DEC Error Test
 .STEP dec param R -1k 10k 10
 R1 1 0 1k
 .end
@@ -2112,8 +2043,7 @@ R1 1 0 1k
 
 // Test 9: .STEP error - invalid points per decade
 TEST(NetlistParser, StepErrorInvalidPointsPerDecade) {
-    std::string netlist = R"(
-.title Invalid Points Per Decade Test
+    std::string netlist = R"(.title Invalid Points Per Decade Test
 .STEP dec param R 1k 10k 0
 R1 1 0 1k
 .end
@@ -2127,8 +2057,7 @@ R1 1 0 1k
 
 // Test 10: Multiple .STEP directives (preparation)
 TEST(NetlistParser, MultipleStepDirectives) {
-    std::string netlist = R"(
-.title Multiple STEP Test
+    std::string netlist = R"(.title Multiple STEP Test
 .STEP param R 1k 10k 1k
 .STEP dec param C 1p 1u 10
 .STEP oct param L 1n 1m 5
@@ -2156,8 +2085,7 @@ L1 1 2 1n
 
 // Test 11: .STEP LIST with unit suffixes
 TEST(NetlistParser, StepList_UnitSuffixes) {
-    std::string netlist = R"(
-.title LIST with Unit Suffixes
+    std::string netlist = R"(.title LIST with Unit Suffixes
 .STEP param C list 1p 10p 100p 1n 10n
 C1 1 0 1p
 .end
@@ -2182,8 +2110,7 @@ C1 1 0 1p
 
 // Test 12: .STEP LIST error - no values provided
 TEST(NetlistParser, StepList_ErrorNoValues) {
-    std::string netlist = R"(
-.title LIST Error - No Values
+    std::string netlist = R"(.title LIST Error - No Values
 .STEP param R list
 R1 1 0 1k
 .end
@@ -2197,8 +2124,7 @@ R1 1 0 1k
 
 // Test 13: Multiple .STEP with LIST
 TEST(NetlistParser, MultipleStepWithList) {
-    std::string netlist = R"(
-.title Multiple STEP with LIST
+    std::string netlist = R"(.title Multiple STEP with LIST
 .STEP param R list 1k 2k 5k
 .STEP param C list 1p 10p 100p
 R1 1 0 1k
@@ -2224,8 +2150,7 @@ C1 1 0 1p
 // ============================================================================
 
 TEST(NetlistParser, TempBasicSyntax) {
-    std::string netlist = R"(
-.title Temperature Sweep Test
+    std::string netlist = R"(.title Temperature Sweep Test
 .TEMP -40 0 27 85 125
 R1 1 0 1k
 .end
@@ -2247,8 +2172,7 @@ R1 1 0 1k
 }
 
 TEST(NetlistParser, TempSingleValue) {
-    std::string netlist = R"(
-.title Temperature Sweep Single Point
+    std::string netlist = R"(.title Temperature Sweep Single Point
 .TEMP 100
 R1 1 0 1k
 .end
@@ -2263,8 +2187,7 @@ R1 1 0 1k
 }
 
 TEST(NetlistParser, TempWithUnitSuffix) {
-    std::string netlist = R"(
-.title Temperature Sweep with Units
+    std::string netlist = R"(.title Temperature Sweep with Units
 .TEMP -40 27 100
 R1 1 0 1k
 .end
@@ -2283,8 +2206,7 @@ R1 1 0 1k
 }
 
 TEST(NetlistParser, TempFractionalValues) {
-    std::string netlist = R"(
-.title Temperature Sweep with Fractional Values
+    std::string netlist = R"(.title Temperature Sweep with Fractional Values
 .TEMP 26.85 27.0 27.15
 R1 1 0 1k
 .end
@@ -2302,8 +2224,7 @@ R1 1 0 1k
 }
 
 TEST(NetlistParser, TempCaseInsensitive) {
-    std::string netlist = R"(
-.title Temperature Sweep Case Insensitive
+    std::string netlist = R"(.title Temperature Sweep Case Insensitive
 .temp -40 27 125
 R1 1 0 1k
 .end
@@ -2321,8 +2242,7 @@ R1 1 0 1k
 }
 
 TEST(NetlistParser, TempErrorNoArguments) {
-    std::string netlist = R"(
-.title Temperature Sweep No Arguments
+    std::string netlist = R"(.title Temperature Sweep No Arguments
 .TEMP
 R1 1 0 1k
 .end
@@ -2335,8 +2255,7 @@ R1 1 0 1k
 }
 
 TEST(NetlistParser, TempErrorBelowAbsoluteZero) {
-    std::string netlist = R"(
-.title Temperature Sweep Below Absolute Zero
+    std::string netlist = R"(.title Temperature Sweep Below Absolute Zero
 .TEMP -300
 R1 1 0 1k
 .end
@@ -2350,8 +2269,7 @@ R1 1 0 1k
 
 TEST(NetlistParser, TempMultipleDirectives) {
     // Last .TEMP directive should override previous ones
-    std::string netlist = R"(
-.title Temperature Sweep Multiple Directives
+    std::string netlist = R"(.title Temperature Sweep Multiple Directives
 .TEMP 0 27
 .TEMP 85 125 150
 R1 1 0 1k
@@ -2375,8 +2293,7 @@ R1 1 0 1k
 
 // Test: Parse 1D .DC directive
 TEST(NetlistParser, DCSweep1D) {
-    std::string netlist = R"(
-Simple DC Sweep Test
+    std::string netlist = R"(Simple DC Sweep Test
 V1 in 0 DC 0
 R1 in 0 1k
 .DC V1 0 10 1
@@ -2398,8 +2315,7 @@ R1 in 0 1k
 
 // Test: Parse 2D .DC directive
 TEST(NetlistParser, DCSweep2D) {
-    std::string netlist = R"(
-2D DC Sweep Test
+    std::string netlist = R"(2D DC Sweep Test
 V1 in1 0 DC 0
 V2 in2 0 DC 0
 R1 in1 out 1k
@@ -2431,8 +2347,7 @@ R2 out in2 1k
 
 // Test: Parse .DC with unit suffixes
 TEST(NetlistParser, DCSweepWithUnits) {
-    std::string netlist = R"(
-DC Sweep with Units
+    std::string netlist = R"(DC Sweep with Units
 V1 in 0 DC 0
 R1 in 0 1k
 .DC V1 0 10m 1m
@@ -2452,8 +2367,7 @@ R1 in 0 1k
 
 // Test: Incomplete .DC directive is skipped (backward compatibility)
 TEST(NetlistParser, DCSweepErrorTooFewArgs) {
-    std::string netlist = R"(
-DC Sweep Incomplete Test
+    std::string netlist = R"(DC Sweep Incomplete Test
 V1 in 0 DC 0
 R1 in 0 1k
 .DC V1 0 10
@@ -2472,8 +2386,7 @@ R1 in 0 1k
 
 // Test: Error - .DC with zero step
 TEST(NetlistParser, DCSweepErrorZeroStep) {
-    std::string netlist = R"(
-DC Sweep Zero Step Error
+    std::string netlist = R"(DC Sweep Zero Step Error
 V1 in 0 DC 0
 R1 in 0 1k
 .DC V1 0 10 0
@@ -2490,8 +2403,7 @@ R1 in 0 1k
 
 // Test: Basic B-element voltage source with simple expression
 TEST(NetlistParser, BehavioralVoltageSourceSimple) {
-    std::string netlist = R"(
-B-element Simple Test
+    std::string netlist = R"(B-element Simple Test
 V1 in 0 DC 1
 R1 out 0 1k
 B1 out 0 V={2*V(in)}
@@ -2507,8 +2419,7 @@ B1 out 0 V={2*V(in)}
 
 // Test: B-element current source with TIME expression
 TEST(NetlistParser, BehavioralCurrentSourceWithTime) {
-    std::string netlist = R"(
-B-element Current Source Test
+    std::string netlist = R"(B-element Current Source Test
 R1 out 0 1k
 B1 out 0 I={sin(2*pi*1000*TIME)}
 .END
@@ -2523,8 +2434,7 @@ B1 out 0 I={sin(2*pi*1000*TIME)}
 
 // Test: B-element with braces around expression
 TEST(NetlistParser, BehavioralSourceWithBraces) {
-    std::string netlist = R"(
-B-element Braces Test
+    std::string netlist = R"(B-element Braces Test
 V1 in 0 DC 5
 R1 out 0 1k
 B1 out 0 V={V(in)*0.5}
@@ -2540,8 +2450,7 @@ B1 out 0 V={V(in)*0.5}
 
 // Test: Error - B-element missing V= or I= specifier
 TEST(NetlistParser, BehavioralSourceMissingSpecifier) {
-    std::string netlist = R"(
-B-element Error Test
+    std::string netlist = R"(B-element Error Test
 B1 out 0 1+2
 .END
 )";
@@ -2552,8 +2461,7 @@ B1 out 0 1+2
 
 // Test: Error - B-element with invalid syntax
 TEST(NetlistParser, BehavioralSourceInvalidSyntax) {
-    std::string netlist = R"(
-B-element Invalid Syntax
+    std::string netlist = R"(B-element Invalid Syntax
 B1 out
 .END
 )";
@@ -2568,8 +2476,7 @@ B1 out
 
 // Test: B-element voltage follower with V(node)
 TEST(NetlistParser, BehavioralVoltageFollower) {
-    std::string netlist = R"(
-B-element Voltage Follower Test
+    std::string netlist = R"(B-element Voltage Follower Test
 V1 in 0 DC 5
 R1 in 0 1k
 B1 out 0 V={V(in)}
@@ -2598,8 +2505,7 @@ R2 out 0 1k
 
 // Test: B-element amplifier with gain
 TEST(NetlistParser, BehavioralAmplifier) {
-    std::string netlist = R"(
-B-element Amplifier Test
+    std::string netlist = R"(B-element Amplifier Test
 V1 in 0 DC 1
 R1 in 0 1k
 B1 out 0 V={2*V(in)}
@@ -2616,8 +2522,7 @@ R2 out 0 1k
 
 // Test: B-element with TIME-dependent expression
 TEST(NetlistParser, BehavioralTimeDependentSource) {
-    std::string netlist = R"(
-B-element Time-Dependent Test
+    std::string netlist = R"(B-element Time-Dependent Test
 R1 out 0 1k
 B1 out 0 V={sin(2*pi*1000*TIME)}
 .END
@@ -2632,8 +2537,7 @@ B1 out 0 V={sin(2*pi*1000*TIME)}
 
 // Test: B-element with combined V(node) and TIME
 TEST(NetlistParser, BehavioralCombinedExpression) {
-    std::string netlist = R"(
-B-element Combined Expression Test
+    std::string netlist = R"(B-element Combined Expression Test
 V1 in 0 DC 1
 R1 in 0 1k
 B1 out 0 V={V(in)*sin(2*pi*1000*TIME)}
@@ -2650,8 +2554,7 @@ R2 out 0 1k
 
 // Test: B-element current source with expression
 TEST(NetlistParser, BehavioralCurrentSource) {
-    std::string netlist = R"(
-B-element Current Source Test
+    std::string netlist = R"(B-element Current Source Test
 R1 out 0 1k
 B1 out 0 I={0.001*TIME}
 .END
@@ -2673,8 +2576,7 @@ B1 out 0 I={0.001*TIME}
 
 // Test: Basic .IF/.ENDIF with true condition
 TEST(ConditionalDirectives, BasicIfTrue) {
-    std::string netlist = R"(
-Test Circuit
+    std::string netlist = R"(Test Circuit
 .PARAM USE_R1=1
 .IF USE_R1
 R1 in out 1k
@@ -2692,8 +2594,7 @@ R1 in out 1k
 
 // Test: Basic .IF/.ENDIF with false condition
 TEST(ConditionalDirectives, BasicIfFalse) {
-    std::string netlist = R"(
-Test Circuit
+    std::string netlist = R"(Test Circuit
 .PARAM USE_R1=0
 .IF USE_R1
 R1 in out 1k
@@ -2711,8 +2612,7 @@ R1 in out 1k
 
 // Test: .IF/.ELSE/.ENDIF
 TEST(ConditionalDirectives, IfElse) {
-    std::string netlist = R"(
-Test Circuit
+    std::string netlist = R"(Test Circuit
 .PARAM FAST_MODE=1
 .IF FAST_MODE
 R1 in out 100
@@ -2731,8 +2631,7 @@ R1 in out 1k
 
 // Test: .IF/.ELIF/.ELSE/.ENDIF
 TEST(ConditionalDirectives, IfElifElse) {
-    std::string netlist = R"(
-Test Circuit
+    std::string netlist = R"(Test Circuit
 .PARAM MODE=2
 .IF MODE==2
 R1 in out 500
@@ -2778,8 +2677,7 @@ TEST(LibSectionSelection, BasicSectionSelection) {
     }
 
     // Test selecting 'typical' section
-    std::string netlist = fmt::format(R"(
-Test Circuit
+    std::string netlist = fmt::format(R"(Test Circuit
 V1 in 0 DC 5
 .LIB {} typical
 .END
@@ -2821,8 +2719,7 @@ TEST(LibSectionSelection, WithoutSectionIncludesEntireFile) {
     }
 
     // Test without section - should include entire file
-    std::string netlist = fmt::format(R"(
-Test Circuit
+    std::string netlist = fmt::format(R"(Test Circuit
 V1 in 0 DC 5
 .LIB {}
 .END
@@ -2856,8 +2753,7 @@ TEST(LibSectionSelection, SectionNotFoundThrows) {
     }
 
     // Test selecting non-existent section
-    std::string netlist = fmt::format(R"(
-Test Circuit
+    std::string netlist = fmt::format(R"(Test Circuit
 .LIB {} fast
 .END
 )", lib_file.string());
@@ -2894,8 +2790,7 @@ TEST(LibSectionSelection, NestedLibraryFiles) {
     }
 
     // Test nested library loading
-    std::string netlist = fmt::format(R"(
-Test Circuit
+    std::string netlist = fmt::format(R"(Test Circuit
 V1 in 0 DC 5
 .LIB {} outer
 .END
@@ -2929,8 +2824,7 @@ TEST(LibSectionSelection, CaseInsensitiveSectionName) {
     }
 
     // Test with different case
-    std::string netlist = fmt::format(R"(
-Test Circuit
+    std::string netlist = fmt::format(R"(Test Circuit
 V1 in 0 DC 5
 .LIB {} typical
 .END
@@ -2951,8 +2845,7 @@ V1 in 0 DC 5
 //==============================================================================
 
 TEST(ControlBlock, BasicControlBlock) {
-    std::string netlist = R"(
-Basic Control Block Test
+    std::string netlist = R"(Basic Control Block Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -2976,8 +2869,7 @@ print v(out)
 }
 
 TEST(ControlBlock, MultipleCommands) {
-    std::string netlist = R"(
-Multiple Commands Test
+    std::string netlist = R"(Multiple Commands Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -2999,8 +2891,7 @@ echo "Analysis complete"
 }
 
 TEST(ControlBlock, EmptyControlBlock) {
-    std::string netlist = R"(
-Empty Control Block Test
+    std::string netlist = R"(Empty Control Block Test
 V1 in 0 DC 5
 .CONTROL
 .ENDC
@@ -3017,8 +2908,7 @@ V1 in 0 DC 5
 }
 
 TEST(ControlBlock, NestedControlBlocks) {
-    std::string netlist = R"(
-Nested Control Blocks Test
+    std::string netlist = R"(Nested Control Blocks Test
 V1 in 0 DC 5
 .CONTROL
 dc V1 0 10 1
@@ -3034,8 +2924,7 @@ ac dec 10 1 1meg
 }
 
 TEST(ControlBlock, MultipleControlBlocks) {
-    std::string netlist = R"(
-Multiple Control Blocks Test
+    std::string netlist = R"(Multiple Control Blocks Test
 V1 in 0 DC 5
 .CONTROL
 dc V1 0 10 1
@@ -3051,8 +2940,7 @@ ac dec 10 1 1meg
 }
 
 TEST(ControlBlock, UnclosedControlBlock) {
-    std::string netlist = R"(
-Unclosed Control Block Test
+    std::string netlist = R"(Unclosed Control Block Test
 V1 in 0 DC 5
 .CONTROL
 dc V1 0 10 1
@@ -3065,8 +2953,7 @@ print v(out)
 }
 
 TEST(ControlBlock, EndcWithoutControl) {
-    std::string netlist = R"(
-ENDC Without CONTROL Test
+    std::string netlist = R"(ENDC Without CONTROL Test
 V1 in 0 DC 5
 .ENDC
 .END
@@ -3077,8 +2964,7 @@ V1 in 0 DC 5
 }
 
 TEST(ControlBlock, NoControlBlock) {
-    std::string netlist = R"(
-No Control Block Test
+    std::string netlist = R"(No Control Block Test
 V1 in 0 DC 5
 R1 in out 1k
 .END
@@ -3095,8 +2981,7 @@ R1 in out 1k
 //==============================================================================
 
 TEST(ControlBlockParser, DcCommand) {
-    std::string netlist = R"(
-DC Command Test
+    std::string netlist = R"(DC Command Test
 V1 in 0 DC 5
 .CONTROL
 dc V1 0 10 1
@@ -3121,8 +3006,7 @@ dc V1 0 10 1
 }
 
 TEST(ControlBlockParser, AcCommand) {
-    std::string netlist = R"(
-AC Command Test
+    std::string netlist = R"(AC Command Test
 V1 in 0 DC 0 AC 1
 .CONTROL
 ac dec 10 1 1meg
@@ -3144,8 +3028,7 @@ ac dec 10 1 1meg
 }
 
 TEST(ControlBlockParser, TranCommand) {
-    std::string netlist = R"(
-TRAN Command Test
+    std::string netlist = R"(TRAN Command Test
 V1 in 0 DC 5
 .CONTROL
 tran 1n 100n
@@ -3165,8 +3048,7 @@ tran 1n 100n
 }
 
 TEST(ControlBlockParser, PrintCommand) {
-    std::string netlist = R"(
-PRINT Command Test
+    std::string netlist = R"(PRINT Command Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -3188,8 +3070,7 @@ print v(in) v(out) i(V1)
 }
 
 TEST(ControlBlockParser, EchoCommand) {
-    std::string netlist = R"(
-ECHO Command Test
+    std::string netlist = R"(ECHO Command Test
 V1 in 0 DC 5
 .CONTROL
 echo Simulation complete
@@ -3208,8 +3089,7 @@ echo Simulation complete
 }
 
 TEST(ControlBlockParser, LetCommand) {
-    std::string netlist = R"(
-LET Command Test
+    std::string netlist = R"(LET Command Test
 V1 in 0 DC 5
 .CONTROL
 let x = 5
@@ -3230,8 +3110,7 @@ let x = 5
 }
 
 TEST(ControlBlockParser, MeasCommand) {
-    std::string netlist = R"(
-MEAS Command Test
+    std::string netlist = R"(MEAS Command Test
 V1 in 0 DC 5
 .CONTROL
 meas tran vmax max v(out)
@@ -3253,8 +3132,7 @@ meas tran vmax max v(out)
 }
 
 TEST(ControlBlockParser, CaseInsensitiveCommands) {
-    std::string netlist = R"(
-Case Insensitive Test
+    std::string netlist = R"(Case Insensitive Test
 V1 in 0 DC 5
 .CONTROL
 DC V1 0 10 1
@@ -3280,8 +3158,7 @@ Echo Done
 }
 
 TEST(ControlBlockParser, MixedCommands) {
-    std::string netlist = R"(
-Mixed Commands Test
+    std::string netlist = R"(Mixed Commands Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -3314,8 +3191,7 @@ echo Analysis complete
 //==============================================================================
 
 TEST(ControlBlockExecution, EchoCommand) {
-    std::string netlist = R"(
-ECHO Command Execution Test
+    std::string netlist = R"(ECHO Command Execution Test
 V1 in 0 DC 5
 .CONTROL
 echo Test message
@@ -3334,8 +3210,7 @@ echo Test message
 }
 
 TEST(ControlBlockExecution, LetCommandSimple) {
-    std::string netlist = R"(
-LET Command Execution Test
+    std::string netlist = R"(LET Command Execution Test
 V1 in 0 DC 5
 .CONTROL
 let x = 10
@@ -3355,8 +3230,7 @@ let x = 10
 }
 
 TEST(ControlBlockExecution, LetCommandExpression) {
-    std::string netlist = R"(
-LET Expression Test
+    std::string netlist = R"(LET Expression Test
 V1 in 0 DC 5
 .CONTROL
 let x = 5 + 3
@@ -3379,8 +3253,7 @@ let y = x * 2
 }
 
 TEST(ControlBlockExecution, MultipleCommands) {
-    std::string netlist = R"(
-Multiple Command Execution Test
+    std::string netlist = R"(Multiple Command Execution Test
 V1 in 0 DC 5
 .CONTROL
 echo Starting
@@ -3405,8 +3278,7 @@ echo Done
 }
 
 TEST(ControlBlockExecution, LetCommandWithFunctions) {
-    std::string netlist = R"(
-LET with Functions Test
+    std::string netlist = R"(LET with Functions Test
 V1 in 0 DC 5
 .CONTROL
 let x = sin(0)
@@ -3432,8 +3304,7 @@ let z = sqrt(4)
 //==============================================================================
 
 TEST(ControlBlockAnalysis, DcCommandExecution) {
-    std::string netlist = R"(
-DC Command Execution Test
+    std::string netlist = R"(DC Command Execution Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -3454,8 +3325,7 @@ dc V1 0 10 1
 }
 
 TEST(ControlBlockAnalysis, AcCommandExecution) {
-    std::string netlist = R"(
-AC Command Execution Test
+    std::string netlist = R"(AC Command Execution Test
 V1 in 0 DC 0 AC 1
 R1 in out 1k
 C1 out 0 1u
@@ -3476,8 +3346,7 @@ ac dec 10 1 1meg
 }
 
 TEST(ControlBlockAnalysis, TranCommandExecution) {
-    std::string netlist = R"(
-TRAN Command Execution Test
+    std::string netlist = R"(TRAN Command Execution Test
 V1 in 0 DC 0 PULSE(0 5 0 1n 1n 50n 100n)
 R1 in out 1k
 C1 out 0 1u
@@ -3498,8 +3367,7 @@ tran 1n 100n
 }
 
 TEST(ControlBlockAnalysis, TranCommandWithOptionalArgs) {
-    std::string netlist = R"(
-TRAN with Optional Args Test
+    std::string netlist = R"(TRAN with Optional Args Test
 V1 in 0 DC 0 PULSE(0 5 0 1n 1n 50n 100n)
 R1 in out 1k
 C1 out 0 1u
@@ -3520,8 +3388,7 @@ tran 1n 100n 10n 0.5n
 }
 
 TEST(ControlBlockAnalysis, PrintCommandExecution) {
-    std::string netlist = R"(
-PRINT Command Execution Test
+    std::string netlist = R"(PRINT Command Execution Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -3545,8 +3412,7 @@ print v(out) v(in)
 }
 
 TEST(ControlBlockAnalysis, PrintCommandWithAnalysisType) {
-    std::string netlist = R"(
-PRINT with Analysis Type Test
+    std::string netlist = R"(PRINT with Analysis Type Test
 V1 in 0 DC 0 AC 1
 R1 in out 1k
 C1 out 0 1u
@@ -3569,8 +3435,7 @@ print ac v(out)
 }
 
 TEST(ControlBlockAnalysis, MultipleCommands) {
-    std::string netlist = R"(
-Multiple Analysis Commands Test
+    std::string netlist = R"(Multiple Analysis Commands Test
 V1 in 0 DC 0 AC 1
 R1 in out 1k
 C1 out 0 1u
@@ -3607,8 +3472,7 @@ print v(out) v(in)
 // IF/ELSE/END Control Flow Tests
 
 TEST(ControlBlockControlFlow, IfCommandParsing) {
-    std::string netlist = R"(
-IF Command Parsing Test
+    std::string netlist = R"(IF Command Parsing Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -3636,8 +3500,7 @@ end
 }
 
 TEST(ControlBlockControlFlow, IfElseCommandParsing) {
-    std::string netlist = R"(
-IF-ELSE Command Parsing Test
+    std::string netlist = R"(IF-ELSE Command Parsing Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -3666,8 +3529,7 @@ end
 }
 
 TEST(ControlBlockControlFlow, IfTrueExecution) {
-    std::string netlist = R"(
-IF True Execution Test
+    std::string netlist = R"(IF True Execution Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -3696,8 +3558,7 @@ let y = x
 }
 
 TEST(ControlBlockControlFlow, IfFalseExecution) {
-    std::string netlist = R"(
-IF False Execution Test
+    std::string netlist = R"(IF False Execution Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -3726,8 +3587,7 @@ let y = x
 }
 
 TEST(ControlBlockControlFlow, IfElseTrueBranch) {
-    std::string netlist = R"(
-IF-ELSE True Branch Test
+    std::string netlist = R"(IF-ELSE True Branch Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -3753,8 +3613,7 @@ end
 }
 
 TEST(ControlBlockControlFlow, IfElseFalseBranch) {
-    std::string netlist = R"(
-IF-ELSE False Branch Test
+    std::string netlist = R"(IF-ELSE False Branch Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -3780,8 +3639,7 @@ end
 }
 
 TEST(ControlBlockControlFlow, NestedIfStatements) {
-    std::string netlist = R"(
-Nested IF Test
+    std::string netlist = R"(Nested IF Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -3809,8 +3667,7 @@ end
 // FOREACH Loop Tests
 
 TEST(ControlBlockControlFlow, ForeachCommandParsing) {
-    std::string netlist = R"(
-FOREACH Command Parsing Test
+    std::string netlist = R"(FOREACH Command Parsing Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -3839,8 +3696,7 @@ end
 }
 
 TEST(ControlBlockControlFlow, ForeachSimpleLoop) {
-    std::string netlist = R"(
-FOREACH Simple Loop Test
+    std::string netlist = R"(FOREACH Simple Loop Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -3868,8 +3724,7 @@ end
 }
 
 TEST(ControlBlockControlFlow, ForeachWithUnits) {
-    std::string netlist = R"(
-FOREACH with Units Test
+    std::string netlist = R"(FOREACH with Units Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -3893,8 +3748,7 @@ end
 }
 
 TEST(ControlBlockControlFlow, ForeachWithIfCondition) {
-    std::string netlist = R"(
-FOREACH with IF Test
+    std::string netlist = R"(FOREACH with IF Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -3920,8 +3774,7 @@ end
 }
 
 TEST(ControlBlockControlFlow, NestedForeachLoops) {
-    std::string netlist = R"(
-Nested FOREACH Test
+    std::string netlist = R"(Nested FOREACH Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -3955,8 +3808,7 @@ end
 //==============================================================================
 
 TEST(ControlBlockControlFlow, WhileCommandParsing) {
-    std::string netlist = R"(
-WHILE Command Parsing Test
+    std::string netlist = R"(WHILE Command Parsing Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -3985,8 +3837,7 @@ end
 }
 
 TEST(ControlBlockControlFlow, WhileSimpleLoop) {
-    std::string netlist = R"(
-WHILE Simple Loop Test
+    std::string netlist = R"(WHILE Simple Loop Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -4016,8 +3867,7 @@ end
 }
 
 TEST(ControlBlockControlFlow, WhileWithCondition) {
-    std::string netlist = R"(
-WHILE with Condition Test
+    std::string netlist = R"(WHILE with Condition Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -4048,8 +3898,7 @@ end
 }
 
 TEST(ControlBlockControlFlow, WhileWithIfCondition) {
-    std::string netlist = R"(
-WHILE with IF Test
+    std::string netlist = R"(WHILE with IF Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -4077,8 +3926,7 @@ end
 }
 
 TEST(ControlBlockControlFlow, RepeatCommandParsing) {
-    std::string netlist = R"(
-REPEAT Command Parsing Test
+    std::string netlist = R"(REPEAT Command Parsing Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -4107,8 +3955,7 @@ end
 }
 
 TEST(ControlBlockControlFlow, RepeatSimpleLoop) {
-    std::string netlist = R"(
-REPEAT Simple Loop Test
+    std::string netlist = R"(REPEAT Simple Loop Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -4132,8 +3979,7 @@ end
 }
 
 TEST(ControlBlockControlFlow, RepeatWithCalculation) {
-    std::string netlist = R"(
-REPEAT with Calculation Test
+    std::string netlist = R"(REPEAT with Calculation Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -4157,8 +4003,7 @@ end
 }
 
 TEST(ControlBlockControlFlow, NestedWhileRepeat) {
-    std::string netlist = R"(
-Nested WHILE and REPEAT Test
+    std::string netlist = R"(Nested WHILE and REPEAT Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -4186,8 +4031,7 @@ end
 }
 
 TEST(ControlBlockControlFlow, NestedRepeatWhile) {
-    std::string netlist = R"(
-Nested REPEAT and WHILE Test
+    std::string netlist = R"(Nested REPEAT and WHILE Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -4220,8 +4064,7 @@ end
 //==============================================================================
 
 TEST(ControlBlockAlterCommand, AlterCommandParsing) {
-    std::string netlist = R"(
-ALTER Command Parsing Test
+    std::string netlist = R"(ALTER Command Parsing Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -4244,8 +4087,7 @@ alter R1 resistance=2k
 }
 
 TEST(ControlBlockAlterCommand, AlterResistorValue) {
-    std::string netlist = R"(
-ALTER Resistor Value Test
+    std::string netlist = R"(ALTER Resistor Value Test
 V1 in 0 DC 5
 R1 in out 1k
 R2 out 0 2k
@@ -4271,8 +4113,7 @@ alter R1 resistance=3k
 }
 
 TEST(ControlBlockAlterCommand, AlterMultipleDevices) {
-    std::string netlist = R"(
-ALTER Multiple Devices Test
+    std::string netlist = R"(ALTER Multiple Devices Test
 V1 in 0 DC 5
 R1 in n1 1k
 R2 n1 out 2k
@@ -4313,8 +4154,7 @@ alter C1 capacitance=2u
 }
 
 TEST(ControlBlockAlterCommand, AlterInvalidDevice) {
-    std::string netlist = R"(
-ALTER Invalid Device Test
+    std::string netlist = R"(ALTER Invalid Device Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -4331,8 +4171,7 @@ alter R999 resistance=3k
 }
 
 TEST(ControlBlockAlterCommand, AlterInvalidSyntax) {
-    std::string netlist = R"(
-ALTER Invalid Syntax Test
+    std::string netlist = R"(ALTER Invalid Syntax Test
 V1 in 0 DC 5
 R1 in out 1k
 .CONTROL
@@ -4349,8 +4188,7 @@ alter R1 resistance 3k
 }
 
 TEST(ControlBlockAlterCommand, AlterWithUnits) {
-    std::string netlist = R"(
-ALTER With Units Test
+    std::string netlist = R"(ALTER With Units Test
 V1 in 0 DC 5
 R1 in out 1k
 C1 out 0 1u
@@ -4399,8 +4237,7 @@ alter L1 inductance=10m
 // finds its model whatever the case of the name in the element line and in
 // the .MODEL line.
 TEST(NetlistParser, ModelNamesIgnoreCase) {
-    std::string netlist = R"(
-Model names in mixed case
+    std::string netlist = R"(Model names in mixed case
 .model dmod D(IS=1e-9 N=2)
 .model QMod NPN(IS=2e-15 BF=150)
 .model nch NMOS(LEVEL=1 VTO=0.5 KP=100u)
@@ -4434,8 +4271,7 @@ M1 in in 0 0 NCH W=10u L=1u
 // A .MODEL whose name differs from an earlier one only in case defines it
 // again: the first definition is used, as in ngspice-47 (run 2026-11-21).
 TEST(NetlistParser, ModelRedefinitionIgnoresCase) {
-    std::string netlist = R"(
-Model redefined with other case
+    std::string netlist = R"(Model redefined with other case
 .model dm D(IS=1e-9)
 .MODEL DM D(IS=3e-9)
 V1 in 0 DC 1
@@ -4456,8 +4292,7 @@ D1 in 0 dm
 // A .MODEL line applies to the whole netlist wherever it stands, so elements
 // may come before the models they use.
 TEST(NetlistParser, ModelDefinedAfterElement) {
-    std::string netlist = R"(
-Models after the elements
+    std::string netlist = R"(Models after the elements
 V1 in 0 DC 1
 D1 in 0 DMOD
 Q1 in in 0 QMOD
@@ -4493,8 +4328,7 @@ M2 in in 0 NCH W=10u L=1u
 
 // A model that is never defined is an error, reported at the element's line.
 TEST(NetlistParser, UndefinedDiodeModelIsAnError) {
-    std::string netlist = R"(
-Undefined diode model
+    std::string netlist = R"(Undefined diode model
 V1 in 0 DC 1
 D1 in 0 NOSUCH
 .end
@@ -4513,8 +4347,7 @@ D1 in 0 NOSUCH
 // A parameter assignment whose value is a brace expression, NAME={expr},
 // is one token, on element lines as on .SUBCKT lines.
 TEST(NetlistParser, BraceExpressionAfterEqualsIsOneToken) {
-    std::string netlist = R"(
-Brace expressions after name=
+    std::string netlist = R"(Brace expressions after name=
 .PARAM ISAT=1e-9 RT=3k
 .SUBCKT DIV a b RTOP={RT}
 R1 a b {RTOP}
@@ -4542,8 +4375,7 @@ D1 a 0 IS={ISAT} N=2
 // B1 0 out I={0.001*V(in)} written with braces: with V(in) = 1 V the source
 // drives 1 mA into 1 kOhm, so V(out) = 1 V.
 TEST(NetlistParser, BehavioralCurrentSourceWithBraces) {
-    std::string netlist = R"(
-B current source with braces
+    std::string netlist = R"(B current source with braces
 V1 in 0 DC 1
 R1 in 0 1k
 B1 0 out I={0.001*V(in)}
@@ -4566,8 +4398,7 @@ R2 out 0 1k
 // NETLIST_CONVENTIONS rule 2: a source is an AC input only if its line has
 // AC; AC alone means magnitude 1; the same holds inside subcircuits.
 TEST(NetlistParser, AcInputOnlyWithTheKeywordAc) {
-    std::string netlist = R"(
-AC inputs
+    std::string netlist = R"(AC inputs
 .SUBCKT SRC p
 VS p 0 DC 3
 .ENDS
@@ -4620,8 +4451,7 @@ R7 g 0 1k
 // NETLIST_CONVENTIONS rule 5: gnd in any case is ground at the top level, as
 // it is inside subcircuits.
 TEST(NetlistParser, GndInAnyCaseIsGround) {
-    std::string netlist = R"(
-gnd names
+    std::string netlist = R"(gnd names
 V1 a gnd DC 1
 R1 a GND 1k
 R2 a Gnd 1k
@@ -4644,8 +4474,7 @@ R3 a 0 1k
 // v(h) = -0.1 V for H1 h 0 V1 100, and i(E1) = -2 mA for E1 driving 2 V into
 // 1 kOhm; these follow from the rule with Ohm's law.
 TEST(NetlistParser, SourceCurrentsFollowNgspiceSign) {
-    std::string netlist = R"(
-Source current sign
+    std::string netlist = R"(Source current sign
 V1 in 0 DC 1
 R1 in 0 1k
 E1 e 0 in 0 2

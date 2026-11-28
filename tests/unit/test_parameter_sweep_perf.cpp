@@ -12,8 +12,7 @@
 using namespace kirimaspice;
 
 TEST(ParameterSweepPerf, NoStepFallsBackSingleRun) {
-    const char* net = R"(
-* simple dc run
+    const char* net = R"(* simple dc run
 V1 in 0 DC 1
 R1 in 0 1k
 .op

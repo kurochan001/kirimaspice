@@ -15,8 +15,7 @@ using namespace kirimaspice::analysis;
 // ============================================================================
 
 TEST(WCase, BasicSyntax) {
-    std::string netlist = R"(
-* Worst-case analysis parser test
+    std::string netlist = R"(* Worst-case analysis parser test
 R1 in out 1k
 R2 out 0 1k
 Vin in 0 DC 5
@@ -34,8 +33,7 @@ Vin in 0 DC 5
 }
 
 TEST(WCase, WithParameters) {
-    std::string netlist = R"(
-* Worst-case with parameter variations
+    std::string netlist = R"(* Worst-case with parameter variations
 R1 in out 1k
 R2 out 0 1k
 Vin in 0 DC 5
@@ -58,8 +56,7 @@ Vin in 0 DC 5
 }
 
 TEST(WCase, CaseInsensitive) {
-    std::string netlist = R"(
-* Case-insensitive test
+    std::string netlist = R"(* Case-insensitive test
 R1 1 0 1k
 Vin 1 0 DC 5
 .wcase dc v(1) max
@@ -80,8 +77,7 @@ Vin 1 0 DC 5
 TEST(WCase_Integration, VoltageDivider) {
     // Simple voltage divider: Vin=5V, R1=R2=1k -> Vout=2.5V nominal
     // With R1 variation ±10%, expect Vout range
-    std::string netlist = R"(
-* Voltage divider worst-case
+    std::string netlist = R"(* Voltage divider worst-case
 R1 in out 1k
 R2 out 0 1k
 Vin in 0 DC 5
@@ -114,8 +110,7 @@ Vin in 0 DC 5
 
 TEST(WCase_Integration, MinimizeObjective) {
     // Test MIN objective
-    std::string netlist = R"(
-* Minimize voltage
+    std::string netlist = R"(* Minimize voltage
 R1 in out 1k
 R2 out 0 1k
 Vin in 0 DC 5

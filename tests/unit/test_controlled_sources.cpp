@@ -311,8 +311,7 @@ TEST(ControlledSourcesTest, CCVS_MNA_Stamp) {
 //==============================================================================
 
 TEST(ControlledSourcesTest, CCCS_InvalidControl) {
-    std::string netlist = R"(
-CCCS Invalid Control
+    std::string netlist = R"(CCCS Invalid Control
 F1 out 0 R1 50
 .end
 )";
@@ -323,8 +322,7 @@ F1 out 0 R1 50
 }
 
 TEST(ControlledSourcesTest, CCVS_InvalidControl) {
-    std::string netlist = R"(
-CCVS Invalid Control
+    std::string netlist = R"(CCVS Invalid Control
 H1 out 0 I1 1000
 .end
 )";
@@ -335,8 +333,7 @@ H1 out 0 I1 1000
 }
 
 TEST(ControlledSourcesTest, CCCS_MissingControl) {
-    std::string netlist = R"(
-CCCS Missing Control
+    std::string netlist = R"(CCCS Missing Control
 F1 out 0 Vmissing 50
 .end
 )";

@@ -77,8 +77,7 @@ namespace {
 
 // B1 out 0 V={2*V(in)} with V(in) = 1 V: V(out) = 2 V, and the source
 // needs a branch current variable of its own.
-constexpr const char* kVoltageModeNetlist = R"(
-Voltage-mode B source
+constexpr const char* kVoltageModeNetlist = R"(Voltage-mode B source
 V1 in 0 DC 1
 R1 in 0 1k
 B1 out 0 V={2*V(in)}
@@ -119,8 +118,7 @@ TEST(BehavioralSource, VoltageModeInTransient) {
 // with V(in) = 1 V drives 1 mA into 1 kOhm, so V(out) = 1 V.
 TEST(BehavioralSource, LowerCaseNodeVoltage) {
     kirimaspice::parser::NetlistParser parser;
-    auto result = parser.parse_string(R"(
-Lower-case v()
+    auto result = parser.parse_string(R"(Lower-case v()
 V1 in 0 DC 1
 R1 in 0 1k
 B1 0 out I={0.001*v(in)}
@@ -142,8 +140,7 @@ R2 out 0 1k
 TEST(BehavioralSource, ExpressionThatDoesNotCompileIsAParseError) {
     kirimaspice::parser::NetlistParser parser;
     try {
-        parser.parse_string(R"(
-Expression without its last operand
+        parser.parse_string(R"(Expression without its last operand
 V1 in 0 DC 1
 R1 in 0 1k
 B1 0 out I={0.001*V(in)+}

@@ -15,8 +15,7 @@ using namespace kirimaspice::analysis;
 // ============================================================================
 
 TEST(Optimizer, BasicSyntax) {
-    std::string netlist = R"(
-* Circuit optimizer parser test
+    std::string netlist = R"(* Circuit optimizer parser test
 R1 in out 1k
 R2 out 0 1k
 Vin in 0 DC 5
@@ -39,8 +38,7 @@ Vin in 0 DC 5
 }
 
 TEST(Optimizer, MultipleParameters) {
-    std::string netlist = R"(
-* Multiple parameters
+    std::string netlist = R"(* Multiple parameters
 R1 in out 1k
 R2 out 0 2k
 Vin in 0 DC 5
@@ -64,8 +62,7 @@ Vin in 0 DC 5
 }
 
 TEST(Optimizer, WithConstraints) {
-    std::string netlist = R"(
-* With constraints
+    std::string netlist = R"(* With constraints
 R1 in out 1k
 R2 out 0 1k
 Vin in 0 DC 5
@@ -85,8 +82,7 @@ Vin in 0 DC 5
 }
 
 TEST(Optimizer, CaseInsensitive) {
-    std::string netlist = R"(
-* Case-insensitive test
+    std::string netlist = R"(* Case-insensitive test
 R1 1 0 1k
 Vin 1 0 DC 5
 .optimize neldermead objective=v(1) max param=R1.resistance:1k:100:10k
@@ -104,8 +100,7 @@ TEST(Optimizer, ErrorHandling) {
     NetlistParser parser;
 
     // Missing OBJECTIVE
-    std::string netlist1 = R"(
-R1 1 0 1k
+    std::string netlist1 = R"(R1 1 0 1k
 Vin 1 0 DC 5
 .OPTIMIZE COBYLA MAX PARAM=R1.resistance:1k:100:10k
 .END
@@ -113,8 +108,7 @@ Vin 1 0 DC 5
     EXPECT_THROW(parser.parse_string(netlist1), ParseError);
 
     // Missing PARAM
-    std::string netlist2 = R"(
-R1 1 0 1k
+    std::string netlist2 = R"(R1 1 0 1k
 Vin 1 0 DC 5
 .OPTIMIZE COBYLA OBJECTIVE=v(1) MAX
 .END
@@ -122,8 +116,7 @@ Vin 1 0 DC 5
     EXPECT_THROW(parser.parse_string(netlist2), ParseError);
 
     // Invalid bounds (lb >= ub)
-    std::string netlist3 = R"(
-R1 1 0 1k
+    std::string netlist3 = R"(R1 1 0 1k
 Vin 1 0 DC 5
 .OPTIMIZE COBYLA OBJECTIVE=v(1) MAX PARAM=R1.resistance:1k:10k:100
 .END
@@ -138,8 +131,7 @@ Vin 1 0 DC 5
 TEST(Optimizer_Integration, VoltageDividerMaximize) {
     // Simple voltage divider: Vin=5V, R1+R2=2k -> Optimize R1 to maximize v(out)
     // Optimal: R1 → min (100Ω) to maximize current and R2 voltage drop
-    std::string netlist = R"(
-* Voltage divider optimization
+    std::string netlist = R"(* Voltage divider optimization
 R1 in out 1k
 R2 out 0 1k
 Vin in 0 DC 5
@@ -166,8 +158,7 @@ Vin in 0 DC 5
 
 TEST(Optimizer_Integration, VoltageDividerMinimize) {
     // Minimize v(out) → R1 should go to max (10kΩ)
-    std::string netlist = R"(
-* Voltage divider minimize
+    std::string netlist = R"(* Voltage divider minimize
 R1 in out 1k
 R2 out 0 1k
 Vin in 0 DC 5
@@ -198,8 +189,7 @@ Vin in 0 DC 5
 TEST(COBYLA_Integration, VoltageDividerMaximize) {
     // COBYLA optimization: Maximize v(out) in voltage divider
     // Optimal: R1 → min (100Ω) to maximize v(out)
-    std::string netlist = R"(
-* Voltage divider optimization with COBYLA
+    std::string netlist = R"(* Voltage divider optimization with COBYLA
 R1 in out 1k
 R2 out 0 1k
 Vin in 0 DC 5
@@ -230,8 +220,7 @@ Vin in 0 DC 5
 TEST(COBYLA_Integration, VoltageDividerMinimize) {
     // COBYLA optimization: Minimize v(out) in voltage divider
     // Optimal: R1 → max (10kΩ) to minimize v(out)
-    std::string netlist = R"(
-* Voltage divider minimize with COBYLA
+    std::string netlist = R"(* Voltage divider minimize with COBYLA
 R1 in out 1k
 R2 out 0 1k
 Vin in 0 DC 5
@@ -257,8 +246,7 @@ Vin in 0 DC 5
 
 TEST(COBYLA_Integration, ToleranceConvergence) {
     // Test COBYLA convergence with tight tolerances
-    std::string netlist = R"(
-* Test convergence with tight tolerance
+    std::string netlist = R"(* Test convergence with tight tolerance
 R1 in out 5k
 R2 out 0 5k
 Vin in 0 DC 10
@@ -287,8 +275,7 @@ TEST(COBYLA_Integration, MultiParameter) {
     // COBYLA with 2 parameters: Optimize R1 and R2 simultaneously
     // Objective: Maximize v(out) = Vin * R2 / (R1 + R2)
     // Optimal: R1 → min, R2 → max
-    std::string netlist = R"(
-* Multi-parameter COBYLA optimization
+    std::string netlist = R"(* Multi-parameter COBYLA optimization
 R1 in out 5k
 R2 out 0 5k
 Vin in 0 DC 10
@@ -321,8 +308,7 @@ Vin in 0 DC 10
 
 TEST(COBYLA_Integration, MaxEvaluationLimit) {
     // Test COBYLA with limited function evaluations
-    std::string netlist = R"(
-* Test max evaluation limit
+    std::string netlist = R"(* Test max evaluation limit
 R1 in out 5k
 R2 out 0 5k
 Vin in 0 DC 10
@@ -353,8 +339,7 @@ Vin in 0 DC 10
 TEST(BOBYQA_Integration, VoltageDividerOptimization) {
     // BOBYQA optimization: Minimize v(out) in voltage divider
     // BOBYQA should be more efficient than COBYLA (fewer evaluations)
-    std::string netlist = R"(
-* Voltage divider optimization with BOBYQA
+    std::string netlist = R"(* Voltage divider optimization with BOBYQA
 R1 in out 1k
 R2 out 0 1k
 Vin in 0 DC 5
@@ -383,8 +368,7 @@ Vin in 0 DC 5
 
 TEST(BOBYQA_Integration, MultiParameterOptimization) {
     // BOBYQA with 2 parameters: Trust region method should handle this well
-    std::string netlist = R"(
-* Multi-parameter BOBYQA optimization
+    std::string netlist = R"(* Multi-parameter BOBYQA optimization
 R1 in out 5k
 R2 out 0 5k
 Vin in 0 DC 10
@@ -419,8 +403,7 @@ Vin in 0 DC 10
 TEST(BOBYQA_Integration, TrustRegionConvergence) {
     // Test BOBYQA's trust region convergence
     // BOBYQA should converge smoothly due to trust region method
-    std::string netlist = R"(
-* Test trust region convergence
+    std::string netlist = R"(* Test trust region convergence
 R1 in out 2k
 R2 out 0 8k
 Vin in 0 DC 10
@@ -457,8 +440,7 @@ TEST(SLSQP_Integration, VoltageDividerOptimization) {
     // SLSQP optimization: Minimize v(out) in voltage divider
     // SLSQP is gradient-based, so should be more accurate than derivative-free methods
     // Note: SLSQP may converge quickly on simple linear problems
-    std::string netlist = R"(
-* Voltage divider optimization with SLSQP
+    std::string netlist = R"(* Voltage divider optimization with SLSQP
 R1 in out 1k
 R2 out 0 1k
 Vin in 0 DC 5
@@ -488,8 +470,7 @@ Vin in 0 DC 5
 
 TEST(SLSQP_Integration, MultiParameterOptimization) {
     // SLSQP with 2 parameters: Gradient-based method should handle this efficiently
-    std::string netlist = R"(
-* Multi-parameter SLSQP optimization
+    std::string netlist = R"(* Multi-parameter SLSQP optimization
 R1 in out 5k
 R2 out 0 5k
 Vin in 0 DC 10
@@ -523,8 +504,7 @@ Vin in 0 DC 10
 TEST(SLSQP_Integration, ConstrainedOptimization) {
     // SLSQP with constraint: Test constraint handling capability
     // Note: Current implementation has basic constraint support
-    std::string netlist = R"(
-* Constrained SLSQP optimization
+    std::string netlist = R"(* Constrained SLSQP optimization
 R1 in out 2k
 R2 out 0 8k
 Vin in 0 DC 10
@@ -557,8 +537,7 @@ Vin in 0 DC 10
 TEST(SLSQP_Integration, GradientBasedConvergence) {
     // Test SLSQP's gradient-based convergence
     // SLSQP should converge smoothly using gradient information
-    std::string netlist = R"(
-* Test gradient-based convergence
+    std::string netlist = R"(* Test gradient-based convergence
 R1 in out 3k
 R2 out 0 7k
 Vin in 0 DC 10
@@ -596,8 +575,7 @@ Vin in 0 DC 10
 TEST(NelderMead_Integration, SingleParameterOptimization) {
     // Nelder-Mead optimization: Single parameter optimization (low-dimensional)
     // Nelder-Mead simplex method is particularly efficient for low-dimensional problems
-    std::string netlist = R"(
-* Single parameter Nelder-Mead optimization
+    std::string netlist = R"(* Single parameter Nelder-Mead optimization
 R1 in out 5k
 R2 out 0 5k
 Vin in 0 DC 10
@@ -628,8 +606,7 @@ Vin in 0 DC 10
 TEST(NelderMead_Integration, TwoParameterOptimization) {
     // Nelder-Mead optimization: 2-parameter optimization
     // Simplex method works well for small-dimensional problems (n=2 is ideal)
-    std::string netlist = R"(
-* Two-parameter Nelder-Mead optimization
+    std::string netlist = R"(* Two-parameter Nelder-Mead optimization
 R1 in out 3k
 R2 out 0 7k
 Vin in 0 DC 10

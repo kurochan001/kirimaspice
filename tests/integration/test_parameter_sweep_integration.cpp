@@ -61,8 +61,7 @@ protected:
 // Test 1: Voltage divider with resistor sweep
 // Enabled after implementing initial_params override
 TEST_F(ParameterSweepIntegrationTest, VoltageDivider_ResistorSweep) {
-    std::string netlist = R"(
-.title Voltage Divider Parameter Sweep
+    std::string netlist = R"(.title Voltage Divider Parameter Sweep
 * Sweep R1 from 1k to 10k with 1k steps
 * Use {R1_value} expansion with default .PARAM value
 .PARAM R1_value=1k
@@ -122,8 +121,7 @@ R2 2 0 5k
 
 // Test 2: DEC sweep (decade logarithmic)
 TEST_F(ParameterSweepIntegrationTest, RCCircuit_CapacitorDECSweep) {
-    std::string netlist = R"(
-.title RC Circuit with Capacitor DEC Sweep
+    std::string netlist = R"(.title RC Circuit with Capacitor DEC Sweep
 .PARAM C_value=1p
 .STEP dec param C_value 1p 1n 3
 
@@ -161,8 +159,7 @@ C1 2 0 {C_value}
 // Test 3: OCT sweep (octave logarithmic)
 // Enabled after implementing initial_params override
 TEST_F(ParameterSweepIntegrationTest, CurrentDivider_ResistorOCTSweep) {
-    std::string netlist = R"(
-.title Current Divider with OCT Sweep
+    std::string netlist = R"(.title Current Divider with OCT Sweep
 .PARAM R1_value=100
 .STEP oct param R1_value 100 1600 2
 
@@ -204,8 +201,7 @@ R2 1 0 400
 
 // Test 4: Parameter expression expansion
 TEST_F(ParameterSweepIntegrationTest, ExpressionParameter_DependentValue) {
-    std::string netlist = R"(
-.title Expression Parameter Sweep
+    std::string netlist = R"(.title Expression Parameter Sweep
 .PARAM R_base=1k
 .PARAM R_load={R_base*2}
 .STEP param R_base 1k 5k 2k
@@ -245,8 +241,7 @@ R2 2 0 {R_load}
 
 // Test 5: Multiple .STEP directives (Cartesian product)
 TEST_F(ParameterSweepIntegrationTest, MultipleSteps_CartesianProduct) {
-    std::string netlist = R"(
-.title Multiple STEP Test
+    std::string netlist = R"(.title Multiple STEP Test
 * This test verifies Cartesian product sweep
 .STEP param R1_value 1k 3k 1k
 .STEP param R2_value 5k 10k 5k
@@ -291,8 +286,7 @@ R2 2 0 5k
 // Test 6: Verify parameter expansion at each sweep point
 // Enabled after implementing initial_params override
 TEST_F(ParameterSweepIntegrationTest, ParameterExpansion_VerifyReParse) {
-    std::string netlist = R"(
-.title Parameter Re-parse Verification
+    std::string netlist = R"(.title Parameter Re-parse Verification
 .PARAM Vcc=5
 .STEP param Vcc 5 15 5
 

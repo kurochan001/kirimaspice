@@ -39,8 +39,7 @@ TEST_F(VoltageLimitingTest, VcritCalculation) {
 // Test 5: Diode circuit - Voltage limiting enabled (default behavior)
 TEST_F(VoltageLimitingTest, DiodeCircuit_ConvergesSuccessfully) {
     // Simple diode circuit that converges with voltage limiting
-    std::string netlist = R"(
-Simple Diode Circuit
+    std::string netlist = R"(Simple Diode Circuit
 Vcc 1 0 DC 5
 R1 1 2 1k
 D1 2 0 DIODE
@@ -71,8 +70,7 @@ D1 2 0 DIODE
 // Test 6: BJT circuit - Voltage limiting improves convergence
 TEST_F(VoltageLimitingTest, BJTCircuit_ImprovedConvergence) {
     // BJT circuit with high base resistor (can be difficult to converge)
-    std::string netlist = R"(
-* BJT Common Emitter Circuit
+    std::string netlist = R"(* BJT Common Emitter Circuit
 
 * BJT model (2N3904)
 .MODEL 2N3904 NPN (IS=1e-14 BF=200 NF=1.0 VAF=100 IKF=0.3
@@ -117,8 +115,7 @@ Re emitter 0 1k
 // Test 7: Diode circuit - Voltage limiting with high forward voltage
 TEST_F(VoltageLimitingTest, DiodeCircuit_HighForwardVoltage) {
     // Circuit with very high supply voltage
-    std::string netlist = R"(
-* High Voltage Diode Test
+    std::string netlist = R"(* High Voltage Diode Test
 Vcc 1 0 DC 100
 R1 1 2 10k
 D1 2 0 DIODE

@@ -23,8 +23,7 @@ protected:
 // Test 1: Basic functionality - Same result with and without Source Stepping
 TEST_F(SourceSteppingTest, SimpleResistorCircuit_IdenticalResults) {
     // Simple voltage divider circuit that should converge easily
-    std::string netlist = R"(
-Simple Resistor Divider
+    std::string netlist = R"(Simple Resistor Divider
 Vcc 1 0 DC 12
 R1 1 2 1k
 R2 2 0 1k
@@ -79,8 +78,7 @@ R2 2 0 1k
 // Test 2: Emitter resistor circuit - Previously problematic
 TEST_F(SourceSteppingTest, BJT_EmitterResistor_Converges) {
     // BJT circuit with emitter resistor (previously caused matrix singularity)
-    std::string netlist = R"(
-* BJT Common Emitter with Emitter Resistor
+    std::string netlist = R"(* BJT Common Emitter with Emitter Resistor
 
 * BJT model (simplified 2N3904)
 .MODEL 2N3904 NPN (IS=1e-14 BF=200 NF=1.0 VAF=100 IKF=0.3
@@ -132,8 +130,7 @@ Re emitter 0 1k
 // Test 3: High voltage circuit - Difficult convergence
 TEST_F(SourceSteppingTest, HighVoltageCircuit_ImprovedConvergence) {
     // Circuit with high supply voltage that may be difficult to converge
-    std::string netlist = R"(
-* High Voltage Resistor Divider
+    std::string netlist = R"(* High Voltage Resistor Divider
 
 Vcc 1 0 DC 100
 R1 1 2 10k
@@ -168,8 +165,7 @@ R2 2 0 10k
 // Test 4: Multiple voltage sources
 TEST_F(SourceSteppingTest, MultipleVoltageSources_AllScaled) {
     // Circuit with multiple voltage sources - all should be scaled
-    std::string netlist = R"(
-* Multiple Voltage Sources
+    std::string netlist = R"(* Multiple Voltage Sources
 
 V1 1 0 DC 12
 V2 2 0 DC 5
@@ -210,8 +206,7 @@ R3 3 0 1k
 // Test 5: Current source scaling
 TEST_F(SourceSteppingTest, CurrentSource_Scaled) {
     // Circuit with current source
-    std::string netlist = R"(
-* Current Source Circuit
+    std::string netlist = R"(* Current Source Circuit
 
 I1 0 1 DC 1m
 R1 1 0 1k
@@ -244,8 +239,7 @@ R1 1 0 1k
 
 // Test 6: Verify scale factor reset after solve
 TEST_F(SourceSteppingTest, ScaleFactorResetAfterSolve) {
-    std::string netlist = R"(
-* Simple Circuit
+    std::string netlist = R"(* Simple Circuit
 
 Vcc 1 0 DC 10
 R1 1 0 1k

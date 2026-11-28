@@ -23,8 +23,7 @@ protected:
 // Test 1: Basic functionality - Same result with and without Gmin Stepping
 TEST_F(GminSteppingTest, SimpleResistorCircuit_IdenticalResults) {
     // Simple voltage divider circuit that should converge easily
-    std::string netlist = R"(
-Simple Resistor Divider
+    std::string netlist = R"(Simple Resistor Divider
 Vcc 1 0 DC 12
 R1 1 2 1k
 R2 2 0 1k
@@ -80,8 +79,7 @@ R2 2 0 1k
 // Test 2: High voltage circuit - Improved convergence
 TEST_F(GminSteppingTest, HighVoltageCircuit_ImprovedConvergence) {
     // Circuit with high supply voltage
-    std::string netlist = R"(
-* High Voltage Resistor Divider
+    std::string netlist = R"(* High Voltage Resistor Divider
 
 Vcc 1 0 DC 100
 R1 1 2 10k
@@ -116,8 +114,7 @@ R2 2 0 10k
 
 // Test 3: Multiple step counts - Verify algorithm works with different step numbers
 TEST_F(GminSteppingTest, VariableStepCounts) {
-    std::string netlist = R"(
-* Simple Circuit
+    std::string netlist = R"(* Simple Circuit
 
 Vcc 1 0 DC 10
 R1 1 0 1k
@@ -166,8 +163,7 @@ R1 1 0 1k
 
 // Test 4: Gmin reset after solve - Verify multiple solves give same result
 TEST_F(GminSteppingTest, GminResetAfterSolve) {
-    std::string netlist = R"(
-* Simple Circuit
+    std::string netlist = R"(* Simple Circuit
 
 Vcc 1 0 DC 10
 R1 1 0 1k
@@ -210,8 +206,7 @@ R1 1 0 1k
 // Test 5: BJT circuit - Verify Gmin Stepping works with nonlinear devices
 TEST_F(GminSteppingTest, BJT_Circuit_Converges) {
     // BJT circuit with emitter resistor
-    std::string netlist = R"(
-* BJT Common Emitter
+    std::string netlist = R"(* BJT Common Emitter
 
 * BJT model (simplified 2N3904)
 .MODEL 2N3904 NPN (IS=1e-14 BF=200 NF=1.0 VAF=100 IKF=0.3
@@ -263,8 +258,7 @@ Re emitter 0 1k
 
 // Test 6: Source Stepping priority - When both are enabled, Source Stepping takes priority
 TEST_F(GminSteppingTest, SourceSteppingPriority) {
-    std::string netlist = R"(
-Simple Circuit
+    std::string netlist = R"(Simple Circuit
 Vcc 1 0 DC 10
 R1 1 0 1k
 .DC Vcc 10 10 1

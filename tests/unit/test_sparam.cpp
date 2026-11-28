@@ -26,8 +26,7 @@ using namespace kirimaspice::output;
 // ============================================================================
 
 TEST(PortParsing, BasicSyntax) {
-    std::string netlist = R"(
-* S-parameter port parsing test
+    std::string netlist = R"(* S-parameter port parsing test
 .PORT 1 in 0 Z=50
 .PORT 2 out 0 Z=75
 .END
@@ -50,8 +49,7 @@ TEST(PortParsing, BasicSyntax) {
 }
 
 TEST(PortParsing, DefaultImpedance) {
-    std::string netlist = R"(
-* Default impedance test
+    std::string netlist = R"(* Default impedance test
 .PORT 1 in 0
 .END
 )";
@@ -64,8 +62,7 @@ TEST(PortParsing, DefaultImpedance) {
 }
 
 TEST(PortParsing, UnitSuffix) {
-    std::string netlist = R"(
-* Unit suffix test
+    std::string netlist = R"(* Unit suffix test
 .PORT 1 in 0 Z=50k
 .PORT 2 out 0 Z=75MEG
 .END
@@ -110,8 +107,7 @@ TEST(SParam, TwoPortResistorNetwork) {
     // 2-port resistor network: 50Ω - 100Ω - 50Ω
     // Expected: S11 ≈ S22 (reflection), S21 ≈ S12 (transmission)
 
-    std::string netlist = R"(
-* 2-port resistor network test
+    std::string netlist = R"(* 2-port resistor network test
 R1 in mid 50
 R2 mid out 50
 .PORT 1 in 0 Z=50
@@ -154,8 +150,7 @@ TEST(SParam, ImpedanceMatching) {
     // Matched network: 50Ω port - 50Ω resistor - 50Ω port
     // Expected: S11 ≈ 0 (no reflection), S21 ≈ 0.5 (voltage division)
 
-    std::string netlist = R"(
-* Impedance matching test
+    std::string netlist = R"(* Impedance matching test
 R1 in out 50
 .PORT 1 in 0 Z=50
 .PORT 2 out 0 Z=50
@@ -187,8 +182,7 @@ R1 in out 50
 TEST(SParam, FrequencySweep) {
     // RC low-pass filter: should show frequency-dependent behavior
 
-    std::string netlist = R"(
-* RC low-pass filter test
+    std::string netlist = R"(* RC low-pass filter test
 R1 in out 50
 C1 out 0 1e-12
 .PORT 1 in 0 Z=50
@@ -230,8 +224,7 @@ TEST(SParam, TransmissionLinePhaseDelay) {
     constexpr Real freq = 100e6;     // 100 MHz
     constexpr Real omega = 2.0 * M_PI * freq;
 
-    std::string netlist = R"(
-* Lossless transmission line S-parameter test
+    std::string netlist = R"(* Lossless transmission line S-parameter test
 T1 in 0 out 0 Z0=50 TD=1e-9
 .PORT 1 in 0 Z=50
 .PORT 2 out 0 Z=50
@@ -277,8 +270,7 @@ TEST(SParam, TransmissionLineNearPoleStability) {
     const Real f_start = 0.5e9;   // θ = π
     const Real f_stop  = 2.5e9;   // θ = 5π
 
-    std::string netlist = R"(
-* Lossless T-line stability near sin(theta)=0
+    std::string netlist = R"(* Lossless T-line stability near sin(theta)=0
 T1 in 0 out 0 Z0=50 TD=1e-9
 .PORT 1 in 0 Z=50
 .PORT 2 out 0 Z=50
@@ -324,8 +316,7 @@ T1 in 0 out 0 Z0=50 TD=1e-9
 
 TEST(SParam, LossyTLine_Attenuation) {
     // Simple lossy line: add series resistance so |S21| < 1 and decreases with frequency.
-std::string netlist = R"(
-* Lossy O-line attenuation test
+std::string netlist = R"(* Lossy O-line attenuation test
 O1 in 0 out 0 R=200 L=1e-6 C=1e-12 G=1e-3 TD=5e-9
 .PORT 1 in 0 Z=50
 .PORT 2 out 0 Z=50
@@ -366,8 +357,7 @@ TEST(SParam, LossyTLine_MatchedSmallLoss) {
     // Zc = sqrt(L/C) = 50 Ohm, matched to the ports, and TD a length of
     // TD / sqrt(L C) = 0.2 m (telegrapher's two-port: |S11| = 9.3e-4,
     // |S21| = 0.999 at 100 MHz)
-    std::string netlist = R"(
-* Lossy O-line matched small loss
+    std::string netlist = R"(* Lossy O-line matched small loss
 O1 in 0 out 0 R=0.5 L=250e-9 C=100e-12 G=0 TD=1e-9
 .PORT 1 in 0 Z=50
 .PORT 2 out 0 Z=50
@@ -397,8 +387,7 @@ O1 in 0 out 0 R=0.5 L=250e-9 C=100e-12 G=0 TD=1e-9
 TEST(SParam, DifferentImpedances) {
     // Mixed impedances: 50Ω port and 75Ω port
 
-    std::string netlist = R"(
-* Mixed impedance test
+    std::string netlist = R"(* Mixed impedance test
 R1 in out 60
 .PORT 1 in 0 Z=50
 .PORT 2 out 0 Z=75
@@ -551,8 +540,7 @@ TEST(Touchstone, FourPort_DB_Format) {
 TEST(SParam_Integration, SimpleCircuit) {
     // End-to-end test: Parse → Solve → Output
 
-    std::string netlist = R"(
-* Simple integration test
+    std::string netlist = R"(* Simple integration test
 R1 in mid 25
 R2 mid out 25
 .PORT 1 in 0 Z=50
@@ -594,8 +582,7 @@ R2 mid out 25
 TEST(SParam_Integration, ComplexCircuit) {
     // RLC filter with 2 ports
 
-    std::string netlist = R"(
-* RLC filter integration test
+    std::string netlist = R"(* RLC filter integration test
 R1 in n1 50
 L1 n1 n2 1e-9
 C1 n2 0 1e-12
@@ -642,8 +629,7 @@ TEST(SParam, SourcesOfTheCircuitAreNotExcitations) {
     // S-parameter system now holds; its AC value is not an excitation, so
     // the source is a short: the port sees 150 ohm, and S11 = (150 - 50) /
     // (150 + 50) = 0.5 (analytic)
-    std::string netlist = R"(
-* Port into a resistor and a voltage source
+    std::string netlist = R"(* Port into a resistor and a voltage source
 R1 in b 150
 V1 b 0 DC 1 AC 1
 .PORT 1 in 0 Z=50

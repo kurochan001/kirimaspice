@@ -19,8 +19,7 @@ protected:
 };
 
 TEST_F(DynamicGminTest, ParsesOptionsCorrectly) {
-    std::string netlist = R"(
-* Simple divider with dynamic gmin options
+    std::string netlist = R"(* Simple divider with dynamic gmin options
 .option dyn_gmin=1 dyn_gmin_start=1e-9 dyn_gmin_min=1e-12 dyn_gmin_max=1e-3 dyn_gmin_inc=5 dyn_gmin_dec=0.4 dyn_gmin_stall=2 dyn_gmin_improve=0.05 dyn_gmin_target=1e-10
 V1 1 0 DC 10
 R1 1 0 1k
@@ -49,8 +48,7 @@ TEST_F(DynamicGminTest, DoesNotSolveACircuitWithoutAGroundPath) {
     // ground, but the solution it returns is that of the circuit without
     // the shunt, so it fails as the plain iteration does; ngspice-47 reports
     // "Dynamic gmin stepping failed" for this circuit (run 2026-11-21).
-    std::string netlist = R"(
-* Floating nodes with ideal current source
+    std::string netlist = R"(* Floating nodes with ideal current source
 I1 1 2 DC 1m
 C1 1 2 1u
 .end

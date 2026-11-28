@@ -16,8 +16,7 @@ using namespace kirimaspice::circuit;
 
 // Parser Tests
 TEST(TransferFunctionParser, BasicVoltageSyntax) {
-    std::string netlist = R"(
-Simple Voltage Divider
+    std::string netlist = R"(Simple Voltage Divider
 R1 in out 1k
 R2 out 0 1k
 Vin in 0 DC 5
@@ -34,8 +33,7 @@ Vin in 0 DC 5
 }
 
 TEST(TransferFunctionParser, CurrentOutputSyntax) {
-    std::string netlist = R"(
-Current Output Test
+    std::string netlist = R"(Current Output Test
 R1 in out 1k
 Vload out 0 DC 0
 Vin in 0 DC 5
@@ -52,8 +50,7 @@ Vin in 0 DC 5
 }
 
 TEST(TransferFunctionParser, CaseInsensitive) {
-    std::string netlist = R"(
-Case Test
+    std::string netlist = R"(Case Test
 R1 in out 1k
 R2 out 0 1k
 Vin in 0 DC 5
@@ -68,8 +65,7 @@ Vin in 0 DC 5
 }
 
 TEST(TransferFunctionParser, InvalidSyntax_TooFewArgs) {
-    std::string netlist = R"(
-Invalid Syntax
+    std::string netlist = R"(Invalid Syntax
 R1 in out 1k
 R2 out 0 1k
 Vin in 0 DC 5
@@ -82,8 +78,7 @@ Vin in 0 DC 5
 }
 
 TEST(TransferFunctionParser, InvalidOutputFormat) {
-    std::string netlist = R"(
-Invalid Output Format
+    std::string netlist = R"(Invalid Output Format
 R1 in out 1k
 R2 out 0 1k
 Vin in 0 DC 5
@@ -97,8 +92,7 @@ Vin in 0 DC 5
 
 // Integration Tests
 TEST(TransferFunctionSolver, SimpleVoltageDivider) {
-    std::string netlist = R"(
-Voltage Divider Test
+    std::string netlist = R"(Voltage Divider Test
 R1 in out 1k
 R2 out 0 1k
 Vin in 0 DC 10
@@ -124,8 +118,7 @@ Vin in 0 DC 10
 }
 
 TEST(TransferFunctionSolver, ResistorDivider_DifferentRatios) {
-    std::string netlist = R"(
-Voltage Divider 1:3 Ratio
+    std::string netlist = R"(Voltage Divider 1:3 Ratio
 R1 in out 1k
 R2 out 0 3k
 Vin in 0 DC 12
@@ -147,8 +140,7 @@ Vin in 0 DC 12
 }
 
 TEST(TransferFunctionSolver, ThreeResistorNetwork) {
-    std::string netlist = R"(
-Three Resistor Network
+    std::string netlist = R"(Three Resistor Network
 R1 in n1 1k
 R2 n1 out 2k
 R3 out 0 3k
@@ -174,8 +166,7 @@ Vin in 0 DC 10
 }
 
 TEST(TransferFunctionSolver, OutputResistanceCheck) {
-    std::string netlist = R"(
-Output Resistance Test
+    std::string netlist = R"(Output Resistance Test
 R1 in out 1k
 R2 out 0 1k
 Vin in 0 DC 5
@@ -196,8 +187,7 @@ Vin in 0 DC 5
 }
 
 TEST(TransferFunctionSolver, InputResistanceCheck) {
-    std::string netlist = R"(
-Input Resistance Test
+    std::string netlist = R"(Input Resistance Test
 R1 in out 1k
 R2 out 0 1k
 Vin in 0 DC 5

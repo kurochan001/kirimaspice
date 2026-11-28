@@ -54,8 +54,7 @@ TEST_F(MESFETTest, MESFET_N_Construction) {
 
 TEST(MESFET_Transient, TRBDF2StagesCover) {
     // Simple biased MESFET ensures both TR-BDF2 stages run without crash.
-    std::string netlist = R"(
-* MESFET TR-BDF2 coverage test
+    std::string netlist = R"(* MESFET TR-BDF2 coverage test
 Vd d 0 DC 2.5
 Vg g 0 DC 1.0
 Rload d s 1k

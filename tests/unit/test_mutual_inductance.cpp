@@ -50,8 +50,7 @@ R1 2 0 1k
 
 TEST(MutualInductanceTransient, CoupledStepDoesNotCrash) {
     // Simple coupled inductors driven by a step, should run with mutual term enabled.
-    std::string netlist = R"(
-* Coupled inductors transient smoke test
+    std::string netlist = R"(* Coupled inductors transient smoke test
 V1 in 0 DC 0 PULSE(0 1 0 1n 1n 5n 10n)
 L1 in n1 1e-6
 L2 out 0 1e-6
@@ -79,8 +78,7 @@ Rload out 0 1k
 
 TEST(MutualInductanceTransient, CrossConductanceMatchesBEModel) {
     // Verify that transient stamp adds off-diagonal conductance ±M/det and adjusts self terms.
-    std::string netlist = R"(
-Mutual stamp check
+    std::string netlist = R"(Mutual stamp check
 L1 n1 0 1u
 L2 n2 0 2u
 K1 L1 L2 0.8
@@ -168,8 +166,7 @@ Real interp_ref(const std::vector<RefPoint>& pts, Real t) {
 }
 
 std::vector<Real> simulate_method(IntegrationMethod method) {
-    std::string netlist = R"(
-Mutual transformer step (validation)
+    std::string netlist = R"(Mutual transformer step (validation)
 V1 in 0 DC 0 PULSE(0 1 0 0.1n 0.1n 5n 10n)
 L1 in n1 1u
 Rpri n1 0 1
@@ -779,8 +776,7 @@ TEST(MutualInductanceTransient, AdaptiveCoupledStepMatchesExactSolution) {
 // is dt*0.5 against a scale of dt*2.5, an LTE of 0.2, and Phi2 has none.
 TEST(MutualInductanceTransient, PhysicalLteIsTheErrorOfTheCoupledFluxes) {
     NetlistParser parser;
-    auto parsed = parser.parse_string(R"(
-Coupled inductors across two nodes
+    auto parsed = parser.parse_string(R"(Coupled inductors across two nodes
 L1 a 0 1m
 L2 b 0 1m
 K1 L1 L2 0.9

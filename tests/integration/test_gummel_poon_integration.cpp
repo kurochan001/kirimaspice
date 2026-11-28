@@ -23,8 +23,7 @@ using namespace kirimaspice::solvers;
 // Test 1: Common-Emitter Amplifier with Full Gummel-Poon Model
 // Validates: DC operating point with all effects combined
 TEST(GummelPoonIntegration, CommonEmitterAmplifier_DC_AllEffects) {
-    std::string netlist = R"(
-* Common-Emitter Amplifier with Full Gummel-Poon Model
+    std::string netlist = R"(* Common-Emitter Amplifier with Full Gummel-Poon Model
 VCC vcc 0 DC 12
 VBB vbb 0 DC 2.0
 RB vbb b 10k
@@ -78,8 +77,7 @@ Q1 c b e QGPN
 // Test 2: Current Mirror with Finite Output Impedance (Early Effect)
 // Validates: VAF effect on current mirror accuracy
 TEST(GummelPoonIntegration, CurrentMirror_EarlyEffect) {
-    std::string netlist = R"(
-* Current Mirror with Early Effect
+    std::string netlist = R"(* Current Mirror with Early Effect
 VCC vcc 0 DC 10
 RREF vcc c1 10k
 RLOAD vcc c2 5k
@@ -298,8 +296,7 @@ TEST(GummelPoonIntegration, CombinedEffects_Early_HighCurrent) {
 // Test 7: PNP Gummel-Poon Model (Polarity Verification)
 // Validates: PNP implementation with all effects
 TEST(GummelPoonIntegration, PNP_AllEffects) {
-    std::string netlist = R"(
-* PNP Amplifier with Full Gummel-Poon Model
+    std::string netlist = R"(* PNP Amplifier with Full Gummel-Poon Model
 VEE vee 0 DC 12
 VBB b 0 DC 11.3
 RC c 0 1k
@@ -440,8 +437,7 @@ TEST(GummelPoonIntegration, TemperatureDependence_VtEffect) {
 // Note: implemented ISE/NE/ISC/NC parser support
 //       VAF/VAR/IKF/IKR parser support is a future enhancement
 TEST(GummelPoonIntegration, Parser_FullModelCard) {
-    std::string netlist = R"(
-* Gummel-Poon Model Parser Test
+    std::string netlist = R"(* Gummel-Poon Model Parser Test
 VCC vcc 0 DC 10
 VBB vbb 0 DC 1.0
 RC vcc c 1k

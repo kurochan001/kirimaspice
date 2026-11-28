@@ -14,8 +14,7 @@ TEST(MutualInductanceFixTest, TransformerRatioCheck) {
     // 1:1 Transformer, k=0.99
     // Input: Pulse 0->1V, tr=1ns
     // Expected Output: Pulse peak approx 0.99V
-    std::string netlist = R"(
-Mutual Inductance Fix Verification
+    std::string netlist = R"(Mutual Inductance Fix Verification
 V1 in 0 DC 0 PULSE(0 1 1n 1n 1n 10n 20n)
 L1 in 0 1u
 L2 out 0 1u
@@ -69,8 +68,7 @@ Rload out 0 1k
 
 TEST(MutualInductanceFixTest, TransformerRatioCheck_Gear3) {
     // Same test with GEAR3 to check high-order correction
-    std::string netlist = R"(
-Mutual Inductance Fix Verification Gear3
+    std::string netlist = R"(Mutual Inductance Fix Verification Gear3
 V1 in 0 DC 0 PULSE(0 1 1n 1n 1n 10n 20n)
 L1 in 0 1u
 L2 out 0 1u

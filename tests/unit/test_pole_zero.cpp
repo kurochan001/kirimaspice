@@ -19,8 +19,7 @@ using namespace kirimaspice::circuit;
 // ========================================
 
 TEST(PoleZeroParser, BasicSyntax_PolesAndZeros) {
-    std::string netlist = R"(
-RC Circuit
+    std::string netlist = R"(RC Circuit
 R1 in out 1k
 C1 out 0 1u
 Vin in 0 DC 1
@@ -39,8 +38,7 @@ Vin in 0 DC 1
 }
 
 TEST(PoleZeroParser, PolesOnly) {
-    std::string netlist = R"(
-RC Circuit
+    std::string netlist = R"(RC Circuit
 R1 in out 1k
 C1 out 0 1u
 Vin in 0 DC 1
@@ -56,8 +54,7 @@ Vin in 0 DC 1
 }
 
 TEST(PoleZeroParser, ZerosOnly) {
-    std::string netlist = R"(
-RC Circuit
+    std::string netlist = R"(RC Circuit
 R1 in out 1k
 C1 out 0 1u
 Vin in 0 DC 1
@@ -73,8 +70,7 @@ Vin in 0 DC 1
 }
 
 TEST(PoleZeroParser, CaseInsensitive_POLES) {
-    std::string netlist = R"(
-RC Circuit
+    std::string netlist = R"(RC Circuit
 R1 in out 1k
 C1 out 0 1u
 Vin in 0 DC 1
@@ -90,8 +86,7 @@ Vin in 0 DC 1
 }
 
 TEST(PoleZeroParser, CaseInsensitive_zeros) {
-    std::string netlist = R"(
-RC Circuit
+    std::string netlist = R"(RC Circuit
 R1 in out 1k
 C1 out 0 1u
 Vin in 0 DC 1
@@ -107,8 +102,7 @@ Vin in 0 DC 1
 }
 
 TEST(PoleZeroParser, InvalidSyntax_TooFewArgs) {
-    std::string netlist = R"(
-RC Circuit
+    std::string netlist = R"(RC Circuit
 R1 in out 1k
 C1 out 0 1u
 Vin in 0 DC 1
@@ -121,8 +115,7 @@ Vin in 0 DC 1
 }
 
 TEST(PoleZeroParser, InvalidType) {
-    std::string netlist = R"(
-RC Circuit
+    std::string netlist = R"(RC Circuit
 R1 in out 1k
 C1 out 0 1u
 Vin in 0 DC 1
@@ -139,8 +132,7 @@ Vin in 0 DC 1
 // ========================================
 
 TEST(PoleZeroSolver, SimpleDCGain_VoltageDivider) {
-    std::string netlist = R"(
-Voltage Divider
+    std::string netlist = R"(Voltage Divider
 R1 in out 1k
 R2 out 0 1k
 Vin in 0 DC 1
@@ -163,8 +155,7 @@ Vin in 0 DC 1
 }
 
 TEST(PoleZeroSolver, DCGain_ResistorNetwork) {
-    std::string netlist = R"(
-Resistor Network
+    std::string netlist = R"(Resistor Network
 R1 in mid 2k
 R2 mid 0 1k
 Vin in 0 DC 1
@@ -186,8 +177,7 @@ Vin in 0 DC 1
 }
 
 TEST(PoleZeroSolver, RCCircuit_HasPole) {
-    std::string netlist = R"(
-RC Lowpass Filter
+    std::string netlist = R"(RC Lowpass Filter
 R1 in out 159
 C1 out 0 1u
 Vin in 0 DC 1
@@ -214,8 +204,7 @@ Vin in 0 DC 1
 }
 
 TEST(PoleZeroSolver, TransferFunctionDescription) {
-    std::string netlist = R"(
-RC Circuit
+    std::string netlist = R"(RC Circuit
 R1 in out 1k
 C1 out 0 1u
 Vin in 0 DC 1
@@ -237,8 +226,7 @@ Vin in 0 DC 1
 }
 
 TEST(PoleZeroSolver, PrintResult_DoesNotCrash) {
-    std::string netlist = R"(
-RC Circuit
+    std::string netlist = R"(RC Circuit
 R1 in out 1k
 C1 out 0 1u
 Vin in 0 DC 1

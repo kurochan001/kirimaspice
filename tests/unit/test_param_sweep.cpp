@@ -18,8 +18,7 @@ using namespace kirimaspice;
 // Test 1: Simple resistor sweep with DC analysis
 TEST(ParameterSweep, SimpleResistorSweep_DC) {
     // Base netlist with .PARAM and .STEP
-    std::string netlist = R"(
-.title Resistor Parameter Sweep Test
+    std::string netlist = R"(.title Resistor Parameter Sweep Test
 * Parameter sweep: R from 1k to 5k with 1k steps
 .PARAM R_value=1k
 .STEP param R_value 1k 5k 1k
@@ -93,8 +92,7 @@ R2 2 0 1k
 
 // Test 2: Capacitor sweep with DEC (decade logarithmic)
 TEST(ParameterSweep, CapacitorSweep_DEC) {
-    std::string netlist = R"(
-.title Capacitor Decade Sweep Test
+    std::string netlist = R"(.title Capacitor Decade Sweep Test
 .PARAM C_value=1p
 .STEP dec param C_value 1p 1u 3
 
@@ -128,8 +126,7 @@ C1 1 0 {C_value}
 
 // Test 3: Inductor sweep with OCT (octave logarithmic)
 TEST(ParameterSweep, InductorSweep_OCT) {
-    std::string netlist = R"(
-.title Inductor Octave Sweep Test
+    std::string netlist = R"(.title Inductor Octave Sweep Test
 .PARAM L_value=1n
 .STEP oct param L_value 1n 1m 5
 
@@ -163,8 +160,7 @@ L1 2 0 {L_value}
 
 // Test 4: Voltage divider sweep (verify analytical solution)
 TEST(ParameterSweep, VoltageDivider_AnalyticalVerification) {
-    std::string netlist = R"(
-.title Voltage Divider Sweep
+    std::string netlist = R"(.title Voltage Divider Sweep
 .PARAM R1_value=1k
 .STEP param R1_value 100 10k 100
 
@@ -217,8 +213,7 @@ R2 2 0 1k
 
 // Test 5: Parameter expression sweep (verify expression evaluation)
 TEST(ParameterSweep, ExpressionParameter_Sweep) {
-    std::string netlist = R"(
-.title Expression Parameter Sweep
+    std::string netlist = R"(.title Expression Parameter Sweep
 .PARAM R_base=1k
 .PARAM R_mult={R_base*2}
 .STEP param R_base 1k 3k 1k
