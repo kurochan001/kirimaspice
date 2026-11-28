@@ -78,24 +78,11 @@ void Diode::set_temperature(Real temp_kelvin) {
     // SPICE equation: IS(T) = IS(Tnom) * (T/Tnom)^(XTI/N) * exp(-EG/N * (1/Vt(T) - 1/Vt(Tnom)))
     is_ = core::scale_saturation_current(is_tnom_, xti_, eg_, n_, temp_kelvin, tnom_);
 
-    // The depletion capacitance, as SPICE's diode, with p(T) of
-    // core::band_gap_potential, r = T/TNOM and Tref = 300.15 K:
-    //   VJ(T) = (VJ - p(TNOM)) r + p(T), VJ0 = VJ(Tref) = (VJ - p(TNOM)) Tref/TNOM
-    //   CJO(T) = CJO (1 + M (4e-4 (T - Tref) - (VJ(T) - VJ0)/VJ0))
-    //              / (1 + M (4e-4 (TNOM - Tref) - (VJ - VJ0)/VJ0))
-    // VJ(T) - VJ is formed so that it is 0 at T = TNOM exactly
-    const Real ratio = temp_kelvin / tnom_;
-    const Real p_tnom = core::band_gap_potential(tnom_);
-    vj_ = vj_tnom_ + ((ratio - 1.0) * (vj_tnom_ - p_tnom) +
-                      (core::band_gap_potential(temp_kelvin) - p_tnom));
-    cj0_ = cj0_tnom_;
-    if (cj0_tnom_ > 0.0) {
-        const Real tref = core::kSpiceReferenceTemperature;
-        const Real vj0 = (vj_tnom_ - p_tnom) * tref / tnom_;
-        const Real at_t = 1.0 + m_ * (4e-4 * (temp_kelvin - tref) - (vj_ - vj0) / vj0);
-        const Real at_tnom = 1.0 + m_ * (4e-4 * (tnom_ - tref) - (vj_tnom_ - vj0) / vj0);
-        cj0_ = cj0_tnom_ * (at_t / at_tnom);
-    }
+    // The junction potential and the depletion capacitance, as SPICE's
+    // diode: VJ(T) and CJO(T) of core::junction_potential_at and
+    // core::depletion_capacitance_at
+    vj_ = core::junction_potential_at(vj_tnom_, temp_kelvin, tnom_);
+    cj0_ = core::depletion_capacitance_at(cj0_tnom_, vj_tnom_, vj_, m_, temp_kelvin, tnom_);
 
     spdlog::debug("{} set temperature to {:.2f}K (Vt={:.6f}V, IS={:.6e}A, VJ={:.4f}V, CJO={:.4e}F)",
                   name_, temp_kelvin, vt_, is_, vj_, cj0_);

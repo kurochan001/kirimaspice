@@ -310,6 +310,35 @@ inline Real band_gap_potential(Real temp) {
            silicon_band_gap(kSpiceReferenceTemperature) * fact;
 }
 
+/// SPICE's junction potential at the temperature T, for a potential P at
+/// TNOM: P(T) = (P - p(TNOM)) T/TNOM + p(T), with p(T) of
+/// band_gap_potential. P(T) - P is formed so that it is 0 at T = TNOM
+/// exactly. The diode's VJ and the JFET's PB take it.
+inline Real junction_potential_at(Real potential, Real temp, Real tnom) {
+    const Real ratio = temp / tnom;
+    const Real p_tnom = band_gap_potential(tnom);
+    return potential + ((ratio - 1.0) * (potential - p_tnom) + (band_gap_potential(temp) - p_tnom));
+}
+
+/// SPICE's zero-bias depletion capacitance at the temperature T, for a
+/// capacitance C and a junction potential P at TNOM, the potential
+/// P(T) = junction_potential_at(P, T, TNOM) and the grading coefficient M.
+/// With Tref = 300.15 K and P0 = P(Tref) = (P - p(TNOM)) Tref/TNOM:
+///   C(T) = C (1 + M (4e-4 (T - Tref) - (P(T) - P0)/P0))
+///            / (1 + M (4e-4 (TNOM - Tref) - (P - P0)/P0))
+/// The diode's CJO and the JFET's CGS and CGD (M = 0.5) take it.
+inline Real depletion_capacitance_at(Real capacitance, Real potential, Real potential_at_temp,
+                                     Real m, Real temp, Real tnom) {
+    if (!(capacitance > 0.0)) {
+        return capacitance;
+    }
+    const Real tref = kSpiceReferenceTemperature;
+    const Real p0 = (potential - band_gap_potential(tnom)) * tref / tnom;
+    const Real at_t = 1.0 + m * (4e-4 * (temp - tref) - (potential_at_temp - p0) / p0);
+    const Real at_tnom = 1.0 + m * (4e-4 * (tnom - tref) - (potential - p0) / p0);
+    return capacitance * (at_t / at_tnom);
+}
+
 /// Scale resistance with temperature (positive temperature coefficient)
 /// R(T) = R(Tnom) × (T/Tnom)^TC
 ///
