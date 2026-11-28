@@ -4753,6 +4753,12 @@ static void parse_jfet_device(const std::vector<std::string>& tokens, const std:
     }
     Real beta = 1e-4, vto = -2.0, lambda = 0.0, is = 1e-14, n = 1.0, cgs = 0.0, cgd = 0.0;
     Real pb = 1.0, fc = 0.5, tnom = 300.15, eg = 1.11;
+    // RD and RS, in series with the drain and the source. VTO moves with
+    // the temperature by VTOTC, or by -TCV when the card has no VTOTC; BETA
+    // by BETATCE, or by BEX when the card has no BETATCE (a coefficient
+    // given as 0 counts as given), as in ngspice-45.2 (run 2026-11-28)
+    Real rd = 0.0, rs = 0.0, tcv = 0.0, bex = 0.0;
+    std::optional<Real> vtotc, betatce;
     std::vector<std::string> unused;
     for (const auto& [key, value] : model->params) {
         if (key == "beta") beta = value;
@@ -4766,15 +4772,32 @@ static void parse_jfet_device(const std::vector<std::string>& tokens, const std:
         else if (key == "fc") fc = value;
         else if (key == "tnom") tnom = core::celsius_to_kelvin(value);
         else if (key == "eg") eg = value;
+        else if (key == "rd")
+            rd = value;
+        else if (key == "rs")
+            rs = value;
+        else if (key == "tcv")
+            tcv = value;
+        else if (key == "vtotc")
+            vtotc = value;
+        else if (key == "bex")
+            bex = value;
+        else if (key == "betatce")
+            betatce = value;
         else if (key == "level" && value == 1.0) {}
         else if (key == "b" && value == 1.0) {}  // the doping tail of the square law
         else unused.push_back(key);
     }
     warn_unused_card_names(state, "JFET model " + model_name, unused);
+    if (rd < 0.0 || rs < 0.0) {
+        throw ParseError(fmt::format("JFET model {}: RD and RS must not be negative", model_name),
+                         state.line_number);
+    }
     std::size_t next = 5;
+    Real area = 1.0;
     if (next < tokens.size() && tokens[next].find('=') == std::string::npos &&
         !util::equals_icase(tokens[next], "OFF")) {
-        const Real area = read_element_value(tokens[next++], state);
+        area = read_element_value(tokens[next++], state);
         if (!(area > 0.0)) {
             throw ParseError(fmt::format("{}: the area must be positive", dev_name), state.line_number);
         }
@@ -4786,9 +4809,21 @@ static void parse_jfet_device(const std::vector<std::string>& tokens, const std:
     std::vector<std::string> ignored(tokens.begin() + static_cast<std::ptrdiff_t>(next), tokens.end());
     warn_unused_card_names(state, "JFET " + dev_name, ignored);
     try {
-        state.circuit->add_jfet(dev_name, tokens[1], tokens[2], tokens[3],
-                                model->device_type == DeviceType::JFET_P, beta, vto, lambda, is, n, cgs, cgd,
-                                pb, fc, tnom, eg);
+        // RD and RS, as SPICE has them and as the diode's RS is built: the
+        // channel and the gate junctions sit between internal nodes, with a
+        // resistor from each terminal to its node; an area divides them
+        std::string drain = tokens[1], source = tokens[3];
+        if (rd > 0.0) {
+            drain = dev_name + "#drain";
+            state.circuit->add_resistor(dev_name + "#rd", tokens[1], drain, rd / area);
+        }
+        if (rs > 0.0) {
+            source = dev_name + "#source";
+            state.circuit->add_resistor(dev_name + "#rs", tokens[3], source, rs / area);
+        }
+        state.circuit->add_jfet(dev_name, drain, tokens[2], source,
+                                model->device_type == DeviceType::JFET_P, beta, vto, lambda, is, n,
+                                cgs, cgd, pb, fc, tnom, eg, vtotc ? *vtotc : -tcv, bex, betatce);
     } catch (const std::runtime_error& e) {
         throw ParseError(fmt::format("{}: {}", dev_name, e.what()), state.line_number);
     }

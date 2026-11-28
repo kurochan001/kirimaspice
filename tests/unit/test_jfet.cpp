@@ -3,16 +3,19 @@
 
 // tests/unit/test_jfet.cpp
 #include <gtest/gtest.h>
+
+#include <algorithm>
+#include <cmath>
+#include <map>
+#include <optional>
+#include <stdexcept>
+#include <string>
+
 #include "kirimaspice/devices/jfet.hpp"  // Unified JFET template
 #include "kirimaspice/parser/netlist_parser.hpp"
 #include "kirimaspice/solvers/ac_solver.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
 #include "kirimaspice/solvers/transient_solver.hpp"
-#include <cmath>
-#include <stdexcept>
-#include <algorithm>
-#include <map>
-#include <string>
 
 using namespace kirimaspice;
 using namespace kirimaspice::devices;
@@ -484,6 +487,140 @@ TEST(JfetElement, TransientMatchesNgspice) {
         EXPECT_NEAR(it->node_voltages[g], r.vg, 2e-3) << r.t;
         EXPECT_NEAR(it->node_voltages[d], r.vd, 2e-3) << r.t;
     }
+}
+
+// RD and RS are resistors in series with the drain and the source, which
+// the parser builds as it builds the diode's RS, and an area divides them.
+// With the default card (BETA = 1e-4 A/V^2, VTO = -2 V) at Vgs = 0 and
+// Vds = 5 V, ngspice-45.2 gives these drain currents (run 2026-11-28, with
+// numdgt = 12), and this program within 5e-10 of each; at 77 C the
+// resistances are the same, and the current differs by the gate's leakage.
+TEST(JfetElement, SeriesResistancesMatchNgspice) {
+    const struct {
+        std::string what, card, area, options;
+        Real id;
+    } cases[] = {
+        {"RD and RS", "RD=100 RS=50", "", "", 3.9219456786e-4},
+        {"with LAMBDA", "RD=100 RS=50 LAMBDA=0.02", "", "", 4.3008396316e-4},
+        {"area 2", "RD=100 RS=50", " 2", "", 7.8438913075e-4},
+        {"RS alone", "RS=1k", "", "", 2.9179607246e-4},
+        {"RD alone, in saturation", "RD=1k", "", "", 4.0000000461e-4},
+        {"at 77 C", "RD=100 RS=50", "", ".options temp=77\n", 3.9219457247e-4},
+    };
+    for (const auto& c : cases) {
+        const auto op = operating_point("Vd d 0 5\nVg g 0 0\nJ1 d g 0 jm" + c.area +
+                                        "\n.model jm NJF " + c.card + "\n" + c.options);
+        EXPECT_NEAR(-op.current("Vd"), c.id, 1e-8 * c.id) << c.what;
+    }
+    parser::NetlistParser parser;
+    EXPECT_THROW(parser.parse_string("t\nVd d 0 5\nJ1 d 0 0 jm\n.model jm NJF RD=-1\n.end\n"),
+                 parser::ParseError);
+}
+
+// VTO and BETA follow the temperature by the card's coefficients, from TNOM:
+// VTO moves by VTOTC (T - TNOM), or by -TCV (T - TNOM) on a card without
+// VTOTC; BETA is BETA 1.01^(BETATCE (T - TNOM)), or BETA (T/TNOM)^BEX on a
+// card without BETATCE. A coefficient given as 0 counts as given. Without
+// coefficients neither moves, and a PJF takes them as an NJF does.
+// ngspice-45.2 gives these drain currents at Vds = 5 V (-5 V for the PJF;
+// run 2026-11-28, with numdgt = 12), the gate's leakage in them, and this
+// program within 2e-11 of each; without a temperature the analysis is at
+// 27 C, also for a card of TNOM = 50.
+TEST(JfetElement, ThresholdAndBetaFollowTemperature) {
+    const std::string at77 = ".options temp=77\n";
+    const std::string both = "TNOM=50 VTOTC=1m BETATCE=-0.5";
+    const struct {
+        std::string what, kind, card, options;
+        Real vgs, id;
+    } cases[] = {
+        {"no coefficient, 127 C", "NJF", "", ".options temp=127\n", -1.0, 1.0000046070e-4},
+        {"TCV", "NJF", "TCV=1m", at77, 0.0, 4.2025000959e-4},
+        {"VTOTC", "NJF", "VTOTC=1m", at77, 0.0, 3.8025000959e-4},
+        {"VTOTC before TCV", "NJF", "TCV=1m VTOTC=2m", at77, 0.0, 3.6100000959e-4},
+        {"VTOTC = 0 before TCV", "NJF", "TCV=1m VTOTC=0", at77, 0.0, 4.0000000959e-4},
+        {"BEX", "NJF", "BEX=-1.5", at77, 0.0, 3.1745803955e-4},
+        {"BETATCE", "NJF", "BETATCE=-0.5", at77, 0.0, 3.1190738678e-4},
+        {"BETATCE before BEX", "NJF", "BEX=-1.5 BETATCE=-0.5", at77, 0.0, 3.1190738678e-4},
+        {"BETATCE = 0 before BEX", "NJF", "BEX=-1.5 BETATCE=0", at77, 0.0, 4.0000000959e-4},
+        {"TNOM = 50 at 27 C", "NJF", both, ".options temp=27\n", 0.0, 4.5886778482e-4},
+        {"TNOM = 50 at 27 C, Vgs = -1", "NJF", both, ".options temp=27\n", -1.0, 1.1734027133e-4},
+        {"TNOM = 50, no temperature given", "NJF", both, "", 0.0, 4.5886778482e-4},
+        {"PJF, VTOTC", "PJF", "VTOTC=1m", at77, 0.0, -3.8025000959e-4},
+        {"PJF, TCV", "PJF", "TCV=1m", at77, 0.0, -4.2025000959e-4},
+        {"PJF, BETATCE", "PJF", "BETATCE=-0.5", at77, 0.0, -3.1190738678e-4},
+    };
+    for (const auto& c : cases) {
+        const std::string vd = c.kind == "PJF" ? "-5" : "5";
+        const auto op =
+            operating_point("Vd d 0 " + vd + "\nVg g 0 " + std::to_string(c.vgs) +
+                            "\nJ1 d g 0 jm\n.model jm " + c.kind + " " + c.card + "\n" + c.options);
+        EXPECT_NEAR(-op.current("Vd"), c.id, 1e-8 * std::abs(c.id)) << c.what;
+    }
+}
+
+// PB, CGS and CGD follow SPICE's junction law, as the diode's VJ and CJO do
+// with M = 0.5 (core::junction_potential_at, core::depletion_capacitance_at).
+// The capacitance at the gate, -Im I(Vg) / omega with the drain at 5 V, is
+// CGS(T) / sqrt(1 - Vgs/PB(T)) for a card with CGS alone, and CGD(T) at
+// Vgd = -5 V for one with CGD alone; forward-biased beyond FC PB(T) it
+// continues linearly. ngspice-45.2 gives these values (run 2026-11-28, with
+// numdgt = 12), and this program within 1e-7 of each.
+TEST(JfetElement, CapacitancesFollowTemperature) {
+    const Real f = 1e3;
+    auto gate_capacitance = [&](const std::string& card, const std::string& temp,
+                                const std::string& vgs) {
+        parser::NetlistParser parser;
+        auto parsed = parser.parse_string("t\nVd d 0 DC 5\nVg g 0 DC " + vgs +
+                                          " AC 1\nJ1 d g 0 jm\n.model jm NJF " + card +
+                                          "\n.options temp=" + temp + "\n.ac lin 1 1k 1k\n.end\n");
+        solvers::ACSolver solver(*parsed.circuit, parsed.config);
+        const auto ac = solver.solve();
+        EXPECT_EQ(ac.status, ConvergenceStatus::SUCCESS);
+        const auto& x = ac.frequency_points.at(0).solution;
+        for (std::uint32_t i = 0; i < x.size(); ++i) {
+            if (parsed.circuit->unknown_name(i) == "I(Vg)")
+                return -x[i].imag() / (2.0 * M_PI * f);
+        }
+        return 0.0;
+    };
+    const struct {
+        std::string card, temp, vgs;
+        Real c;
+    } cases[] = {
+        {"CGS=1p PB=0.8", "77", "0", 1.0603434223e-12},
+        {"CGS=1p PB=0.8", "77", "-3", 4.6634531910e-13},
+        {"CGS=1p PB=0.8 TNOM=50", "27", "0", 9.7561630695e-13},
+        {"CGS=1p PB=0.8 TNOM=50", "27", "-3", 4.5502929746e-13},
+        {"CGD=1p PB=0.8", "77", "0", 3.7607101426e-13},
+        {"CGD=1p PB=0.8", "-23", "0", 3.6385432870e-13},
+        {"CGS=1p PB=0.8 FC=0.5", "127", "0.5", 2.0427885071e-12},
+    };
+    for (const auto& c : cases) {
+        EXPECT_NEAR(gate_capacitance(c.card, c.temp, c.vgs), c.c, 1e-7 * c.c)
+            << c.card << " at " << c.temp << " C, Vgs = " << c.vgs;
+    }
+}
+
+// The temperature takes every value anew from the card's value at TNOM: a
+// second temperature does not build on the first, coming back to TNOM gives
+// the card's values, and a new VTO is the card's, taken at the temperature
+TEST(JfetElement, TemperatureIsTakenFromTheCard) {
+    JFET_N jfet(1, "J1", 1, 2, 0, 1e-4, -2.0, 0.0, 1e-14, 1.0, 1e-12, 1e-12, 0.8);
+    jfet.set_nominal_temperature(300.15);
+    jfet.set_temperature_coefficients(1e-3, -1.5, std::nullopt);
+    jfet.set_temperature(350.15);
+    EXPECT_NEAR(jfet.pinchoff_voltage(), -1.95, 1e-12);
+    EXPECT_NEAR(jfet.transconductance_parameter(), 1e-4 * std::pow(350.15 / 300.15, -1.5), 1e-16);
+    jfet.set_temperature(400.15);
+    EXPECT_NEAR(jfet.pinchoff_voltage(), -1.9, 1e-12);
+    jfet.set_pinchoff_voltage(-3.0);
+    EXPECT_NEAR(jfet.pinchoff_voltage(), -2.9, 1e-12);
+    jfet.set_pinchoff_voltage(-2.0);
+    jfet.set_temperature(300.15);
+    EXPECT_DOUBLE_EQ(jfet.pinchoff_voltage(), -2.0);
+    EXPECT_DOUBLE_EQ(jfet.transconductance_parameter(), 1e-4);
+    EXPECT_DOUBLE_EQ(jfet.gate_saturation_current(), 1e-14);
+    EXPECT_DOUBLE_EQ(jfet.get_drain_current(0.0, 5.0), 4e-4);
 }
 
 // A J line needs an NJF or PJF card, defined anywhere in the netlist

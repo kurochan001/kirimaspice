@@ -935,9 +935,13 @@ public:
     /// the area factor already applied to BETA, IS, CGS and CGD
     /// @param p_channel true for a PJF, false for an NJF
     /// @param tnom TNOM [K]
+    /// @param vto_per_kelvin dVTO/dT [V/K], @param bex BEX, @param betatce
+    /// BETATCE when the card gives it (JFET::set_temperature_coefficients)
     void add_jfet(const std::string& name, const std::string& drain, const std::string& gate,
                   const std::string& source, bool p_channel, Real beta, Real vto, Real lambda,
-                  Real is, Real n, Real cgs, Real cgd, Real pb, Real fc, Real tnom, Real eg);
+                  Real is, Real n, Real cgs, Real cgd, Real pb, Real fc, Real tnom, Real eg,
+                  Real vto_per_kelvin = 0.0, Real bex = 0.0,
+                  std::optional<Real> betatce = std::nullopt);
 
     /// Add N-channel MESFET (Metal-Semiconductor FET)
     /// Netlist: Z<name> <drain> <gate> <source> <model_name> [params]

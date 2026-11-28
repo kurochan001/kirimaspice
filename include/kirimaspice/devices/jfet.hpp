@@ -29,11 +29,17 @@ enum class JFETPolarity { N, P };
 /// vds, the current reversed). The terminal current is t times it. Each of
 /// the gate-source and gate-drain junctions carries IS (exp(v/(N Vt)) - 1)
 /// with GMIN in parallel, and a depletion capacitance C0/sqrt(1 - v/PB),
-/// continued linearly above FC PB (CGS and CGD for C0). IS follows the
-/// temperature as IS exp((T/TNOM - 1) EG/(N Vt)). ngspice-45.2 gives these
-/// values (run 2026-11-28; tests/unit/test_jfet.cpp). Not modelled: RD,
-/// RS, the doping-tail parameter B (other than 1), the temperature of VTO,
-/// BETA, PB and the capacitances, and noise.
+/// continued linearly above FC PB (CGS and CGD for C0).
+///
+/// With the temperature T and dT = T - TNOM (set_temperature): IS is
+/// IS exp((T/TNOM - 1) EG/(N Vt)); VTO moves by its coefficient times dT
+/// (VTOTC, or -TCV); BETA is BETA 1.01^(BETATCE dT), or BETA (T/TNOM)^BEX
+/// without BETATCE; PB, CGS and CGD follow SPICE's junction law
+/// (core::junction_potential_at, core::depletion_capacitance_at with
+/// M = 0.5). ngspice-45.2 gives these values (run 2026-11-28;
+/// tests/unit/test_jfet.cpp). RD and RS are resistors that the parser puts
+/// in series with the drain and the source. Not modelled: the doping-tail
+/// parameter B (other than 1) and noise.
 template<JFETPolarity Pol>
 class JFET : public Device {
 public:
@@ -56,21 +62,33 @@ public:
 
     enum class Region { CUTOFF, LINEAR, SATURATION };
 
-    JFET(DeviceId id, const std::string& name,
-         NodeId drain, NodeId gate, NodeId source,
-         Real beta = 1e-4,     // BETA [A/V²]
-         Real vto = -2.0,      // VTO [V]
-         Real lambda = 0.0,    // LAMBDA [1/V]
-         Real is = 1e-14,      // IS of each gate junction [A]
-         Real n = 1.0,         // N of the gate junctions
-         Real cgs = 0.0,       // CGS, zero-bias G-S capacitance [F]
-         Real cgd = 0.0,       // CGD, zero-bias G-D capacitance [F]
-         Real pb = 1.0,        // PB, gate junction potential [V]
-         Real fc = 0.5)        // FC, forward-bias capacitance coefficient
-        : Device(id, name, device_type)
-        , nodes_{drain, gate, source}
-        , beta_(beta), vto_(vto), lambda_(lambda), is_(is), n_(n)
-        , cgs_(cgs), cgd_(cgd), pb_(pb), fc_(fc), is_tnom_(is) {
+    JFET(DeviceId id, const std::string& name, NodeId drain, NodeId gate, NodeId source,
+         Real beta = 1e-4,   // BETA [A/V²]
+         Real vto = -2.0,    // VTO [V]
+         Real lambda = 0.0,  // LAMBDA [1/V]
+         Real is = 1e-14,    // IS of each gate junction [A]
+         Real n = 1.0,       // N of the gate junctions
+         Real cgs = 0.0,     // CGS, zero-bias G-S capacitance [F]
+         Real cgd = 0.0,     // CGD, zero-bias G-D capacitance [F]
+         Real pb = 1.0,      // PB, gate junction potential [V]
+         Real fc = 0.5)      // FC, forward-bias capacitance coefficient
+        : Device(id, name, device_type),
+          nodes_{drain, gate, source},
+          beta_(beta),
+          vto_(vto),
+          lambda_(lambda),
+          is_(is),
+          n_(n),
+          cgs_(cgs),
+          cgd_(cgd),
+          pb_(pb),
+          fc_(fc),
+          is_tnom_(is),
+          beta_tnom_(beta),
+          vto_tnom_(vto),
+          pb_tnom_(pb),
+          cgs_tnom_(cgs),
+          cgd_tnom_(cgd) {
         if (beta <= 0.0) {
             throw std::runtime_error("JFET transconductance parameter must be positive: " + name);
         }
@@ -191,21 +209,43 @@ public:
     NodeId gate() const { return nodes_[1]; }
     NodeId source() const { return nodes_[2]; }
 
-    void set_pinchoff_voltage(Real vto) { vto_ = vto; }
+    /// VTO at TNOM, the card's value; the device takes it at its temperature
+    void set_pinchoff_voltage(Real vto) {
+        vto_tnom_ = vto;
+        set_temperature(temperature_);
+    }
 
-    /// TNOM [K], at which IS is the card's, and EG [eV] of IS(T)
+    /// TNOM [K], at which the card's values hold, and EG [eV] of IS(T)
     void set_nominal_temperature(Real tnom_kelvin) { tnom_ = tnom_kelvin; }
     void set_energy_gap(Real eg) { eg_ = eg; }
 
-    /// The operating temperature [K]: Vt of the junctions, and
-    /// IS = IS(TNOM) exp((T/TNOM - 1) EG/(N Vt)), as ngspice-45.2 has it
+    /// How VTO and BETA follow the temperature: dVTO/dT [V/K] (the card's
+    /// VTOTC, or -TCV), the exponent BEX of BETA (T/TNOM)^BEX, and BETATCE
+    /// [%/K] of BETA 1.01^(BETATCE (T - TNOM)), which is taken in place of
+    /// BEX when the card gives it, also as 0, as in ngspice-45.2
+    void set_temperature_coefficients(Real vto_per_kelvin, Real bex, std::optional<Real> betatce) {
+        vto_tc_ = vto_per_kelvin;
+        bex_ = bex;
+        betatce_ = betatce;
+    }
+
+    /// The operating temperature [K]: every value that follows it is taken
+    /// anew from the card's value at TNOM, as ngspice-45.2 has it (the class
+    /// comment gives the laws)
     void set_temperature(Real temp_kelvin) {
         if (temp_kelvin <= 0.0) {
             throw std::runtime_error("Temperature must be positive: " + name_);
         }
         temperature_ = temp_kelvin;
         const Real vt = thermal_voltage();
+        const Real dt = temp_kelvin - tnom_;
         is_ = is_tnom_ * std::exp((temp_kelvin / tnom_ - 1.0) * eg_ / (n_ * vt));
+        vto_ = vto_tnom_ + vto_tc_ * dt;
+        beta_ = beta_tnom_ *
+                (betatce_ ? std::pow(1.01, *betatce_ * dt) : std::pow(temp_kelvin / tnom_, bex_));
+        pb_ = core::junction_potential_at(pb_tnom_, temp_kelvin, tnom_);
+        cgs_ = core::depletion_capacitance_at(cgs_tnom_, pb_tnom_, pb_, 0.5, temp_kelvin, tnom_);
+        cgd_ = core::depletion_capacitance_at(cgd_tnom_, pb_tnom_, pb_, 0.5, temp_kelvin, tnom_);
     }
 
     /// The region at vgs and vds of the device's polarity (vds >= 0)
@@ -337,8 +377,11 @@ private:
     }
 
     std::vector<NodeId> nodes_;
-    Real beta_, vto_, lambda_, is_, n_, cgs_, cgd_, pb_, fc_;
-    Real is_tnom_;
+    Real beta_, vto_, lambda_, is_, n_, cgs_, cgd_, pb_, fc_;              // at the temperature
+    Real is_tnom_, beta_tnom_, vto_tnom_, pb_tnom_, cgs_tnom_, cgd_tnom_;  // the card's, at TNOM
+    Real vto_tc_ = 0.0;                                                    // dVTO/dT [V/K]
+    Real bex_ = 0.0;                                                       // BEX
+    std::optional<Real> betatce_;  // BETATCE [%/K], when the card gives it
     Real tnom_ = 300.15;         // TNOM [K]
     Real eg_ = 1.11;             // EG [eV]
     Real temperature_ = 300.15;  // operating temperature [K]

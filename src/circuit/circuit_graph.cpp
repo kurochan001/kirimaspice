@@ -1517,9 +1517,11 @@ void CircuitGraph::add_triac(const std::string& name,
 // MESFET
 //==============================================================================
 
-void CircuitGraph::add_jfet(const std::string& name, const std::string& drain, const std::string& gate,
-                            const std::string& source, bool p_channel, Real beta, Real vto, Real lambda,
-                            Real is, Real n, Real cgs, Real cgd, Real pb, Real fc, Real tnom, Real eg) {
+void CircuitGraph::add_jfet(const std::string& name, const std::string& drain,
+                            const std::string& gate, const std::string& source, bool p_channel,
+                            Real beta, Real vto, Real lambda, Real is, Real n, Real cgs, Real cgd,
+                            Real pb, Real fc, Real tnom, Real eg, Real vto_per_kelvin, Real bex,
+                            std::optional<Real> betatce) {
     const NodeId drain_id = add_node(drain);
     const NodeId gate_id = add_node(gate);
     const NodeId source_id = add_node(source);
@@ -1528,6 +1530,7 @@ void CircuitGraph::add_jfet(const std::string& name, const std::string& drain, c
     auto make = [&](auto jfet) {
         jfet->set_nominal_temperature(tnom);
         jfet->set_energy_gap(eg);
+        jfet->set_temperature_coefficients(vto_per_kelvin, bex, betatce);
         jfet->set_temperature(tnom);
         device = jfet;
     };

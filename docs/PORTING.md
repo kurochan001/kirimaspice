@@ -130,9 +130,9 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
   ([KNOWN_ISSUES](../KNOWN_ISSUES.md#device-models)).
 - [ ] **`S` and `Y` parameters on the element line.** `.MODEL` has no
   SCR or TRIAC type.
-- [ ] **`J` elements without `RD` and `RS`.** A JFET card's series
-  resistances are named in a warning and not used; put resistors in
-  series with the drain and the source.
+- [ ] **`J` elements with `B` other than 1.** A JFET card's doping-tail
+  parameter is named in a warning and not used; `RD`, `RS` and the
+  temperature coefficients are read as in ngspice.
 
 ### Transient
 

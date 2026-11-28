@@ -25,7 +25,8 @@ push したら項目に印を付け、同じコミットで KNOWN_ISSUES から�
   （`parse_poly_controlled_source`）。
 - [x] **`J` 素子**（M）。JFET を ngspice のレベル 1 にし、ゲートの容量を `device_utils::CapacitorHistory` で
   積分します。
-- [ ] **JFET の `RD`、`RS` と、`VTO`、`BETA`、`PB`、容量の温度**（M）（[デバイスモデル](KNOWN_ISSUES.ja.md#デバイスモデル)）。
+- [x] **JFET の `RD`、`RS` と、`VTO`、`BETA`、`PB`、容量の温度**（M）。`RD` と `RS` は直列の抵抗、`VTO` は `VTOTC` か
+  `TCV`、`BETA` は `BETATCE` か `BEX`、`PB`、`CGS`、`CGD` はダイオードの接合の温度則で、ngspice-45.2 と同じ値です。
 - [x] **`.OPTIONS` の値で倍率を読む**（S）。数のオプションは素子の値と同じく読みます
   （`util::parse_value_with_unit`）。`itl1=1k` は 1000 です。
 - [x] **空の 1 行目を題名にする**（S）。ngspice-47 と同じにしました。空の行で始まっていたテストのネットリストは、

@@ -31,8 +31,10 @@ Small items with a direct effect on netlists written for ngspice.
   of the polynomial (`parse_poly_controlled_source`).
 - [x] **`J` elements** (M), with the JFET as ngspice's level 1 and its
   gate capacitances through `device_utils::CapacitorHistory`.
-- [ ] **The JFET's `RD`, `RS` and temperature of `VTO`, `BETA`, `PB` and the
-  capacitances** (M) ([device models](KNOWN_ISSUES.md#device-models)).
+- [x] **The JFET's `RD`, `RS` and temperature of `VTO`, `BETA`, `PB` and the
+  capacitances** (M): `RD` and `RS` as resistors in series, `VTOTC` or
+  `TCV`, `BETATCE` or `BEX`, and the junction law of the diode for `PB`,
+  `CGS` and `CGD`, as ngspice-45.2 gives them.
 - [x] **Scale factors in `.OPTIONS` values** (S). A numeric option is read
   as an element value is (`util::parse_value_with_unit`): `itl1=1k` is 1000.
 - [x] **An empty first line is the title** (S), as in ngspice-47; the

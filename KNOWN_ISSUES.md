@@ -310,15 +310,13 @@ says otherwise.
   are an error. The gate junctions and the charge model of ngspice's
   MESFET are not modelled; `CGS`, `CGD` and `CDS` are constant. Curtice's
   model is the library's only (`MESFETModel::CURTICE`).
-- **The JFET is ngspice's level 1 without its series resistances, its
-  doping tail and most of its temperature dependence.** `RD` and `RS`
-  are not modelled, `B` other than 1 is not used, and of the temperature
-  only IS(T) and Vt follow it: `VTO`, `BETA`, `PB`, `CGS` and `CGD` keep
-  their card values (ngspice-45.2 adjusts `PB` and the capacitances, and
-  has `VTOTC`, `BETATCE` and `TCV`). The capacitances are integrated at
-  the voltage of the last accepted point, as the diode's are, not as
+- **The JFET is ngspice's level 1 without its doping tail and its
+  noise.** `B` other than 1 is not used. The capacitances are integrated
+  at the voltage of the last accepted point, as the diode's are, not as
   charges; a gate step through 10 kOhm into 1 pF differs from
-  ngspice-45.2 by 1.5 mV at most (run 2026-11-28). There is no noise.
+  ngspice-45.2 by 1.5 mV at most (run 2026-11-28). The device has no
+  noise sources of its own; `RD` and `RS`, which are resistors of the
+  circuit, have their thermal noise.
 - **The FinFET is a simplified square-law model** (`src/devices/finfet.cpp`).
   Below the threshold its current is β·V<sub>t</sub><sup>2</sup>·exp(…)·(1 −
   exp(−V<sub>DS</sub>/V<sub>t</sub>)), which at the threshold is about
