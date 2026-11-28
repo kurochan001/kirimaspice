@@ -36,7 +36,7 @@ std::string parse_error_of(const std::string& netlist) {
 }  // namespace
 
 TEST(ParserUnknownInput, UnknownElementLetterIsAnError) {
-    for (const char* line : {"J1 in 0 0 JM", "j1 in 0 0 JM", "N1 in 0", "P1 in 0", "U1 in 0 x"}) {
+    for (const char* line : {"W1 in 0 0 WM", "w1 in 0 0 WM", "N1 in 0", "P1 in 0", "U1 in 0 x"}) {
         SCOPED_TRACE(line);
         const std::string error =
             parse_error_of(std::string("t\nV1 in 0 1\nR1 in 0 1k\n") + line + "\n.end\n");
@@ -46,7 +46,7 @@ TEST(ParserUnknownInput, UnknownElementLetterIsAnError) {
 
 TEST(ParserUnknownInput, UnknownElementLetterInASubcircuitIsAnError) {
     const std::string error = parse_error_of(
-        "t\n.subckt cell a\nJ1 a 0 0 JM\n.ends\nV1 in 0 1\nX1 in cell\n.end\n");
+        "t\n.subckt cell a\nW1 a 0 0 WM\n.ends\nV1 in 0 1\nX1 in cell\n.end\n");
     EXPECT_NE(error.find("Unknown element letter"), std::string::npos) << error;
 }
 
