@@ -3533,11 +3533,15 @@ print v(out) v(in)
     parser::NetlistParser parser;
     auto result = parser.parse_string(netlist);
 
-    // Check that output signals were configured
-    EXPECT_FALSE(result.config.output.save_all);
-    ASSERT_EQ(result.config.output.save_signals.size(), 2u);
-    EXPECT_EQ(result.config.output.save_signals[0], "v(out)");
-    EXPECT_EQ(result.config.output.save_signals[1], "v(in)");
+    // The signals of print are printed, as in ngspice, and the output files
+    // keep every signal: with no analysis command before it, they go to the
+    // .PRINT tables of every analysis the netlist runs
+    EXPECT_TRUE(result.config.output.save_all);
+    EXPECT_TRUE(result.config.output.save_signals.empty());
+    const std::vector<std::string> signals{"v(out)", "v(in)"};
+    EXPECT_EQ(result.config.output.print_dc_signals, signals);
+    EXPECT_EQ(result.config.output.print_tran_signals, signals);
+    EXPECT_EQ(result.config.output.print_ac_signals, signals);
 }
 
 TEST(ControlBlockAnalysis, PrintCommandWithAnalysisType) {
@@ -3556,10 +3560,12 @@ print ac v(out)
     parser::NetlistParser parser;
     auto result = parser.parse_string(netlist);
 
-    // Check that analysis type is skipped and only signals are saved
-    EXPECT_FALSE(result.config.output.save_all);
-    ASSERT_EQ(result.config.output.save_signals.size(), 1u);
-    EXPECT_EQ(result.config.output.save_signals[0], "v(out)");
+    // The analysis named first takes the signals in its .PRINT table; the
+    // output files keep every signal
+    EXPECT_TRUE(result.config.output.save_all);
+    EXPECT_TRUE(result.config.output.save_signals.empty());
+    EXPECT_EQ(result.config.output.print_ac_signals, std::vector<std::string>{"v(out)"});
+    EXPECT_TRUE(result.config.output.print_tran_signals.empty());
 }
 
 TEST(ControlBlockAnalysis, MultipleCommands) {
@@ -3591,8 +3597,11 @@ print v(out) v(in)
     // Check Transient config
     EXPECT_DOUBLE_EQ(result.config.transient.end_time, 100e-9);
 
-    // Check output config
-    EXPECT_EQ(result.config.output.save_signals.size(), 2u);
+    // print follows tran, so its signals are the transient's .PRINT table;
+    // the output files keep every signal
+    EXPECT_TRUE(result.config.output.save_signals.empty());
+    EXPECT_EQ(result.config.output.print_tran_signals, (std::vector<std::string>{"v(out)", "v(in)"}));
+    EXPECT_TRUE(result.config.output.print_dc_signals.empty());
 }
 
 // IF/ELSE/END Control Flow Tests
