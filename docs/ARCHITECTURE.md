@@ -467,7 +467,7 @@ its own solver. The inputs are the sources written with `AC`
 | Pole-zero | `PoleZeroSolver`, a placeholder | no; `.PZ` is parsed |
 | Distortion | `DistortionSolver`, ratios of small-signal magnitudes | no; `.DISTO` is parsed |
 | S-parameters | `SParameterSolver`, with `TouchstoneWriter` | no; `.PORT` is parsed |
-| Parameter sweep (`.STEP`) | `ParameterSweepExecutor`, which parses the netlist again per point | no; `.STEP` is parsed |
+| Parameter sweep (`.STEP`) | `ParameterSweepExecutor`, which parses the netlist again per point | yes, the first `.STEP` line, by parsing the netlist again in `main.cpp` |
 | Monte Carlo, worst case | `MonteCarloExecutor`, each run seeded by `run_seed` from the base seed and the run; `WCaseAnalyzer`, whose nominal is the all-typical case (`src/analysis`) | no |
 | Optimization, BSIM4 extraction | `CircuitOptimizer`, `BSIM4ParameterExtractor`, with NLopt | no |
 | Measurements | `MeasureEngine` (`src/measure`) | no; `.MEASURE` is ignored with a warning |

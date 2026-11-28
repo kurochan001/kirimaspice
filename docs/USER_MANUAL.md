@@ -208,7 +208,7 @@ temperature in their names (see [Save the results](#save-the-results)).
 The other analyses in the library (noise, transfer function, pole-zero,
 distortion, sensitivity, S-parameters, Monte Carlo, worst case,
 optimization) are not run by the program. `.TF`, `.PZ`, `.DISTO`, `.SENS`,
-`.PORT`, `.MC`, `.WCASE`, `.OPTIMIZE` and `.STEP` are read and not run,
+`.PORT`, `.MC`, `.WCASE` and `.OPTIMIZE` are read and not run,
 each named once in a warning; noise has
 no directive here, and `.NOISE` and `.MEASURE` are ignored with a warning.
 

@@ -124,10 +124,11 @@ document also lists differences not decided there.
   capacitances (read in the code at `ba291cd`).
 - **`.MODEL` has no SCR or TRIAC type:** `S` and `Y` take `NAME=value`
   parameters on their lines only, and a model name there is an error.
-- **`.STEP`, `.SENS`, `.MC`, `.TF`, `.PZ`, `.DISTO`, `.PORT`, `.WCASE`
-  and `.OPTIMIZE` are read but not run, each named in a warning;
-  `.PRINT DC`, `.PRINT TRAN` and `.PRINT AC` are printed, and `.SAVE`
-  limits the output files.** `.NOISE`,
+- **`.SENS`, `.MC`, `.TF`, `.PZ`, `.DISTO`, `.PORT`, `.WCASE` and
+  `.OPTIMIZE` are read but not run, each named in a warning;
+  `.PRINT DC`, `.PRINT TRAN` and `.PRINT AC` are printed, `.SAVE` limits
+  the output files, and `.STEP` runs the first `.STEP` line only (a
+  second is named in a warning).** `.NOISE`,
   `.MEASURE`, `.TITLE` and unknown directives are ignored with a warning.
 - **Empty lines before the title are skipped: the first line that is not
   empty is the title.** ngspice-47 takes the first line as the title even

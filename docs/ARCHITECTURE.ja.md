@@ -374,7 +374,7 @@ flowchart TD
 | 極と零点 | `PoleZeroSolver`。仮の実装 | 使えない。`.PZ` は解析する |
 | ひずみ | `DistortionSolver`。小信号の大きさの比 | 使えない。`.DISTO` は解析する |
 | S パラメータ | `SParameterSolver`。`TouchstoneWriter` と一緒に | 使えない。`.PORT` は解析する |
-| パラメータスイープ（`.STEP`） | `ParameterSweepExecutor`。点ごとにネットリストを解析し直す | 使えない。`.STEP` は解析する |
+| パラメータスイープ（`.STEP`） | `ParameterSweepExecutor`。点ごとにネットリストを解析し直す | 使える。最初の `.STEP` の行を、`main.cpp` がネットリストを解析し直して実行する |
 | モンテカルロ、ワーストケース | `MonteCarloExecutor`（各回のシードは、基のシードと回の番号から `run_seed` が作る）、`WCaseAnalyzer`（公称はすべて typical の場合）（`src/analysis`） | 使えない |
 | 最適化、BSIM4 の抽出 | NLopt を使う `CircuitOptimizer`、`BSIM4ParameterExtractor` | 使えない |
 | 測定 | `MeasureEngine`（`src/measure`） | 使えない。`.MEASURE` は警告して無視する |

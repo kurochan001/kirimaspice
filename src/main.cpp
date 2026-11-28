@@ -705,74 +705,109 @@ int main(int argc, char* argv[]) {
         parser::NetlistParser parser;
         auto parse_result = parser.parse_file(netlist_file);
 
-        auto& circuit = parse_result.circuit;
-        auto& config = parse_result.config;
-
-        // If .TEMP is specified, use the first temperature as the base temperature
-        bool has_temp_sweep = config.temp_sweep.enabled && !config.temp_sweep.temperatures.empty();
-        if (has_temp_sweep) {
-            config.temperature = config.temp_sweep.temperatures.front();
-        }
-
-        // Set simulation config for model parameter access during subcircuit expansion
-        circuit->set_simulation_config(&config);
-
-        // Expand subcircuits if any
-        circuit->expand_all_subcircuits();
-
-        spdlog::info("Circuit: {}", circuit->title());
-        spdlog::info("Nodes: {}", circuit->num_nodes());
-        spdlog::info("Devices: {}", circuit->num_devices());
-
-        // The directives the parser reads for the library that this program
-        // does not run: each is named once, so that no result is taken for
-        // one of them
-        for (const char* directive : {".SENS", ".SENSITIVITY", ".TF", ".PZ", ".DISTO", ".STEP",
-                                      ".MC", ".MONTECARLO", ".WCASE", ".OPTIMIZE", ".PORT"}) {
-            if (config.directives_read.count(directive)) {
-                spdlog::warn("{} is read, but this program does not run it", directive);
+        // .STEP param <name> ...: every analysis runs once for each value of
+        // the parameter, the netlist read again with that value given, as
+        // the library's parameter sweep reads it (parse_file's
+        // initial_params); each step's results follow a line
+        // "=== Step <name> = <value> ===", its plots are added to the raw
+        // files, and its SSF, WAV and AC CSV files carry _<name>_<value> in
+        // their names. Of several .STEP lines, the first is run.
+        std::vector<std::optional<Real>> step_values{std::nullopt};
+        std::string step_name;
+        const auto step_configs = parse_result.config.step_configs;
+        if (!step_configs.empty()) {
+            step_name = step_configs.front().param_name;
+            const auto points = step_configs.front().generate_points();
+            step_values.assign(points.begin(), points.end());
+            for (std::size_t k = 1; k < step_configs.size(); ++k) {
+                spdlog::warn(".STEP param {}: only the first .STEP line is run", step_configs[k].param_name);
+            }
+            if (step_values.empty()) {
+                spdlog::error(".STEP param {} has no values", step_name);
+                return kExitInputError;
             }
         }
+        bool first_step = true;
+        for (const auto& step_value : step_values) {
+            std::string step_suffix;
+            if (step_value) {
+                const std::string value = fmt::format("{:g}", *step_value);
+                step_suffix = "_" + step_name + "_" + value;
+                std::cout << "\n=== Step " << step_name << " = " << value << " ===\n";
+                spdlog::info("Running the analyses for {} = {}", step_name, value);
+                analysing = false;
+                parse_result = parser.parse_file(netlist_file, {{step_name, *step_value}});
+            }
+            auto& circuit = parse_result.circuit;
+            auto& config = parse_result.config;
 
-        // .TEMP with one value is .OPTIONS TEMP (as in ngspice-47, which takes
-        // one value only); with several, every analysis runs at each of them,
-        // and the SSF, WAV and AC CSV files of a run carry its temperature in
-        // their names (out_27C.ssf, out_ac_27C.csv)
-        std::vector<std::optional<Real>> run_temperatures;
-        if (has_temp_sweep) {
-            run_temperatures.assign(config.temp_sweep.temperatures.begin(),
-                                    config.temp_sweep.temperatures.end());
-        } else {
-            run_temperatures.push_back(std::nullopt);
-        }
-        const bool several_temperatures = run_temperatures.size() > 1;
-        analysing = true;
-        for (const auto& temperature : run_temperatures) {
-            SimulationConfig run_config = config;
-            std::string suffix;
-            if (temperature) {
-                run_config.temperature = *temperature;
-                run_config.temperature_explicitly_set = true;
-                run_config.temp_sweep.enabled = false;
+            // If .TEMP is specified, use the first temperature as the base temperature
+            bool has_temp_sweep = config.temp_sweep.enabled && !config.temp_sweep.temperatures.empty();
+            if (has_temp_sweep) {
+                config.temperature = config.temp_sweep.temperatures.front();
             }
-            if (several_temperatures) {
-                const std::string celsius = fmt::format("{:g}", *temperature - 273.15);
-                suffix = "_" + celsius + "C";
-                spdlog::info("Running the analyses at {} °C", celsius);
-                std::cout << "\n=== Temperature " << celsius << " °C ===\n";
+
+            // Set simulation config for model parameter access during subcircuit expansion
+            circuit->set_simulation_config(&config);
+
+            // Expand subcircuits if any
+            circuit->expand_all_subcircuits();
+
+            spdlog::info("Circuit: {}", circuit->title());
+            spdlog::info("Nodes: {}", circuit->num_nodes());
+            spdlog::info("Devices: {}", circuit->num_devices());
+
+            // The directives the parser reads for the library that this program
+            // does not run: each is named once, so that no result is taken for
+            // one of them
+            for (const char* directive : {".SENS", ".SENSITIVITY", ".TF", ".PZ", ".DISTO",
+                                          ".MC", ".MONTECARLO", ".WCASE", ".OPTIMIZE", ".PORT"}) {
+                if (first_step && config.directives_read.count(directive)) {
+                    spdlog::warn("{} is read, but this program does not run it", directive);
+                }
             }
-            // The AC CSV is <base>_ac.csv, <base> being the -o path or the
-            // netlist path without the extension of its last component
-            const std::string ac_csv =
-                *with_suffix(path_stem(output_file ? *output_file : netlist_file) + "_ac.csv",
-                             suffix);
-            const OutputFiles files{with_suffix(output_file, suffix), ac_csv, raw_output_file,
-                                    raw_binary_output_file, with_suffix(wav_output_file, suffix),
-                                    wav_sample_rate, wav_bits_per_sample};
-            const int code = run_analyses(*circuit, run_config, files, raw_append_mode,
-                                          raw_binary_append_mode);
-            if (code != 0) {
-                return code;
+
+            // .TEMP with one value is .OPTIONS TEMP (as in ngspice-47, which takes
+            // one value only); with several, every analysis runs at each of them,
+            // and the SSF, WAV and AC CSV files of a run carry its temperature in
+            // their names (out_27C.ssf, out_ac_27C.csv)
+            std::vector<std::optional<Real>> run_temperatures;
+            if (has_temp_sweep) {
+                run_temperatures.assign(config.temp_sweep.temperatures.begin(),
+                                        config.temp_sweep.temperatures.end());
+            } else {
+                run_temperatures.push_back(std::nullopt);
+            }
+            const bool several_temperatures = run_temperatures.size() > 1;
+            analysing = true;
+            first_step = false;
+            for (const auto& temperature : run_temperatures) {
+                SimulationConfig run_config = config;
+                std::string suffix = step_suffix;
+                if (temperature) {
+                    run_config.temperature = *temperature;
+                    run_config.temperature_explicitly_set = true;
+                    run_config.temp_sweep.enabled = false;
+                }
+                if (several_temperatures) {
+                    const std::string celsius = fmt::format("{:g}", *temperature - 273.15);
+                    suffix += "_" + celsius + "C";
+                    spdlog::info("Running the analyses at {} °C", celsius);
+                    std::cout << "\n=== Temperature " << celsius << " °C ===\n";
+                }
+                // The AC CSV is <base>_ac.csv, <base> being the -o path or the
+                // netlist path without the extension of its last component
+                const std::string ac_csv =
+                    *with_suffix(path_stem(output_file ? *output_file : netlist_file) + "_ac.csv",
+                                 suffix);
+                const OutputFiles files{with_suffix(output_file, suffix), ac_csv, raw_output_file,
+                                        raw_binary_output_file, with_suffix(wav_output_file, suffix),
+                                        wav_sample_rate, wav_bits_per_sample};
+                const int code = run_analyses(*circuit, run_config, files, raw_append_mode,
+                                              raw_binary_append_mode);
+                if (code != 0) {
+                    return code;
+                }
             }
         }
         return 0;

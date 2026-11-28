@@ -500,7 +500,8 @@ parser stores it, but the program does not use it (the library can).
 | `.END` | `.END` | ignored; lines after it are read, as in ngspice-47 |
 | `.PRINT`, `.SAVE` | `.PRINT DC\|TRAN\|AC <signals>`, `.SAVE <signals>` | `.PRINT DC`, `.PRINT TRAN` and `.PRINT AC` used: their signals are the table of their analysis on standard output (below); `.SAVE` used: the raw files (ASCII and binary) and the SSF file hold only its signals (`v(<node>)`, `i(<source>)` or a node's name), of every analysis, the lines of several `.SAVE` together, as in ngspice-45.2; `.SAVE all` holds everything, and a signal that names nothing is left out with a warning; the WAV file is not changed |
 | `.FOUR` | `.FOUR <frequency> <signal> ...`, each `v(<node>)` or `i(<source>)` | used with `.TRAN`: prints the harmonics and the THD of the last period of each signal after the transient; the phase of each harmonic is that of a sine from the start of that period, as ngspice-47 prints it |
-| `.STEP`, `.SENS`, `.MC`, `.TF`, `.PZ`, `.DISTO`, `.PORT`, `.WCASE`, `.OPTIMIZE` | | read only; named in a warning |
+| `.STEP` | `.STEP [DEC\|OCT] PARAM <name> <start> <stop> <step>`, `.STEP PARAM <name> LIST <values>` | used: every analysis runs once per value, the netlist read again with the parameter given that value; the first `.STEP` line only, a second named in a warning (below) |
+| `.SENS`, `.MC`, `.TF`, `.PZ`, `.DISTO`, `.PORT`, `.WCASE`, `.OPTIMIZE` | | read only; named in a warning |
 | `.CONTROL` / `.ENDC` | | taken out and run by the parser; of its analysis commands the program runs `dc` and `ac`, not `tran`, and `op` is named in a warning as an unknown command (see [KNOWN_ISSUES.md](../KNOWN_ISSUES.md)) |
 | `.TITLE`, `.MEASURE`, `.NOISE`, others | | ignored; each name in one warning |
 
@@ -621,6 +622,13 @@ results are:
   columns, `_real` and `_imag`, as the AC CSV file names them, and `vr`,
   `vi`, `vm`, `vp` (radians), `vdb` and `ir`, `ii`, `im`, `ip`, `idb` one
   each, as ngspice-45.2 takes them. Without it, nothing.
+
+With `.STEP`, each step's results follow a line `=== Step <name> =
+<value> ===`, its plots are added to the raw files, and its SSF, WAV and
+AC CSV files carry `_<name>_<value>` before their extension
+(`out_rl_1000.ssf`); under `.TEMP` as well, the steps are the outer loop
+(`out_rl_1000_27C.ssf`). ngspice has no `.STEP`; this follows the `.TEMP`
+runs.
 
 Under a `.TEMP` list of several values, each run's results follow a line
 `=== Temperature <t> °C ===`.

@@ -35,8 +35,8 @@ push したら項目に印を付け、同じコミットで KNOWN_ISSUES から�
   SCR と TRIAC の型がありません。
 - [x] **`.PRINT DC` と `.PRINT AC`**。標準出力の表にしました。
 - [x] **`.SAVE`**。raw と SSF のファイルを絞ります（`output::SavedSignals`）。
-- [ ] **読むだけで実行しないディレクティブ**（それぞれ M）。まず `.STEP`（ngspice に `.STEP` はないので、出力は人と
-  決める）、次に `.SENS`、`.TF`、`.MC`、`.PZ`、`.DISTO`、`.PORT`、`.WCASE`、`.OPTIMIZE`、`.NOISE`、
+- [x] **`.STEP`**。`.TEMP` の実行と同じく、値ごとにすべての解析を 1 回実行します。最初の `.STEP` の行だけです。
+- [ ] **読むだけで実行しないディレクティブ**（それぞれ M）。`.SENS`、`.TF`、`.MC`、`.PZ`、`.DISTO`、`.PORT`、`.WCASE`、`.OPTIMIZE`、`.NOISE`、
   `.MEASURE` です（[ネットリストの入力](KNOWN_ISSUES.ja.md#ネットリストの入力)）。
 - [x] **`.OP` と `.DC` があれば両方を実行する**（S）。ngspice-45.2 の raw ファイルと同じく、スイープが先です。
 - [x] **`.control` ブロックの中の解析**（M）。`op`、`dc`（入れ子も）、`tran`、`ac` を、そのディレクティブのパーサーで

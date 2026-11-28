@@ -138,6 +138,29 @@ class CliAnalyses(unittest.TestCase):
         self.assertEqual(self.raw_variables(binary), [["V1", "v(b)", "i(v1)"], ["v(b)", "i(v1)"],
                                                      ["time", "v(b)", "i(v1)"]])
 
+    def test_step_runs_every_analysis_for_each_value(self):
+        # .STEP param reads the netlist again with each value given and runs
+        # its analyses (main.cpp); V(b) of the divider is rl/(1k + rl), the
+        # analytic value. Each step adds its plots to the raw file and puts
+        # _<name>_<value> in the SSF name; a second .STEP line is not run
+        result, plots = self.run_deck(
+            "t\n.param rl=1k\nV1 a 0 1\nR1 a b 1k\nR2 b 0 {rl}\n.step param rl list 1k 3k\n"
+            ".step param x 1 2 1\n.op\n.end\n")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertNotIn(".STEP is read", result.stderr)
+        self.assertIn("only the first .STEP line is run", result.stderr)
+        self.assertEqual(plots, ["DC Operating Point", "DC Operating Point"])
+        steps = result.stdout.split("=== Step rl = ")[1:]
+        self.assertEqual([step.split(" ===")[0] for step in steps], ["1000", "3000"])
+        self.assertIn("V(b) = 0.5 V", steps[0])
+        self.assertIn("V(b) = 0.75 V", steps[1])
+        deck = self.directory / "circuit.cir"
+        result = subprocess.run([str(BINARY), str(deck), "-o", str(self.directory / "out.ssf")],
+                                cwd=self.directory, capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertTrue((self.directory / "out_rl_1000.ssf").exists())
+        self.assertTrue((self.directory / "out_rl_3000.ssf").exists())
+
     def test_ac_from_zero_hertz_is_run_and_fails(self):
         # A decade sweep from 0 Hz has no points (log 0); the .AC line is
         # still an analysis line, so the program reports the failure
