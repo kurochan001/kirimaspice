@@ -174,8 +174,8 @@ static int run_analyses(circuit::CircuitGraph& circuit_graph, const SimulationCo
     const bool asks_for_none = !config.op_requested && !config.dc_sweep_enabled &&
                                !config.tran_requested && !config.ac_requested;
     // A netlist without an analysis line runs the operating point as if it had
-    // .OP; with .DC as well, .OP gives the sweep alone
-    const bool run_dc_point = (config.op_requested || asks_for_none) && !run_dc_sweep;
+    // .OP; .OP with .DC runs both, as ngspice-45.2 does (run 2026-11-28)
+    const bool run_dc_point = config.op_requested || asks_for_none;
     if (asks_for_none) {
         spdlog::info("No analysis specified, running the operating point as for .OP");
     }

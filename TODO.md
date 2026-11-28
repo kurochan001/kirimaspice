@@ -44,8 +44,8 @@ Small items with a direct effect on netlists written for ngspice.
   `.PRINT DC` and `.PRINT AC` first; then `.SENS`, `.TF`, `.MC`, `.PZ`,
   `.DISTO`, `.PORT`, `.WCASE`, `.OPTIMIZE`, `.NOISE` and `.MEASURE`
   ([netlist input](KNOWN_ISSUES.md#netlist-input)).
-- [ ] **`.OP` with `.DC` runs both** (S)
-  ([analyses](KNOWN_ISSUES.md#analyses)).
+- [x] **`.OP` with `.DC` runs both** (S), the sweep first, as in
+  ngspice-45.2's raw file.
 - [ ] **Analyses in `.control` blocks** (M), or an error for those not
   run ([netlist input](KNOWN_ISSUES.md#netlist-input)).
 

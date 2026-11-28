@@ -91,8 +91,8 @@ and the second half of `core/device_utils.hpp` is in
    `tran_requested` (a complete `.TRAN`) and `ac_requested` (`.AC`, or the
    `ac` command of a `.control` block). So an analysis line counts as every
    other directive, after continuation lines, `.INCLUDE`, `.LIB` and `.IF`;
-   a netlist with none of them runs the operating point as for `.OP`. A DC
-   sweep replaces the operating point that `.OP` asks for.
+   a netlist with none of them runs the operating point as for `.OP`. With
+   `.OP` and a DC sweep, both run.
 5. Runs the analyses through `run_analyses`, once per `.TEMP` value with
    that temperature in its `SimulationConfig` (once without `.TEMP`), and
    writes their results:
@@ -100,7 +100,7 @@ and the second half of `core/device_utils.hpp` is in
 | Netlist has | Runs | Standard output | Files |
 | --- | --- | --- | --- |
 | a complete `.DC` | DC sweep | a summary | raw (ASCII, binary) |
-| `.OP`, no sweep, or no analysis line | operating point | `V(...)` and `I(...)` | SSF, raw (ASCII, binary) |
+| `.OP`, or no analysis line | operating point | `V(...)` and `I(...)` | SSF, raw (ASCII, binary) |
 | a complete `.TRAN` | transient, then `.FOUR` for each of its signals | the results of `.FOUR`, then the table of `.PRINT TRAN` | SSF, raw (ASCII, binary), WAV |
 | `.AC` | AC | nothing | always `<base>_ac.csv` |
 

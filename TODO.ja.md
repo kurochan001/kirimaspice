@@ -36,7 +36,7 @@ push したら項目に印を付け、同じコミットで KNOWN_ISSUES から�
 - [ ] **読むだけで実行しないディレクティブ**（それぞれ M）。まず `.STEP`、`.SAVE`、`.PRINT DC`、
   `.PRINT AC`、次に `.SENS`、`.TF`、`.MC`、`.PZ`、`.DISTO`、`.PORT`、`.WCASE`、`.OPTIMIZE`、`.NOISE`、
   `.MEASURE` です（[ネットリストの入力](KNOWN_ISSUES.ja.md#ネットリストの入力)）。
-- [ ] **`.OP` と `.DC` があれば両方を実行する**（S）（[解析](KNOWN_ISSUES.ja.md#解析)）。
+- [x] **`.OP` と `.DC` があれば両方を実行する**（S）。ngspice-45.2 の raw ファイルと同じく、スイープが先です。
 - [ ] **`.control` ブロックの中の解析**（M）。実行するか、実行しないものはエラーにします
   （[ネットリストの入力](KNOWN_ISSUES.ja.md#ネットリストの入力)）。
 

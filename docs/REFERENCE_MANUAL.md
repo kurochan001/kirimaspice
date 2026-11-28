@@ -500,8 +500,8 @@ parser stores it, but the program does not use it (the library can).
   `.control` block). An analysis line counts as every other directive
   does: joined to its `+` continuation lines, in the text of `.INCLUDE`
   and `.LIB` files, in the branch of `.IF` that is taken; a comment never
-  counts, and `.OPTIONS` is no analysis line. A `.DC` line runs the sweep
-  instead of the operating point, also when `.OP` is there too.
+  counts, and `.OPTIONS` is no analysis line. With both `.OP` and `.DC`,
+  both run, as in ngspice-45.2 (run 2026-11-28).
 - With no analysis line, the program runs the operating point as for
   `.OP`: it prints the voltages and currents and writes the output files.
 - With a `.TEMP` list of several values, all of this runs once per value,
@@ -514,7 +514,7 @@ parser stores it, but the program does not use it (the library can).
 flowchart TD
   N[netlist] --> P{"parser: complete .DC?"}
   P -- yes --> SW["DC sweep"]
-  P -- no --> S{"parser: .OP, or no analysis line at all?"}
+  N --> S{"parser: .OP, or no analysis line at all?"}
   S -- yes --> OP["operating point"]
   N --> TS{"parser: complete .TRAN?"}
   TS -- yes --> TR["transient, then .FOUR"]

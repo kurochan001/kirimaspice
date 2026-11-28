@@ -58,8 +58,6 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
 - [ ] **Analyses as dot directives.** The program runs `.OP`, `.DC`,
   `.TRAN` and `.AC`, and `.FOUR` after a transient. Of the analysis
   commands of a `.control` block, only `dc` and `ac` are run.
-- [ ] **`.OP` with `.DC`.** A `.DC` sweep replaces the operating point,
-  also when `.OP` is there; ngspice runs both.
 - [ ] **`.DC` with the values of one or two sources only.** A `.DC` line
   with another count of values (an incomplete second sweep, or values
   after the second) is an error, where ngspice-47 ignores the extra ones.

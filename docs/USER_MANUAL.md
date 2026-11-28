@@ -187,9 +187,9 @@ The program runs these analyses:
 | `.TEMP <t1> <t2> ...` (°C) | every analysis at each temperature (see below) |
 | `.FOUR <f> v(<node>) ...` | the harmonics of each signal, after the transient |
 
-A netlist can ask for more than one; they run in the order DC sweep or
-operating point, transient, AC. With both `.OP` and `.DC`, only the sweep
-runs. A netlist that asks for none runs the operating point as for `.OP`:
+A netlist can ask for more than one; they run in the order DC sweep,
+operating point, transient, AC. With both `.OP` and `.DC`, both run, as
+in ngspice. A netlist that asks for none runs the operating point as for `.OP`:
 it prints the voltages and currents and writes the output files.
 
 The program runs the analyses the parser read. An analysis line counts

@@ -157,7 +157,6 @@ says otherwise.
 - **`TRTOL`, `CHGTOL`, the `LTE_*` options, `ERROR_EST` and `MAXORD` have
   no effect**, because they act on the adaptive path that the program
   does not use (read in the code).
-- **`.OP` with `.DC` runs only the sweep.**
 - **The library's adaptive path fails on a circuit at rest with BDF2 or
   BDF3 of fixed order.** A 1 kΩ, 1 µF RC circuit started from its
   operating point (no `UIC`) fails at t = 0, the step shrinking to

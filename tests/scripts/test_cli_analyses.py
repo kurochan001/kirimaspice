@@ -52,6 +52,17 @@ class CliAnalyses(unittest.TestCase):
         self.assertEqual(plots, ["DC Operating Point"])
         self.assertIn("I(V1) = -0.0005 A", result.stdout)
 
+    def test_op_with_dc_runs_both(self):
+        # ngspice-45.2 runs both and writes the DC transfer characteristic,
+        # then the operating point, to its raw file, in either order of the
+        # lines (run on 2026-11-28); before, .OP with .DC gave the sweep alone
+        for lines in (".op\n.dc V1 0 2 1\n", ".dc V1 0 2 1\n.op\n"):
+            with self.subTest(lines=lines):
+                result, plots = self.run_deck("t\nV1 a 0 1\nR1 a b 1k\nR2 b 0 1k\n" + lines + ".end\n")
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual(plots, ["DC Sweep", "DC Operating Point"])
+                self.assertIn("V(b) = 0.5 V", result.stdout)
+
     def test_ac_from_zero_hertz_is_run_and_fails(self):
         # A decade sweep from 0 Hz has no points (log 0); the .AC line is
         # still an analysis line, so the program reports the failure
