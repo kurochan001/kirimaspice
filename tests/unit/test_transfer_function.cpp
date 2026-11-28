@@ -243,11 +243,11 @@ TEST(TransferFunctionSolver, MatchesNgspice) {
     }
 }
 
-// A current output, i(<source>), is not taken: the analysis fails with a
-// message instead of a value
-TEST(TransferFunctionSolver, CurrentOutputIsNotTaken) {
+// The current of an element that is not a voltage source, i(R1), is not an
+// output: the analysis fails with a message instead of a value
+TEST(TransferFunctionSolver, CurrentOfAResistorIsNotAnOutput) {
     parser::NetlistParser parser;
-    auto parsed = parser.parse_string("t\nV1 in 0 1\nR1 in 0 1k\n.tf i(V1) V1\n.end\n");
+    auto parsed = parser.parse_string("t\nV1 in 0 1\nR1 in 0 1k\n.tf i(R1) V1\n.end\n");
     TransferFunctionSolver solver(*parsed.circuit, parsed.config);
     EXPECT_FALSE(solver.analyze().success);
 }
