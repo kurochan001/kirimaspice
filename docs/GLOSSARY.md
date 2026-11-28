@@ -16,7 +16,7 @@ For practical questions see the [FAQ](FAQ.md).
 | Term | Meaning |
 | --- | --- |
 | <a id="netlist"></a>netlist | The text file that describes a circuit and the analyses to run. kirimaspice reads SPICE netlists and follows ngspice where SPICE dialects differ ([NETLIST_CONVENTIONS](spec/NETLIST_CONVENTIONS.md)) |
-| title line | The first non-empty line of a netlist, whatever it contains |
+| title line | The first line of a netlist, whatever it contains, also when it is empty |
 | element | A line that places a device, named by its first letter: `R1`, `V1`, `M3`, `X2`. Element names are not case-sensitive |
 | <a id="directive"></a>directive | A line that starts with `.`: `.MODEL`, `.TRAN`, `.PARAM`. Some are read but not used by the program ([Reference Manual](REFERENCE_MANUAL.md#directives)) |
 | <a id="node"></a>node | A connection point named on element lines. Node names are not case-sensitive, and are written in lower case |

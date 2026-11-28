@@ -34,10 +34,8 @@ Small items with a direct effect on netlists written for ngspice.
   capacitances** (M) ([device models](KNOWN_ISSUES.md#device-models)).
 - [x] **Scale factors in `.OPTIONS` values** (S). A numeric option is read
   as an element value is (`util::parse_value_with_unit`): `itl1=1k` is 1000.
-- [ ] **An empty first line is the title** (S), as in ngspice-47. Many
-  tests write their netlists starting with an empty line, so the tests
-  change with it (a person's approval)
-  ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+- [x] **An empty first line is the title** (S), as in ngspice-47; the
+  test netlists that began with an empty line were changed first.
 - [x] **`S` and `Y` with a model not defined before them** (S): an error,
   as for the other elements; `.MODEL` has no SCR or TRIAC type.
 - [x] **`.PRINT DC` and `.PRINT AC`**, as tables on standard output.

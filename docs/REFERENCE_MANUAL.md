@@ -98,7 +98,7 @@ alike.
   flowchart LR
     F[netlist file] --> I[".INCLUDE / .INC: insert the files"]
     I --> L[".LIB: insert the section"]
-    L --> C["join + lines, drop empty lines"]
+    L --> C["join + lines, drop empty lines after the first"]
     C --> IF[".IF / .ELIF / .ELSE: keep one branch"]
     IF --> CT[".CONTROL: take out"]
     CT --> T[first line: title]
@@ -113,7 +113,7 @@ alike.
   without a section inserts the whole file; an
   `.INCLUDE` inside a `.LIB` section is not inserted, and is named in the
   warning `unknown directive .INCLUDE is ignored`.
-- The first remaining line is the title.
+- The first line is the title, also when it is empty, as in ngspice-47.
 - A line whose first non-blank character is `*` is a comment. `;` starts a
   comment that runs to the end of the line. There is no other comment
   character.

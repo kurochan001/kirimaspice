@@ -628,3 +628,22 @@ TEST(NetlistLines, PolyFormIsItsPolynomial) {
     EXPECT_THROW(parser.parse_string(sources + "E1 o 0 POLY(2) a 0 1 2\nR1 o 0 1k\n.op\n.end\n"),
                  parser::ParseError);
 }
+
+// The first line is the title, also when it is empty, as in ngspice-47
+// (preprocess_continuations): with V1 a 0 1 on the second line after an
+// empty first one, ngspice-47 gives i(v1) = -1 mA (run 2026-11-15) and
+// ngspice-45.2 the same (run 2026-11-28); before, the first line that was
+// not empty was the title, so V1 was lost. A '+' line continues the title.
+TEST(NetlistLines, EmptyFirstLineIsTheTitle) {
+    parser::NetlistParser parser;
+    for (const std::string netlist : {"\nV1 a 0 1\nR1 a 0 1k\n.op\n.end\n", "\n+ more title\nV1 a 0 1\nR1 a 0 1k\n.end\n"}) {
+        auto parsed = parser.parse_string(netlist);
+        EXPECT_NE(parsed.circuit->get_device("V1"), nullptr) << netlist;
+        solvers::DCSolver solver(*parsed.circuit, parsed.config);
+        DenseVector x;
+        SolverStats stats;
+        ASSERT_EQ(solver.solve(x, stats), ConvergenceStatus::SUCCESS);
+        EXPECT_NEAR(x[parsed.circuit->get_node_id("a") - 1], 1.0, 1e-12);
+    }
+    EXPECT_EQ(parser.parse_string("\n+ more title\nV1 a 0 1\nR1 a 0 1k\n.end\n").circuit->title(), "more title");
+}

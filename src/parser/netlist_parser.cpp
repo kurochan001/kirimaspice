@@ -175,10 +175,12 @@ std::string preprocess_continuations(const std::string& content) {
     std::vector<std::string> held_lines;
     bool first_line = true;
 
+    bool title_pending = false;  // the title, written even when it is empty
     auto flush = [&]() {
-        if (!accumulated_line.empty()) {
+        if (!accumulated_line.empty() || title_pending) {
             output << accumulated_line << '\n';
             accumulated_line.clear();
+            title_pending = false;
         }
         for (const auto& held : held_lines) {
             output << held << '\n';
@@ -187,15 +189,15 @@ std::string preprocess_continuations(const std::string& content) {
     };
 
     while (std::getline(input, line)) {
-        // The first line that is not empty is the title, whatever it holds,
-        // ';' included (leading empty lines are skipped; ngspice takes an
-        // empty first line as the title, KNOWN_ISSUES). A '+' line after it
-        // continues the title, so it is not an element, as in ngspice-47.
+        // The first line is the title, whatever it holds, ';' included, and
+        // also when it is empty, as ngspice-47 takes it: with V1 a 0 1 on the
+        // second line after an empty first one, it gives i(v1) = -1 mA (run
+        // 2026-11-15). A '+' line after it continues the title, so it is not
+        // an element, as in ngspice-47.
         if (first_line) {
-            if (!line.empty()) {
-                first_line = false;
-                accumulated_line = line;
-            }
+            first_line = false;
+            title_pending = true;
+            accumulated_line = line;
             continue;
         }
 

@@ -121,9 +121,9 @@ A netlist is a text file. The rules below are the ones that most often
 surprise someone who has used another SPICE simulator; the
 [Reference Manual](REFERENCE_MANUAL.md#netlist-syntax) has the full list.
 
-- **The first non-empty line is the title**, whatever it contains. Empty
-  lines are dropped before the title is chosen, where ngspice takes an
-  empty first line as the title ([Known issues](../KNOWN_ISSUES.md#netlist-input)).
+- **The first line is the title**, whatever it contains, also when it is
+  empty, as in ngspice: a netlist that starts with an empty line has an
+  empty title, and its second line is read as a line of the circuit.
   `.title` is ignored.
 - **Comments:** a line whose first non-blank character is `*`, and anything
   after `;` on a line.
