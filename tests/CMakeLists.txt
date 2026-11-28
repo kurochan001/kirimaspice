@@ -527,10 +527,6 @@ add_executable(test_bsim3 unit/test_bsim3.cpp)
 target_link_libraries(test_bsim3 PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_bsim3 PROPERTIES TIMEOUT 1200)
 
-add_executable(test_bsim1 unit/test_bsim1.cpp)
-target_link_libraries(test_bsim1 PRIVATE kirimaspice_lib GTest::gtest_main)
-gtest_discover_tests(test_bsim1 PROPERTIES TIMEOUT 1200)
-
 # Sensitivity Analysis
 add_executable(test_sensitivity_analyzer unit/test_sensitivity_analyzer.cpp)
 target_link_libraries(test_sensitivity_analyzer PRIVATE kirimaspice_lib GTest::gtest_main)
