@@ -908,6 +908,7 @@ static void execute_control_commands(
     }
 
     spdlog::info("Executing .CONTROL block with {} commands", control_block.commands.size());
+    std::string last_analysis;  // dc, ac, tran or op: the last analysis command read
 
     for (size_t i = 0; i < control_block.commands.size(); ++i) {
         const auto& cmd = control_block.commands[i];
@@ -1007,31 +1008,29 @@ static void execute_control_commands(
                 break;
             }
 
-            case ControlCommandType::PRINT:
-                // Print command: configure output signals
-                if (!cmd.args.empty()) {
-                    spdlog::info("PRINT: Configuring {} signal(s) for output", cmd.args.size());
-
-                    // Parse analysis type (first arg could be dc/tran/ac)
-                    std::string first_arg = cmd.args[0];
-                    std::transform(first_arg.begin(), first_arg.end(), first_arg.begin(), ::tolower);
-
-                    size_t signal_start = 0;
-                    if (first_arg == "dc" || first_arg == "tran" || first_arg == "ac") {
-                        signal_start = 1;  // Skip analysis type
-                    }
-
-                    // Add signals to output config
-                    for (size_t i = signal_start; i < cmd.args.size(); ++i) {
-                        config.output.save_signals.push_back(cmd.args[i]);
-                        spdlog::debug("  Signal: {}", cmd.args[i]);
-                    }
-
-                    if (!config.output.save_signals.empty()) {
-                        config.output.save_all = false;  // Only save specified signals
-                    }
+            case ControlCommandType::PRINT: {
+                // print writes the values of its signals, as in ngspice, and
+                // the output files keep every signal: they go to the .PRINT
+                // table of the analysis named first (print ac v(out)), else of
+                // the last analysis command before it, else of every analysis
+                if (cmd.args.empty()) {
+                    break;
+                }
+                std::string first_arg = cmd.args[0];
+                std::transform(first_arg.begin(), first_arg.end(), first_arg.begin(), ::tolower);
+                std::size_t signal_start = 0;
+                std::string analysis = last_analysis;
+                if (first_arg == "dc" || first_arg == "tran" || first_arg == "ac") {
+                    analysis = first_arg;
+                    signal_start = 1;
+                }
+                for (std::size_t k = signal_start; k < cmd.args.size(); ++k) {
+                    if (analysis.empty() || analysis == "dc") config.output.print_dc_signals.push_back(cmd.args[k]);
+                    if (analysis.empty() || analysis == "tran") config.output.print_tran_signals.push_back(cmd.args[k]);
+                    if (analysis.empty() || analysis == "ac") config.output.print_ac_signals.push_back(cmd.args[k]);
                 }
                 break;
+            }
 
             // The analysis commands mean what their directives mean: dc, ac
             // and tran are read by the parsers of .DC, .AC and .TRAN
@@ -1040,15 +1039,19 @@ static void execute_control_commands(
             // operating point, transient, AC), not in the order of the block.
             case ControlCommandType::DC:
                 run_control_analysis(".DC", cmd.args, evaluator, config, circuit);
+                last_analysis = "dc";
                 break;
             case ControlCommandType::AC:
                 run_control_analysis(".AC", cmd.args, evaluator, config, circuit);
+                last_analysis = "ac";
                 break;
             case ControlCommandType::TRAN:
                 run_control_analysis(".TRAN", cmd.args, evaluator, config, circuit);
+                last_analysis = "tran";
                 break;
             case ControlCommandType::OP:
                 config.op_requested = true;
+                last_analysis = "op";
                 break;
 
             case ControlCommandType::MEAS:

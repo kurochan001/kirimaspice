@@ -39,7 +39,7 @@ ngspice-47 は、kirimaspice が書く ASCII とバイナリの raw ファイル
 | `ngspice -b circuit.cir` | `build/kirimaspice circuit.cir` |
 | `ngspice -b -r out.raw circuit.cir` | `build/kirimaspice circuit.cir --raw-out out.raw`、または `python3 tools/ngspice_shim.py -b -r out.raw circuit.cir` |
 | `.control` のブロックの中の解析をその順で、そこの `noise`、`pz`、`sens` | `op`、`dc`、`tran`、`ac` はプログラムの順で、種類ごとに 1 回実行する。ほかは[ライブラリ](ARCHITECTURE.ja.md#ライブラリにあるほかの解析)で |
-| `print`、`plot`、`meas`、`wrdata` | raw ファイルを [Python のツール](USER_MANUAL.ja.md#python-のツールを使う)で読む。AC の結果は必ず `<base>_ac.csv` にある |
+| `plot`、`meas`、`wrdata`（`print` は、その前の解析の `.PRINT` の表に信号を出す） | raw ファイルを [Python のツール](USER_MANUAL.ja.md#python-のツールを使う)で読む。AC の結果は必ず `<base>_ac.csv` にある |
 
 プログラムはバッチでだけ動きます。表示するのは、動作点、過渡解析の後の `.PRINT TRAN` の信号、DC スイープの要約で、AC 解析では
 何も表示しません。スイープの値は raw ファイルにあります。それぞれの解析が何を表示し、何を書くかは
