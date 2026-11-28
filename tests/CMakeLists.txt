@@ -482,6 +482,11 @@ gtest_discover_tests(test_parameter_sweep_perf
 add_executable(gen_mutual_wave ../tools/gen_mutual_wave.cpp)
 target_link_libraries(gen_mutual_wave PRIVATE kirimaspice_lib)
 
+# The library runs behind the figures and tables of docs/SOLVER_ALGORITHMS.md
+# (tools/solver_figures.py runs it)
+add_executable(solver_guide_runs ../tools/solver_guide_runs.cpp)
+target_link_libraries(solver_guide_runs PRIVATE kirimaspice_lib)
+
 add_executable(test_noise_analysis unit/test_noise_analysis.cpp)
 target_link_libraries(test_noise_analysis PRIVATE kirimaspice_lib GTest::gtest_main)
 gtest_discover_tests(test_noise_analysis PROPERTIES TIMEOUT 1200)
