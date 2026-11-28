@@ -532,6 +532,14 @@ void MutualInductance::stamp_ac(ComplexMNASystem& sys,
             fmt::format("Mutual inductance {}: failed to cast inductors", name()));
     }
 
+    // At omega = 0 the circuit is that of the DC analysis, where the coupling
+    // stamps nothing (stamp_dc_linear) and each inductor is the short of its
+    // DC model (Inductor::stamp_ac): v = j omega (L i) is 0 whatever the
+    // currents are, not 1/0
+    if (omega == 0.0) {
+        return;
+    }
+
     const Complex factor = Complex(1.0, 0.0) / Complex(0.0, omega);
     auto idx = [](NodeId n) { return (n == NODE_GND) ? -1 : static_cast<int>(n - 1); };
 

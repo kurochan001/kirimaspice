@@ -283,6 +283,38 @@ TEST(TransferFunctionSolver, UpperCaseOutputMatchesNgspice) {
     }
 }
 
+// A coupling of inductors (K) leaves the small-signal circuit at DC as the
+// DC analysis has it: each inductor is the short of its DC model, and the
+// coupling adds nothing (MutualInductance::stamp_ac at omega = 0), for a
+// pair and for a group of three. ngspice-45.2 gives these values (run
+// 2026-11-28): the dividers R1, R2 with L1 between them as a wire.
+TEST(TransferFunctionSolver, CoupledInductorsMatchNgspice) {
+    const struct {
+        std::string what, lines;
+        Real gain, rin, rout;
+    } cases[] = {
+        {"pair",
+         "V1 in 0 1\nR1 in a 1k\nL1 a b 1m\nR2 b 0 1k\nL2 c 0 1m\nR3 c 0 1k\n"
+         "K1 L1 L2 0.5\n.tf v(b) V1\n",
+         0.5, 2000.0, 500.0},
+        {"group of three",
+         "V1 in 0 1\nR1 in a 1k\nL1 a b 1m\nR2 b 0 3k\nL2 c 0 2m\nR3 c 0 1k\nL3 d 0 4m\nR4 d 0 1k\n"
+         "K1 L1 L2 0.5\nK2 L2 L3 0.4\nK3 L1 L3 0.3\n.tf v(b) V1\n",
+         0.75, 4000.0, 750.0},
+    };
+    for (const auto& c : cases) {
+        parser::NetlistParser parser;
+        auto parsed = parser.parse_string("t\n" + c.lines + ".end\n");
+        TransferFunctionSolver solver(*parsed.circuit, parsed.config);
+        const auto result = solver.analyze();
+        ASSERT_TRUE(result.success) << c.what;
+        // The inductor's DC short is 1e6 S: 1 uOhm in series with the divider
+        EXPECT_NEAR(result.transfer_gain, c.gain, 1e-6 * std::abs(c.gain)) << c.what;
+        EXPECT_NEAR(result.input_resistance, c.rin, 1e-6 * c.rin) << c.what;
+        EXPECT_NEAR(result.output_resistance, c.rout, 1e-6 * c.rout) << c.what;
+    }
+}
+
 // The current of an element that is not a voltage source, i(R1), is not an
 // output: the analysis fails with a message instead of a value
 TEST(TransferFunctionSolver, CurrentOfAResistorIsNotAnOutput) {
