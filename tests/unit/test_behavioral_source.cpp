@@ -363,15 +363,17 @@ TEST(BehavioralSource, CurrentOfASourceInAcAndTransient) {
     }
 }
 
-// ... and naming an element without a branch current, or none, is an error
-// that says so; ngspice-45.2 also reads the current of a resistor, I(R1)
-TEST(BehavioralSource, CurrentOfAnElementWithoutABranchIsAnError) {
+// ... and naming a K line, which has no terminal, or a name that no element
+// has, is an error that says so
+TEST(BehavioralSource, CurrentOfAKLineOrOfNoElementIsAnError) {
     kirimaspice::parser::NetlistParser parser;
-    for (const auto& [name, message] :
-         std::initializer_list<std::pair<std::string, std::string>>{{"R1", "R1 is not one"},
-                                                                     {"V9", "no element is named V9"}}) {
+    for (const auto& [name, message] : std::initializer_list<std::pair<std::string, std::string>>{
+             {"K1", "K1 is not one"}, {"V9", "no element is named V9"}}) {
         try {
-            parser.parse_string("t\nV1 a 0 1\nR1 a 0 1k\nB1 o 0 V={I(" + name + ")*1k}\nR2 o 0 1k\n.end\n");
+            parser.parse_string(
+                "t\nV1 a 0 1\nR1 a m 1k\nL1 m 0 1m\nL2 c 0 1m\nR3 c 0 1k\nK1 L1 L2 0.5\n"
+                "B1 o 0 V={I(" +
+                name + ")*1k}\nR2 o 0 1k\n.end\n");
             ADD_FAILURE() << name << ": no error";
         } catch (const std::exception& e) {
             EXPECT_NE(std::string(e.what()).find(message), std::string::npos) << e.what();
