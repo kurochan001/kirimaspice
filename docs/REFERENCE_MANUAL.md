@@ -291,11 +291,21 @@ ExprTk's built-in functions, the functions defined by `.FUNC`, and the global `.
 as in ngspice-47 (the argument of `V(` stays a node, also one with a
 parameter's name), and in a subcircuit body the parameters of the
 instance as well, in braces or not (ngspice-45.2 reads `V={g*V(i)}` and
-`V=g*V(i)` there alike), and `I(<source>)`, the current of a voltage
-source or of an `E`, `H` or voltage-form `B` source, with the sign it is
-printed with (positive into the `+` terminal), wherever that source is in
-the netlist; inside a subcircuit `I(Vs)` is the body's own `Vs`. The
-current of another element, such as `I(R1)`, is an error. `TIME` is the time of the transient, and 0 in the operating
+`V=g*V(i)` there alike), and `I(<name>)`, the current of an element,
+wherever that element is in the netlist; inside a subcircuit `I(Vs)` is the
+body's own `Vs`. For a voltage source or an `E`, `H` or voltage-form `B`
+source it is the source's current, with the sign it is printed with
+(positive into the `+` terminal). For any other element with terminals it
+is the current into the element's first terminal, as in ngspice-45.2: from
+the first node to the second of `R`, `C`, `L`, `D` and the current sources,
+the collector current of `Q`, the drain current of `M` and `J`, the current
+into the first pin of an `X`. The program reads it as ngspice does, through
+a 0 V source `v_<name>` that it puts in series with that terminal, between
+the terminal's node and a new node `<node>_vmeas_<k>`; the source and the
+node are parts of the circuit and appear in the results (`I(v_R1)` and
+`V(in_vmeas_0)` for `I(R1)` of `R1 in 0 1k`). `I(K1)` of a `K` line, which
+has no terminal, and a name that no element of the top level, or of the
+same subcircuit, has are errors. `TIME` is the time of the transient, and 0 in the operating
 point (also in the one that starts a transient). An expression that
 cannot be compiled, or that fails when it is evaluated once at `TIME` 0
 with every voltage and current 0 (a `.FUNC` whose body cannot be compiled,

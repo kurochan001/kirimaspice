@@ -529,9 +529,9 @@ the one to change.
 
 The expression uses something ExprTk does not know, such as a name that
 is neither a parameter nor a function. Scale factors are not a cause:
-`V={V(a)*1m}` is read as in ngspice. `I(<name>)` reads the current of a
-voltage source or of an `E`, `H` or voltage-form `B` source; for another
-element, such as a resistor, the error says that it is not one.
+`V={V(a)*1m}` is read as in ngspice. `I(<name>)` reads the current of any
+element with terminals; for a `K` line, or a name that no element has, the
+error says so.
 
 ### A value is far too small
 

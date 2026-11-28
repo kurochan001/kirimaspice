@@ -24,8 +24,9 @@ Small items with a direct effect on netlists written for ngspice.
 - [x] **`I(<source>)` in `B` expressions** (M). The current of a voltage
   source, `E`, `H` or voltage-form `B`, with its derivative in Newton and
   AC (`BehavioralSource::linearize`).
-- [ ] **`I(<name>)` of other elements in `B` expressions** (M), as
-  ngspice-45.2 reads `I(R1)` ([netlist input](KNOWN_ISSUES.md#netlist-input)).
+- [x] **`I(<name>)` of other elements in `B` expressions** (M): the current
+  into the element's first terminal, through a 0 V source in series, as
+  ngspice-45.2 reads `I(R1)` (the parser's `read_current_probes`).
 - [x] **`POLY` form of `E`, `F`, `G` and `H`** (M), read as a `B` source
   of the polynomial (`parse_poly_controlled_source`).
 - [x] **`J` elements** (M), with the JFET as ngspice's level 1 and its

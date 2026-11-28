@@ -737,6 +737,13 @@ struct SimulationConfig {
     /// are local to its body, where they hide a global model of their name,
     /// as in ngspice-47 (the parser's BodyLineReader)
     std::map<std::string, std::map<std::string, ModelDefinition>> subcircuit_models;
+    /// The elements whose current a B expression reads, I(name), and which
+    /// have no branch current of their own: by scope (the name of the
+    /// .SUBCKT in upper case, "" for the top level) and by the element's name
+    /// in upper case, the number of its probe in the scope. The parser puts a
+    /// 0 V source in series with the first terminal of each (its
+    /// read_current_probes and apply_current_probe)
+    std::map<std::string, std::map<std::string, std::size_t>> current_probes;
 
     /// Find a .MODEL definition by name, ignoring case as SPICE does.
     /// Elements and subcircuit expansion look models up only through this.

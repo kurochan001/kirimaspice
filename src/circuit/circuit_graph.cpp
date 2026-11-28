@@ -2007,7 +2007,11 @@ void CircuitGraph::resolve_controlled_source_references() {
         if (device->type() == DeviceType::BEHAVIORAL_SOURCE) {
             // The branch of each source whose current the expression reads,
             // I(name): a source whose current is an unknown of the circuit
-            // (voltage_sources_: V, E, H and voltage-form B), as for F and H
+            // (voltage_sources_: V, E, H and voltage-form B), as for F and H.
+            // For any other element with terminals the parser has put a 0 V
+            // source in series and named that one here (its
+            // read_current_probes); what reaches this error is a K line, an
+            // element of another scope, or a name no element has
             auto bsource = std::dynamic_pointer_cast<devices::BehavioralSource>(device);
             if (!bsource || bsource->controlling_sources().empty()) {
                 continue;
@@ -2019,10 +2023,10 @@ void CircuitGraph::resolve_controlled_source_references() {
                 const auto it = std::find(voltage_sources_.begin(), voltage_sources_.end(), control);
                 if (!control || it == voltage_sources_.end()) {
                     throw std::runtime_error(fmt::format(
-                        "{}: I({}) reads the current of a voltage source or of an E, H or "
-                        "voltage-form B source; {}",
+                        "{}: I({}) reads the current into the first terminal of an element of "
+                        "the B source's own .SUBCKT or of the top level; {}",
                         bsource->name(), source,
-                        control ? fmt::format("{} is not one", source)
+                        control ? fmt::format("{} is not one (a K line has no terminal)", source)
                                 : fmt::format("no element is named {}", source)));
                 }
                 branches.push_back(static_cast<BranchId>(it - voltage_sources_.begin()));

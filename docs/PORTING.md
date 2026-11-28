@@ -96,10 +96,10 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
   over `TSTEP`, so its result depends on `TSTEP` (0.6131 V where the ideal
   step gives 0.6321 V for `PULSE(0 1 0 0 0 1m 2m)` into 1 kΩ and 1 µF at
   1 ms). Give the rise you mean when the two must agree.
-- [ ] **`I(...)` in a `B` expression names a voltage source or an `E`, `H`
-  or voltage-form `B` source.** ngspice also reads other elements'
-  currents, such as `I(R1)`; put a 0 V source in series and read its
-  current ([KNOWN_ISSUES](../KNOWN_ISSUES.md#netlist-input)).
+- [ ] **`I(...)` in a `B` expression names an element of the top level,
+  or of the same subcircuit as the `B` source.** `I(R1)` is read as in
+  ngspice; an element inside a subcircuit instance cannot be named from
+  outside it ([KNOWN_ISSUES](../KNOWN_ISSUES.md#netlist-input)).
 
 ### Subcircuits and parameters
 

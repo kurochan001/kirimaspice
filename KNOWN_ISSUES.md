@@ -91,11 +91,15 @@ document also lists differences not decided there.
   once when the line is read, at `TIME` 0 with every voltage and current
   0, so this is left only for a failure that that evaluation does not
   reach, such as a failing `.FUNC` in a branch of `? :` not taken there.
-- **`I(<name>)` in a `B` expression reads only the current of a voltage
-  source or of an `E`, `H` or voltage-form `B` source;** for any other
-  element it is an error (`R1 is not one`). ngspice-45.2 also reads the
-  current of a resistor: `B1 b 0 V={I(R1)*1k}` with 1 mA through R1
-  gives 1 V (run 2026-11-28).
+- **`I(<name>)` in a `B` expression names an element of the `B` source's
+  own scope only:** the top level, or the same subcircuit. An element
+  inside a subcircuit instance cannot be named from outside it (`I(X1.R1)`
+  is an error); what ngspice-45.2 does there is not confirmed (run a
+  netlist that names such an element). The probe's node is
+  `<node>_vmeas_<k>`, as in ngspice-45.2, where `<k>` counts the probed
+  elements of the scope in the order the expressions name them; whether
+  ngspice-45.2 numbers them alike is not confirmed (its two probes in the
+  run of 2026-11-28 were on one node).
 - **The diode reads `IS`, `N`, `CJO`, `VJ`, `M`, `RS`, `TT`, `BV` and
   `IBV` only, not `FC`, `KF`, `AF` and the others, which it names in a
   warning (its FC is 0.5); the bipolar

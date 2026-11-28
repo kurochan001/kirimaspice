@@ -4021,6 +4021,57 @@ static std::string substitute_global_params(const std::string& expression, const
     });
 }
 
+// The form of a B line and where its expression begins: the first token,
+// from the fourth on, that starts with V= or I=, the letter in either case.
+// Nothing for a line without one.
+struct BehavioralSpecifier {
+    BehavioralSourceType type;
+    std::size_t token;
+};
+static std::optional<BehavioralSpecifier> behavioral_specifier(
+    const std::vector<std::string>& tokens) {
+    for (std::size_t i = 3; i < tokens.size(); ++i) {
+        if (tokens[i].size() < 2 || tokens[i][1] != '=') {
+            continue;
+        }
+        const char letter =
+            static_cast<char>(std::toupper(static_cast<unsigned char>(tokens[i][0])));
+        if (letter == 'V') {
+            return BehavioralSpecifier{BehavioralSourceType::VOLTAGE, i};
+        }
+        if (letter == 'I') {
+            return BehavioralSpecifier{BehavioralSourceType::CURRENT, i};
+        }
+    }
+    return std::nullopt;
+}
+
+// Rewrites the expression of a B line by `rewrite`, as one text: the brace
+// group of its V= or I= token or, without braces, that token and the rest of
+// the line joined by blanks, as the element parser reads it. A V( a ) or
+// I( R1 ) written with blanks is in several tokens, and is read whole only
+// so. A line without V= or I= is left as it is.
+static void rewrite_behavioral_expression(
+    std::vector<std::string>& tokens,
+    const std::function<std::string(const std::string&)>& rewrite) {
+    const auto specifier = behavioral_specifier(tokens);
+    if (!specifier) {
+        return;
+    }
+    std::string& first = tokens[specifier->token];
+    const std::string form = first.substr(0, 2);
+    std::string text = first.substr(2);
+    if (!text.empty() && text.front() == '{' && text.back() == '}') {
+        first = form + rewrite(text);
+        return;
+    }
+    for (std::size_t j = specifier->token + 1; j < tokens.size(); ++j) {
+        text += " " + tokens[j];
+    }
+    first = form + rewrite(text);
+    tokens.resize(specifier->token + 1);
+}
+
 static void parse_behavioral_source_device(const std::vector<std::string>& tokens, const std::string& dev_name, ParseState& state) {
     // Behavioral source: Bname n+ n- V={expr} or I={expr}
     if (tokens.size() < 4) {
@@ -4031,46 +4082,22 @@ static void parse_behavioral_source_device(const std::vector<std::string>& token
     std::string nn = tokens[2];
 
     // Parse V={expr} or I={expr}
-    BehavioralSourceType type;
-    std::string expression;
-    bool found = false;
-
-    for (size_t i = 3; i < tokens.size(); ++i) {
-        std::string token = tokens[i];
-
-        // Check for V= or I= prefix (case insensitive)
-        std::string prefix_upper = token.substr(0, std::min<size_t>(2, token.size()));
-        std::transform(prefix_upper.begin(), prefix_upper.end(), prefix_upper.begin(), ::toupper);
-
-        if (prefix_upper.size() >= 2 && prefix_upper[1] == '=') {
-            char specifier = prefix_upper[0];
-            if (specifier == 'V') {
-                type = BehavioralSourceType::VOLTAGE;
-            } else if (specifier == 'I') {
-                type = BehavioralSourceType::CURRENT;
-            } else {
-                continue;  // Not V= or I=, try next token
-            }
-
-            // The expression follows V= or I=: a brace group, or, without
-            // braces, the rest of the line, blanks and all, as in ngspice
-            expression = token.substr(2);
-            if (!expression.empty() && expression.front() == '{' && expression.back() == '}') {
-                expression = expression.substr(1, expression.size() - 2);
-            } else {
-                for (size_t j = i + 1; j < tokens.size(); ++j) {
-                    expression += " " + tokens[j];
-                }
-            }
-
-            found = true;
-            break;
-        }
-    }
-
-    if (!found) {
+    const auto specifier = behavioral_specifier(tokens);
+    if (!specifier) {
         throw ParseError("Behavioral source missing V={expr} or I={expr}",
                        state.line_number);
+    }
+    const BehavioralSourceType type = specifier->type;
+
+    // The expression follows V= or I=: a brace group, or, without
+    // braces, the rest of the line, blanks and all, as in ngspice
+    std::string expression = tokens[specifier->token].substr(2);
+    if (!expression.empty() && expression.front() == '{' && expression.back() == '}') {
+        expression = expression.substr(1, expression.size() - 2);
+    } else {
+        for (size_t j = specifier->token + 1; j < tokens.size(); ++j) {
+            expression += " " + tokens[j];
+        }
     }
 
     expression = substitute_global_params(expression, *state.config);
@@ -6389,6 +6416,122 @@ static void read_global_definitions(const std::string& content, ParseState& stat
     state.line_number = 1;
 }
 
+static std::string map_node_voltages(
+    const std::string& expression, const std::function<std::string(const std::string&)>& map_node,
+    const std::function<std::string(const std::string&)>& map_name);
+
+// The current probes of the netlist (SimulationConfig::current_probes). A B
+// expression reads the current of an element as I(name): directly for a
+// voltage source, an E or H source and a voltage-form B source, whose
+// current is an unknown of the circuit, and for any other element with
+// terminals through a 0 V source in series with its first terminal, as
+// ngspice-45.2 does (v_r1 between in and in_vmeas_0 for I(R1) of
+// R1 in 0 1k; run 2026-11-28). This finds the elements that need one, in
+// each scope: an I(name) in a .SUBCKT names an element of that body. A K
+// line has no terminal, and a name no element of the scope has gets none;
+// both are errors of CircuitGraph::resolve_controlled_source_references.
+static void read_current_probes(const std::string& content, SimulationConfig& config) {
+    struct Scope {
+        std::map<std::string, char> letters;  // each element, in upper case, with its letter
+        std::set<std::string> voltage_form;   // the B sources of the form V=
+        std::vector<std::string> read;        // the names in I(), in the order read
+    };
+    std::map<std::string, Scope> scopes;
+    std::string scope;  // "" at the top level
+    std::istringstream input(content);
+    std::string raw;
+    std::size_t line_number = 0;
+    const auto same = [](const std::string& name) { return name; };
+    while (std::getline(input, raw)) {
+        if (++line_number == 1) {
+            continue;  // the title
+        }
+        std::string line = raw.substr(0, raw.find(';'));
+        util::trim_inplace(line);
+        if (line.empty() || line[0] == '*') {
+            continue;
+        }
+        const auto tokens = util::split_netlist_line(line);
+        if (tokens.empty()) {
+            continue;
+        }
+        if (line[0] == '.') {
+            if (util::equals_icase(tokens[0], ".SUBCKT") && tokens.size() > 1) {
+                scope = util::to_upper_copy(tokens[1]);
+            } else if (util::equals_icase(tokens[0], ".ENDS")) {
+                scope.clear();
+            }
+            continue;
+        }
+        Scope& here = scopes[scope];
+        const std::string name = util::to_upper_copy(tokens[0]);
+        here.letters[name] = name[0];
+        if (name[0] != 'B') {
+            continue;
+        }
+        const auto specifier = behavioral_specifier(tokens);
+        if (specifier && specifier->type == BehavioralSourceType::VOLTAGE) {
+            here.voltage_form.insert(name);
+        }
+        auto line_tokens = tokens;
+        rewrite_behavioral_expression(line_tokens, [&](const std::string& expression) {
+            (void)map_node_voltages(expression, same, [&](const std::string& read) {
+                here.read.push_back(util::to_upper_copy(read));
+                return read;
+            });
+            return expression;
+        });
+    }
+    for (const auto& [scope_name, here] : scopes) {
+        std::size_t count = 0;
+        for (const auto& read : here.read) {
+            const auto element = here.letters.find(read);
+            if (element == here.letters.end()) {
+                continue;
+            }
+            const char letter = element->second;
+            if (letter == 'V' || letter == 'E' || letter == 'H' || letter == 'K' ||
+                (letter == 'B' && here.voltage_form.contains(read))) {
+                continue;
+            }
+            auto& probes = config.current_probes[scope_name];
+            if (!probes.contains(read)) {
+                probes.emplace(read, count++);
+            }
+        }
+    }
+}
+
+// Puts the current probes of a scope (its table of read_current_probes) into
+// a line of that scope. In a B line, each I(name) of a probed element reads
+// the probe instead, I(v_name). The line of a probed element takes the
+// probe's node, <node>_vmeas_<k>, in place of its first node, and the
+// probe's own line, v_<name> <node> <node>_vmeas_<k> 0, is returned, to be
+// read after it: the current into the element's first terminal is the
+// probe's branch current.
+static std::optional<std::vector<std::string>> apply_current_probe(
+    std::vector<std::string>& tokens, const std::map<std::string, std::size_t>& probes) {
+    if (probes.empty() || tokens.size() < 2) {
+        return std::nullopt;
+    }
+    if (std::toupper(static_cast<unsigned char>(tokens[0][0])) == 'B') {
+        rewrite_behavioral_expression(tokens, [&](const std::string& expression) {
+            return map_node_voltages(
+                expression, [](const std::string& node) { return node; },
+                [&](const std::string& name) {
+                    return probes.contains(util::to_upper_copy(name)) ? "v_" + name : name;
+                });
+        });
+    }
+    const auto probe = probes.find(util::to_upper_copy(tokens[0]));
+    if (probe == probes.end()) {
+        return std::nullopt;
+    }
+    const std::string node = tokens[1];
+    tokens[1] = node + "_vmeas_" + std::to_string(probe->second);
+    return std::vector<std::string>{"v_" + tokens[0], node, tokens[1], "0"};
+}
+
 void process_line(const std::string& raw_line, ParseState& state) {
     std::string line = raw_line;
 
@@ -6485,25 +6628,42 @@ void process_line(const std::string& raw_line, ParseState& state) {
         return;
     }
 
+    // The current probes of the top level, put in when the line is first
+    // read: a line deferred for its model comes back as it was rewritten
+    std::optional<std::vector<std::string>> probe;
+    if (!state.resolving_deferred) {
+        if (const auto probes = state.config->current_probes.find("");
+            probes != state.config->current_probes.end()) {
+            const auto before = tokens;
+            probe = apply_current_probe(tokens, probes->second);
+            if (tokens != before) {
+                line = fmt::format("{}", fmt::join(tokens, " "));
+            }
+        }
+    }
+
     const char dev_type = static_cast<char>(std::toupper(static_cast<unsigned char>(tokens[0][0])));
     parse_element(tokens, dev_type, tokens[0], line, state);
+    if (probe) {
+        parse_element(*probe, 'V', probe->front(), fmt::format("{}", fmt::join(*probe, " ")),
+                      state);
+    }
 }
 
-
 // Each V(node) and V(n1,n2) of a B expression with its nodes renamed by
-// map_node, and each I(name) with `prefix` before the name, V and I in
+// map_node, and each I(name) with its name renamed by map_name, V and I in
 // either case (as CircuitGraph's rewrite_node_voltages reads them)
-static std::string map_node_voltages(const std::string& expression,
-                                     const std::function<std::string(const std::string&)>& map_node,
-                                     const std::string& prefix) {
+static std::string map_node_voltages(
+    const std::string& expression, const std::function<std::string(const std::string&)>& map_node,
+    const std::function<std::string(const std::string&)>& map_name) {
     std::string out;
     std::size_t i = 0;
     while (i < expression.size()) {
         const char c = expression[i];
         const bool starts_name = i == 0 ||
             !(std::isalnum(static_cast<unsigned char>(expression[i - 1])) || expression[i - 1] == '_');
-        // I(name) names a source of the body, as the controlling source of F
-        // and H does: X1.name
+        // I(name) names an element: in a body one of the body, as the
+        // controlling source of F and H does (X1.name)
         if ((c == 'I' || c == 'i') && starts_name && i + 1 < expression.size() &&
             expression[i + 1] == '(') {
             const std::size_t close = expression.find(')', i + 2);
@@ -6513,7 +6673,7 @@ static std::string map_node_voltages(const std::string& expression,
                 name.erase(name.find_last_not_of(" \t") + 1);
                 if (!name.empty() && name.find(',') == std::string::npos) {
                     out += c;
-                    out += '(' + prefix + name + ')';
+                    out += '(' + map_name(name) + ')';
                     i = close + 1;
                     continue;
                 }
@@ -6580,7 +6740,8 @@ static std::vector<std::string> rename_body_line(
         case 'B':
             nodes(1, 2);
             for (std::size_t k = 3; k < tokens.size(); ++k) {
-                tokens[k] = map_node_voltages(tokens[k], map_node, prefix);
+                tokens[k] = map_node_voltages(
+                    tokens[k], map_node, [&](const std::string& name) { return prefix + name; });
             }
             break;
         case 'E': case 'G':
@@ -6665,19 +6826,35 @@ public:
             // other directives of a body are read with the netlist
             return;
         }
-        const char type = static_cast<char>(std::toupper(static_cast<unsigned char>(tokens[0][0])));
         SimulationConfig& config = config_for(subcircuit_name);
-        tokens = rename_body_line(std::move(tokens), instance_name, map_node, config, line_number);
-        ParseState state;
-        state.circuit = &circuit;
-        state.evaluator = &evaluator_;
-        state.config = &config;
-        state.line_number = line_number;
-        state.resolving_deferred = true;  // every model is known by now
-        if (!parameters.empty()) {
-            state.function_parameters = &parameters;
+        // The current probes of this body (read_current_probes): the probe's
+        // line is a line of the body too, read after the element's
+        std::optional<std::vector<std::string>> probe;
+        if (const auto probes = config_.current_probes.find(util::to_upper_copy(subcircuit_name));
+            probes != config_.current_probes.end()) {
+            probe = apply_current_probe(tokens, probes->second);
         }
-        parse_element(tokens, type, tokens[0], fmt::format("{}", fmt::join(tokens, " ")), state);
+        auto read_tokens = [&](std::vector<std::string> body_tokens) {
+            const char type =
+                static_cast<char>(std::toupper(static_cast<unsigned char>(body_tokens[0][0])));
+            body_tokens = rename_body_line(std::move(body_tokens), instance_name, map_node, config,
+                                           line_number);
+            ParseState state;
+            state.circuit = &circuit;
+            state.evaluator = &evaluator_;
+            state.config = &config;
+            state.line_number = line_number;
+            state.resolving_deferred = true;  // every model is known by now
+            if (!parameters.empty()) {
+                state.function_parameters = &parameters;
+            }
+            parse_element(body_tokens, type, body_tokens[0],
+                          fmt::format("{}", fmt::join(body_tokens, " ")), state);
+        };
+        read_tokens(std::move(tokens));
+        if (probe) {
+            read_tokens(std::move(*probe));
+        }
     }
 
 private:
@@ -6776,6 +6953,8 @@ public:
         } catch (const std::exception& e) {
             throw ParseError(fmt::format(".CONTROL/.ENDC preprocessing failed: {}", e.what()), 0);
         }
+
+        read_current_probes(preprocessed_content, config);
 
         pegtl::memory_input input(preprocessed_content, "netlist");
 

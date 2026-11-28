@@ -3,14 +3,16 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cmath>
+#include <memory>
 #include <string>
 
-#include "kirimaspice/devices/behavioral_source.hpp"
+#include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/core/matrix_types.hpp"
 #include "kirimaspice/core/types.hpp"
+#include "kirimaspice/devices/behavioral_source.hpp"
 #include "kirimaspice/parser/netlist_parser.hpp"
-#include "kirimaspice/circuit/circuit_graph.hpp"
 #include "kirimaspice/solvers/ac_solver.hpp"
 #include "kirimaspice/solvers/dc_solver.hpp"
 #include "kirimaspice/solvers/transient_solver.hpp"
@@ -361,6 +363,200 @@ TEST(BehavioralSource, CurrentOfASourceInAcAndTransient) {
     for (const auto& point : tran.timepoints) {
         EXPECT_NEAR(point.node_voltages[o], -std::sin(2.0 * M_PI * 1e3 * point.time), 1e-9) << point.time;
     }
+}
+
+namespace {
+
+// The operating point of a netlist, its subcircuits expanded, by node name
+struct OperatingPoint {
+    std::unique_ptr<kirimaspice::circuit::CircuitGraph> circuit;
+    DenseVector x;
+    Real v(const std::string& node) const {
+        return x[circuit->get_node_id(node) - 1];
+    }
+};
+
+OperatingPoint operating_point(const std::string& netlist) {
+    kirimaspice::parser::NetlistParser parser;
+    auto result = parser.parse_string(netlist);
+    result.circuit->expand_all_subcircuits();
+    kirimaspice::solvers::DCSolver solver(*result.circuit, result.config);
+    OperatingPoint op;
+    kirimaspice::SolverStats stats;
+    EXPECT_EQ(solver.solve(op.x, stats), kirimaspice::ConvergenceStatus::SUCCESS);
+    op.circuit = std::move(result.circuit);
+    return op;
+}
+
+}  // namespace
+
+// I(<name>) of an element without a branch current of its own is the current
+// into the element's first terminal: the parser puts a 0 V source in series
+// with that terminal and the expression reads its current
+// (read_current_probes), as ngspice-45.2 does. ngspice-45.2 gives these
+// V(o) = 1 kOhm I(<name>) (run 2026-11-28): the current from the first node
+// to the second of R, L, D and the current sources, the collector current of
+// Q, the drain current of M and J, the current into port A of a line and
+// into the first pin of an X. The element may come after the B line, in
+// either case, and its model after both.
+TEST(BehavioralSource, CurrentOfAnElement) {
+    const std::string read = "\nR2 o 0 1k\n.end\n";
+    const struct {
+        std::string what, lines;
+        Real expected;
+    } cases[] = {
+        {"resistor", "V1 a 0 1\nR1 a 0 1k\nB1 o 0 V={I(R1)*1k}", 1.0},
+        {"resistor, its nodes exchanged", "V1 a 0 1\nR1 0 a 1k\nB1 o 0 V={I(R1)*1k}", -1.0},
+        {"named before its line, in lower case", "B1 o 0 V={I(r1)*1k}\nV1 a 0 1\nR1 a 0 1k", 1.0},
+        {"without braces", "V1 a 0 1\nR1 a 0 1k\nB1 o 0 V=I(R1)*1k", 1.0},
+        {"without braces, with blanks", "V1 a 0 1\nR1 a 0 1k\nB1 o 0 V=I(R1) * 1k + I( R1 )*1k",
+         2.0},
+        {"capacitor in DC", "V1 a 0 1\nR0 a m 1k\nC1 m 0 1u\nB1 o 0 V={I(C1)*1k}", 0.0},
+        {"inductor", "V1 a 0 1\nR0 a m 1k\nL1 m 0 1m\nB1 o 0 V={I(L1)*1k}", 1.0},
+        {"diode", "V1 a 0 1\nR0 a m 1k\nD1 m 0 dm\n.model dm D\nB1 o 0 V={I(D1)*1k}", 0.3705592},
+        {"diode, its model after it",
+         "V1 a 0 1\nR0 a m 1k\nD1 m 0 dm\nB1 o 0 V={I(D1)*1k}\n.model dm D", 0.3705592},
+        {"current source", "I1 0 m 1m\nR0 m 0 1k\nB1 o 0 V={I(I1)*1k}", 1.0},
+        {"G", "V1 a 0 1\nG1 0 m a 0 1m\nR0 m 0 1k\nB1 o 0 V={I(G1)*1k}", 1.0},
+        {"F", "V1 a 0 1\nVs a s 0\nRs s 0 1k\nF1 0 m Vs 2\nR0 m 0 1k\nB1 o 0 V={I(F1)*1k}", 2.0},
+        {"current-form B", "V1 a 0 1\nB2 0 m I={1m*V(a)}\nR0 m 0 1k\nB1 o 0 V={I(B2)*1k}", 1.0},
+        {"bipolar transistor",
+         "V1 a 0 1\nRb a bb 100k\nQ1 c bb 0 qm\nVc cc 0 5\nRc cc c 1k\n.model qm NPN IS=1e-16 "
+         "BF=100\n"
+         "B1 o 0 V={I(Q1)*1k}",
+         0.2605556},
+        {"MOSFET",
+         "V1 a 0 1\nM1 d a 0 0 mm W=10u L=1u\nVd dd 0 5\nRd dd d 1k\n"
+         ".model mm NMOS LEVEL=1 VTO=0.5 KP=1e-4\nB1 o 0 V={I(M1)*1k}",
+         0.125},
+        {"JFET",
+         "V1 a 0 1\nRg a g 1k\nJ1 d g 0 jm\nVd dd 0 5\nRd dd d 1k\n.model jm NJF\nB1 o 0 "
+         "V={I(J1)*1k}",
+         0.6913958},
+        {"lossless line",
+         "V1 a 0 1\nR0 a m 1k\nT1 m 0 c 0 Z0=50 TD=1n\nRc c 0 1k\nB1 o 0 V={I(T1)*1k}", 0.5},
+        {"subcircuit instance",
+         "V1 a 0 1\nX1 a 0 load\n.subckt load p q\nRl p q 1k\n.ends\nB1 o 0 V={I(X1)*1k}", 1.0},
+        {"read by a current-form B", "V1 a 0 1\nR1 a 0 1k\nB1 0 o I={I(R1)*2}", 2.0},
+    };
+    for (const auto& c : cases) {
+        // 2e-5 as the device models agree with ngspice; the linear cases are exact
+        EXPECT_NEAR(operating_point("t\n" + c.lines + read).v("o"), c.expected,
+                    2e-5 * std::max(1.0, c.expected))
+            << c.what;
+    }
+}
+
+// ... for every element with terminals: the current into the first terminal
+// is the current of the resistor that alone feeds it, Rs between a and n, so
+// V(o) = 1 kOhm I(<name>) = V(a) - V(n). A MESFET and a lossy line carry
+// current here; the SCR and the TRIAC are off and carry none.
+TEST(BehavioralSource, CurrentOfAnElementIsThatOfItsFirstTerminal) {
+    const struct {
+        std::string name, lines;
+        bool conducts;
+    } cases[] = {
+        {"Z1", "Rg a g 10k\nZ1 n g 0 zm\n.model zm NMF\n", true},
+        {"O1", "O1 n 0 c 0 R=10 L=250n C=100p G=1m TD=5n\nRc c 0 1k\n", true},
+        {"S1", "Rg g 0 10k\nS1 n 0 g VBF=50\n", false},
+        {"Y1", "Rg g 0 10k\nY1 n 0 g\n", false},
+    };
+    for (const auto& c : cases) {
+        const auto op = operating_point("t\nV1 a 0 5\nRs a n 1k\n" + c.lines + "B1 o 0 V={I(" +
+                                        c.name + ")*1k}\nR2 o 0 1k\n.end\n");
+        EXPECT_NEAR(op.v("o"), op.v("a") - op.v("n"), 1e-9) << c.name;
+        EXPECT_EQ(op.v("o") > 1.0, c.conducts) << c.name;
+    }
+}
+
+// ... one probe serves every expression that names the element, and the
+// probe is a part of the circuit, as in ngspice-45.2: its node,
+// <node>_vmeas_<k>, and its source, v_<name>, are in the results. ngspice-45.2
+// gives V(b) = 1.5 V and V(c) = 2 V (run 2026-11-28).
+TEST(BehavioralSource, CurrentOfAnElementReadTwiceHasOneProbe) {
+    const auto op = operating_point(
+        "t\nV1 in 0 1\nB1 b 0 V={I(R2)*1k + I(R1)*1k}\nRb b 0 1k\n"
+        "B2 c 0 V={I(R1)*2k}\nRc c 0 1k\nR1 in 0 1k\nR2 in m 1k\nR3 m 0 1k\n.end\n");
+    EXPECT_NEAR(op.v("b"), 1.5, 1e-9);
+    EXPECT_NEAR(op.v("c"), 2.0, 1e-9);
+    // V1, the two B sources and the probes of R2 and R1
+    EXPECT_EQ(op.circuit->get_voltage_sources().size(), 5u);
+    EXPECT_NO_THROW(op.circuit->get_device("v_R1"));
+    EXPECT_NO_THROW(op.circuit->get_device("v_R2"));
+    EXPECT_TRUE(op.circuit->has_node("in_vmeas_0"));
+    EXPECT_TRUE(op.circuit->has_node("in_vmeas_1"));
+}
+
+// ... a coupling of the element stays its own: K1 names L1, whose first node
+// the probe takes. The current into L1 is that of R1, which alone feeds it,
+// at every point of a transient: V(b) = 100 Ohm I(L1) = V(in) - V(a)
+TEST(BehavioralSource, CurrentOfACoupledInductor) {
+    kirimaspice::parser::NetlistParser parser;
+    auto netlist = parser.parse_string(
+        "t\nV1 in 0 PULSE(0 1 0 1u 1u 1 2)\nR1 in a 100\nL1 a 0 1m\nL2 c 0 1m\n"
+        "R2 c 0 100\nK1 L1 L2 0.5\nB1 b 0 V={I(L1)*100}\nRb b 0 1k\n"
+        ".tran 0.2u 40u\n.end\n");
+    kirimaspice::SimulationConfig config = netlist.config;
+    config.transient.use_adaptive_timestep = false;
+    kirimaspice::solvers::TransientSolver solver(*netlist.circuit, config);
+    const auto tran = solver.solve(0.0, 40e-6, 0.2e-6);
+    ASSERT_EQ(tran.status, kirimaspice::ConvergenceStatus::SUCCESS);
+    const auto node = [&](const std::string& name) {
+        return netlist.circuit->get_node_id(name) - 1;
+    };
+    for (const auto& point : tran.timepoints) {
+        EXPECT_NEAR(point.node_voltages[node("b")],
+                    point.node_voltages[node("in")] - point.node_voltages[node("a")], 1e-9)
+            << point.time;
+    }
+    // The current rises towards 1 V / 100 Ohm; ngspice-45.2 gives V(b) = 0.9639 V at 40 us
+    EXPECT_NEAR(tran.timepoints.back().node_voltages[node("b")], 0.9639, 1e-3);
+}
+
+// ... inside a subcircuit I(R1) is the body's own R1, with a probe in each
+// instance; ngspice-45.2 gives V(out) = V(out2) = 0.5 V (run 2026-11-28)
+TEST(BehavioralSource, CurrentOfAnElementInABody) {
+    const auto op = operating_point(
+        "t\nV1 in 0 1\nX1 in out sense\nX2 in out2 sense\nRo out 0 1k\nRo2 out2 0 1k\n"
+        ".subckt sense p q\nR1 p 0 2k\nB1 q 0 V={I(R1)*1k}\n.ends\n.end\n");
+    EXPECT_NEAR(op.v("out"), 0.5, 1e-9);
+    EXPECT_NEAR(op.v("out2"), 0.5, 1e-9);
+}
+
+// ... in AC and in the transient the probe reads the capacitor's current.
+// R0 = 1 kOhm into C1 = 1 uF: at the corner frequency V(m) = 0.5 - 0.5j, and
+// I(C1) = j omega C V(m) gives V(o) = 0.5 + 0.5j, as in ngspice-45.2; after
+// a step of 1 V, I(C1) = 1 mA exp(-t / 1 ms) (ngspice-45.2 gives 0.6068 V,
+// 0.3681 V and 0.1354 V at 0.5, 1 and 2 ms; run 2026-11-28)
+TEST(BehavioralSource, CurrentOfACapacitorInAcAndTransient) {
+    const std::string circuit = "R0 a m 1k\nC1 m 0 1u\nB1 o 0 V={I(C1)*1k}\nR2 o 0 1k\n";
+    kirimaspice::parser::NetlistParser parser;
+    auto ac_netlist = parser.parse_string("t\nV1 a 0 DC 0 AC 1\n" + circuit +
+                                          ".ac lin 1 159.154943 159.154943\n.end\n");
+    kirimaspice::solvers::ACSolver ac_solver(*ac_netlist.circuit, ac_netlist.config);
+    const auto ac = ac_solver.solve();
+    ASSERT_EQ(ac.status, kirimaspice::ConvergenceStatus::SUCCESS);
+    const auto vo = ac.frequency_points[0].solution[ac_netlist.circuit->get_node_id("o") - 1];
+    EXPECT_NEAR(vo.real(), 0.5, 1e-6);
+    EXPECT_NEAR(vo.imag(), 0.5, 1e-6);
+
+    auto tran_netlist = parser.parse_string("t\nV1 a 0 PULSE(0 1 0 1u 1u 1 2)\n" + circuit +
+                                            ".tran 10u 3m\n.end\n");
+    kirimaspice::SimulationConfig config = tran_netlist.config;
+    config.transient.use_adaptive_timestep = false;
+    kirimaspice::solvers::TransientSolver tran_solver(*tran_netlist.circuit, config);
+    const auto tran = tran_solver.solve(0.0, 3e-3, 1e-5);
+    ASSERT_EQ(tran.status, kirimaspice::ConvergenceStatus::SUCCESS);
+    const auto o = tran_netlist.circuit->get_node_id("o") - 1;
+    std::size_t checked = 0;
+    for (const auto& point : tran.timepoints) {
+        if (point.time < 1e-4) {
+            continue;  // the edge of the step
+        }
+        EXPECT_NEAR(point.node_voltages[o], std::exp(-point.time / 1e-3), 2e-3) << point.time;
+        ++checked;
+    }
+    EXPECT_GT(checked, 200u);
 }
 
 // ... and naming a K line, which has no terminal, or a name that no element
