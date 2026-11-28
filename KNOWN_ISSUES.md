@@ -168,9 +168,9 @@ says otherwise.
   points, took 2.1 s; ngspice-47 with `tmax` 1 ns, 10 024 points, took
   0.36 to 0.40 s (macOS arm64, 2026-11-21). The cause is not
   investigated.
-- **Of the devices, only the diode (since `36d8f96`) and the bipolar
-  transistor carry a GMIN across their junctions.** The level-1 and
-  level-3 MOSFETs, BSIM3, the SiC MOSFET, the VDMOS and the JFET stamp
+- **Of the devices, only the diode (since `36d8f96`), the bipolar
+  transistor and the JFET carry a GMIN across their junctions.** The level-1 and
+  level-3 MOSFETs, BSIM3, the SiC MOSFET and the VDMOS stamp
   theirs in `stamp_dc_linear`, which no solver calls for a nonlinear
   device, so they have none. SPICE puts it across the bulk junctions,
   which these models mostly do not have (read in the code at `63ce9a6`).
@@ -306,12 +306,15 @@ says otherwise.
   are an error. The gate junctions and the charge model of ngspice's
   MESFET are not modelled; `CGS`, `CGD` and `CDS` are constant. Curtice's
   model is the library's only (`MESFETModel::CURTICE`).
-- **JFET cannot be used from a netlist.** The library has a JFET model
-  (`include/kirimaspice/devices/jfet.hpp`), but the parser has no `J`
-  element. Its gate capacitances put C/dt (V − V<sub>prev</sub>) of the
-  present iterate into the right-hand side, the form that the GaN HEMT,
-  the VDMOS and the FinFET had before their fixes (read in the code; not
-  run).
+- **The JFET is ngspice's level 1 without its series resistances, its
+  doping tail and most of its temperature dependence.** `RD` and `RS`
+  are not modelled, `B` other than 1 is not used, and of the temperature
+  only IS(T) and Vt follow it: `VTO`, `BETA`, `PB`, `CGS` and `CGD` keep
+  their card values (ngspice-45.2 adjusts `PB` and the capacitances, and
+  has `VTOTC`, `BETATCE` and `TCV`). The capacitances are integrated at
+  the voltage of the last accepted point, as the diode's are, not as
+  charges; a gate step through 10 kOhm into 1 pF differs from
+  ngspice-45.2 by 1.5 mV at most (run 2026-11-28). There is no noise.
 - **The FinFET is a simplified square-law model** (`src/devices/finfet.cpp`).
   Below the threshold its current is β·V<sub>t</sub><sup>2</sup>·exp(…)·(1 −
   exp(−V<sub>DS</sub>/V<sub>t</sub>)), which at the threshold is about

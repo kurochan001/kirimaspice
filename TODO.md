@@ -28,10 +28,10 @@ Small items with a direct effect on netlists written for ngspice.
   ngspice-45.2 reads `I(R1)` ([netlist input](KNOWN_ISSUES.md#netlist-input)).
 - [x] **`POLY` form of `E`, `F`, `G` and `H`** (M), read as a `B` source
   of the polynomial (`parse_poly_controlled_source`).
-- [ ] **`J` elements** (M). The library has a JFET; the parser has no `J`
-  element, and its gate capacitances need the transient method's
-  companion (`device_utils::CapacitorHistory`)
-  ([device models](KNOWN_ISSUES.md#device-models)).
+- [x] **`J` elements** (M), with the JFET as ngspice's level 1 and its
+  gate capacitances through `device_utils::CapacitorHistory`.
+- [ ] **The JFET's `RD`, `RS` and temperature of `VTO`, `BETA`, `PB` and the
+  capacitances** (M) ([device models](KNOWN_ISSUES.md#device-models)).
 - [x] **Scale factors in `.OPTIONS` values** (S). A numeric option is read
   as an element value is (`util::parse_value_with_unit`): `itl1=1k` is 1000.
 - [ ] **An empty first line is the title** (S), as in ngspice-47. Many

@@ -225,8 +225,8 @@ MESFET、SCR、VDMOS は、それぞれ自分の極性の列挙型（`GaNPolarit
 だけあります。レベル 1、レベル 3、BSIM1、BSIM3、BSIM4、SiC、FinFET は、それぞれの `.cpp` で明示的に
 実体化します。バイポーラトランジスタは `BJT<BJTPolarity>` で、`bjt.cpp` で NPN と PNP を実体化します。
 `BJT_NPN` と `BJT_PNP` はその別名です。DC、AC、過渡、ノイズ解析の電流と解析的な微分は
-`BJT::evaluate` から取り、容量は接合の電荷から求めます。ライブラリには JFET がありますが、パーサーに
-`J` 素子はありません。
+`BJT::evaluate` から取り、容量は接合の電荷から求めます。JFET（`J`、`NJF` と `PJF` のカード）は、ダイオードと
+同じく、ゲートの接合の容量を `device_utils::CapacitorHistory` で積分します。
 
 ## 方程式と線形ソルバー
 

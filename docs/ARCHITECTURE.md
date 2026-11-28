@@ -279,8 +279,9 @@ explicitly in their `.cpp` files. The bipolar transistor is
 `BJT<BJTPolarity>`, instantiated for NPN and PNP in `bjt.cpp`;
 `BJT_NPN` and `BJT_PNP` are aliases. Its currents and analytic derivatives
 come from `BJT::evaluate` in DC, AC, transient and noise analysis. Its
-junction charges give the capacitances. The library has a JFET, but the
-parser has no `J` element.
+junction charges give the capacitances. The JFET (`J`, `NJF` and `PJF`
+cards) takes its gate junctions' capacitances through
+`device_utils::CapacitorHistory`, as the diode does.
 
 ## Equations and linear solvers
 

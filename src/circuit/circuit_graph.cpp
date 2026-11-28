@@ -29,7 +29,8 @@
 #include "kirimaspice/devices/igbt.hpp"          // Unified IGBT
 #include "kirimaspice/devices/scr.hpp"           // Unified SCR
 #include "kirimaspice/devices/triac.hpp"
-#include "kirimaspice/devices/mesfet.hpp"        // Unified MESFET
+#include "kirimaspice/devices/mesfet.hpp"
+#include "kirimaspice/devices/jfet.hpp"        // Unified MESFET
 #include "kirimaspice/devices/vcvs.hpp"
 #include "kirimaspice/devices/cccs.hpp"
 #include "kirimaspice/devices/vccs.hpp"
@@ -1578,6 +1579,40 @@ void CircuitGraph::add_triac(const std::string& name,
 //==============================================================================
 // MESFET
 //==============================================================================
+
+void CircuitGraph::add_jfet(const std::string& name, const std::string& drain, const std::string& gate,
+                            const std::string& source, bool p_channel, Real beta, Real vto, Real lambda,
+                            Real is, Real n, Real cgs, Real cgd, Real pb, Real fc, Real tnom, Real eg) {
+    const NodeId drain_id = add_node(drain);
+    const NodeId gate_id = add_node(gate);
+    const NodeId source_id = add_node(source);
+    const DeviceId id = next_device_id_++;
+    std::shared_ptr<devices::Device> device;
+    auto make = [&](auto jfet) {
+        jfet->set_nominal_temperature(tnom);
+        jfet->set_energy_gap(eg);
+        jfet->set_temperature(tnom);
+        device = jfet;
+    };
+    if (p_channel) {
+        make(std::make_shared<devices::JFET_P>(id, name, drain_id, gate_id, source_id, beta, vto, lambda, is,
+                                               n, cgs, cgd, pb, fc));
+    } else {
+        make(std::make_shared<devices::JFET_N>(id, name, drain_id, gate_id, source_id, beta, vto, lambda, is,
+                                               n, cgs, cgd, pb, fc));
+    }
+    register_device(name, device);
+    auto [edge_dg, success_dg] = boost::add_edge(drain_id, gate_id, graph_);
+    if (success_dg) {
+        graph_[edge_dg].device_id = id;
+    }
+    auto [edge_gs, success_gs] = boost::add_edge(gate_id, source_id, graph_);
+    if (success_gs) {
+        graph_[edge_gs].device_id = id;
+    }
+    spdlog::debug("Added {}: {} D={} G={} S={} BETA={:.3e} VTO={:.3f} LAMBDA={:.3f}",
+                  p_channel ? "JFET_P" : "JFET_N", name, drain, gate, source, beta, vto, lambda);
+}
 
 void CircuitGraph::add_mesfet_n(const std::string& name,
                                  const std::string& drain,

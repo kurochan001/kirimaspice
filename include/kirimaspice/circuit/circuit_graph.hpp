@@ -960,6 +960,14 @@ public:
 
     // ========== MESFET ==========
 
+    /// Add a JFET (devices::JFET, SPICE's level 1): its card's values, with
+    /// the area factor already applied to BETA, IS, CGS and CGD
+    /// @param p_channel true for a PJF, false for an NJF
+    /// @param tnom TNOM [K]
+    void add_jfet(const std::string& name, const std::string& drain, const std::string& gate,
+                  const std::string& source, bool p_channel, Real beta, Real vto, Real lambda,
+                  Real is, Real n, Real cgs, Real cgd, Real pb, Real fc, Real tnom, Real eg);
+
     /// Add N-channel MESFET (Metal-Semiconductor FET)
     /// Netlist: Z<name> <drain> <gate> <source> <model_name> [params]
     /// @param name Device name (e.g., "Z1")

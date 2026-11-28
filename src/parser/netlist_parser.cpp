@@ -3606,8 +3606,12 @@ static void parse_model_directive(const std::vector<std::string>& tokens, ParseS
         device_type = DeviceType::MESFET_N;
     } else if (device_type_str == "PMF") {
         device_type = DeviceType::MESFET_P;
+    } else if (device_type_str == "NJF") {
+        device_type = DeviceType::JFET_N;
+    } else if (device_type_str == "PJF") {
+        device_type = DeviceType::JFET_P;
     } else {
-        throw ParseError(fmt::format("Unknown .MODEL device type: {} (expected NPN, PNP, D, NMOS, PMOS, NMF, PMF)",
+        throw ParseError(fmt::format("Unknown .MODEL device type: {} (expected NPN, PNP, D, NMOS, PMOS, NMF, PMF, NJF, PJF)",
                                     device_type_str), state.line_number);
     }
 
@@ -4669,6 +4673,69 @@ static void parse_triac_device(const std::vector<std::string>& tokens, const std
     spdlog::debug("Added TRIAC: {} MT2={} MT1={} G={} VBO={:.1f}V IGT={:.3e}A IH={:.3e}A "
                  "VGT={:.3f}V RON={:.3f}Ω VTM={:.3f}V DV_DT={:.1f}V/μs",
                  dev_name, mt2, mt1, gate, vbo, igt, ih, vgt, ron, vtm, dv_dt);
+}
+
+// A JFET, J<name> <drain> <gate> <source> <model> [<area>], with the model of an
+// NJF or PJF card (devices::JFET, ngspice's level 1). The area multiplies
+// BETA, IS, CGS and CGD, as in SPICE. A card parameter the device does not
+// use is named in a warning (warn_unused_card_names), as are the tokens
+// after the area (OFF, IC=, TEMP=), which the device does not take either.
+static void parse_jfet_device(const std::vector<std::string>& tokens, const std::string& dev_name,
+                              ParseState& state) {
+    if (tokens.size() < 5) {
+        throw ParseError("Invalid JFET syntax: J<name> <drain> <gate> <source> <model> [area]",
+                         state.line_number);
+    }
+    const std::string model_name = tokens[4];
+    const ModelDefinition* model = state.config->find_model(model_name);
+    if (model == nullptr) {
+        throw UnresolvedDefinition(fmt::format("Undefined JFET model: {}", model_name), state.line_number);
+    }
+    if (model->device_type != DeviceType::JFET_N && model->device_type != DeviceType::JFET_P) {
+        throw ParseError(fmt::format("Model {} is not a JFET model (NJF or PJF)", model_name),
+                         state.line_number);
+    }
+    Real beta = 1e-4, vto = -2.0, lambda = 0.0, is = 1e-14, n = 1.0, cgs = 0.0, cgd = 0.0;
+    Real pb = 1.0, fc = 0.5, tnom = 300.15, eg = 1.11;
+    std::vector<std::string> unused;
+    for (const auto& [key, value] : model->params) {
+        if (key == "beta") beta = value;
+        else if (key == "vto") vto = value;
+        else if (key == "lambda") lambda = value;
+        else if (key == "is") is = value;
+        else if (key == "n") n = value;
+        else if (key == "cgs") cgs = value;
+        else if (key == "cgd") cgd = value;
+        else if (key == "pb") pb = value;
+        else if (key == "fc") fc = value;
+        else if (key == "tnom") tnom = core::celsius_to_kelvin(value);
+        else if (key == "eg") eg = value;
+        else if (key == "level" && value == 1.0) {}
+        else if (key == "b" && value == 1.0) {}  // the doping tail of the square law
+        else unused.push_back(key);
+    }
+    warn_unused_card_names(state, "JFET model " + model_name, unused);
+    std::size_t next = 5;
+    if (next < tokens.size() && tokens[next].find('=') == std::string::npos &&
+        !util::equals_icase(tokens[next], "OFF")) {
+        const Real area = read_element_value(tokens[next++], state);
+        if (!(area > 0.0)) {
+            throw ParseError(fmt::format("{}: the area must be positive", dev_name), state.line_number);
+        }
+        beta *= area;
+        is *= area;
+        cgs *= area;
+        cgd *= area;
+    }
+    std::vector<std::string> ignored(tokens.begin() + static_cast<std::ptrdiff_t>(next), tokens.end());
+    warn_unused_card_names(state, "JFET " + dev_name, ignored);
+    try {
+        state.circuit->add_jfet(dev_name, tokens[1], tokens[2], tokens[3],
+                                model->device_type == DeviceType::JFET_P, beta, vto, lambda, is, n, cgs, cgd,
+                                pb, fc, tnom, eg);
+    } catch (const std::runtime_error& e) {
+        throw ParseError(fmt::format("{}: {}", dev_name, e.what()), state.line_number);
+    }
 }
 
 static void parse_mesfet_device(const std::vector<std::string>& tokens, const std::string& dev_name, ParseState& state) {
@@ -6088,12 +6155,12 @@ static void parse_subcircuit_instance_device(const std::vector<std::string>& tok
 // The letters of the elements the program simulates; an element of another
 // letter is not dropped, since the circuit would then be another one
 static bool is_element_letter(char letter) {
-    return std::string_view("BCDEFGHIKLMOQRSTVXYZ").find(letter) != std::string_view::npos;
+    return std::string_view("BCDEFGHIJKLMOQRSTVXYZ").find(letter) != std::string_view::npos;
 }
 
 static ParseError unknown_element_letter(char letter, const std::string& name, std::size_t line) {
     return ParseError(fmt::format("Unknown element letter '{}' in '{}'; the elements are "
-                                  "B C D E F G H I K L M O Q R S T V X Y Z",
+                                  "B C D E F G H I J K L M O Q R S T V X Y Z",
                                   letter, name),
                       line);
 }
@@ -6120,6 +6187,7 @@ static void parse_element(const std::vector<std::string>& tokens, char dev_type,
             case 'S': parse_scr_device(tokens, dev_name, state); break;
             case 'Y': parse_triac_device(tokens, dev_name, state); break;
             case 'Z': parse_mesfet_device(tokens, dev_name, state); break;
+            case 'J': parse_jfet_device(tokens, dev_name, state); break;
             case 'Q': parse_bjt_device(tokens, dev_name, state); break;
             case 'M': parse_mosfet_device(tokens, dev_name, line, state); break;
             case 'E': parse_vcvs_device(tokens, dev_name, state); break;
@@ -6497,7 +6565,7 @@ static std::vector<std::string> rename_body_line(
         case 'K':
             names(1, 2);
             break;
-        case 'Q': case 'Z': case 'S': case 'Y':
+        case 'Q': case 'Z': case 'S': case 'Y': case 'J':
             nodes(1, 3);
             break;
         case 'M':

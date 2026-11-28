@@ -55,14 +55,14 @@ The parser accepts these elements:
 | `Q` | Bipolar transistor (NPN, PNP) |
 | `M` | MOSFET and related devices, chosen by the model's `LEVEL` (below) |
 | `Z` | MESFET (`NMF`, `PMF`) |
+| `J` | JFET (`NJF`, `PJF`) |
 | `S`, `Y` | SCR, TRIAC |
 | `T`, `O` | Lossless and lossy transmission lines |
 | `X` | Subcircuit instance |
 
 For `M`, the `LEVEL` of the `.model` selects the model: 1 (default), 3,
 8 or 49 (BSIM3), 14 or 54 (BSIM4), 10 (SiC MOSFET), 11 (GaN
-HEMT), 12 (FinFET), 20 (VDMOS) and 21 (IGBT). The library also has a JFET
-model, but the parser has no `J` element yet. How complete each model is
+HEMT), 12 (FinFET), 20 (VDMOS) and 21 (IGBT). How complete each model is
 varies; each has its own tests.
 
 The CLI runs operating-point, DC sweep (including nested sweeps), transient

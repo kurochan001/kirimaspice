@@ -23,9 +23,9 @@ push したら項目に印を付け、同じコミットで KNOWN_ISSUES から�
   （[ネットリストの入力](KNOWN_ISSUES.ja.md#ネットリストの入力)）。
 - [x] **`E`、`F`、`G`、`H` の `POLY` 形式**（M）。多項式の `B` 電源として読みます
   （`parse_poly_controlled_source`）。
-- [ ] **`J` 素子**（M）。ライブラリには JFET がありますが、パーサーに `J` 素子がありません。ゲートの容量は、
-  過渡解析の積分法のコンパニオン（`device_utils::CapacitorHistory`）にする必要があります
-  （[デバイスモデル](KNOWN_ISSUES.ja.md#デバイスモデル)）。
+- [x] **`J` 素子**（M）。JFET を ngspice のレベル 1 にし、ゲートの容量を `device_utils::CapacitorHistory` で
+  積分します。
+- [ ] **JFET の `RD`、`RS` と、`VTO`、`BETA`、`PB`、容量の温度**（M）（[デバイスモデル](KNOWN_ISSUES.ja.md#デバイスモデル)）。
 - [x] **`.OPTIONS` の値で倍率を読む**（S）。数のオプションは素子の値と同じく読みます
   （`util::parse_value_with_unit`）。`itl1=1k` は 1000 です。
 - [ ] **空の 1 行目を題名にする**（S）。ngspice-47 と同じにします。多くのテストがネットリストを空行から

@@ -4,10 +4,11 @@
 // include/kirimaspice/devices/jfet.hpp
 #pragma once
 #include "kirimaspice/devices/device.hpp"
-#include "kirimaspice/core/device_utils.hpp"
 #include "kirimaspice/core/constants.hpp"
+#include "kirimaspice/core/device_utils.hpp"
 #include <spdlog/spdlog.h>
 #include <cmath>
+#include <optional>
 #include <stdexcept>
 
 namespace kirimaspice::devices {
@@ -15,21 +16,24 @@ namespace kirimaspice::devices {
 /// Polarity for JFET devices
 enum class JFETPolarity { N, P };
 
-/// JFET: Nonlinear 3-terminal Junction Field Effect Transistor
-/// Shichman-Hodges Level 1 model with unified N/P implementation
+/// JFET: the junction field-effect transistor of SPICE (ngspice's level 1,
+/// Shichman and Hodges), for both polarities.
 ///
-/// Operating regions:
-/// 1. Cutoff: Vov < 0 (Vov = Vgs - Vto for N, Vsg - |Vto| for P)
-/// 2. Linear: Vov > 0, Vds/Vsd < Vov
-/// 3. Saturation: Vov > 0, Vds/Vsd >= Vov
-///
-/// Where:
-///   BETA   = transconductance parameter [A/V²]
-///   Vto    = pinch-off voltage [V] (negative for both N and P)
-///   LAMBDA = channel length modulation coefficient [1/V]
-///
-/// Gate junction current (PN diode):
-///   Ig = IS × (exp(Vgs/(n×Vt)) - 1)
+/// With the polarity t (+1 for N, -1 for P), the device works on
+/// vgs = t (Vg - Vs), vgd = t (Vg - Vd) and vds = vgs - vgd. For vds >= 0 the
+/// channel current from drain to source is, with vgst = vgs - VTO,
+///   0                                  for vgst <= 0,
+///   BETA vds (2 vgst - vds) (1 + LAMBDA vds)  for 0 < vds < vgst,
+///   BETA vgst^2 (1 + LAMBDA vds)        for vds >= vgst,
+/// and for vds < 0 drain and source change places (vgd for vgs, -vds for
+/// vds, the current reversed). The terminal current is t times it. Each of
+/// the gate-source and gate-drain junctions carries IS (exp(v/(N Vt)) - 1)
+/// with GMIN in parallel, and a depletion capacitance C0/sqrt(1 - v/PB),
+/// continued linearly above FC PB (CGS and CGD for C0). IS follows the
+/// temperature as IS exp((T/TNOM - 1) EG/(N Vt)). ngspice-45.2 gives these
+/// values (run 2026-11-28; tests/unit/test_jfet.cpp). Not modelled: RD,
+/// RS, the doping-tail parameter B (other than 1), the temperature of VTO,
+/// BETA, PB and the capacitances, and noise.
 template<JFETPolarity Pol>
 class JFET : public Device {
 public:
@@ -44,45 +48,29 @@ public:
     static constexpr const char* type_name =
         (Pol == JFETPolarity::N) ? "JFET_N" : "JFET_P";
 
+    /// The channel current from drain to source, in the device's polarity,
+    /// and its derivatives with respect to vgs and vds
+    struct Channel {
+        Real id = 0.0, gm = 0.0, gds = 0.0;
+    };
+
+    enum class Region { CUTOFF, LINEAR, SATURATION };
+
     JFET(DeviceId id, const std::string& name,
          NodeId drain, NodeId gate, NodeId source,
-         Real beta = 1e-4,     // Transconductance parameter [A/V²]
-         Real vto = -2.0,      // Pinch-off voltage [V] (negative)
-         Real lambda = 0.01,   // Channel length modulation [1/V]
-         Real is = 1e-14,      // Gate junction saturation current [A]
-         Real n = 1.0,         // Gate junction emission coefficient
-         Real cgs = 0.0,       // G-S capacitance [F]
-         Real cgd = 0.0)       // G-D capacitance [F]
+         Real beta = 1e-4,     // BETA [A/V²]
+         Real vto = -2.0,      // VTO [V]
+         Real lambda = 0.0,    // LAMBDA [1/V]
+         Real is = 1e-14,      // IS of each gate junction [A]
+         Real n = 1.0,         // N of the gate junctions
+         Real cgs = 0.0,       // CGS, zero-bias G-S capacitance [F]
+         Real cgd = 0.0,       // CGD, zero-bias G-D capacitance [F]
+         Real pb = 1.0,        // PB, gate junction potential [V]
+         Real fc = 0.5)        // FC, forward-bias capacitance coefficient
         : Device(id, name, device_type)
         , nodes_{drain, gate, source}
-        , beta_(beta)
-        , vto_(vto)
-        , lambda_(lambda)
-        , is_(is)
-        , n_(n)
-        , cgs_(cgs)
-        , cgd_(cgd)
-        // Temperature model parameters
-        , is_tnom_(is)
-        , tnom_(T_nominal)
-        , xti_(3.0)
-        , eg_(1.11)
-        // State variables
-        , vgs_prev_(0.0), vgs_prev2_(0.0), vgs_prev3_(0.0)
-        , vgs_saved_(0.0), vgs_saved2_(0.0), vgs_saved3_(0.0)
-        , charge_gs_(0.0), charge_gs_prev_(0.0)
-        , vgd_prev_(0.0), vgd_prev2_(0.0), vgd_prev3_(0.0)
-        , vgd_saved_(0.0), vgd_saved2_(0.0), vgd_saved3_(0.0)
-        , charge_gd_(0.0), charge_gd_prev_(0.0)
-        , timestep_(0.0)
-        , last_method_(IntegrationMethod::BACKWARD_EULER)
-        , timestep_saved_(0.0)
-        , method_saved_(IntegrationMethod::BACKWARD_EULER)
-        , first_accept_(true)
-        , bdf_alpha0_(0.0), bdf_alpha1_(0.0), bdf_alpha2_(0.0), bdf_alpha3_(0.0)
-        , bdf_beta0_(0.0)
-        , use_bdf_var_(false) {
-
+        , beta_(beta), vto_(vto), lambda_(lambda), is_(is), n_(n)
+        , cgs_(cgs), cgd_(cgd), pb_(pb), fc_(fc), is_tnom_(is) {
         if (beta <= 0.0) {
             throw std::runtime_error("JFET transconductance parameter must be positive: " + name);
         }
@@ -101,7 +89,12 @@ public:
         if (cgs < 0.0 || cgd < 0.0) {
             throw std::runtime_error("JFET capacitance must be non-negative: " + name);
         }
-
+        if (pb <= 0.0) {
+            throw std::runtime_error("JFET junction potential PB must be positive: " + name);
+        }
+        if (fc < 0.0 || fc >= 1.0) {
+            throw std::runtime_error("JFET FC must be from 0 to below 1: " + name);
+        }
         spdlog::debug("Created {} {} (D={}, G={}, S={}, BETA={:.6e}A/V², Vto={:.3f}V, LAMBDA={:.6e}1/V)",
                       type_name, name, drain, gate, source, beta_, vto_, lambda_);
     }
@@ -109,276 +102,84 @@ public:
     ~JFET() override = default;
 
     const std::vector<NodeId>& nodes() const override { return nodes_; }
-
-    void stamp_dc_linear(MNASystem& mna,
-                        const DenseVector& node_voltages) const override {
-        stamp_gmin(mna);
-    }
-
-    void stamp_dc_nonlinear(MNASystem& mna,
-                           const DenseVector& node_voltages) const override {
-        NodeId nd = nodes_[0];
-        NodeId ng = nodes_[1];
-        NodeId ns = nodes_[2];
-
-        Real vd = (nd == NODE_GND) ? 0.0 : node_voltages[nd - 1];
-        Real vg = (ng == NODE_GND) ? 0.0 : node_voltages[ng - 1];
-        Real vs = (ns == NODE_GND) ? 0.0 : node_voltages[ns - 1];
-
-        // Internal voltage calculations
-        Real vov, vds_eff;
-        compute_effective_voltages(vd, vg, vs, vov, vds_eff);
-
-        // Calculate drain current and conductances
-        Real id = compute_drain_current(vov, vds_eff);
-        Real gm = compute_transconductance(vov, vds_eff);
-        Real gds = compute_output_conductance(vov, vds_eff);
-
-        // Gate junction current
-        Real vgs_for_gate = (Pol == JFETPolarity::N) ? (vg - vs) : -(vs - vg);
-        Real ig = compute_gate_current(vgs_for_gate);
-        Real gg = compute_gate_conductance(vgs_for_gate);
-
-        // Compute Norton equivalent currents
-        Real ieq_d, ieq_g;
-        if constexpr (Pol == JFETPolarity::N) {
-            Real vgs = vg - vs;
-            Real vds = vd - vs;
-            ieq_d = id - gm * vgs - gds * vds;
-            ieq_g = ig - gg * vgs;
-        } else {
-            Real vsg = vs - vg;
-            Real vsd = vs - vd;
-            ieq_d = id - gm * vsg - gds * vsd;
-            ieq_g = ig - gg * vsg;
-        }
-
-        auto nd_idx = (nd == NODE_GND) ? -1 : static_cast<int>(nd - 1);
-        auto ng_idx = (ng == NODE_GND) ? -1 : static_cast<int>(ng - 1);
-        auto ns_idx = (ns == NODE_GND) ? -1 : static_cast<int>(ns - 1);
-
-        // Stamp drain current
-        if constexpr (Pol == JFETPolarity::N) {
-            // N-channel: Id = gm×(Vg-Vs) + gds×(Vd-Vs) + Ieq_d
-            if (nd_idx >= 0) {
-                mna.G.add_entry(nd_idx, nd_idx, gds);
-                if (ng_idx >= 0) mna.G.add_entry(nd_idx, ng_idx, gm);
-                if (ns_idx >= 0) mna.G.add_entry(nd_idx, ns_idx, -gm - gds);
-                mna.b[nd_idx] -= ieq_d;
-            }
-            if (ns_idx >= 0) {
-                mna.G.add_entry(ns_idx, ns_idx, gm + gds);
-                if (ng_idx >= 0) mna.G.add_entry(ns_idx, ng_idx, -gm);
-                if (nd_idx >= 0) mna.G.add_entry(ns_idx, nd_idx, -gds);
-                mna.b[ns_idx] += ieq_d;
-            }
-        } else {
-            // P-channel: Id = gm×(Vs-Vg) + gds×(Vs-Vd) + Ieq_d
-            if (nd_idx >= 0) {
-                mna.G.add_entry(nd_idx, nd_idx, -gds);
-                if (ng_idx >= 0) mna.G.add_entry(nd_idx, ng_idx, -gm);
-                if (ns_idx >= 0) mna.G.add_entry(nd_idx, ns_idx, gm + gds);
-                mna.b[nd_idx] -= ieq_d;
-            }
-            if (ns_idx >= 0) {
-                mna.G.add_entry(ns_idx, ns_idx, -gm - gds);
-                if (ng_idx >= 0) mna.G.add_entry(ns_idx, ng_idx, gm);
-                if (nd_idx >= 0) mna.G.add_entry(ns_idx, nd_idx, gds);
-                mna.b[ns_idx] += ieq_d;
-            }
-        }
-
-        // Stamp gate junction current
-        if constexpr (Pol == JFETPolarity::N) {
-            if (ng_idx >= 0) {
-                mna.G.add_entry(ng_idx, ng_idx, gg);
-                if (ns_idx >= 0) mna.G.add_entry(ng_idx, ns_idx, -gg);
-                mna.b[ng_idx] -= ieq_g;
-            }
-            if (ns_idx >= 0) {
-                mna.G.add_entry(ns_idx, ns_idx, gg);
-                if (ng_idx >= 0) mna.G.add_entry(ns_idx, ng_idx, -gg);
-                mna.b[ns_idx] += ieq_g;
-            }
-        } else {
-            if (ng_idx >= 0) {
-                mna.G.add_entry(ng_idx, ng_idx, -gg);
-                if (ns_idx >= 0) mna.G.add_entry(ng_idx, ns_idx, gg);
-                mna.b[ng_idx] -= ieq_g;
-            }
-            if (ns_idx >= 0) {
-                mna.G.add_entry(ns_idx, ns_idx, -gg);
-                if (ng_idx >= 0) mna.G.add_entry(ns_idx, ng_idx, gg);
-                mna.b[ns_idx] += ieq_g;
-            }
-        }
-    }
-
-    void stamp_transient(MNASystem& mna,
-                        const DenseVector& node_voltages,
-                        Real timestep,
-                        IntegrationMethod method,
-                        const BDFCoefficients* bdf_coef = nullptr,
-                        const TR_BDF2_Coefficients* tr_bdf2_coef = nullptr) const override {
-        timestep_ = timestep;
-        last_method_ = method;
-
-        stamp_dc_nonlinear(mna, node_voltages);
-
-        if (!is_dynamic()) return;
-
-        NodeId nd = nodes_[0];
-        NodeId ng = nodes_[1];
-        NodeId ns = nodes_[2];
-
-        Real vd = (nd == NODE_GND) ? 0.0 : node_voltages[nd - 1];
-        Real vg = (ng == NODE_GND) ? 0.0 : node_voltages[ng - 1];
-        Real vs = (ns == NODE_GND) ? 0.0 : node_voltages[ns - 1];
-
-        Real vgs = vg - vs;
-        Real vgd = vg - vd;
-
-        charge_gs_ = cgs_ * vgs;
-        charge_gd_ = cgd_ * vgd;
-
-        Real i_cgs = 0.0, i_cgd = 0.0;
-        Real geq_cgs = 0.0, geq_cgd = 0.0;
-
-        switch (method) {
-            case IntegrationMethod::BACKWARD_EULER: {
-                geq_cgs = cgs_ / timestep;
-                geq_cgd = cgd_ / timestep;
-                i_cgs = geq_cgs * (vgs - vgs_prev_);
-                i_cgd = geq_cgd * (vgd - vgd_prev_);
-                break;
-            }
-            case IntegrationMethod::TRAPEZOIDAL:
-            case IntegrationMethod::GEAR2: {
-                geq_cgs = 2.0 * cgs_ / timestep;
-                geq_cgd = 2.0 * cgd_ / timestep;
-                Real i_cgs_prev = cgs_ * (vgs_prev_ - vgs_prev2_) / timestep;
-                Real i_cgd_prev = cgd_ * (vgd_prev_ - vgd_prev2_) / timestep;
-                i_cgs = geq_cgs * (vgs - vgs_prev_) - i_cgs_prev;
-                i_cgd = geq_cgd * (vgd - vgd_prev_) - i_cgd_prev;
-                break;
-            }
-            case IntegrationMethod::GEAR3:
-            case IntegrationMethod::TR_BDF2: {
-                geq_cgs = cgs_ / timestep;
-                geq_cgd = cgd_ / timestep;
-                i_cgs = geq_cgs * (vgs - vgs_prev_);
-                i_cgd = geq_cgd * (vgd - vgd_prev_);
-                break;
-            }
-        }
-
-        auto nd_idx = (nd == NODE_GND) ? -1 : static_cast<int>(nd - 1);
-        auto ng_idx = (ng == NODE_GND) ? -1 : static_cast<int>(ng - 1);
-        auto ns_idx = (ns == NODE_GND) ? -1 : static_cast<int>(ns - 1);
-
-        // G-S capacitance
-        if (ng_idx >= 0) {
-            mna.G.add_entry(ng_idx, ng_idx, geq_cgs);
-            if (ns_idx >= 0) mna.G.add_entry(ng_idx, ns_idx, -geq_cgs);
-            mna.b[ng_idx] -= i_cgs;
-        }
-        if (ns_idx >= 0) {
-            mna.G.add_entry(ns_idx, ns_idx, geq_cgs);
-            if (ng_idx >= 0) mna.G.add_entry(ns_idx, ng_idx, -geq_cgs);
-            mna.b[ns_idx] += i_cgs;
-        }
-
-        // G-D capacitance
-        if (ng_idx >= 0) {
-            mna.G.add_entry(ng_idx, ng_idx, geq_cgd);
-            if (nd_idx >= 0) mna.G.add_entry(ng_idx, nd_idx, -geq_cgd);
-            mna.b[ng_idx] -= i_cgd;
-        }
-        if (nd_idx >= 0) {
-            mna.G.add_entry(nd_idx, nd_idx, geq_cgd);
-            if (ng_idx >= 0) mna.G.add_entry(nd_idx, ng_idx, -geq_cgd);
-            mna.b[nd_idx] += i_cgd;
-        }
-    }
-
     bool is_linear() const override { return false; }
-    bool is_dynamic() const override { return (cgs_ > 0.0 || cgd_ > 0.0); }
+    bool is_dynamic() const override { return cgs_ > 0.0 || cgd_ > 0.0; }
 
-    void stamp_ac(ComplexMNASystem& sys, Real omega,
-                  const DenseVector& dc_solution) const override {
-        NodeId nd = nodes_[0];
-        NodeId ng = nodes_[1];
-        NodeId ns = nodes_[2];
+    void stamp_dc_linear(MNASystem&, const DenseVector&) const override {}
 
-        Real vd = (nd == NODE_GND) ? 0.0 : dc_solution[nd - 1];
-        Real vg = (ng == NODE_GND) ? 0.0 : dc_solution[ng - 1];
-        Real vs = (ns == NODE_GND) ? 0.0 : dc_solution[ns - 1];
+    void stamp_dc_nonlinear(MNASystem& mna, const DenseVector& node_voltages) const override {
+        stamp_currents(mna, node_voltages, true);
+    }
 
-        Real vov, vds_eff;
-        compute_effective_voltages(vd, vg, vs, vov, vds_eff);
-
-        Real gm = compute_transconductance(vov, vds_eff);
-        Real gds = compute_output_conductance(vov, vds_eff);
-        Real vgs_for_gate = (Pol == JFETPolarity::N) ? (vg - vs) : -(vs - vg);
-        Real gg = compute_gate_conductance(vgs_for_gate);
-
-        Complex j_omega_cgs = Complex(0.0, omega * cgs_);
-        Complex j_omega_cgd = Complex(0.0, omega * cgd_);
-
-        auto nd_idx = (nd == NODE_GND) ? -1 : static_cast<int>(nd - 1);
-        auto ng_idx = (ng == NODE_GND) ? -1 : static_cast<int>(ng - 1);
-        auto ns_idx = (ns == NODE_GND) ? -1 : static_cast<int>(ns - 1);
-
-        // Stamp transconductance (gm)
-        if constexpr (Pol == JFETPolarity::N) {
-            if (nd_idx >= 0 && ng_idx >= 0) sys.Y.add_entry(nd_idx, ng_idx, Complex(gm, 0.0));
-            if (nd_idx >= 0 && ns_idx >= 0) sys.Y.add_entry(nd_idx, ns_idx, Complex(-gm, 0.0));
-            if (ns_idx >= 0 && ng_idx >= 0) sys.Y.add_entry(ns_idx, ng_idx, Complex(-gm, 0.0));
-            if (ns_idx >= 0) sys.Y.add_entry(ns_idx, ns_idx, Complex(gm, 0.0));
-        } else {
-            if (nd_idx >= 0 && ng_idx >= 0) sys.Y.add_entry(nd_idx, ng_idx, Complex(-gm, 0.0));
-            if (nd_idx >= 0 && ns_idx >= 0) sys.Y.add_entry(nd_idx, ns_idx, Complex(gm, 0.0));
-            if (ns_idx >= 0 && ng_idx >= 0) sys.Y.add_entry(ns_idx, ng_idx, Complex(gm, 0.0));
-            if (ns_idx >= 0) sys.Y.add_entry(ns_idx, ns_idx, Complex(-gm, 0.0));
+    void stamp_transient(MNASystem& mna, const DenseVector& node_voltages, Real timestep,
+                         IntegrationMethod method, const BDFCoefficients* bdf_coef = nullptr,
+                         const TR_BDF2_Coefficients* tr_bdf2_coef = nullptr) const override {
+        stamp_currents(mna, node_voltages, true);
+        if (!is_dynamic()) {
+            return;
         }
+        // Each depletion capacitance at the voltage of the last accepted
+        // point, integrated as a capacitor (device_utils::CapacitorHistory)
+        const int d = index(nodes_[0]), g = index(nodes_[1]), s = index(nodes_[2]);
+        gs_history_.stamp(mna, g, s, capacitance(cgs_, polarity_sign * gs_history_.last_voltage()), method,
+                          timestep, bdf_coef, tr_bdf2_coef);
+        gd_history_.stamp(mna, g, d, capacitance(cgd_, polarity_sign * gd_history_.last_voltage()), method,
+                          timestep, bdf_coef, tr_bdf2_coef);
+    }
 
-        // Stamp output conductance (gds)
-        if constexpr (Pol == JFETPolarity::N) {
-            if (nd_idx >= 0) sys.Y.add_entry(nd_idx, nd_idx, Complex(gds, 0.0));
-            if (nd_idx >= 0 && ns_idx >= 0) sys.Y.add_entry(nd_idx, ns_idx, Complex(-gds, 0.0));
-            if (ns_idx >= 0 && nd_idx >= 0) sys.Y.add_entry(ns_idx, nd_idx, Complex(-gds, 0.0));
-            if (ns_idx >= 0) sys.Y.add_entry(ns_idx, ns_idx, Complex(gds, 0.0));
-        } else {
-            if (nd_idx >= 0) sys.Y.add_entry(nd_idx, nd_idx, Complex(-gds, 0.0));
-            if (nd_idx >= 0 && ns_idx >= 0) sys.Y.add_entry(nd_idx, ns_idx, Complex(gds, 0.0));
-            if (ns_idx >= 0 && nd_idx >= 0) sys.Y.add_entry(ns_idx, nd_idx, Complex(gds, 0.0));
-            if (ns_idx >= 0) sys.Y.add_entry(ns_idx, ns_idx, Complex(-gds, 0.0));
-        }
+    void stamp_ac(ComplexMNASystem& sys, Real omega, const DenseVector& dc_solution) const override {
+        const Real vg = voltage(dc_solution, nodes_[1]);
+        const Real vgs = polarity_sign * (vg - voltage(dc_solution, nodes_[2]));
+        const Real vgd = polarity_sign * (vg - voltage(dc_solution, nodes_[0]));
+        const Channel ch = channel(vgs, vgs - vgd);
+        const int d = index(nodes_[0]), g = index(nodes_[1]), s = index(nodes_[2]);
+        auto add = [&](int r, int c, Complex v) {
+            if (r >= 0 && c >= 0) sys.Y.add_entry(r, c, v);
+        };
+        // Drain-to-source current gm (Vg - Vs) + gds (Vd - Vs)
+        add(d, g, Complex(ch.gm, 0.0));
+        add(d, s, Complex(-ch.gm - ch.gds, 0.0));
+        add(d, d, Complex(ch.gds, 0.0));
+        add(s, g, Complex(-ch.gm, 0.0));
+        add(s, s, Complex(ch.gm + ch.gds, 0.0));
+        add(s, d, Complex(-ch.gds, 0.0));
+        // Each gate junction: its conductance with GMIN, and its capacitance
+        auto branch = [&](int a, int b, Complex y) {
+            add(a, a, y);
+            add(b, b, y);
+            add(a, b, -y);
+            add(b, a, -y);
+        };
+        branch(g, s, Complex(junction_conductance(vgs) + kGmin, omega * capacitance(cgs_, vgs)));
+        branch(g, d, Complex(junction_conductance(vgd) + kGmin, omega * capacitance(cgd_, vgd)));
+    }
 
-        // Stamp gate conductance (gg)
-        if constexpr (Pol == JFETPolarity::N) {
-            if (ng_idx >= 0) sys.Y.add_entry(ng_idx, ng_idx, Complex(gg, 0.0));
-            if (ng_idx >= 0 && ns_idx >= 0) sys.Y.add_entry(ng_idx, ns_idx, Complex(-gg, 0.0));
-            if (ns_idx >= 0 && ng_idx >= 0) sys.Y.add_entry(ns_idx, ng_idx, Complex(-gg, 0.0));
-            if (ns_idx >= 0) sys.Y.add_entry(ns_idx, ns_idx, Complex(gg, 0.0));
-        } else {
-            if (ng_idx >= 0) sys.Y.add_entry(ng_idx, ng_idx, Complex(-gg, 0.0));
-            if (ng_idx >= 0 && ns_idx >= 0) sys.Y.add_entry(ng_idx, ns_idx, Complex(gg, 0.0));
-            if (ns_idx >= 0 && ng_idx >= 0) sys.Y.add_entry(ns_idx, ng_idx, Complex(gg, 0.0));
-            if (ns_idx >= 0) sys.Y.add_entry(ns_idx, ns_idx, Complex(-gg, 0.0));
-        }
+    bool limited_in_last_stamp() const override { return limited_; }
 
-        // G-S capacitance (same for both polarities)
-        if (ng_idx >= 0) sys.Y.add_entry(ng_idx, ng_idx, j_omega_cgs);
-        if (ng_idx >= 0 && ns_idx >= 0) sys.Y.add_entry(ng_idx, ns_idx, -j_omega_cgs);
-        if (ns_idx >= 0 && ng_idx >= 0) sys.Y.add_entry(ns_idx, ng_idx, -j_omega_cgs);
-        if (ns_idx >= 0) sys.Y.add_entry(ns_idx, ns_idx, j_omega_cgs);
+    void save_state() override {
+        saved_gs_ = gs_history_;
+        saved_gd_ = gd_history_;
+    }
 
-        // G-D capacitance (same for both polarities)
-        if (ng_idx >= 0) sys.Y.add_entry(ng_idx, ng_idx, j_omega_cgd);
-        if (ng_idx >= 0 && nd_idx >= 0) sys.Y.add_entry(ng_idx, nd_idx, -j_omega_cgd);
-        if (nd_idx >= 0 && ng_idx >= 0) sys.Y.add_entry(nd_idx, ng_idx, -j_omega_cgd);
-        if (nd_idx >= 0) sys.Y.add_entry(nd_idx, nd_idx, j_omega_cgd);
+    void restore_state() override {
+        gs_history_ = saved_gs_;
+        gd_history_ = saved_gd_;
+    }
+
+    void reset_state() override {
+        gs_history_.reset();
+        gd_history_.reset();
+        saved_gs_.reset();
+        saved_gd_.reset();
+        vgs_last_.reset();
+        vgd_last_.reset();
+        limited_ = false;
+    }
+
+    void accept_solution(const DenseVector& node_voltages) override {
+        const Real vg = core::accepted_node_voltage(node_voltages, nodes_[1]);
+        gs_history_.accept(vg - core::accepted_node_voltage(node_voltages, nodes_[2]));
+        gd_history_.accept(vg - core::accepted_node_voltage(node_voltages, nodes_[0]));
     }
 
     // Accessors
@@ -390,259 +191,162 @@ public:
     NodeId gate() const { return nodes_[1]; }
     NodeId source() const { return nodes_[2]; }
 
-    void set_pinchoff_voltage(Real vto) {
-        vto_ = vto;
-        spdlog::debug("{} set pinch-off voltage to {:.3f}V", name_, vto_);
-    }
+    void set_pinchoff_voltage(Real vto) { vto_ = vto; }
 
+    /// TNOM [K], at which IS is the card's, and EG [eV] of IS(T)
+    void set_nominal_temperature(Real tnom_kelvin) { tnom_ = tnom_kelvin; }
+    void set_energy_gap(Real eg) { eg_ = eg; }
+
+    /// The operating temperature [K]: Vt of the junctions, and
+    /// IS = IS(TNOM) exp((T/TNOM - 1) EG/(N Vt)), as ngspice-45.2 has it
     void set_temperature(Real temp_kelvin) {
         if (temp_kelvin <= 0.0) {
             throw std::runtime_error("Temperature must be positive: " + name_);
         }
-        Real vt_nom = k_boltzmann * tnom_ / q_electron;
-        Real vt_op = k_boltzmann * temp_kelvin / q_electron;
-        Real temp_ratio = temp_kelvin / tnom_;
-        Real vt_factor = 1.0 / vt_op - 1.0 / vt_nom;
-        is_ = is_tnom_ * std::pow(temp_ratio, xti_ / n_) * std::exp(-eg_ / n_ * vt_factor);
-        spdlog::debug("{} set temperature to {:.2f}K (IS={:.6e}A)", name_, temp_kelvin, is_);
+        temperature_ = temp_kelvin;
+        const Real vt = thermal_voltage();
+        is_ = is_tnom_ * std::exp((temp_kelvin / tnom_ - 1.0) * eg_ / (n_ * vt));
     }
 
-    enum class Region { CUTOFF, LINEAR, SATURATION };
-
-    Region get_region(Real v1, Real v2) const {
-        // v1 = vgs (N) or vsg (P), v2 = vds (N) or vsd (P)
-        Real vov = (Pol == JFETPolarity::N) ? (v1 - vto_) : (v1 - std::abs(vto_));
-        if (vov < 0.0) return Region::CUTOFF;
-        if (v2 < vov) return Region::LINEAR;
-        return Region::SATURATION;
+    /// The region at vgs and vds of the device's polarity (vds >= 0)
+    Region get_region(Real vgs, Real vds) const {
+        const Real vgst = vgs - vto_;
+        if (vgst <= 0.0) return Region::CUTOFF;
+        return (vds < vgst) ? Region::LINEAR : Region::SATURATION;
     }
 
-    Real get_drain_current(Real v1, Real v2) const {
-        Real vov, vds_eff;
-        if constexpr (Pol == JFETPolarity::N) {
-            vov = v1 - vto_;
-            vds_eff = v2;
-        } else {
-            vov = v1 - std::abs(vto_);
-            vds_eff = v2;
+    Real get_drain_current(Real vgs, Real vds) const { return channel(vgs, vds).id; }
+    Real get_transconductance(Real vgs, Real vds) const { return channel(vgs, vds).gm; }
+    Real get_output_conductance(Real vgs, Real vds) const { return channel(vgs, vds).gds; }
+    /// A gate junction's own current and conductance at v, without GMIN
+    Real get_gate_current(Real v) const { return junction_current(v); }
+    Real get_gate_conductance(Real v) const { return junction_conductance(v); }
+
+    /// The channel at vgs and vds of the device's polarity, in either mode
+    Channel channel(Real vgs, Real vds) const {
+        if (vds >= 0.0) {
+            return forward(vgs - vto_, vds);
         }
-        return compute_drain_current(vov, vds_eff);
-    }
-
-    Real get_transconductance(Real v1, Real v2) const {
-        Real vov, vds_eff;
-        if constexpr (Pol == JFETPolarity::N) {
-            vov = v1 - vto_;
-            vds_eff = v2;
-        } else {
-            vov = v1 - std::abs(vto_);
-            vds_eff = v2;
-        }
-        return compute_transconductance(vov, vds_eff);
-    }
-
-    Real get_output_conductance(Real v1, Real v2) const {
-        Real vov, vds_eff;
-        if constexpr (Pol == JFETPolarity::N) {
-            vov = v1 - vto_;
-            vds_eff = v2;
-        } else {
-            vov = v1 - std::abs(vto_);
-            vds_eff = v2;
-        }
-        return compute_output_conductance(vov, vds_eff);
-    }
-
-    Real get_gate_current(Real vgs) const {
-        return compute_gate_current(vgs);
-    }
-
-    Real get_gate_conductance(Real vgs) const {
-        return compute_gate_conductance(vgs);
-    }
-
-    void save_state() override {
-        vgs_saved_ = vgs_prev_;
-        vgs_saved2_ = vgs_prev2_;
-        vgs_saved3_ = vgs_prev3_;
-        vgd_saved_ = vgd_prev_;
-        vgd_saved2_ = vgd_prev2_;
-        vgd_saved3_ = vgd_prev3_;
-        timestep_saved_ = timestep_;
-        method_saved_ = last_method_;
-    }
-
-    void restore_state() override {
-        vgs_prev_ = vgs_saved_;
-        vgs_prev2_ = vgs_saved2_;
-        vgs_prev3_ = vgs_saved3_;
-        vgd_prev_ = vgd_saved_;
-        vgd_prev2_ = vgd_saved2_;
-        vgd_prev3_ = vgd_saved3_;
-        timestep_ = timestep_saved_;
-        last_method_ = method_saved_;
-    }
-
-    void accept_solution(const DenseVector& node_voltages) override {
-        NodeId nd = nodes_[0];
-        NodeId ng = nodes_[1];
-        NodeId ns = nodes_[2];
-
-        Real vd = (nd == NODE_GND) ? 0.0 : node_voltages[nd];
-        Real vg = (ng == NODE_GND) ? 0.0 : node_voltages[ng];
-        Real vs = (ns == NODE_GND) ? 0.0 : node_voltages[ns];
-
-        Real vgs = vg - vs;
-        Real vgd = vg - vd;
-
-        vgs_prev3_ = vgs_prev2_;
-        vgs_prev2_ = vgs_prev_;
-        vgs_prev_ = vgs;
-
-        vgd_prev3_ = vgd_prev2_;
-        vgd_prev2_ = vgd_prev_;
-        vgd_prev_ = vgd;
-
-        charge_gs_prev_ = charge_gs_;
-        charge_gd_prev_ = charge_gd_;
-
-        first_accept_ = false;
-    }
-
-    Real get_charge() const override { return charge_gs_ + charge_gd_; }
-
-    Real get_physical_lte(Real chgtol, const DenseVector& node_voltages) const override {
-        if (!is_dynamic() || first_accept_) return 0.0;
-        Real q_error_gs = std::abs(charge_gs_ - charge_gs_prev_);
-        Real q_error_gd = std::abs(charge_gd_ - charge_gd_prev_);
-        return (q_error_gs + q_error_gd) / std::max(chgtol, 1e-20);
+        // Inverse mode: the drain is the source, Id = -f(vgd - VTO, -vds)
+        const Channel f = forward(vgs - vds - vto_, -vds);
+        return {-f.id, -f.gm, f.gm + f.gds};
     }
 
 private:
-    void stamp_gmin(MNASystem& mna) const {
-        NodeId nd = nodes_[0];
-        NodeId ng = nodes_[1];
-        NodeId ns = nodes_[2];
-        Real g = gmin_default;
+    static constexpr Real kGmin = 1e-12;
 
-        auto nd_idx = (nd == NODE_GND) ? -1 : static_cast<int>(nd - 1);
-        auto ng_idx = (ng == NODE_GND) ? -1 : static_cast<int>(ng - 1);
-        auto ns_idx = (ns == NODE_GND) ? -1 : static_cast<int>(ns - 1);
-
-        // D-S conductance
-        if (nd_idx >= 0) {
-            mna.G.add_entry(nd_idx, nd_idx, g);
-            if (ns_idx >= 0) mna.G.add_entry(nd_idx, ns_idx, -g);
-        }
-        if (ns_idx >= 0) {
-            mna.G.add_entry(ns_idx, ns_idx, g);
-            if (nd_idx >= 0) mna.G.add_entry(ns_idx, nd_idx, -g);
-        }
-
-        // G-S conductance
-        if (ng_idx >= 0) {
-            mna.G.add_entry(ng_idx, ng_idx, g);
-            if (ns_idx >= 0) mna.G.add_entry(ng_idx, ns_idx, -g);
-        }
-        if (ns_idx >= 0) {
-            mna.G.add_entry(ns_idx, ns_idx, g);
-            if (ng_idx >= 0) mna.G.add_entry(ns_idx, ng_idx, -g);
-        }
-
-        // G-D conductance
-        if (ng_idx >= 0) {
-            mna.G.add_entry(ng_idx, ng_idx, g);
-            if (nd_idx >= 0) mna.G.add_entry(ng_idx, nd_idx, -g);
-        }
-        if (nd_idx >= 0) {
-            mna.G.add_entry(nd_idx, nd_idx, g);
-            if (ng_idx >= 0) mna.G.add_entry(nd_idx, ng_idx, -g);
-        }
+    static int index(NodeId node) { return node == NODE_GND ? -1 : static_cast<int>(node - 1); }
+    static Real voltage(const DenseVector& x, NodeId node) {
+        return node == NODE_GND ? 0.0 : x[node - 1];
     }
 
-    void compute_effective_voltages(Real vd, Real vg, Real vs, Real& vov, Real& vds_eff) const {
-        if constexpr (Pol == JFETPolarity::N) {
-            vov = (vg - vs) - vto_;
-            vds_eff = vd - vs;
-        } else {
-            vov = (vs - vg) - std::abs(vto_);
-            vds_eff = vs - vd;
+    Real thermal_voltage() const { return core::compute_thermal_voltage(temperature_); }
+
+    /// The channel for vds >= 0: f(vgst, vds) and its derivatives
+    Channel forward(Real vgst, Real vds) const {
+        if (vgst <= 0.0) {
+            return {};
         }
+        const Real clm = 1.0 + lambda_ * vds;
+        if (vds >= vgst) {
+            return {beta_ * vgst * vgst * clm, 2.0 * beta_ * vgst * clm, lambda_ * beta_ * vgst * vgst};
+        }
+        const Real core = beta_ * vds * (2.0 * vgst - vds);
+        return {core * clm, 2.0 * beta_ * vds * clm,
+                2.0 * beta_ * (vgst - vds) * clm + core * lambda_};
     }
 
-    Real compute_drain_current(Real vov, Real vds_eff) const {
-        if (vov < 0.0) return 0.0;
-        if (vds_eff < 0.0) vds_eff = 0.0;
-        Real lambda_factor = 1.0 + lambda_ * vds_eff;
-        if (vds_eff < vov) {
-            return beta_ * (2.0 * vov * vds_eff - vds_eff * vds_eff) * lambda_factor;
-        }
-        return beta_ * vov * vov * lambda_factor;
+    Real junction_current(Real v) const {
+        const Real nvt = n_ * thermal_voltage();
+        return is_ * (std::exp(std::min(v / nvt, core::EXP_OVERFLOW_LIMIT)) - 1.0);
     }
 
-    Real compute_transconductance(Real vov, Real vds_eff) const {
-        if (vov < 0.0) return gmin_default;
-        if (vds_eff < 0.0) vds_eff = 0.0;
-        Real lambda_factor = 1.0 + lambda_ * vds_eff;
-        if (vds_eff < vov) {
-            return std::max(2.0 * beta_ * vds_eff * lambda_factor, gmin_default);
-        }
-        return std::max(2.0 * beta_ * vov * lambda_factor, gmin_default);
+    Real junction_conductance(Real v) const {
+        const Real nvt = n_ * thermal_voltage();
+        return is_ / nvt * std::exp(std::min(v / nvt, core::EXP_OVERFLOW_LIMIT));
     }
 
-    Real compute_output_conductance(Real vov, Real vds_eff) const {
-        if (vov < 0.0) return gmin_default;
-        if (vds_eff < 0.0) vds_eff = 0.0;
-        if (vds_eff < vov) {
-            Real id_basic = beta_ * (2.0 * vov * vds_eff - vds_eff * vds_eff);
-            Real did_dvds = beta_ * (2.0 * vov - 2.0 * vds_eff);
-            return std::max(did_dvds * (1.0 + lambda_ * vds_eff) + id_basic * lambda_, gmin_default);
+    /// The depletion capacitance of zero-bias value c0 at v
+    Real capacitance(Real c0, Real v) const {
+        if (c0 <= 0.0) {
+            return 0.0;
         }
-        Real id_basic = beta_ * vov * vov;
-        return std::max(id_basic * lambda_, gmin_default);
+        if (v < fc_ * pb_) {
+            return c0 / std::sqrt(1.0 - v / pb_);
+        }
+        return c0 / std::pow(1.0 - fc_, 1.5) * (1.0 - 1.5 * fc_ + 0.5 * v / pb_);
     }
 
-    Real compute_gate_current(Real vgs) const {
-        Real vt = k_boltzmann * T_nominal / q_electron;
-        Real vd_norm = vgs / (n_ * vt);
-        if (vd_norm > core::EXP_OVERFLOW_LIMIT) vd_norm = core::EXP_OVERFLOW_LIMIT;
-        Real ig = is_ * (std::exp(vd_norm) - 1.0);
-        if constexpr (Pol == JFETPolarity::P) {
-            return -ig;
+    /// The DC currents linearized at the present iterate: the channel and
+    /// the two gate junctions with their GMIN. With `limit`, each junction
+    /// voltage moves from its last value by SPICE's junction rule
+    /// (core::limit_junction_step).
+    void stamp_currents(MNASystem& mna, const DenseVector& x, bool limit) const {
+        const Real t = polarity_sign;
+        const Real vg = voltage(x, nodes_[1]);
+        Real vgs = t * (vg - voltage(x, nodes_[2]));
+        Real vgd = t * (vg - voltage(x, nodes_[0]));
+        limited_ = false;
+        if (limit) {
+            const Real nvt = n_ * thermal_voltage();
+            const Real vcrit = core::compute_vcrit(nvt, is_);
+            auto step = [&](Real v, std::optional<Real>& last) {
+                const Real limited = last ? core::limit_junction_step(v, *last, nvt, vcrit) : v;
+                limited_ = limited_ || limited != v;
+                last = limited;
+                return limited;
+            };
+            vgs = step(vgs, vgs_last_);
+            vgd = step(vgd, vgd_last_);
         }
-        return ig;
-    }
-
-    Real compute_gate_conductance(Real vgs) const {
-        Real vt = k_boltzmann * T_nominal / q_electron;
-        Real vd_norm = vgs / (n_ * vt);
-        if (vd_norm > core::EXP_OVERFLOW_LIMIT) vd_norm = core::EXP_OVERFLOW_LIMIT;
-        return std::max((is_ / (n_ * vt)) * std::exp(vd_norm), gmin_default);
+        const Real vds = vgs - vgd;
+        const Channel ch = channel(vgs, vds);
+        const int d = index(nodes_[0]), g = index(nodes_[1]), s = index(nodes_[2]);
+        auto add = [&](int r, int c, Real v) {
+            if (r >= 0 && c >= 0) mna.G.add_entry(r, c, v);
+        };
+        auto inject = [&](int r, Real i) {
+            if (r >= 0) mna.b[static_cast<std::size_t>(r)] += i;
+        };
+        // The terminal current from drain to source, t id, and its
+        // derivatives with respect to the terminal voltages, gm and gds (t^2
+        // is 1), at the terminal voltages t vgs and t vds
+        const Real ieq = t * ch.id - ch.gm * (t * vgs) - ch.gds * (t * vds);
+        add(d, g, ch.gm);
+        add(d, s, -ch.gm - ch.gds);
+        add(d, d, ch.gds);
+        add(s, g, -ch.gm);
+        add(s, s, ch.gm + ch.gds);
+        add(s, d, -ch.gds);
+        inject(d, -ieq);
+        inject(s, ieq);
+        // Each gate junction from the gate to a terminal, with GMIN
+        auto junction = [&](int other, Real v) {
+            const Real gj = junction_conductance(v) + kGmin;
+            const Real ij = t * (junction_current(v) + kGmin * v);
+            const Real ieq_j = ij - gj * (t * v);
+            add(g, g, gj);
+            add(other, other, gj);
+            add(g, other, -gj);
+            add(other, g, -gj);
+            inject(g, -ieq_j);
+            inject(other, ieq_j);
+        };
+        junction(s, vgs);
+        junction(d, vgd);
     }
 
     std::vector<NodeId> nodes_;
-    Real beta_, vto_, lambda_, is_, n_, cgs_, cgd_;
-    Real is_tnom_, tnom_, xti_, eg_;
+    Real beta_, vto_, lambda_, is_, n_, cgs_, cgd_, pb_, fc_;
+    Real is_tnom_;
+    Real tnom_ = 300.15;         // TNOM [K]
+    Real eg_ = 1.11;             // EG [eV]
+    Real temperature_ = 300.15;  // operating temperature [K]
 
-    static constexpr Real k_boltzmann = 1.380649e-23;
-    static constexpr Real q_electron = 1.602176634e-19;
-    static constexpr Real T_nominal = 300.15;
-    static constexpr Real gmin_default = 1e-12;
-
-    // State variables for transient analysis
-    mutable Real vgs_prev_, vgs_prev2_, vgs_prev3_;
-    mutable Real vgs_saved_, vgs_saved2_, vgs_saved3_;
-    mutable Real charge_gs_, charge_gs_prev_;
-    mutable Real vgd_prev_, vgd_prev2_, vgd_prev3_;
-    mutable Real vgd_saved_, vgd_saved2_, vgd_saved3_;
-    mutable Real charge_gd_, charge_gd_prev_;
-    mutable Real timestep_;
-    mutable IntegrationMethod last_method_;
-    mutable Real timestep_saved_;
-    mutable IntegrationMethod method_saved_;
-    mutable bool first_accept_;
-    mutable Real bdf_alpha0_, bdf_alpha1_, bdf_alpha2_, bdf_alpha3_, bdf_beta0_;
-    mutable bool use_bdf_var_;
+    mutable device_utils::CapacitorHistory gs_history_, gd_history_;
+    device_utils::CapacitorHistory saved_gs_, saved_gd_;
+    mutable std::optional<Real> vgs_last_, vgd_last_;  // the junction voltages last evaluated
+    mutable bool limited_ = false;
 };
 
 // Type aliases for backward compatibility

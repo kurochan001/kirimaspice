@@ -128,7 +128,7 @@ alike.
   `is not supported` for `.NOISE`, `.MEASURE` and `.TITLE`), and the
   program names once each directive it reads but does not run
   (`is read, but this program does not run it`). An element of a letter not in the table
-  below (such as `J`) is a parse error, `Unknown element letter`, also in
+  below (such as `W`) is a parse error, `Unknown element letter`, also in
   a subcircuit body.
 - Line numbers in messages count the lines that remain after these steps,
   not the lines of the file. An error in `.INCLUDE`, `.LIB` or `.IF`
@@ -210,6 +210,7 @@ are the same element, and a second is an error.
 | Bipolar transistor | `Q<name> <c> <b> <e> <NPN\|PNP\|model> [parameters]` |
 | MOSFET and related | `M<name> <d> <g> <s> [<b>] <NMOS\|PMOS\|model> [parameters]` | model `LEVEL` selects the device |
 | MESFET | `Z<name> <d> <g> <s> [<NMF\|PMF\|model>] [parameters]` |
+| JFET | `J<name> <d> <g> <s> <model> [<area>]` | an `NJF` or `PJF` card; the area multiplies `BETA`, `IS`, `CGS` and `CGD`; `OFF`, `IC=` and other tokens after it are named in a warning and not used |
 | SCR | `S<name> <anode> <cathode> <gate> [parameters]` | `NAME=value` parameters only; `.MODEL` has no SCR type, so a model name is an error |
 | TRIAC | `Y<name> <mt2> <mt1> <gate> [parameters]` | `NAME=value` parameters only; `.MODEL` has no TRIAC type, so a model name is an error |
 | Lossless line | `T<name> <a+> <a-> <b+> <b-> Z0=<v> TD=<v>` | both required and positive; `ZO` is accepted for `Z0`; the transient takes no step longer than `TD` |
@@ -315,6 +316,7 @@ at that line. An instance parameter overrides the model's.
 | `D` | `IS` (1e-14 A), `N` (1), `CJO` or `CJ0` (0), `VJ` or `PB` (1 V), `M` or `MJ` (0.5), `RS` (0 Ω), `TT` (0 s), `BV` (none), `IBV` (1 mA), the defaults of ngspice-47; `IS` and `N` also on the element line; other names, on the card or the line, are named in a warning and not used (`TNOM`, `EG`, `XTI` and `FC` among them) |
 | `Q` | `IS` (1e-14 A), `BF` (100), `NF` or `N` on the instance (1), `BR` (1), `NR` (1), `VAF` or `VA` (∞), `VAR` or `VB` (∞), `IKF` or `IK` (∞), `IKR` (∞), `RB`, `RBM`, `IRB` (0), `ISE` (0), `NE` (1.5), `ISC` (0), `NC` (2), `CJE` (0), `VJE` or `PE` (0.75 V), `MJE` or `ME` (0.33), `CJC` (0), `VJC` or `PC` (0.75 V), `MJC` or `MC` (0.33), `TF`, `TR` (0), `XTI` (3), `XTB` (0), `EG` (1.11 eV), `TNOM` (27 °C), noise `KF` (0), `AF` (1), `FF` (1); the card first, then the element line |
 | `M`, level 1 | with a card, the defaults of ngspice-47: `KP` (2e-5 A/V²), `W`, `L` (100 µm), `VTO` or `VTH` on the card and `VTH` on the element line, with the device's sign (0; a positive one makes a depletion PMOS), `GAMMA` (0, the body effect), `PHI` (0.6 V), `LAMBDA` (0), noise `KF` (0), `AF` (1), `EF` (1); other names, on the card or the line (`M=` among them), are named in a warning. The line's `NMOS` or `PMOS` without a card gives `W` 10 µm, `L` 1 µm and `VTH` ±0.7 V |
+| `J` | `NJF` or `PJF`, ngspice's level 1 (Shichman and Hodges, in both directions of the channel), as ngspice-45.2 gives it: `VTO` (−2 V, for both polarities), `BETA` (1e-4 A/V²), `LAMBDA` (0), `IS` (1e-14 A) and `N` (1) of each gate junction, with GMIN in parallel, `CGS` and `CGD` (0), depletion capacitances C0/√(1 − V/`PB`) continued linearly above `FC`·`PB`, `PB` (1 V), `FC` (0.5), `TNOM` (27 °C), `EG` (1.11 eV, in IS(T) = IS exp((T/TNOM − 1) EG/(N Vt))); `B` = 1 only; `RD`, `RS` and the others are named in a warning and not used ([known issues](../KNOWN_ISSUES.md#device-models)) |
 | `Z` | `LEVEL`/`MODEL` (1, the default and the only level, as ngspice-47's: Statz, β v<sub>ov</sub><sup>2</sup>/(1 + B v<sub>ov</sub>) (1 + λ V<sub>DS</sub>) (1 − (1 − α V<sub>DS</sub>/3)<sup>3</sup>) below V<sub>DS</sub> = 3/α; another `LEVEL` is an error; [known issues](../KNOWN_ISSUES.md#device-models)), `BETA` (0.1), `VTO` (−2 V; +2 V when the element line says `PMF` or the card is a `PMF` card), `LAMBDA` (0.05), `ALPHA` (2), `B` (0.3), `CGS` (1 pF), `CGD` (0.5 pF), `CDS` (0.1 pF), `KF`, `AF`, `EF`, `TNOM` (27 °C) |
 | `S` | `VBF` (400 V), `IGT` (20 mA), `IH` (10 mA), `IL` (30 mA), `VGT` (1 V), `RON` (0.1 Ω), `VTM` (1.5 V), `DV_DT` (10), `TNOM` (27 °C) |
 | `Y` | `VBO` (400 V), `IGT` (20 mA), `IH` (10 mA), `VGT` (1 V), `RON` (0.1 Ω), `VTM` (1.5 V), `DV_DT` or `DVDT` (10), `TNOM` (27 °C) |
@@ -354,8 +356,8 @@ at that line. An instance parameter overrides the model's.
 .MODEL <NAME> <type> <param>=<value> ...
 ```
 
-- `<type>` is `NPN`, `PNP`, `D` (or `DIODE`), `NMOS`, `PMOS`, `NMF` or
-  `PMF`, in any case. Any other type is an error.
+- `<type>` is `NPN`, `PNP`, `D` (or `DIODE`), `NMOS`, `PMOS`, `NMF`,
+  `PMF`, `NJF` or `PJF`, in any case. Any other type is an error.
 - Parameter names are not case-sensitive; `NAME = value` with spaces is
   accepted; values may be expressions in braces.
 - `TNOM`, on a card or an element line, is in °C, as in SPICE, for every

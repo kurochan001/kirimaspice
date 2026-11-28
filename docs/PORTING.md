@@ -129,8 +129,9 @@ writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-
   ([KNOWN_ISSUES](../KNOWN_ISSUES.md#device-models)).
 - [ ] **`S` and `Y` parameters on the element line.** `.MODEL` has no
   SCR or TRIAC type.
-- [ ] **No `J` elements.** The library has a JFET, but the parser has no
-  `J` element; a `J` line is a parse error.
+- [ ] **`J` elements without `RD` and `RS`.** A JFET card's series
+  resistances are named in a warning and not used; put resistors in
+  series with the drain and the source.
 
 ### Transient
 
