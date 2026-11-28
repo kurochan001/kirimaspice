@@ -45,9 +45,10 @@ ngspice-47 loads the ASCII and binary raw files that kirimaspice writes
 | analyses in a `.control` block in their order, and `noise`, `pz` or `sens` there | `op`, `dc`, `tran` and `ac` run in the program's order, each kind once; for the others, the [library](ARCHITECTURE.md#other-analyses-in-the-library) |
 | `plot`, `meas`, `wrdata` (`print` prints its signals in the `.PRINT` table of the analysis before it) | the raw file, read with the [Python tools](USER_MANUAL.md#use-the-python-tools); the AC result is always in `<base>_ac.csv` |
 
-The program runs in batch only. It prints the operating point, the
-signals of `.PRINT TRAN` after a transient, a summary of a DC sweep, and
-nothing for an AC analysis;
+The program runs in batch only. It prints the operating point, a summary
+of a DC sweep, the tables of `.PRINT DC`, `.PRINT TRAN` and `.PRINT AC`
+after their analyses, and the results of `.TF` and `.NOISE`; an AC
+analysis without `.PRINT AC` prints nothing;
 the values of a sweep are in the raw file. What each analysis prints and
 writes is in the [Reference Manual](REFERENCE_MANUAL.md#how-the-program-chooses-analyses).
 

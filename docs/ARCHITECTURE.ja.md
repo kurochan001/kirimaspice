@@ -78,18 +78,21 @@ flowchart LR
 3. `CircuitGraph::expand_all_subcircuits` を呼びます。展開はパーサーではなく、プログラムの仕事です。
 4. 解析を、パーサーが `SimulationConfig` に記録したものから取ります。`op_requested`（`.OP`）、
    `dc_sweep_enabled`（完全な `.DC`）、`tran_requested`（完全な `.TRAN`）、`ac_requested`（`.AC`、または
-   `.control` のブロックの `ac` のコマンド）です。そのため解析の行は、継続行、`.INCLUDE`、`.LIB`、`.IF` の後で、
+   `.control` のブロックの `ac` のコマンド）、`tf.enabled`（`.TF`）、`noise.enabled`（`.NOISE`）です。
+   そのため解析の行は、継続行、`.INCLUDE`、`.LIB`、`.IF` の後で、
    ほかのディレクティブと同じに数えます。どれもないネットリストは、`.OP` と同じく動作点を実行します。
    `.OP` と DC スイープの両方があれば、両方を実行します。
-5. `run_analyses` を通して解析を実行し、結果を書き出します。`.TEMP` の値ごとに、その温度を入れた
+5. `run_analyses` を通して解析を表の順に実行し、結果を書き出します。`.TEMP` の値ごとに、その温度を入れた
    `SimulationConfig` で 1 回ずつ実行します（`.TEMP` がなければ 1 回です）。
 
 | ネットリストにあるもの | 実行するもの | 標準出力 | ファイル |
 | --- | --- | --- | --- |
-| 完全な `.DC` | DC スイープ | 要約 | raw（ASCII、バイナリ） |
+| 完全な `.DC` | DC スイープ | 要約、続いて `.PRINT DC` の表 | raw（ASCII、バイナリ） |
 | `.OP`、または解析の行がない | 動作点 | `V(...)` と `I(...)` | SSF、raw（ASCII、バイナリ） |
+| `.TF` | 伝達関数 | 利得と、入力と出力の抵抗 | なし |
 | 完全な `.TRAN` | 過渡解析。その後に `.FOUR` を、その行の信号ごとに | `.FOUR` の結果、続いて `.PRINT TRAN` の表 | SSF、raw（ASCII、バイナリ）、WAV |
-| `.AC` | AC | なし | 必ず `<base>_ac.csv` |
+| `.AC` | AC | `.PRINT AC` の表 | 必ず `<base>_ac.csv` |
+| `.NOISE` | ノイズ | 周波数ごとの出力の雑音と入力換算の雑音、続いて掃引全体のそれぞれの雑音 | なし |
 
 複数の解析が raw ファイルを書くと、それぞれがプロットを後ろに足します。SSF ファイルは、それぞれが
 書き直します。`.TEMP` に複数の値を並べると、raw ファイルにはすべての実行のプロットが入り、各実行の

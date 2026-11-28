@@ -66,8 +66,8 @@ HEMT), 12 (FinFET), 20 (VDMOS) and 21 (IGBT). How complete each model is
 varies; each has its own tests.
 
 The CLI runs operating-point, DC sweep (including nested sweeps), transient
-and AC analyses. It runs the operating point when none of the four is
-requested. With both `.OP` and `.DC`, it runs the sweep. `.FOUR` computes
+and AC analyses. It runs the operating point when the netlist has no
+analysis line. With both `.OP` and `.DC`, it runs both. `.FOUR` computes
 harmonics after a transient, and a `.TEMP` list repeats the analyses at each temperature.
 
 Directives such as `.MODEL`, `.PARAM` and `.SUBCKT` define the circuit.

@@ -511,7 +511,8 @@ parser stores it, but the program does not use it (the library can).
 
 - The program runs the analyses that the parser has read: the operating
   point for `.OP`, the DC sweep for a complete `.DC` line, the transient
-  for a complete `.TRAN` line, and AC for `.AC`, and the same for the `op`,
+  for a complete `.TRAN` line, AC for `.AC`, the transfer function for
+  `.TF` and noise for `.NOISE`, and the same for the `op`,
   `dc`, `tran` and `ac` commands of a `.control` block, which the parsers
   of those directives read (`run_control_analysis`). They run in the
   program's order below, each kind once, not in the order of the block.
@@ -538,21 +539,27 @@ flowchart TD
   P -- yes --> SW["DC sweep"]
   N --> S{"parser: .OP, or no analysis line at all?"}
   S -- yes --> OP["operating point"]
+  N --> F{"parser: .TF?"}
+  F -- yes --> TF["transfer function"]
   N --> TS{"parser: complete .TRAN?"}
   TS -- yes --> TR["transient, then .FOUR"]
   N --> A{"parser: .AC?"}
   A -- yes --> AC["AC"]
+  N --> Q{"parser: .NOISE?"}
+  Q -- yes --> NO["noise"]
 ```
 
-They run in this order: DC sweep, operating point, transient, AC. What
-each run prints and writes:
+They run in this order: DC sweep, operating point, transfer function,
+transient, AC, noise. What each run prints and writes:
 
 | Run | Standard output | `-o` (SSF) | `--raw-out`, `--raw-binary-out` | `--wav-out` | AC CSV |
 | --- | --- | --- | --- | --- | --- |
 | DC sweep | a summary, then the table of `.PRINT DC` | — | yes | — | — |
 | operating point | voltages and currents | yes, replaced by a later transient | yes | — | — |
+| transfer function | the gain, and the input and output resistances | — | — | — | — |
 | transient | the results of `.FOUR`, then the table of `.PRINT TRAN` | yes | yes | yes | — |
 | AC | the table of `.PRINT AC` | — | — | — | always, named after `-o` or the netlist |
+| noise | the output noise and the input-referred noise at each frequency, then their totals over the sweep | — | — | — | — |
 
 ## Options
 

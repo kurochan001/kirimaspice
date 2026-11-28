@@ -242,10 +242,11 @@ static void print_ac_table(const std::vector<std::string>& signals, const std::v
 }
 
 // Run the analyses of the netlist once, at the temperature of config: the DC
-// sweep, the operating point, the transient (with .FOUR) and AC, in this
-// order, or the operating point when the netlist asks for none. Which ones
-// is what the parser recorded (SimulationConfig's op_requested,
-// dc_sweep_enabled, tran_requested and ac_requested), so an analysis line
+// sweep, the operating point, the transfer function, the transient (with
+// .FOUR), AC and noise, in this order, or the operating point when the
+// netlist asks for none. Which ones is what the parser recorded
+// (SimulationConfig's op_requested, dc_sweep_enabled, tran_requested,
+// ac_requested, tf.enabled and noise.enabled), so an analysis line
 // counts as the parser reads it: joined to its continuation lines, from
 // .INCLUDE and .LIB text, in the branch of .IF taken, never in a comment.
 // Returns the exit code. raw_append and raw_binary_append carry over from

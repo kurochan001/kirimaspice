@@ -184,11 +184,13 @@ The program runs these analyses:
 | `.DC <src1> ... <src2> <start2> <stop2> <step2>` | nested sweep; the first source is swept for each value of the second |
 | `.TRAN <tstep> <tstop> [<tstart> [<tmax>]] [UIC]` | transient |
 | `.AC DEC\|OCT\|LIN <n> <fstart> <fstop>` | small-signal AC |
+| `.TF v(<node>) <source>` | the small-signal DC gain from the source to the output, and the input and output resistances |
+| `.NOISE V(<out>) <source> DEC\|OCT\|LIN <n> <fstart> <fstop>` | the output noise and the input-referred noise over frequency |
 | `.TEMP <t1> <t2> ...` (°C) | every analysis at each temperature (see below) |
 | `.FOUR <f> v(<node>) ...` | the harmonics of each signal, after the transient |
 
 A netlist can ask for more than one; they run in the order DC sweep,
-operating point, transient, AC. With both `.OP` and `.DC`, both run, as
+operating point, transfer function, transient, AC, noise. With both `.OP` and `.DC`, both run, as
 in ngspice. A netlist that asks for none runs the operating point as for `.OP`:
 it prints the voltages and currents and writes the output files.
 
@@ -209,7 +211,7 @@ temperature in their names (see [Save the results](#save-the-results)).
 `v(<node>)`, `v(<node>,<node>)` or `i(<voltage source>)` and the input and
 output resistances,
 under `=== Transfer Function ===`. The other analyses in the library
-(noise, pole-zero, distortion, sensitivity, S-parameters, Monte Carlo,
+(pole-zero, distortion, sensitivity, S-parameters, Monte Carlo,
 worst case, optimization) are not run by the program. `.PZ`, `.DISTO`,
 `.SENS`, `.PORT`, `.MC`, `.WCASE` and `.OPTIMIZE` are read and not run,
 each named once in a warning, and `.MEASURE` is ignored with a warning.

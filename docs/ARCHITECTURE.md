@@ -88,21 +88,24 @@ and the second half of `core/device_utils.hpp` is in
    program's step, not the parser's.
 4. Takes the analyses from what the parser recorded in `SimulationConfig`:
    `op_requested` (`.OP`), `dc_sweep_enabled` (a complete `.DC`),
-   `tran_requested` (a complete `.TRAN`) and `ac_requested` (`.AC`, or the
-   `ac` command of a `.control` block). So an analysis line counts as every
+   `tran_requested` (a complete `.TRAN`), `ac_requested` (`.AC`, or the
+   `ac` command of a `.control` block), `tf.enabled` (`.TF`) and
+   `noise.enabled` (`.NOISE`). So an analysis line counts as every
    other directive, after continuation lines, `.INCLUDE`, `.LIB` and `.IF`;
    a netlist with none of them runs the operating point as for `.OP`. With
    `.OP` and a DC sweep, both run.
 5. Runs the analyses through `run_analyses`, once per `.TEMP` value with
-   that temperature in its `SimulationConfig` (once without `.TEMP`), and
-   writes their results:
+   that temperature in its `SimulationConfig` (once without `.TEMP`), in
+   the order of the table, and writes their results:
 
 | Netlist has | Runs | Standard output | Files |
 | --- | --- | --- | --- |
-| a complete `.DC` | DC sweep | a summary | raw (ASCII, binary) |
+| a complete `.DC` | DC sweep | a summary, then the table of `.PRINT DC` | raw (ASCII, binary) |
 | `.OP`, or no analysis line | operating point | `V(...)` and `I(...)` | SSF, raw (ASCII, binary) |
+| `.TF` | transfer function | the gain, and the input and output resistances | none |
 | a complete `.TRAN` | transient, then `.FOUR` for each of its signals | the results of `.FOUR`, then the table of `.PRINT TRAN` | SSF, raw (ASCII, binary), WAV |
-| `.AC` | AC | nothing | always `<base>_ac.csv` |
+| `.AC` | AC | the table of `.PRINT AC` | always `<base>_ac.csv` |
+| `.NOISE` | noise | the output noise and the input-referred noise at each frequency, then their totals over the sweep | none |
 
 When more than one analysis writes a raw file, each appends a plot to it;
 the SSF file is rewritten by each. Under a `.TEMP` list of several values
